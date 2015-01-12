@@ -5,8 +5,8 @@
 #' using outputs of \code{\link[LUMP]{lump_grass_prep}} and \code{\link[LUMP]{prof_class}}.
 #' 
 #' @param dem DEM raster map in GRASS location as used in \code{\link[LUMP]{lump_grass_prep}}.
-#' @param subbasin Subbasin raster map in GRASS location as used in or created
-#'      by \code{\link[LUMP]{lump_grass_prep}}.
+#' @param subbasin Subbasin raster map in GRASS location as used in \code{\link[LUMP]{lump_grass_prep}}
+#'      and/or created by \code{\link[LUMP]{calc_subbas}}.
 #' @param recl_lu Name of GRASS reclassification file: EHA -> LU. Output of
 #'      \code{\link[LUMP]{prof_class}}.
 #' @param eha Name of Environmental Hillslope Areas (EHA) raster map in GRASS

@@ -3,7 +3,7 @@
 \alias{reservoir_outlet}
 \title{Determine outlet coordinates of reservoirs}
 \usage{
-reservoir_outlet(flowacc = NULL, dem = NULL, res_vct)
+reservoir_outlet(flowacc = NULL, dem = NULL, res_vct, outlets_vect)
 }
 \arguments{
 \item{flowacc}{Flow accumulation raster in GRASS location used for determination
@@ -14,11 +14,15 @@ reservoir_outlet(flowacc = NULL, dem = NULL, res_vct)
      flow accumulation if no flow accumulation raster is given. Default: \code{NULL}.}
 
 \item{res_vct}{Reservoir vector file in GRASS location. For each polygon coordinates
-     of the outlet (cell with highest flow accumulation) are determined.}
+     of the outlet (cell with highest flow accumulation) are determined. Needs
+     at least the column \code{name} as reservoir identifier.}
+
+\item{outlets_vect}{Output: Name of vector file of outlet locations to be exported
+     to GRASS location.}
 }
 \value{
 \code{SpatialPoints} object containing outlet position for each reservoir
-     polygon.
+     polygon and vector file \code{outlets_vect} exported to GRASS location.
 }
 \description{
 Takes a flow accumulation raster (or DEM for computation) and reservoir vector
@@ -30,6 +34,9 @@ Prepare GRASS location and necessary files in advance and start GRASS
      session in R using \code{\link[spgrass6]{initGRASS}}. Location should not
      contain any maps ending on *_t as these will be removed by calling the
      function to remove temporary maps.
+
+     Check the results by investigationg vector file with outlet points written
+     to GRASS location.
 }
 \author{
 Tobias Pilz \email{tpilz@uni-potsdam.de}

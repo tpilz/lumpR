@@ -12,15 +12,22 @@
 #'      flow accumulation if no flow accumulation raster is given. Default: \code{NULL}.
 #'  
 #' @param res_vct Reservoir vector file in GRASS location. For each polygon coordinates
-#'      of the outlet (cell with highest flow accumulation) are determined.
+#'      of the outlet (cell with highest flow accumulation) are determined. Needs
+#'      at least the column \code{name} as reservoir identifier.
+#'      
+#' @param outlets_vect Output: Name of vector file of outlet locations to be exported
+#'      to GRASS location.
 #'      
 #' @return \code{SpatialPoints} object containing outlet position for each reservoir
-#'      polygon.
+#'      polygon and vector file \code{outlets_vect} exported to GRASS location.
 #'      
 #' @note Prepare GRASS location and necessary files in advance and start GRASS
 #'      session in R using \code{\link[spgrass6]{initGRASS}}. Location should not
 #'      contain any maps ending on *_t as these will be removed by calling the
 #'      function to remove temporary maps.
+#'      
+#'      Check the results by investigationg vector file with outlet points written
+#'      to GRASS location.
 #'
 #' @author Tobias Pilz \email{tpilz@@uni-potsdam.de}
 #' 
@@ -29,11 +36,17 @@ reservoir_outlet <- function(
   ### INPUT ###
   flowacc = NULL,
   dem = NULL,
-  res_vct
+  res_vct,
+  
+  ### OUTPUT ###
+  outlets_vect
   
 ) {
   
   tryCatch({
+    
+    # remove mask if any
+    execGRASS("r.mask", flags=c("r"))
     
     # GRASS calculation of flow accumulation #
     if (is.null(flowacc) & is.null(dem))
@@ -69,13 +82,19 @@ reservoir_outlet <- function(
       
       vals <- abs(vals)
       max_pos <- which(vals == max(vals, na.rm=T))
-      coords_out <- rbind(coords_out, xyFromCell(accum_res, max_pos))    
+      coords_out$name <- c(coords_out$name, as.character(res_polygon@data$name[res_rows]))
+      coord_t <- xyFromCell(accum_res, max_pos)
+      coords_out$x <- c(coords_out$x, coord_t[,"x"])
+      coords_out$y <- c(coords_out$y, coord_t[,"y"])
     }
     
     # output matrix as spatial object
     coords_out <- data.frame(coords_out)
     coordinates(coords_out) <- c("x", "y")
     projection(coords_out) <- getLocationProj()
+    
+    # export points to GRASS
+    writeVECT6(coords_out, outlets_vect)
     
     # remove temporary maps
     execGRASS("g.mremove", rast="*_t", flags=c("f"))

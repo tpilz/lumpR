@@ -16,8 +16,8 @@ lump_grass_post(dem, recl_lu, eha, subbasin, mask, flowacc, flowdir,
 \item{eha}{Name of Environmental Hillslope Areas (EHA) raster map in GRASS
 location. Output of \code{\link[LUMP]{lump_grass_prep}}.}
 
-\item{subbasin}{Subbasin raster map in GRASS location as used in or created
-by \code{\link[LUMP]{lump_grass_prep}}.}
+\item{subbasin}{Subbasin raster map in GRASS location as used in \code{\link[LUMP]{lump_grass_prep}}
+and/or created by \code{\link[LUMP]{calc_subbas}}.}
 
 \item{mask}{Name of mask raster map masking the study area. Use output \code{mask_corr}
 of \code{\link[LUMP]{lump_grass_prep}}.}
