@@ -4,7 +4,7 @@
 \title{Calculation of hydrological subbasins using GRASS GIS}
 \usage{
 calc_subbas(dem, drain_points, river = NULL, basin_out, stream = NULL,
-  outlet, thresh_stream = NULL, snap_dist, keep_temp = F)
+  points_snap, outlet, thresh_stream = NULL, snap_dist, keep_temp = F)
 }
 \arguments{
 \item{dem}{Digital elevation model in GRASS location used for delineation of
@@ -22,6 +22,9 @@ units of and compliant with the projection of your respective GRASS location.}
 \item{stream}{Output: Prefix of calculated stream segments vector (<stream>_vect) and
 raster (<stream>_rast) maps exported into GRASS location. Only generated if
 \code{river} is not set. Default: \code{NULL}.}
+
+\item{points_snap}{Output: Point vector file of \code{drain_points} snapped to river
+exported to GRASS location.}
 
 \item{outlet}{Integer (row number) defining the catchment outlet in \code{drain_points}.
 If there are \code{drain_points} outside the watershed delineated for the
@@ -52,6 +55,11 @@ Prepare GRASS location and necessary raster files in advance and start
      You should select your DEM sufficiently large. Otherwise the resulting
      catchment might be truncated or boundary influences the calculation
      of stream segments etc.
+
+     Check the results (subbasins and snapped points). In case points have been snapped
+     to the wrong stream segment, adjust point locations manually in GRASS and re-run
+     the function with the updated locations (use \code{\link[spgrass6]{readVECT6}}
+     to import the updated drainage points).
 }
 \author{
 Tobias Pilz \email{tpilz@uni-potsdam.de}

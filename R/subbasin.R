@@ -14,6 +14,8 @@
 #' @param stream Output: Prefix of calculated stream segments vector (<stream>_vect) and
 #'      raster (<stream>_rast) maps exported into GRASS location. Only generated if
 #'      \code{river} is not set. Default: \code{NULL}.
+#' @param points_snap Output: Point vector file of \code{drain_points} snapped to river
+#'      exported to GRASS location.
 #' @param outlet Integer (row number) defining the catchment outlet in \code{drain_points}.
 #'      If there are \code{drain_points} outside the watershed delineated for the
 #'      outlet point these will be omitted.
@@ -35,6 +37,11 @@
 #'      You should select your DEM sufficiently large. Otherwise the resulting
 #'      catchment might be truncated or boundary influences the calculation
 #'      of stream segments etc.
+#'      
+#'      Check the results (subbasins and snapped points). In case points have been snapped
+#'      to the wrong stream segment, adjust point locations manually in GRASS and re-run
+#'      the function with the updated locations (use \code{\link[spgrass6]{readVECT6}}
+#'      to import the updated drainage points).
 #' 
 #' @author Tobias Pilz \email{tpilz@@uni-potsdam.de}
 #' 
@@ -48,6 +55,7 @@ calc_subbas <- function(
   ### OUTPUT ###
   basin_out,
   stream=NULL,
+  points_snap,
   
   ### PARAMETER ###
   outlet,
@@ -73,6 +81,8 @@ calc_subbas <- function(
       # convert to vector
       execGRASS("r.to.vect", input=paste0(stream, "_thin_t"), output=paste0(stream, "_vect"), feature="line")
       river <- paste0(stream, "_vect")
+    } else {
+      execGRASS("r.watershed", elevation=dem, drainage="drain_t")
     }
     
     
@@ -87,7 +97,9 @@ calc_subbas <- function(
     # snap points to streams
     drain_points_snap <- snapPointsToLines(drain_points, streams_vect, maxDist=snap_dist)
     if (length(drain_points_snap) < length(drain_points)) stop("Less points after snaping than in drain_points input!\nComputed stream segmets probably are too coarse. Try different parameter values.")
-  
+    
+    # export drain_points_snap to GRASS
+    writeVECT6(drain_points_snap, points_snap)
     
   ### calculate catchments for every drainage point
     # watershed for the defined outlet
@@ -155,9 +167,10 @@ calc_subbas <- function(
     # remove temporary maps
     execGRASS("g.mremove", rast="*_t", flags=c("f"))
     
-    print("")
-    print("Finished!")
-    print("Check the results for plausibility (e.g. inaccuracies from snapping of drain_points to streams may occur).")
+
+    warning("Finished. 
+            Check the results for plausibility (e.g. inaccuracies at snapping of drain_points to streams may occur).
+            If manual adjustments are necessary re-run the function for re-calculation of subbasins.")
 
 
   # exception handling
