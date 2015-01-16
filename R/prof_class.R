@@ -1180,7 +1180,7 @@ prof_class <- function(
   colnames(lu_contains_tc) <- c("lu_id", "tc_id", "fraction", "position", "slope")
   write.table(lu_contains_tc[,-5], file=paste(dir_out,lucontainstcoutfile,sep="/"), quote=F, col.names=T, row.names=F, sep=tab)
   
-  tc_dat <- cbind(lu_contains_tc[,2], rep("[na]",nrow(lu_contains_tc)), round(lu_contains_tc[,5],2), rep(0,nrow(lu_contains_tc)))
+  tc_dat <- cbind(lu_contains_tc[,2], rep("[na]",nrow(lu_contains_tc)), round(lu_contains_tc[,5],2), rep(NA,nrow(lu_contains_tc)))
   colnames(tc_dat) <- c("pid", "descr", "slope", "frac_rocky")
   write.table(tc_dat, file=paste(dir_out,terraincomponentsoutfile,sep="/"), quote=F, col.names=T, row.names=F, sep=tab)
   

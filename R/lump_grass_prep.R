@@ -11,10 +11,12 @@
 #'      labels!
 #' @param soil Soil raster map in GRASS location. Must NOT contain labels!
 #' @param watermask Raster in GRASS location masking water surfaces (value '1') from
-#'      other areas (value NULL). Water areas are cropped from \code{svc}
-#'      and \code{svc_watermask} is created. If set to \code{NULL} (default) this
-#'      step is omitted.
-#' @param urbanmask The same as for \code{watermask} but for urban areas.
+#'      other areas (value '0'). Map is used for \code{svc} creation such that a
+#'      \code{svc} is completely covered with water ('water_flag' in \code{svc_ofile}
+#'      equal to 1) or contains no water surface ('water_flag' = 0). Default: \code{NULL} 
+#'      ('water_flag' set to \code{NA}).
+#' @param urbanmask The same as for \code{watermask} but for urban areas (considered
+#'      as impervious).
 #' @param r_stream_distance Character string with path to installation of GRASS
 #'      function \emph{r.stream.distance} if needed (see \code{Note}).
 #' @param r_stream_order Character string with path to installation of GRASS
@@ -38,14 +40,9 @@
 #'      smaller afer applying \emph{r.stream.distance}).
 #' @param svc Output: Name of Soil Vegetation Components raster map exported into
 #'      GRASS location; cross product of categories of \code{soil} and \code{lcov}.
-#' @param svc_masked Output: The same as \code{svc} but with water surface and/or
-#'      urban areas cutted out. Will only be created if a \code{watermask} and/or
-#'      \code{urbanmask} are/is given. Default: \code{NULL}.
 #' @param dir_out Character string specifying output directory (will be created;
 #'      nothing will be overwritten).
-#' @param svc_ofile Output: Name of file giving properties of \code{svc}s.
-#' @param svc_ofile_masked Output: The same as \code{svc_ofile} but for \code{svc_masked}
-#'      if a \code{watermask} and/or \code{urbanmask} are/is given. Default: \code{NULL}.
+#' @param svc_ofile Output: Name of file containing properties of \code{svc}s.
 #' @param eha_thres Integer specifying threshold for delineation of \emph{EHA};
 #'      parameter for GRASS function \emph{r.watershed}.
 #' @param sizefilter Integer specifying minimum size of subbasins (in map units)
@@ -107,10 +104,8 @@ lump_grass_prep <- function(
   distriv,
   mask_corr,
   svc,
-  svc_masked=NULL,
   dir_out,
   svc_ofile,
-  svc_ofile_masked=NULL,
   
   # PARAMETERS #
   eha_thres,
@@ -146,8 +141,6 @@ lump_grass_prep <- function(
     execGRASS("r.mapcalculator", amap="flow_accum_t", outfile=flowacc, formula="abs(flow_accum_t)")
     
     # set mask and region
-    execGRASS("g.region", rast=mask)
-    execGRASS("g.region", zoom=mask)
     execGRASS("r.mask", input=mask, flags=c("o"))  
     
     #remove fragments
@@ -211,7 +204,15 @@ lump_grass_prep <- function(
     
     # SOIL VEGETATION COMPONENTS #
     # create soil vegetation components from soil and landcover/vegetation data
-    execGRASS("r.cross", input=paste(soil,lcov,sep=","), output=svc)
+    if (!is.null(watermask) & !is.null(urbanmask)) {
+      execGRASS("r.cross", input=paste(soil,lcov,watermask,urbanmask,sep=","), output=svc)
+    } else if (!is.null(watermask) & is.null(urbanmask)) {
+      execGRASS("r.cross", input=paste(soil,lcov,watermask,sep=","), output=svc)
+    } else if (is.null(watermask) & !is.null(urbanmask)) {
+      execGRASS("r.cross", input=paste(soil,lcov,urbanmask,sep=","), output=svc) 
+    } else {
+      execGRASS("r.cross", input=paste(soil,lcov,sep=","), output=svc)
+    }
     
     # categories of SVCs
     svc_cats <- execGRASS("r.category", map=svc, fs=",", intern=T)
@@ -220,62 +221,49 @@ lump_grass_prep <- function(
     svc_cats_grp <- grep("^0", svc_cats, invert=T, value=T)
     svc_cats_sub <- gsub(",|;", "", svc_cats_grp)
     svc_cats_spl <- strsplit(svc_cats_sub, "category")
-    svc_cats_mat <- matrix(as.integer(unlist(svc_cats_spl)),ncol=3, byrow=T)
-    colnames(svc_cats_mat) <- c("pid", "soil_id", "veg_id") # same order as input of "r.cross"!
-    
+
+    if (!is.null(watermask) & !is.null(urbanmask)) {
+      svc_cats_mat <- matrix(as.integer(unlist(svc_cats_spl)),ncol=5, byrow=T)
+      colnames(svc_cats_mat) <- c("pid", "soil_id", "veg_id", "water_flag", "urban_flag") # same order as input of "r.cross"!
+    } else if (!is.null(watermask) & is.null(urbanmask)) {
+      svc_cats_mat <- matrix(as.integer(unlist(svc_cats_spl)),ncol=4, byrow=T)
+      colnames(svc_cats_mat) <- c("pid", "soil_id", "veg_id", "water_flag") # same order as input of "r.cross"!
+    } else if (is.null(watermask) & !is.null(urbanmask)) {
+      svc_cats_mat <- matrix(as.integer(unlist(svc_cats_spl)),ncol=4, byrow=T)
+      colnames(svc_cats_mat) <- c("pid", "soil_id", "veg_id", "urban_flag") # same order as input of "r.cross"!
+    } else {
+      svc_cats_mat <- matrix(as.integer(unlist(svc_cats_spl)),ncol=3, byrow=T)
+      colnames(svc_cats_mat) <- c("pid", "soil_id", "veg_id") # same order as input of "r.cross"!
+    }
+
     # header of svc output file
-    svc_out <- matrix(NA, ncol=12, nrow=nrow(svc_cats_mat))
-    svc_out_head <- c("pid", "descr", "soil_id", "veg_id", "musle_k", "musle_c1","musle_c2","musle_c3","musle_c4","musle_p","coarse_frac","manning_n")
+    svc_out <- matrix(NA, ncol=14, nrow=nrow(svc_cats_mat))
+    svc_out_head <- c("pid", "descr", "soil_id", "veg_id", "musle_k", "musle_c1","musle_c2","musle_c3","musle_c4","musle_p","coarse_frac","manning_n","water_flag","urban_flag")
     colnames(svc_out) <- svc_out_head
     
     # merge data with output mat
-    svc_out[,c("pid", "soil_id", "veg_id")] <- svc_cats_mat
+    svc_out[,colnames(svc_cats_mat)] <- svc_cats_mat
     
+    
+#     # consider water and/or urban masks
+#     if(!is.null(urbanmask)){
+#       # compute statistics
+#       cmd_out <- execGRASS("r.univar", map=urbanmask, zones=svc, fs=",", flags=c("t"), intern=T)
+#       cmd_out <- strsplit(cmd_out, ",")
+#       cmd_out <- matrix(unlist(cmd_out[-1]), ncol=length(cmd_out[[1]]), byrow=T,
+#                         dimnames=list(NULL, cmd_out[[1]]))
+#       # select mean (= fraction of mask values = 1 for each svc)
+#       urban_frac <- matrix(c(as.integer(cmd_out[,"zone"]), as.numeric(cmd_out[,"mean"])), 
+#                            ncol=2, dimnames=list(NULL, c("pid", "urban_frac")))
+#       # merge with output mat
+#       svc_out <- svc_out[,-which(colnames(svc_out) == "urban_frac")]
+#       svc_out <- merge(svc_out, urban_frac, by.x="pid", by.y="pid")
+#     }
+
+
     # write output
     write.table(svc_out, paste(dir_out, svc_ofile, sep="/"), quote=F, sep=",", row.names=F)
-    
-    
-    
-    # mask water areas and export file with properties if watermask is given
-    if(!is.null(watermask) | !is.null(urbanmask)) {
-      
-      # remove water and/or urban areas from landcover map
-      execGRASS("g.copy", rast=paste0(lcov,",lcov_mask_t"))
-      if(!is.null(watermask)) {
-        execGRASS("r.mapcalculator", amap=watermask, bmap="lcov_mask_t", outfile="lcov_mask_t",
-                  formula="if(isnull(A),B,null())", flags=c("overwrite"))
-      }
-      if(!is.null(urbanmask)) {
-        execGRASS("r.mapcalculator", amap=urbanmask, bmap="lcov_mask_t", outfile="lcov_mask_t",
-                  formula="if(isnull(A),B,null())", flags=c("overwrite"))
-      }
-      execGRASS("r.mapcalculator", bmap=soil, amap="lcov_mask_t", outfile="soil_mask_t",
-                formula="if(isnull(A),null(),B)")
-      
-      # create soil vegetation components from soil and landcover/vegetation data
-      execGRASS("r.cross", input="soil_mask_t,lcov_mask_t", output=svc_masked)
-      
-      # categories of SVCs
-      svc_cats <- execGRASS("r.category", map=svc_masked, fs=",", intern=T)
-      
-      # transformations ...
-      svc_cats_grp <- grep("^0", svc_cats, invert=T, value=T)
-      svc_cats_sub <- gsub(",|;", "", svc_cats_grp)
-      svc_cats_spl <- strsplit(svc_cats_sub, "category")
-      svc_cats_mat <- matrix(as.integer(unlist(svc_cats_spl)),ncol=3, byrow=T)
-      colnames(svc_cats_mat) <- c("pid", "soil_id", "veg_id") # same order as input of "r.cross"!
-      
-      # header of svc output file
-      svc_out <- matrix(NA, ncol=12, nrow=nrow(svc_cats_mat))
-      svc_out_head <- c("pid", "descr", "soil_id", "veg_id", "musle_k", "musle_c1","musle_c2","musle_c3","musle_c4","musle_p","coarse_frac","manning_n")
-      colnames(svc_out) <- svc_out_head
-      
-      # merge data with output mat
-      svc_out[,c("pid", "soil_id", "veg_id")] <- svc_cats_mat
-      
-      # write output
-      write.table(svc_out, paste(dir_out, svc_ofile_masked, sep="/"), quote=F, sep=",", row.names=F)
-    }
+
 
 
 

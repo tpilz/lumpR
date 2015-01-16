@@ -6,8 +6,8 @@
 lump_grass_prep(mask, dem, lcov, soil, watermask = NULL, urbanmask = NULL,
   r_stream_distance = "r.stream.distance",
   r_stream_order = "r.stream.order", eha, flowdir, flowacc, stream,
-  stream_horton, elevriv, distriv, mask_corr, svc, svc_masked = NULL, dir_out,
-  svc_ofile, svc_ofile_masked = NULL, eha_thres, sizefilter, growrad)
+  stream_horton, elevriv, distriv, mask_corr, svc, dir_out, svc_ofile,
+  eha_thres, sizefilter, growrad)
 }
 \arguments{
 \item{mask}{Mask in GRASS location defining the catchment area. E.g. subbasin raster map.}
@@ -22,11 +22,13 @@ labels!}
 \item{soil}{Soil raster map in GRASS location. Must NOT contain labels!}
 
 \item{watermask}{Raster in GRASS location masking water surfaces (value '1') from
-other areas (value NULL). Water areas are cropped from \code{svc}
-and \code{svc_watermask} is created. If set to \code{NULL} (default) this
-step is omitted.}
+other areas (value '0'). Map is used for \code{svc} creation such that a
+\code{svc} is completely covered with water ('water_flag' in \code{svc_ofile}
+equal to 1) or contains no water surface ('water_flag' = 0). Default: \code{NULL}
+('water_flag' set to \code{NA}).}
 
-\item{urbanmask}{The same as for \code{watermask} but for urban areas.}
+\item{urbanmask}{The same as for \code{watermask} but for urban areas (considered
+as impervious).}
 
 \item{r_stream_distance}{Character string with path to installation of GRASS
 function \emph{r.stream.distance} if needed (see \code{Note}).}
@@ -62,17 +64,10 @@ smaller afer applying \emph{r.stream.distance}).}
 \item{svc}{Output: Name of Soil Vegetation Components raster map exported into
 GRASS location; cross product of categories of \code{soil} and \code{lcov}.}
 
-\item{svc_masked}{Output: The same as \code{svc} but with water surface and/or
-urban areas cutted out. Will only be created if a \code{watermask} and/or
-\code{urbanmask} are/is given. Default: \code{NULL}.}
-
 \item{dir_out}{Character string specifying output directory (will be created;
 nothing will be overwritten).}
 
-\item{svc_ofile}{Output: Name of file giving properties of \code{svc}s.}
-
-\item{svc_ofile_masked}{Output: The same as \code{svc_ofile} but for \code{svc_masked}
-if a \code{watermask} and/or \code{urbanmask} are/is given. Default: \code{NULL}.}
+\item{svc_ofile}{Output: Name of file containing properties of \code{svc}s.}
 
 \item{eha_thres}{Integer specifying threshold for delineation of \emph{EHA};
 parameter for GRASS function \emph{r.watershed}.}
