@@ -3,8 +3,8 @@
 \alias{lump_grass_prep}
 \title{Pre-processing for Landscape Unit deviation using GRASS GIS}
 \usage{
-lump_grass_prep(mask, dem, lcov, soil, watermask = NULL, urbanmask = NULL,
-  r_stream_distance = "r.stream.distance",
+lump_grass_prep(mask, dem, lcov, soil, watermask = NULL,
+  imperviousmask = NULL, r_stream_distance = "r.stream.distance",
   r_stream_order = "r.stream.order", eha, flowdir, flowacc, stream,
   stream_horton, elevriv, distriv, mask_corr, svc, dir_out, svc_ofile,
   eha_thres, sizefilter, growrad)
@@ -23,12 +23,11 @@ labels!}
 
 \item{watermask}{Raster in GRASS location masking water surfaces (value '1') from
 other areas (value '0'). Map is used for \code{svc} creation such that a
-\code{svc} is completely covered with water ('water_flag' in \code{svc_ofile}
-equal to 1) or contains no water surface ('water_flag' = 0). Default: \code{NULL}
-('water_flag' set to \code{NA}).}
+\code{svc} is completely covered with water ('special_area' in \code{svc_ofile}
+equal to 1) or contains no water surface. Default: \code{NULL}.}
 
-\item{urbanmask}{The same as for \code{watermask} but for urban areas (considered
-as impervious).}
+\item{imperviousmask}{The same as for \code{watermask} but for impervious (e.g. urban
+and/or rocky) areas. 'special_area' flag in \code{svc_ofile} equal to 2.}
 
 \item{r_stream_distance}{Character string with path to installation of GRASS
 function \emph{r.stream.distance} if needed (see \code{Note}).}
@@ -67,7 +66,9 @@ GRASS location; cross product of categories of \code{soil} and \code{lcov}.}
 \item{dir_out}{Character string specifying output directory (will be created;
 nothing will be overwritten).}
 
-\item{svc_ofile}{Output: Name of file containing properties of \code{svc}s.}
+\item{svc_ofile}{Output: Name of file containing properties of \code{svc}s. For
+'special_area' flag values of 1 for water areas, 2 for impervious areas and
+0 in case it is an ordinary SVC are defined.}
 
 \item{eha_thres}{Integer specifying threshold for delineation of \emph{EHA};
 parameter for GRASS function \emph{r.watershed}.}

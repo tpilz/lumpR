@@ -12,11 +12,10 @@
 #' @param soil Soil raster map in GRASS location. Must NOT contain labels!
 #' @param watermask Raster in GRASS location masking water surfaces (value '1') from
 #'      other areas (value '0'). Map is used for \code{svc} creation such that a
-#'      \code{svc} is completely covered with water ('water_flag' in \code{svc_ofile}
-#'      equal to 1) or contains no water surface ('water_flag' = 0). Default: \code{NULL} 
-#'      ('water_flag' set to \code{NA}).
-#' @param urbanmask The same as for \code{watermask} but for urban areas (considered
-#'      as impervious).
+#'      \code{svc} is completely covered with water ('special_area' in \code{svc_ofile}
+#'      equal to 1) or contains no water surface. Default: \code{NULL}.
+#' @param imperviousmask The same as for \code{watermask} but for impervious (e.g. urban
+#'      and/or rocky) areas. 'special_area' flag in \code{svc_ofile} equal to 2.
 #' @param r_stream_distance Character string with path to installation of GRASS
 #'      function \emph{r.stream.distance} if needed (see \code{Note}).
 #' @param r_stream_order Character string with path to installation of GRASS
@@ -42,7 +41,9 @@
 #'      GRASS location; cross product of categories of \code{soil} and \code{lcov}.
 #' @param dir_out Character string specifying output directory (will be created;
 #'      nothing will be overwritten).
-#' @param svc_ofile Output: Name of file containing properties of \code{svc}s.
+#' @param svc_ofile Output: Name of file containing properties of \code{svc}s. For
+#'      'special_area' flag values of 1 for water areas, 2 for impervious areas and
+#'      0 in case it is an ordinary SVC are defined.
 #' @param eha_thres Integer specifying threshold for delineation of \emph{EHA};
 #'      parameter for GRASS function \emph{r.watershed}.
 #' @param sizefilter Integer specifying minimum size of subbasins (in map units)
@@ -88,7 +89,7 @@ lump_grass_prep <- function(
   lcov,
   soil,
   watermask=NULL,
-  urbanmask=NULL,
+  imperviousmask=NULL,
   
   # GRASS function #
   r_stream_distance="r.stream.distance",
@@ -204,12 +205,12 @@ lump_grass_prep <- function(
     
     # SOIL VEGETATION COMPONENTS #
     # create soil vegetation components from soil and landcover/vegetation data
-    if (!is.null(watermask) & !is.null(urbanmask)) {
-      execGRASS("r.cross", input=paste(soil,lcov,watermask,urbanmask,sep=","), output=svc)
-    } else if (!is.null(watermask) & is.null(urbanmask)) {
+    if (!is.null(watermask) & !is.null(imperviousmask)) {
+      execGRASS("r.cross", input=paste(soil,lcov,watermask,imperviousmask,sep=","), output=svc)
+    } else if (!is.null(watermask) & is.null(imperviousmask)) {
       execGRASS("r.cross", input=paste(soil,lcov,watermask,sep=","), output=svc)
-    } else if (is.null(watermask) & !is.null(urbanmask)) {
-      execGRASS("r.cross", input=paste(soil,lcov,urbanmask,sep=","), output=svc) 
+    } else if (is.null(watermask) & !is.null(imperviousmask)) {
+      execGRASS("r.cross", input=paste(soil,lcov,imperviousmask,sep=","), output=svc) 
     } else {
       execGRASS("r.cross", input=paste(soil,lcov,sep=","), output=svc)
     }
@@ -222,23 +223,32 @@ lump_grass_prep <- function(
     svc_cats_sub <- gsub(",|;", "", svc_cats_grp)
     svc_cats_spl <- strsplit(svc_cats_sub, "category")
 
-    if (!is.null(watermask) & !is.null(urbanmask)) {
-      svc_cats_mat <- matrix(as.integer(unlist(svc_cats_spl)),ncol=5, byrow=T)
-      colnames(svc_cats_mat) <- c("pid", "soil_id", "veg_id", "water_flag", "urban_flag") # same order as input of "r.cross"!
-    } else if (!is.null(watermask) & is.null(urbanmask)) {
+    if (!is.null(watermask) & !is.null(imperviousmask)) {
+      svc_cats_mat_t <- matrix(as.integer(unlist(svc_cats_spl)),ncol=5, byrow=T)
+      colnames(svc_cats_mat_t) <- c("pid", "soil_id", "veg_id", "water", "impervious") # same order as input of "r.cross"!
+      svc_cats_mat <- svc_cats_mat_t[,-5]
+      colnames(svc_cats_mat)[4] <- "special_area"
+      rows_water <- which(svc_cats_mat_t[,"water"] == 1)
+      rows_impervious <- which(svc_cats_mat_t[,"impervious"] == 1)
+      svc_cats_mat[rows_water,"special_area"] <- 1
+      svc_cats_mat[rows_impervious,"special_area"] <- 2
+    } else if (!is.null(watermask) & is.null(imperviousmask)) {
       svc_cats_mat <- matrix(as.integer(unlist(svc_cats_spl)),ncol=4, byrow=T)
-      colnames(svc_cats_mat) <- c("pid", "soil_id", "veg_id", "water_flag") # same order as input of "r.cross"!
-    } else if (is.null(watermask) & !is.null(urbanmask)) {
+      colnames(svc_cats_mat) <- c("pid", "soil_id", "veg_id", "special_area") # same order as input of "r.cross"!
+    } else if (is.null(watermask) & !is.null(imperviousmask)) {
       svc_cats_mat <- matrix(as.integer(unlist(svc_cats_spl)),ncol=4, byrow=T)
-      colnames(svc_cats_mat) <- c("pid", "soil_id", "veg_id", "urban_flag") # same order as input of "r.cross"!
+      colnames(svc_cats_mat) <- c("pid", "soil_id", "veg_id", "special_area") # same order as input of "r.cross"!
+      svc_cats_mat[which(svc_cats_mat[,"special_area"] == 1),"special_area"] <- 2
     } else {
       svc_cats_mat <- matrix(as.integer(unlist(svc_cats_spl)),ncol=3, byrow=T)
       colnames(svc_cats_mat) <- c("pid", "soil_id", "veg_id") # same order as input of "r.cross"!
+      svc_cats_mat <- cbind(svc_cats_mat, rep(0,nrow(svc_cats_mat)))
+      colnames(svc_cats_mat)[4] <- "special_area"
     }
 
     # header of svc output file
-    svc_out <- matrix(NA, ncol=14, nrow=nrow(svc_cats_mat))
-    svc_out_head <- c("pid", "descr", "soil_id", "veg_id", "musle_k", "musle_c1","musle_c2","musle_c3","musle_c4","musle_p","coarse_frac","manning_n","water_flag","urban_flag")
+    svc_out <- matrix(NA, ncol=13, nrow=nrow(svc_cats_mat))
+    svc_out_head <- c("pid", "descr", "soil_id", "veg_id", "musle_k", "musle_c1","musle_c2","musle_c3","musle_c4","musle_p","coarse_frac","manning_n","special_area")
     colnames(svc_out) <- svc_out_head
     
     # merge data with output mat
