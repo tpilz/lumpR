@@ -15,5 +15,6 @@ Depends:
     doMC,
     raster,
     cluster,
-    maptools
+    maptools,
+    xts
 License: GPL-3
