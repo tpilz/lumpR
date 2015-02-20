@@ -6,7 +6,7 @@
 rainy_season(prec_ts, dry_season, nodata = NA)
 }
 \arguments{
-\item{prec_ts}{Daily precipitation time series object of class \code{\link[zoo]{zoo}}.
+\item{prec_ts}{Daily precipitation time series object of class \code{\link[xts]{xts}}.
      Data should be a numerical vector or a matrix with one named column per
      station a time series is available for.}
 
@@ -21,7 +21,7 @@ the dry season.}
 \code{data.frame} of rainy season start and end days in input format for
      the hydrological model WASA.
 
-     Columns are: station ID (column names of input \code{zoo} object), year, start
+     Columns are: station ID (column names of input \code{xts} object), year, start
      day of rainy season (negative values refer to the previous year), day of year
      the climax of the vegetation season is reached, end day of rainy season,
      last day of transition period from rainy to dry season (values greater than

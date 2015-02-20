@@ -1,4 +1,4 @@
-C  Last change Feb. 2013 by Tobias Pilz: wrapping souroutine around main program for use in R
+C  Last change Feb. 2015 by Tobias Pilz: wrapping souroutine around main program for use in R
 C  Code needs updating !!! Currently old Fortran 77, implicit declarations, no comments, lots of GOTO etc.
 C
 C  Model to calculate the start and end day date of the rainy season
