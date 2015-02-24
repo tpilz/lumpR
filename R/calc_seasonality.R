@@ -47,9 +47,9 @@ calc_seasonality <- function(
 rainy_season_mat <- apply(rainy_season, 2, as.integer)
 
 # loop over different stations
-start_date <- strftime(paste0(head(rainy_season$year,n=1), "-01-01 00:00:00"), format="%Y-%m-%d %H:%M:%S", tz=timezone)
-end_date <- strftime(paste0(tail(rainy_season$year,n=1), "-12-31 00:00:00"), format="%Y-%m-%d %H:%M:%S", tz=timezone)
-output <- xts(NULL, seq.POSIXt(as.POSIXct(start_date), as.POSIXct(end_date), by="day"))                   
+start_date <- strftime(paste0(head(rainy_season$year,n=1), "-01-01 00:00:00"), format="%Y-%m-%d %H:%M:%S")
+end_date <- strftime(paste0(tail(rainy_season$year,n=1), "-12-31 00:00:00"), format="%Y-%m-%d %H:%M:%S")
+output <- xts(NULL, seq.POSIXt(as.POSIXct(start_date, tz=timezone), as.POSIXct(end_date, tz=timezone), by="day"))                   
 
 for (s in 1:nrow(seasonality)) {
   
