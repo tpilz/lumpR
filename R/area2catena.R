@@ -99,8 +99,13 @@ area2catena <- function(
   message("START 'area2catena'.")
   message("")
   
-  # register cores
-  registerDoMC(cores=ncores)
+  if (ncores>1)
+    if(require(doMC))
+    # register cores
+      registerDoMC(cores=ncores) else
+      {warning("Package doMC not found, reverting to single-core mode"); ncores=1}
+  else
+  ncores=1	
   
   # LOAD FILES FROM GRASS #
   # create output directory
@@ -212,6 +217,18 @@ area2catena <- function(
   
   id <- NULL # to remove "R CMD CHECK ..." Note of "no visible binding for global variable 'id'"
   #   for (curr_id in eha_ids) {
+  if(ncores==1)
+  {  
+  #serial call using simple foreach
+  logdata <- foreach (id = 1:length(eha_ids), .combine=rbind, .errorhandling='remove') %do% {
+    eha_calc(id, eha_ids, eha_rast, flowaccum_rast, dist2river_rast, relelev_rast, supp_quant, supp_qual,
+             n_supp_data_qual_classes, quant_rast, qual_rast, supp_data_classnames,
+             min_cell_in_slope, max_riv_dist, plot_catena, ridge_thresh, min_catena_length,
+             xres,dir_out)
+  }
+  }
+    else
+  #parallel call using dopar  
   logdata <- foreach (id = 1:length(eha_ids), .combine=rbind, .errorhandling='remove', .options.multicore=list(silent=FALSE)) %dopar% {
     eha_calc(id, eha_ids, eha_rast, flowaccum_rast, dist2river_rast, relelev_rast, supp_quant, supp_qual,
              n_supp_data_qual_classes, quant_rast, qual_rast, supp_data_classnames,
@@ -326,7 +343,7 @@ eha_calc <- function(id, eha_ids, eha_rast, flowaccum_rast, dist2river_rast, rel
   if (length(curr_cells) < min_cell_in_slope) {
     message(paste('EHA ', curr_id, ' skipped because of low number of cells (', length(curr_cells), ')', sep=""))
     return(data.frame(output=t(rep(NA, sum(n_supp_data_qual_classes) + length(supp_quant) + 4)), error=1))
-    stop() # use stop istead of next in foreach loop and define '.errorhandling'
+    stop() # use stop instead of next in foreach loop and define '.errorhandling' #? is this necessary?
   }
   
   # extract values out of raster objects into ordinary vectors to save time (internal calls to raster objects take time)
