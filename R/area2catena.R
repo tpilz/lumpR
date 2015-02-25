@@ -96,15 +96,26 @@ area2catena <- function(
 ) {
   ### CALCULATIONS ###
   
+  library(foreach)
   message("START 'area2catena'.")
   message("")
   
   if (ncores>1)
+  {  
     if(require(doMC))
     # register cores
       registerDoMC(cores=ncores) else
-      {warning("Package doMC not found, reverting to single-core mode"); ncores=1}
-  else
+        if (require(doParallel))
+        {
+          cl <- makePSOCKcluster(ncores) #make cluster, so we can explicitly close it later
+          registerDoParallel(cl)
+        } else
+        {
+          warning("No package for parallel backend (doMC, doParallel) ound, reverting to single-core mode")
+          ncores=1
+          registerDoSEQ() # specify that %dopar% should run sequentially
+        }
+  }  else
   ncores=1	
   
   # LOAD FILES FROM GRASS #
@@ -217,18 +228,8 @@ area2catena <- function(
   
   id <- NULL # to remove "R CMD CHECK ..." Note of "no visible binding for global variable 'id'"
   #   for (curr_id in eha_ids) {
-  if(ncores==1)
-  {  
-  #serial call using simple foreach
-  logdata <- foreach (id = 1:length(eha_ids), .combine=rbind, .errorhandling='remove') %do% {
-    eha_calc(id, eha_ids, eha_rast, flowaccum_rast, dist2river_rast, relelev_rast, supp_quant, supp_qual,
-             n_supp_data_qual_classes, quant_rast, qual_rast, supp_data_classnames,
-             min_cell_in_slope, max_riv_dist, plot_catena, ridge_thresh, min_catena_length,
-             xres,dir_out)
-  }
-  }
-    else
-  #parallel call using dopar  
+
+  #parallel call using dopar (if no parallel backend is registered, this falls back to serial execution) 
   logdata <- foreach (id = 1:length(eha_ids), .combine=rbind, .errorhandling='remove', .options.multicore=list(silent=FALSE)) %dopar% {
     eha_calc(id, eha_ids, eha_rast, flowaccum_rast, dist2river_rast, relelev_rast, supp_quant, supp_qual,
              n_supp_data_qual_classes, quant_rast, qual_rast, supp_data_classnames,
@@ -516,6 +517,9 @@ eha_calc <- function(id, eha_ids, eha_rast, flowaccum_rast, dist2river_rast, rel
     dev.off()
   }
   
+  
+  if (exists("cl")) #close cluster, if existing
+    stopCluster(cl)
   # output aggregation by foreach loop via .combine method
   return(data.frame(output=out_combined, error=errcode))
   
