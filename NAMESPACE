@@ -9,4 +9,4 @@ export(prof_class)
 export(rainy_season)
 export(reservoir_outlet)
 export(wasa_reservoir_par)
-useDynLib(LUMP)
+#useDynLib(LUMP) #temporary fix to allow installation under Windows

@@ -96,11 +96,27 @@ area2catena <- function(
 ) {
   ### CALCULATIONS ###
   
+  library(foreach)
   message("START 'area2catena'.")
   message("")
   
-  # register cores
-  registerDoMC(cores=ncores)
+  if (ncores>1)
+  {  
+    if(require(doMC))
+    # register cores
+      registerDoMC(cores=ncores) else
+        if (require(doParallel))
+        {
+          cl <- makePSOCKcluster(ncores) #make cluster, so we can explicitly close it later
+          registerDoParallel(cl)
+        } else
+        {
+          warning("No package for parallel backend (doMC, doParallel) ound, reverting to single-core mode")
+          ncores=1
+          registerDoSEQ() # specify that %dopar% should run sequentially
+        }
+  }  else
+  ncores=1	
   
   # LOAD FILES FROM GRASS #
   # create output directory
@@ -212,6 +228,8 @@ area2catena <- function(
   
   id <- NULL # to remove "R CMD CHECK ..." Note of "no visible binding for global variable 'id'"
   #   for (curr_id in eha_ids) {
+
+  #parallel call using dopar (if no parallel backend is registered, this falls back to serial execution) 
   logdata <- foreach (id = 1:length(eha_ids), .combine=rbind, .errorhandling='remove', .options.multicore=list(silent=FALSE)) %dopar% {
     eha_calc(id, eha_ids, eha_rast, flowaccum_rast, dist2river_rast, relelev_rast, supp_quant, supp_qual,
              n_supp_data_qual_classes, quant_rast, qual_rast, supp_data_classnames,
@@ -326,7 +344,7 @@ eha_calc <- function(id, eha_ids, eha_rast, flowaccum_rast, dist2river_rast, rel
   if (length(curr_cells) < min_cell_in_slope) {
     message(paste('EHA ', curr_id, ' skipped because of low number of cells (', length(curr_cells), ')', sep=""))
     return(data.frame(output=t(rep(NA, sum(n_supp_data_qual_classes) + length(supp_quant) + 4)), error=1))
-    stop() # use stop istead of next in foreach loop and define '.errorhandling'
+    stop() # use stop instead of next in foreach loop and define '.errorhandling' #? is this necessary?
   }
   
   # extract values out of raster objects into ordinary vectors to save time (internal calls to raster objects take time)
@@ -499,6 +517,9 @@ eha_calc <- function(id, eha_ids, eha_rast, flowaccum_rast, dist2river_rast, rel
     dev.off()
   }
   
+  
+  if (exists("cl")) #close cluster, if existing
+    stopCluster(cl)
   # output aggregation by foreach loop via .combine method
   return(data.frame(output=out_combined, error=errcode))
   
