@@ -18,6 +18,6 @@ Depends:
     xts,
     foreach
 Suggests:
-    doMC
+    doMC,
     doParallel
 License: GPL-3
