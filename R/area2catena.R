@@ -333,7 +333,7 @@ eha_calc <- function(id, eha_ids, eha_rast, flowaccum_rast, dist2river_rast, rel
                      xres,dir_out) {
   
   errcode <- 0
-  curr_id <- eha_ids[id]
+  curr_id <- eha_ids[id] #?Till: do we need to pass the entire "eha_ids"? Wouldn't "eha_ids[id]" suffice?
   
   # EHA: CHECKS and PREPARATIONS #    
   # determine cell indices of curr_id
@@ -348,7 +348,7 @@ eha_calc <- function(id, eha_ids, eha_rast, flowaccum_rast, dist2river_rast, rel
   }
   
   # extract values out of raster objects into ordinary vectors to save time (internal calls to raster objects take time)
-  flowaccum_vals <- flowaccum_rast[curr_cells]
+  flowaccum_vals <- flowaccum_rast[curr_cells] #?Till: in parallel mode, this requires all the large rasters to be available to each thread. I wonder is this consumes too much replicates and overhead. Passing just the area of the current curr_cells may save ressources
   dist2river_vals <- as.numeric(format(dist2river_rast[curr_cells],digits=3))
   relelev_vals <- relelev_rast[curr_cells]
   
@@ -420,6 +420,7 @@ eha_calc <- function(id, eha_ids, eha_rast, flowaccum_rast, dist2river_rast, rel
   out_y <- NULL # initialise vector of average rel. elevation for current point in EHA
   supp_attrib_mean <- matrix(NA, nrow=length(supp_quant)+sum(n_supp_data_qual_classes), ncol=res+1) # init. matrix of mean supplemental information
   density <- NULL # initialise vector for density values
+  density <- array(NA, res+1) # initialise vector for density values
   entry_missing <- 0 # flag indicating that the value for the previous point in the mean catena could not be computed
   out_combined <- NULL # combined output of one catena    
   
@@ -486,7 +487,7 @@ eha_calc <- function(id, eha_ids, eha_rast, flowaccum_rast, dist2river_rast, rel
       
       if (entry_missing) {
         # use the values of the current point to assign the previous point, which had problems in the calculation 
-        supp_attrib_mean[k,j] <- supp_attrib_mean[k,j+1]
+        supp_attrib_mean[,j] <- supp_attrib_mean[,j+1]
         entry_missing <- 0
       }
       
