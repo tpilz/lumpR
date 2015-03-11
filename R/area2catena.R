@@ -241,6 +241,8 @@ area2catena <- function(
   message("Looping over EHAs completed.")
   message("")
   
+  if (exists("cl")) #close cluster, if existing
+    stopCluster(cl)
   
   # check if anything was produced (if NULL an unexpected error might have occured)
   if(is.null(logdata))
@@ -519,8 +521,6 @@ eha_calc <- function(id, eha_ids, eha_rast, flowaccum_rast, dist2river_rast, rel
   }
   
   
-  if (exists("cl")) #close cluster, if existing
-    stopCluster(cl)
   # output aggregation by foreach loop via .combine method
   return(data.frame(output=out_combined, error=errcode))
   
