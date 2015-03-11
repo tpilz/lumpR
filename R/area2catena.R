@@ -249,12 +249,17 @@ area2catena <- function(
     stop("An unexpected error occured while processing EHAs. Please contact the author.")
   
   
-  # sort out erroneous values
-  out_dat <- logdata[which(logdata$error == 0 | logdata$error == 5), -length(logdata)]
+  # sort out erroneous values and store for diagnostics
+  warn_ehas  <- unique(logdata[logdata$error == 5 | logdata$error == 6, c(1,ncol(logdata))])
+   
+  erroneous <- (logdata$error > 0 & logdata$error < 5)
+  error_ehas <- logdata[erroneous, c(1,ncol(logdata))]
+  
+  logdata <- logdata[(logdata$error == 0 | logdata$error == 5 | logdata$error == 6), -ncol(logdata)] #keep only valid rows
   
   # check for NAs
-  if(any(is.na(out_dat))) {
-    save(out_dat, file=paste(dir_out,"rstats_error.Rdat",sep="/"))
+  if(any(is.na(logdata))) {
+    save(logdata, file=paste(dir_out,"rstats_error.Rdat",sep="/"))
     stop(paste("There are NA values in the output which have to be removed for function 'prof_class'! 
          This might be caused by overlapping NA and non-NA values in the input raster files.
          Look at saved R data file ", dir_out,"/rstats_error.Rdat which variable produced NA values.
@@ -262,9 +267,9 @@ area2catena <- function(
   }
   
   # write output
-  #out_pre <- mapply(out_dat[,c(3:length(out_dat))], FUN=function(x) formatC(x, format="f", digits=3))
-  #out_fmt <- cbind(out_dat[,c(1,2)], out_pre)
-  write.table(out_dat, paste(dir_out,catena_out, sep="/"), col.names=F, row.names=F, quote=F, sep="\t")
+  #out_pre <- mapply(logdata[,c(3:length(logdata))], FUN=function(x) formatC(x, format="f", digits=3))
+  #out_fmt <- cbind(logdata[,c(1,2)], out_pre)
+  write.table(logdata, paste(dir_out,catena_out, sep="/"), col.names=F, row.names=F, quote=F, sep="\t")
   
   
   # WRITE OUTPUT #
@@ -313,11 +318,12 @@ area2catena <- function(
   message('All outputs produced.')
   message('')
   message(paste(length(eha_ids)-length(which(logdata$error == 2))-length(which(logdata$error == 1)), ' slopes treated', sep=""))
-  message(paste(length(which(logdata$error == 1)), ' slopes skipped that have less than ', min_cell_in_slope, ' cells', sep=""))
-  message(paste(length(which(logdata$error == 2)), ' slopes skipped that are not adjacent to river', sep=""))
-  message(paste(length(which(logdata$error == 4)), ' slopes skipped that have a mean length shorter than ', min_catena_length, sep=""))
-  message(paste(length(which(logdata$error == 3)), ' slopes skipped that have only cells with dist2river=0.', sep=""))
-  message(paste(length(which(logdata$error == 5)), ' warnings due to slopes with no flow_accum less than ', ridge_thresh, sep=""))
+  message(paste(sum(error_ehas$error == 1), ' slopes skipped that have less than ', min_cell_in_slope, ' cells', sep=""))
+  message(paste(sum(error_ehas$error == 2), ' slopes skipped that are not adjacent to river', sep=""))
+  message(paste(sum(error_ehas$error == 4), ' slopes skipped that have a mean length shorter than ', min_catena_length, sep=""))
+  message(paste(sum(error_ehas$error == 3), ' slopes skipped that have only cells with dist2river=0.', sep=""))
+  message(paste(sum(warn_ehas$error  == 5), ' warnings due to slopes with no flow_accum less than ', ridge_thresh, sep=""))
+  message(paste(sum(warn_ehas$error  == 6), ' warnings due to slopes with NAs in relevant grids', sep=""))
   message('')
   message("DONE!")
   
@@ -332,7 +338,7 @@ area2catena <- function(
 eha_calc <- function(id, eha_ids, eha_rast, flowaccum_rast, dist2river_rast, relelev_rast, supp_quant, supp_qual,
                      n_supp_data_qual_classes, quant_rast, qual_rast, supp_data_classnames,
                      min_cell_in_slope, max_riv_dist, plot_catena, ridge_thresh, min_catena_length,
-                     xres,dir_out) {
+                     xres,dir_out, supp_quant_maxflow=NULL) {
   
   errcode <- 0
   curr_id <- eha_ids[id] #?Till: do we need to pass the entire "eha_ids"? Wouldn't "eha_ids[id]" suffice?
@@ -345,8 +351,8 @@ eha_calc <- function(id, eha_ids, eha_rast, flowaccum_rast, dist2river_rast, rel
   # ERROR CODE 1
   if (length(curr_cells) < min_cell_in_slope) {
     message(paste('EHA ', curr_id, ' skipped because of low number of cells (', length(curr_cells), ')', sep=""))
-    return(data.frame(output=t(rep(NA, sum(n_supp_data_qual_classes) + length(supp_quant) + 4)), error=1))
-    stop() # use stop instead of next in foreach loop and define '.errorhandling' #? is this necessary?
+    return(data.frame(output=t(c(curr_id, rep(NA, sum(n_supp_data_qual_classes) + length(supp_quant) + 4 - 1))), error=1))
+    #stop() # use stop instead of next in foreach loop and define '.errorhandling' #? is this necessary?
   }
   
   # extract values out of raster objects into ordinary vectors to save time (internal calls to raster objects take time)
@@ -354,12 +360,23 @@ eha_calc <- function(id, eha_ids, eha_rast, flowaccum_rast, dist2river_rast, rel
   dist2river_vals <- as.numeric(format(dist2river_rast[curr_cells],digits=3))
   relelev_vals <- relelev_rast[curr_cells]
   
+  na_vals = is.na(flowaccum_vals) | is.na(dist2river_vals) | is.na(relelev_vals) #detect NA values
+  if (any(na_vals)) {  # cells found with NAs
+    warning(paste('EHA ', curr_id, ' has NA cells flowaccum, dist2river or relative_elavation. Maybe OK for EHAs at divide. Cells ignored.', sep=""))
+    curr_cells <- curr_cells[!na_vals]
+    flowaccum_vals  <- flowaccum_vals [!na_vals]
+    dist2river_vals <- dist2river_vals[!na_vals]
+    relelev_vals    <- relelev_vals   [!na_vals]
+    errcode <- 6
+  }
+  
+  
   # determine closest distance to river and skip processing if more than max_riv_dist
   # ERROR CODE 2
   if(min(dist2river_vals) > max_riv_dist) {
     message(paste(curr_id, ' skipped, not adjacent to channel / farther than ', max_riv_dist, ' cells (',min(dist2river_vals),')', sep=""))
-    return(data.frame(output=t(rep(NA, sum(n_supp_data_qual_classes) + length(supp_quant) + 4)), error=2))
-    stop() # use stop istead of next in foreach loop and define '.errorhandling'
+    return(data.frame(output=t(c(curr_id, rep(NA, sum(n_supp_data_qual_classes) + length(supp_quant) + 4 - 1))), error=2))
+    #stop() # use stop istead of next in foreach loop and define '.errorhandling'
   } else {
     dist2river_vals <- dist2river_vals - min(dist2river_vals)
   }
@@ -368,8 +385,8 @@ eha_calc <- function(id, eha_ids, eha_rast, flowaccum_rast, dist2river_rast, rel
   # ERROR CODE 3
   if(max(dist2river_vals) == 0) {
     message(paste(curr_id, ' skipped because for all cells dist2river=0.', sep=""))
-    return(data.frame(output=t(rep(NA, sum(n_supp_data_qual_classes) + length(supp_quant) + 4)), error=3))
-    stop() # use stop istead of next in foreach loop and define '.errorhandling'
+    return(data.frame(output=t(c(curr_id, rep(NA, sum(n_supp_data_qual_classes) + length(supp_quant) + 4 - 1))), error=3))
+    #stop() # use stop istead of next in foreach loop and define '.errorhandling'
   }
   
   
@@ -393,8 +410,8 @@ eha_calc <- function(id, eha_ids, eha_rast, flowaccum_rast, dist2river_rast, rel
   # ERROR CODE 4
   if (mean_length < min_catena_length) {
     message(paste(curr_id, ' skipped because of low length (', mean_length, ')', sep=""))
-    return(data.frame(output=t(rep(NA, sum(n_supp_data_qual_classes) + length(supp_quant) + 4)), error=4))
-    stop() # use stop istead of next in foreach loop and define '.errorhandling'
+    return(data.frame(output=t(c(curr_id, rep(NA, sum(n_supp_data_qual_classes) + length(supp_quant) + 4 - 1))), error=4))
+    #stop() # use stop istead of next in foreach loop and define '.errorhandling'
   }
   
   # PLOT #
