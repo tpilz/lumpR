@@ -205,7 +205,7 @@ area2catena <- function(
   
   # LOOP over EHAs
   message(paste("Processing ", length(eha_ids), " EHAs. This might take a while depending on catchment size and number of cpu cores.", sep=""))
-  if (!is.null(eha_subset)) message("Note that this is just a subset as specified in the input 'eha_subset'.")
+  if (!is.null(eha_subset)) message("Note that this is just a subset as specified in the argument 'eha_subset'.")
   message("")
   
   id <- NULL # to remove "R CMD CHECK ..." Note of "no visible binding for global variable 'id'"
@@ -224,14 +224,16 @@ area2catena <- function(
           registerDoParallel(cl)
         } else
         {
-          warning("No package for parallel backend (doMC, doParallel) ound, reverting to single-core mode")
+          warning("No package for parallel backend (doMC, doParallel) found, reverting to single-core mode")
           ncores=1
-          registerDoSEQ() # specify that %dopar% should run sequentially
         }
   }  else
-    ncores=1  
+  ncores=1  
+  
+  if (ncores==1) registerDoSEQ() # specify that %dopar% should run sequentially
   #parallel call using dopar (if no parallel backend is registered, this falls back to serial execution) 
-  logdata <- foreach (id = 1:length(eha_ids), .combine=rbind, .errorhandling='remove', .options.multicore=list(silent=FALSE)) %dopar% {
+  logdata <- foreach (id = 1:length(eha_ids), .combine=rbind, .errorhandling='remove', .options.multicore=list(silent=FALSE),
+                      .inorder=FALSE, .export="eha_calc") %dopar% {
     eha_calc(id, eha_ids, eha_rast, flowaccum_rast, dist2river_rast, relelev_rast, supp_quant, supp_qual,
              n_supp_data_qual_classes, quant_rast, qual_rast, supp_data_classnames,
              min_cell_in_slope, max_riv_dist, plot_catena, ridge_thresh, min_catena_length,
@@ -249,6 +251,7 @@ area2catena <- function(
   if(is.null(logdata))
     stop("An unexpected error occured while processing EHAs. Please contact the author.")
   
+  logdata = logdata[order(logdata[,1],logdata[,2]),] #sort by ID and distance (ensures consistent ordering even with .inorder=FALSE)
   
   # sort out erroneous values and store for diagnostics
   warn_ehas  <- unique(logdata[logdata$error == 5 | logdata$error == 6, c(1,ncol(logdata))])
