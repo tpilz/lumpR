@@ -96,27 +96,9 @@ area2catena <- function(
 ) {
   ### CALCULATIONS ###
   
-  library(foreach)
   message("START 'area2catena'.")
   message("")
   
-  if (ncores>1)
-  {  
-    if(require(doMC))
-    # register cores
-      registerDoMC(cores=ncores) else
-        if (require(doParallel))
-        {
-          cl <- makePSOCKcluster(ncores) #make cluster, so we can explicitly close it later
-          registerDoParallel(cl)
-        } else
-        {
-          warning("No package for parallel backend (doMC, doParallel) ound, reverting to single-core mode")
-          ncores=1
-          registerDoSEQ() # specify that %dopar% should run sequentially
-        }
-  }  else
-  ncores=1	
   
   # LOAD FILES FROM GRASS #
   # create output directory
@@ -229,6 +211,25 @@ area2catena <- function(
   id <- NULL # to remove "R CMD CHECK ..." Note of "no visible binding for global variable 'id'"
   #   for (curr_id in eha_ids) {
 
+  ##initialize parallelism
+  library(foreach)
+  if (ncores>1)
+  {  
+    if(require(doMC))
+      # register cores
+      registerDoMC(cores=ncores) else
+        if (require(doParallel))
+        {
+          cl <- makePSOCKcluster(ncores) #make cluster, so we can explicitly close it later
+          registerDoParallel(cl)
+        } else
+        {
+          warning("No package for parallel backend (doMC, doParallel) ound, reverting to single-core mode")
+          ncores=1
+          registerDoSEQ() # specify that %dopar% should run sequentially
+        }
+  }  else
+    ncores=1  
   #parallel call using dopar (if no parallel backend is registered, this falls back to serial execution) 
   logdata <- foreach (id = 1:length(eha_ids), .combine=rbind, .errorhandling='remove', .options.multicore=list(silent=FALSE)) %dopar% {
     eha_calc(id, eha_ids, eha_rast, flowaccum_rast, dist2river_rast, relelev_rast, supp_quant, supp_qual,
@@ -269,6 +270,10 @@ area2catena <- function(
   # write output
   #out_pre <- mapply(logdata[,c(3:length(logdata))], FUN=function(x) formatC(x, format="f", digits=3))
   #out_fmt <- cbind(logdata[,c(1,2)], out_pre)
+  #format output to reasonable number of digits
+  logdata[,3:4]               <- round(logdata[,3:4]              , digits=1)
+  logdata[,5:length(logdata)] <- round(logdata[,5:length(logdata)], digits=3)
+  
   write.table(logdata, paste(dir_out,catena_out, sep="/"), col.names=F, row.names=F, quote=F, sep="\t")
   
   
@@ -438,7 +443,6 @@ eha_calc <- function(id, eha_ids, eha_rast, flowaccum_rast, dist2river_rast, rel
   out_x <- NULL # initialise vector of point numbers for current EHA
   out_y <- NULL # initialise vector of average rel. elevation for current point in EHA
   supp_attrib_mean <- matrix(NA, nrow=length(supp_quant)+sum(n_supp_data_qual_classes), ncol=res+1) # init. matrix of mean supplemental information
-  density <- NULL # initialise vector for density values
   density <- array(NA, res+1) # initialise vector for density values
   entry_missing <- 0 # flag indicating that the value for the previous point in the mean catena could not be computed
   out_combined <- NULL # combined output of one catena    
