@@ -254,20 +254,17 @@ area2catena <- function(
   logdata = logdata[order(logdata[,1],logdata[,2]),] #sort by ID and distance (ensures consistent ordering even with .inorder=FALSE)
   
   # sort out erroneous values and store for diagnostics
-  warn_ehas  <- unique(logdata[logdata$error == 5 | logdata$error == 6, c(1,ncol(logdata))])
+  warn_ehas  <- unique(logdata[logdata$error == 5 | logdata$error == 6 | logdata$error == 7, c(1,ncol(logdata))])
    
   erroneous <- (logdata$error > 0 & logdata$error < 5)
   error_ehas <- logdata[erroneous, c(1,ncol(logdata))]
   
-  logdata <- logdata[(logdata$error == 0 | logdata$error == 5 | logdata$error == 6), -ncol(logdata)] #keep only valid rows
+  logdata <- logdata[(logdata$error == 0 | logdata$error == 5 | logdata$error == 6 | logdata$error == 7), -ncol(logdata)] #keep only valid rows
   
   # check for NAs
   if(any(is.na(logdata))) {
-    save(logdata, file=paste(dir_out,"rstats_error.Rdat",sep="/"))
-    stop(paste("There are NA values in the output which have to be removed for function 'prof_class'! 
-         This might be caused by overlapping NA and non-NA values in the input raster files.
-         Look at saved R data file ", dir_out,"/rstats_error.Rdat which variable produced NA values.
-         Columns are: ID, profile number, elevation, supplemental data (one column per variable and class) and slope width.",sep=""))
+    warning(paste("NA values in the output which may crash function 'prof_class'! 
+         This might be caused by NAs in the input rasters. Check ", catena_out))
   }
   
   # write output
@@ -331,7 +328,8 @@ area2catena <- function(
   message(paste(sum(error_ehas$error == 4), ' slopes skipped that have a mean length shorter than ', min_catena_length, sep=""))
   message(paste(sum(error_ehas$error == 3), ' slopes skipped that have only cells with dist2river=0.', sep=""))
   message(paste(sum(warn_ehas$error  == 5), ' warnings due to slopes with no flow_accum less than ', ridge_thresh, sep=""))
-  message(paste(sum(warn_ehas$error  == 6), ' warnings due to slopes with NAs in relevant grids', sep=""))
+  message(paste(sum(warn_ehas$error  == 6), ' warnings due to slopes with NAs in topographics grids', sep=""))
+  message(paste(sum(warn_ehas$error  == 7), ' warnings due to slopes with NAs in auxiliary grids', sep=""))
   message('')
   message("DONE!")
   
@@ -369,8 +367,8 @@ eha_calc <- function(id, eha_ids, eha_rast, flowaccum_rast, dist2river_rast, rel
   relelev_vals <- relelev_rast[curr_cells]
   
   na_vals = is.na(flowaccum_vals) | is.na(dist2river_vals) | is.na(relelev_vals) #detect NA values
-  if (any(na_vals)) {  # cells found with NAs
-    warning(paste('EHA ', curr_id, ' has NA cells flowaccum, dist2river or relative_elavation. Maybe OK for EHAs at divide. Cells ignored.', sep=""))
+  if (any(na_vals)) {  # cells found with NAs in the mandatory grids
+    warning(paste('EHA ', curr_id, ' has NA cells flowaccum, dist2river or relative_elavation. May be OK for EHAs at divide. Cells ignored.', sep=""))
     curr_cells <- curr_cells[!na_vals]
     flowaccum_vals  <- flowaccum_vals [!na_vals]
     dist2river_vals <- dist2river_vals[!na_vals]
@@ -378,6 +376,11 @@ eha_calc <- function(id, eha_ids, eha_rast, flowaccum_rast, dist2river_rast, rel
     errcode <- 6
   }
   
+  na_vals <- apply(!is.finite(extract(quant_rast, curr_cells)), MARGIN=2, any)
+  if (any(na_vals)) {  # cells found with NAs in auxiliary grids
+    warning(paste('EHA ', curr_id, ': NAs in the grid(s) ', paste(names(na_vals[na_vals]), collapse=', ') ,'.', sep=""))
+    errcode <- 7
+  }
   
   # determine closest distance to river and skip processing if more than max_riv_dist
   # ERROR CODE 2
@@ -487,7 +490,8 @@ eha_calc <- function(id, eha_ids, eha_rast, flowaccum_rast, dist2river_rast, rel
       # compute average quantitative supplemental data
       if (!is.null(quant_rast)) {
         for (k in 1:length(supp_quant)) {
-          supp_attrib_mean[k,j+1] <- sum(quant_rast[curr_entries][,k]*flowaccum_sqrt)/sum(flowaccum_sqrt) 
+          #supp_attrib_mean[k,j+1] <- sum(quant_rast[curr_entries][,k]*flowaccum_sqrt)/sum(flowaccum_sqrt) 
+          supp_attrib_mean[k,j+1] <- weighted.mean(x=quant_rast[curr_entries][,k], w=flowaccum_sqrt, na.rm=TRUE)  #weighted mean, weighted with sqrt(flow_accum) and NAs removed
         }
         
       }

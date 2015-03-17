@@ -1,8 +1,8 @@
 Package: LUMP
 Type: Package
 Title: Landscape Unit Mapping Program, branch: fc
-Version: 0.11-12
-Date: 2015-03-11
+Version: 0.12
+Date: 2015-03-17
 Author: Tobias Pilz <tpilz@uni-potsdam.de>
 Maintainer: Tobias Pilz <tpilz@uni-potsdam.de>
 Description: The package provides functions for a semi-automated approach of
