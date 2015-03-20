@@ -165,8 +165,10 @@ prof_class <- function(
     #start_prof <- max(start_prof, min(p_id))
     #end_prof <-   min(end_prof,   max(p_id))
     
-    stats <- stats[eha_subset,]
+    stats <- stats[p_id %in% eha_subset,]
     p_id <- stats[,1]
+    if (nrow(stats)==0)
+      stop("Specified eha_subset not found.")
     
   }
   
