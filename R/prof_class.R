@@ -31,8 +31,10 @@
 #' @param seed Integer specifying seed for random processes in cluster analysis.
 #' @param resolution Integer specifying resolution of profiles/spacing of samples.
 #'      Typically the resolution of your GRASS location used for \code{\link[LUMP]{area2catena}}.
-#' @param max_com_length Integer specifying maximum common length (-> support points)
-#'      of profiles (if there are more points it takes too much time).
+#' @param max_com_length Integer maximum common length (-> support points)
+#'      of profiles (too high values consume more memory and computation effort).
+#' @param com_length Integer set common length (-> support points)
+#'      of profiles (too high values consume more memory and computation effort). Overrides max_com_length.
 #' @param make_plots logical; visualisation of classification results written into
 #'      sub-directory \emph{plots_prof_class}.
 #' @param eha_subset NULL or integer vector with subset of EHA ids that shall
@@ -82,6 +84,7 @@ prof_class <- function(
   resolution,
   classify_type=' ',
   max_com_length,
+  com_length=NULL,
   make_plots=F,
   eha_subset=NULL
 ) {
@@ -247,8 +250,11 @@ if (any(too_short)) {
   # PREPARE attribute loop and key-generation #
   # use the median of sampling points as the desired common length of profiles
   if (classify_type != 'load') {  
-    com_length <- max(attr_weights_partition[1], round(median(profpoints))) #use at least as many sampling points as requested TCs
-    com_length <- min(com_length, max_com_length)     
+    if (is.null(com_length)) #set com_length, if not specified from outside
+    {  
+      com_length <- max(attr_weights_partition[1], round(median(profpoints))) #use at least as many sampling points as requested TCs
+      com_length <- min(com_length, max_com_length)     
+    }  
   }     # otherwise, the resolution from the saved clusters is used
   
   # allocate new matrix for storing resampled profiles
