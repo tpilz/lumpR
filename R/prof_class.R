@@ -97,10 +97,12 @@ prof_class <- function(
   
   if (make_plots) {
     if(length(dir(paste(dir_out, "plots_prof_class", sep="/"))) != 0)
+    {  
       print(paste0("Output directory for plots '", dir_out, "/plots_prof_class/' is not empty, type 'o' to overwrite, all else to abort."))
-    flush.console()
-    ch=readline()
-    if (ch!='o') stop('prof_class aborted.')
+      flush.console()
+      ch=readline()
+      if (ch!='o') stop('prof_class aborted.')
+    }  
     dir.create(paste(dir_out, "plots_prof_class", sep="/"), recursive=T)
   }
   
