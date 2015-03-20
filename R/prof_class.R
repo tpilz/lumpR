@@ -154,8 +154,7 @@ prof_class <- function(
   # load standard catena data
   stats <- scan(catena_file, what=numeric())
   stats <- matrix(stats, ncol=sum(datacolumns), byrow=TRUE)
-  s2 <- stats
-  
+    
   
   p_id <- stats[,1]
   # if eha_subset is specified: select resp. values in every necessary vector/matrix
@@ -320,8 +319,8 @@ prof_class <- function(
   # PREPARE attribute loop and key-generation #
   # use the median of sampling points as the desired common length of profiles
   if (classify_type != 'load') {  
-    com_length <- round(median(profpoints))
-    if (com_length > max_com_length) com_length <- max_com_length
+    com_length <- max(attr_weights_partition[1], round(median(profpoints))) #use at least as many sampling points as requested TCs
+    com_length <- min(com_length, max_com_length)     
   }     # otherwise, the resolution from the saved clusters is used
   
   # allocate new matrix for storing resampled profiles
