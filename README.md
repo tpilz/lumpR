@@ -6,13 +6,16 @@ This project deals with an R-package called "LUMP". The package provides functio
 
 INSTALLATION
 * command line installation:
+
 install.packages("devtools") 
+
 library(devtools)
+
 install_github("tPilz/LUMP")
 
 * from zip/tar:
-- download zip/tar from https://github.com/tpilz/LUMP/releases
-- install via R-GUI
+** download zip/tar from https://github.com/tpilz/LUMP/releases
+** install via R-GUI
 
 FEEDBACK and BUGS
-- feel free to comment on https://github.com/tpilz/LUMP/issues
+* feel free to comment on https://github.com/tpilz/LUMP/issues
