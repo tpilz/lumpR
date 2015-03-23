@@ -362,9 +362,9 @@ eha_calc <- function(id, eha_ids, eha_rast, flowaccum_rast, dist2river_rast, rel
   }
   
   # extract values out of raster objects into ordinary vectors to save time (internal calls to raster objects take time)
-  flowaccum_vals <- flowaccum_rast[curr_cells] #?Till: in parallel mode, this requires all the large rasters to be available to each thread. I wonder is this consumes too much replicates and overhead. Passing just the area of the current curr_cells may save ressources
-  dist2river_vals <- as.numeric(format(dist2river_rast[curr_cells],digits=3))
-  relelev_vals <- relelev_rast[curr_cells]
+  flowaccum_vals  <- flowaccum_rast [curr_cells] #?Till: in parallel mode, this requires all the large rasters to be available to each thread. I wonder is this consumes too much replicates and overhead. Passing just the area of the current curr_cells may save ressources
+  dist2river_vals <- dist2river_rast[curr_cells]
+  relelev_vals    <- relelev_rast   [curr_cells]
   
   na_vals = is.na(flowaccum_vals) | is.na(dist2river_vals) | is.na(relelev_vals) #detect NA values
   if (any(na_vals)) {  # cells found with NAs in the mandatory grids
