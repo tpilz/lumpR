@@ -113,6 +113,8 @@ prof_class <- function(
   set.seed(seed)
   
   # horizontal resolution of profiles/spacing of samples
+  if (!(is.numeric(resolution) && is.finite(resolution) && (resulution>0)))
+    stop("Argument 'resolution must be a positive number.")
   dx <- resolution
   
   # separator in outfiles
@@ -171,7 +173,7 @@ prof_class <- function(
     #start_prof <- max(start_prof, min(p_id))
     #end_prof <-   min(end_prof,   max(p_id))
     
-    stats <- stats[p_id %in% eha_subset,]
+    stats <- stats[p_id %in% eha_subset, , drop=FALSE]
     p_id <- stats[,1]
     if (nrow(stats)==0)
       stop("Specified eha_subset not found.")
