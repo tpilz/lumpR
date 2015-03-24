@@ -31,8 +31,10 @@
 #' @param seed Integer specifying seed for random processes in cluster analysis.
 #' @param resolution Integer specifying resolution of profiles/spacing of samples.
 #'      Typically the resolution of your GRASS location used for \code{\link[LUMP]{area2catena}}.
-#' @param max_com_length Integer specifying maximum common length (-> support points)
-#'      of profiles (if there are more points it takes too much time).
+#' @param max_com_length Integer maximum common length (-> support points)
+#'      of profiles (too high values consume more memory and computation effort).
+#' @param com_length Integer set common length (-> support points)
+#'      of profiles (too high values consume more memory and computation effort). Overrides max_com_length.
 #' @param make_plots logical; visualisation of classification results written into
 #'      sub-directory \emph{plots_prof_class}.
 #' @param eha_subset NULL or integer vector with subset of EHA ids that shall
@@ -82,6 +84,7 @@ prof_class <- function(
   resolution,
   classify_type=' ',
   max_com_length,
+  com_length=NULL,
   make_plots=F,
   eha_subset=NULL
 ) {
@@ -97,8 +100,12 @@ prof_class <- function(
   
   if (make_plots) {
     if(length(dir(paste(dir_out, "plots_prof_class", sep="/"))) != 0)
-      stop("Output directory for plots '", dir_out, "/plots_prof_class/' is not empty!")
-    
+    {  
+      print(paste0("Output directory for plots '", dir_out, "/plots_prof_class/' is not empty, type 'o' to overwrite, all else to abort."))
+      flush.console()
+      ch=readline()
+      if (ch!='o') stop('prof_class aborted.')
+    }  
     dir.create(paste(dir_out, "plots_prof_class", sep="/"), recursive=T)
   }
   
@@ -106,6 +113,8 @@ prof_class <- function(
   set.seed(seed)
   
   # horizontal resolution of profiles/spacing of samples
+  if (!(is.numeric(resolution) && is.finite(resolution) && (resulution>0)))
+    stop("Argument 'resolution must be a positive number.")
   dx <- resolution
   
   # separator in outfiles
@@ -152,8 +161,7 @@ prof_class <- function(
   # load standard catena data
   stats <- scan(catena_file, what=numeric())
   stats <- matrix(stats, ncol=sum(datacolumns), byrow=TRUE)
-  s2 <- stats
-  
+    
   
   p_id <- stats[,1]
   # if eha_subset is specified: select resp. values in every necessary vector/matrix
@@ -165,8 +173,10 @@ prof_class <- function(
     #start_prof <- max(start_prof, min(p_id))
     #end_prof <-   min(end_prof,   max(p_id))
     
-    stats <- stats[eha_subset,]
+    stats <- stats[p_id %in% eha_subset, , drop=FALSE]
     p_id <- stats[,1]
+    if (nrow(stats)==0)
+      stop("Specified eha_subset not found.")
     
   }
   
@@ -184,121 +194,47 @@ prof_class <- function(
   }
   
   # arrange input data
-  px <- stats[,2]
-  elev <- stats[,3]
   p_id_unique = unique(p_id)
-  
-  
-  
-  curr_id <- -1         #initial values for loop
-  p_count <- 1          #count profiles
-  
-  profs <- NULL         # initialise list of profile elevation data
-  profsx <- NULL        # initialise list of x-profile data
-  
-  vecx <- NULL          # initalise temp vector with current profile's x-values
-  vecy <- NULL          # initalise temp vector with current profile's elev. values
-  
-  p_id_unique <- NULL   # initialise vector with unique profile ids
-  
-  
-  
-  # extract profiles from read data set
-  for (i in 1:length(p_id)) {
-    
-    
-    # new profile reached?
-    if (p_id[i] != curr_id) { 
-      
-      # don't do this at first run of loop
-      if (i > 1) {
-        
-        # only one point in profile
-        if (plength <= 1) {
-          message('')
-          message(paste('profile ', curr_id, ' contains only one point. Skipped.', sep=""))
-          
-        } else {      # save collected profile data
-          
-          #flip downslope profiles
-          if (vecy[1] > vecy[length(vecy)]) {
-            vecy <- rev(vecy)
-          }
-          
-          # store previously accumulated profile data
-          profs[[p_count]] <- vecy
-          # convert stored x-values in real metric data and store
-          profsx[[p_count]] <- vecx*dx
-          
-          # increase profile counter
-          p_count <- p_count+1
-          
-        } # end save collected profile data
-        
-      } # end if first loop
-      
-      
-      # reset temp variables to collect new profile
-      vecx <- 0            # temporary storage for x-values of profiles
-      vecy <- NULL         # temporary storage for y-values of profiles
-      prev_x <- 0.0        # for storing x-value of previous sampling point
-      curr_id <- p_id[i]
-      plength <- 1
-      p_id_unique[p_count] <- curr_id  # store new profile id
-      
-      
-    } else {        # another point in current profile
-      
-      
-      # gridcell spacing
-      if ((px[i]-px[i-1])==1) {        
-        prev_x <- prev_x+1       # single gridcell spacing
-      } else {
-        prev_x <- prev_x+sqrt(2) # diagonal gridcell spacing
-      }
-      
-      # store x value of current point in current profile
-      vecx <- c(vecx, prev_x)
-      plength <- plength+1
-      
-      
-    } # end another point in current profile
-    
-    
-    # retrieve y value (elevation) of current point in current profile
-    vecy <- c(vecy, elev[i])
-    
-    
-  } # end extract profiles from data set
-  
-  
-  
-  
-  if (plength <=1) {
-    message('')
-    message(paste('profile ', i, ' contains only one point. Skipped.', sep=""))
-  } else {
-    profs[[p_count]] <- vecy       # store last accumulated profile data
-    profsx[[p_count]] <- vecx*dx   # convert stored x-values in real metric data and store
-  }
-  
-  
-  # remove not needed objects (at least the larger ones to save memory)
-  rm(stats,elev,px)
-  
-  
-  # profile meta data
+   profs <- NULL         # initialise list of profile elevation data
+   profsx <- NULL        # initialise list of x-profile data
+
   profpoints <- NULL
   profheights <- NULL
   proflengths <- NULL
-  for (i in 1:length(profs)) {
-    # save length of profile (in sample points)
-    profpoints[i] <- length(profs[[i]])  
-    # save relative height of profile in [m]
-    profheights[i] <- max(profs[[i]]) - profs[[i]][1]  
-    # save absolute length of profile
-    proflengths[i] <- max(profsx[[i]])
-  }
+
+for (i in 1:length(p_id_unique))
+{
+  curr_pid_ix = p_id == p_id_unique[i]
+  profs [[i]] =  stats[curr_pid_ix,3]
+  profsx[[i]] = (stats[curr_pid_ix,2]-1)*dx
+  
+  # save length of profile (in sample points)
+  profpoints[i] <- length(profs[[i]])  
+  
+  # save relative height of profile in [m]
+  profheights[i] <- max(profs[[i]]) - profs[[i]][1]  
+  
+  # save absolute length of profile
+  proflengths[i] <- max(profsx[[i]])
+  
+}
+
+   
+too_short = which(proflengths <= 1)
+if (any(too_short)) {
+  message('')
+  message(paste('profile (s)', paste(too_short, collapse=", "), ' contain(s) only one point. Skipped.', sep=""))
+  profs       <- profs       [-too_short]
+  profsx      <- profsx      [-too_short]
+  profpoints  <- profpoints  [-too_short]
+  profheights <- profheights [-too_short]
+  proflengths <- proflengths [-too_short]
+} 
+  
+  
+
+# remove not needed objects (at least the larger ones to save memory)
+   rm(stats) 
   
   
   # PLOT original profile
@@ -316,8 +252,11 @@ prof_class <- function(
   # PREPARE attribute loop and key-generation #
   # use the median of sampling points as the desired common length of profiles
   if (classify_type != 'load') {  
-    com_length <- round(median(profpoints))
-    if (com_length > max_com_length) com_length <- max_com_length
+    if (is.null(com_length)) #set com_length, if not specified from outside
+    {  
+      com_length <- max(attr_weights_partition[1], round(median(profpoints))) #use at least as many sampling points as requested TCs
+      com_length <- min(com_length, max_com_length)     
+    }  
   }     # otherwise, the resolution from the saved clusters is used
   
   # allocate new matrix for storing resampled profiles
