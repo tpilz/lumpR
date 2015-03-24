@@ -88,6 +88,7 @@ for (s in 1:nrow(seasonality)) {
 
 } # loop over stations
 
+colnames(output) <- sub("id_", "", colnames(output))
 return(output)
 
 } # EOF
