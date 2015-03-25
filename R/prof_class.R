@@ -113,7 +113,7 @@ prof_class <- function(
   set.seed(seed)
   
   # horizontal resolution of profiles/spacing of samples
-  if (!(is.numeric(resolution) && is.finite(resolution) && (resulution>0)))
+  if (!(is.numeric(resolution) && is.finite(resolution) && (resolution>0)))
     stop("Argument 'resolution must be a positive number.")
   dx <- resolution
   
@@ -653,7 +653,7 @@ if (any(too_short)) {
     
     # TODO: sql class file -> is that needed?
     
-  } # end clalc mean catena of each class
+  } # end calc mean catena of each class
   
   # in reclass files: all other (unclassified) profiles are assigned nodata
   write(file=paste(dir_out,recl_lu,sep="/"), append=T, x="* = NULL")
