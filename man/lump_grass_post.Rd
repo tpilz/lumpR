@@ -30,9 +30,9 @@ be created with \code{\link[LUMP]{lump_grass_prep}}.}
 be created with \code{\link[LUMP]{lump_grass_prep}}.}
 
 \item{stream_horton}{Name of Horton stream order raster map in GRASS location. Can
-be created with \code{\link[LUMP]{lump_grass_prep}}.}
+be created with \code{\link[LUMP]{lump_grass_prep}}. If left empty, the channel length, slope and retention times are set to NA.}
 
-\item{soil_depth}{Name of soil depth [cm] raster map in GRASS location.}
+\item{soil_depth}{Name of soil depth [cm] raster map in GRASS location. If empty, NA is used.}
 
 \item{lu}{Output: Name of Landscape Units (LU) raster map exported into
 GRASS location.}
