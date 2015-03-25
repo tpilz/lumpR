@@ -596,6 +596,7 @@ if (any(too_short)) {
   mean_intc <- rep(0,nclasses) # mean intercept, TODO: always zero?!
   mean_prof <- matrix(NA, nrow=nclasses, ncol=ncol(profs_resampled_stored)) # mean shape of every class
   class_repr <- matrix(NA, nrow=nclasses, ncol=2) # min. distance of class i to centroid and resp. ID
+  lu_labels=NULL #labels for LUs consisting of appended class memberships for each attribute  
   for (i in 1:nclasses) {
     
     # find all profiles belonging to current class
@@ -649,7 +650,7 @@ if (any(too_short)) {
     
     
     # save reclass files
-    write(file=paste(dir_out,recl_lu,sep="/"), append=ifelse(i==1,FALSE,TRUE), x=paste(p_id_unique[class_i], "=", unique_classes[i], sep=""))
+    write(file=paste(dir_out,recl_lu,sep="/"), append=ifelse(i==1,FALSE,TRUE), x=paste(p_id_unique[class_i], "=",i," ", unique_classes[i], sep=""))
     
     # TODO: sql class file -> is that needed?
     
@@ -995,9 +996,9 @@ if (any(too_short)) {
     
     
     #----------file output lu.dat
-    lu_out_dat <- NULL
+    lu_labels=c(lu_labels, curr_lu_key)
     # write LU-ID, closest catena and its distance
-    lu_out_dat <- c(lu_out_dat, curr_lu_key, p_id_unique[class_repr[i,1]], class_repr[i,2], round(mean_prof[i,(com_length+1):(com_length+2)],1))
+    lu_out_dat <- c(i, p_id_unique[class_repr[i,1]], class_repr[i,2], round(mean_prof[i,(com_length+1):(com_length+2)],1))
     # write limits of TC-decomposition
     lu_out_dat <- c(lu_out_dat, lim_var, lim_clu)
     # write elevation data
@@ -1093,12 +1094,12 @@ if (any(too_short)) {
     
     tc_ids <- c(1:ntc)+(lu_id-1)*rep(1,ntc)*ntc
     
-    lu_contains_tc <- rbind(lu_contains_tc, cbind(curr_lu_key*rep(1,ntc), tc_ids, round(frac_tc,5), 1:ntc, slope_tc))
+    lu_contains_tc <- rbind(lu_contains_tc, cbind(i*rep(1,ntc), tc_ids, round(frac_tc,5), 1:ntc, slope_tc))
     #----------end file TC-output
     
   } # end loop over nclasses for TC decomposition
   
-  
+write.table(file=paste(dir_out,"lu_labels.dat",sep="/"), x=data.frame(no=1:nclasses, lu_labels=lu_labels), append=F, row.names=FALSE, quote=FALSE, sep=tab) #label file
   
   # close plot output device
   dev.off()
