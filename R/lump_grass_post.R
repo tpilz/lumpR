@@ -9,7 +9,7 @@
 #'      and/or created by \code{\link[LUMP]{calc_subbas}}.
 #' @param recl_lu Name of GRASS reclassification file: EHA -> LU. Output of
 #'      \code{\link[LUMP]{prof_class}}.
-#' @param eha Name of Environmental Hillslope Areas (EHA) raster map in GRASS
+#' @param eha Name of Elementary Hillslope Areas (EHA) raster map in GRASS
 #'      location. Output of \code{\link[LUMP]{lump_grass_prep}}.
 #' @param mask Name of mask raster map masking the study area. Use output \code{mask_corr}
 #'      of \code{\link[LUMP]{lump_grass_prep}}.
@@ -31,8 +31,8 @@
 #' @param lupar_ofile Output: Name of file containing LUs and related parameters.
 #'      See \code{Details} below.
 #' 
-#' @return Function returns nothing. Output files are written into output directory
-#'      and raster maps exported into GRASS location as specified in arguments.
+#' @return Function returns nothing. Output files (\code{sub_ofile, lupar_ofile}) are written into output directory
+#'      and raster maps (\code{lu}, temporary rasters stream_main_t, cell_len_t, flowacc_minmax_t, MASK_t) exported into GRASS location as specified in arguments.
 #'      
 #' @note Prepare GRASS location and necessary raster files in advance (e.g. using
 #'      \code{\link[LUMP]{lump_grass_prep}}) and start GRASS session in R using 
