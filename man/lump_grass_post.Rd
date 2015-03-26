@@ -5,8 +5,8 @@
 \title{Post-processing of Landscape Unit deviation using GRASS GIS}
 \usage{
 lump_grass_post(dem, recl_lu, eha, subbasin, mask, flowacc, flowdir,
-  stream_horton, soil_depth, lu, dir_out = "./", sub_ofile, lu_ofile,
-  lupar_ofile)
+  stream_horton, soil_depth, sdr, lu, dir_out = "./", sub_ofile = "",
+  lu_ofile = "", lupar_ofile = "")
 }
 \arguments{
 \item{dem}{DEM raster map in GRASS location as used in \code{\link[LUMP]{lump_grass_prep}}.}
@@ -34,11 +34,13 @@ be created with \code{\link[LUMP]{lump_grass_prep}}. If left empty, the channel 
 
 \item{soil_depth}{Name of soil depth [cm] raster map in GRASS location. If empty, NA is used.}
 
+\item{sdr}{Name of sediment delivery ratio [-] raster map in GRASS location. If empty, this optional column is omitted.}
+
 \item{lu}{Output: Name of Landscape Units (LU) raster map exported into
 GRASS location.}
 
 \item{dir_out}{Character string specifying output directory (will be created;
-nothing will be overwritten).}
+any overwriting will be prompted).}
 
 \item{sub_ofile}{Output: Name of subbasin statistics file containing subbasin
 parameters. See \code{Details} below.}
@@ -119,6 +121,9 @@ using outputs of \code{\link[LUMP]{lump_grass_prep}} and \code{\link[LUMP]{prof_
      \emph{frgw_delay}\cr
      Storage coefficient for groundwater outflow in \emph{days}. At the moment set to
      200 by default for every LU.
+
+     \emph{sdr_lu} (optional)\cr
+     sediment delivery ratio from raster map \code{sdr}, if specified
 }
 \note{
 Prepare GRASS location and necessary raster files in advance (e.g. using

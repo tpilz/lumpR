@@ -20,10 +20,11 @@
 #' @param stream_horton Name of Horton stream order raster map in GRASS location. Can
 #'      be created with \code{\link[LUMP]{lump_grass_prep}}. If left empty, the channel length, slope and retention times are set to NA.
 #' @param soil_depth Name of soil depth [cm] raster map in GRASS location. If empty, NA is used.
+#' @param sdr Name of sediment delivery ratio [-] raster map in GRASS location. If empty, this optional column is omitted.
 #' @param lu Output: Name of Landscape Units (LU) raster map exported into
 #'      GRASS location.
 #' @param dir_out Character string specifying output directory (will be created;
-#'      nothing will be overwritten).
+#'      any overwriting will be prompted).
 #' @param sub_ofile Output: Name of subbasin statistics file containing subbasin
 #'      parameters. See \code{Details} below.
 #' @param lu_ofile Output: Name of file containing subbasins and the corresponding
@@ -107,6 +108,9 @@
 #'      Storage coefficient for groundwater outflow in \emph{days}. At the moment set to
 #'      200 by default for every LU.
 #'      
+#'      \emph{sdr_lu} (optional)\cr
+#'      sediment delivery ratio from raster map \code{sdr}, if specified
+#'      
 #'      
 #' @references Source code based on \code{SHELL} and \code{MATLAB} scripts of Till Francke.
 #' 
@@ -143,13 +147,14 @@ lump_grass_post <- function(
   flowdir,
   stream_horton,
   soil_depth,
+  sdr,
   
   ### OUTPUT ###
   lu,
   dir_out="./",
-  sub_ofile,
-  lu_ofile,
-  lupar_ofile
+  sub_ofile="",
+  lu_ofile="",
+  lupar_ofile=""
   
 ) {
   tryCatch({
@@ -182,10 +187,18 @@ lump_grass_post <- function(
     accum_mat <- getValues(accum_rast, format="matrix")
     dir_mat <- getValues(dir_rast, format="matrix")
     rm(list="accum_rast","dir_rast","sub_rast")
-
+  }, error = function(e) {
+    # set basin-wide mask again
+    execGRASS("r.mask", input=mask, flags=c("o"))
+    # remove all output
+    execGRASS("g.remove", rast="lu,MASK_t,cell_len_t,stream_main_t,flowacc_minmax_t")
+    stop(paste(e))
+  })
     
     
   ### subbasin statistics ###
+  if ((sub_ofile != "") || (lu_ofile != ""))
+  tryCatch({
     sub_stats <- execGRASS("r.stats", input=subbasin, flags=c("a", "n"), intern=TRUE) ##windows version
     if (grepl(pattern="[0-9]+.*[\b]+",x=tail(sub_stats, n=1)))
       sub_stats <- sub_stats[-length(sub_stats)] #last line contains progress indicator, remove
@@ -250,8 +263,13 @@ lump_grass_post <- function(
   
       write.table(sub_stats, paste(dir_out, sub_ofile, sep="/"), quote=F, row.names=F, sep="\t")
       
+    
+  
+  
   ### Landscape Unit statistics ###
       # calculate statistics of LUs in subbasin SUB
+  if (lu_ofile != "")
+    
       sub_lu_stats_t <- execGRASS("r.stats", input=lu, flags=c("n", "p"), intern=TRUE) ##windows version
       if (grepl(pattern="[0-9]+.*[\b]+",x=tail(sub_lu_stats_t, n=1))) #check if last line contains progress indicator, remove
         sub_lu_stats_t = sub_lu_stats_t[-length(sub_lu_stats_t)] 
@@ -270,8 +288,19 @@ lump_grass_post <- function(
     dimnames(sub_lu_stats) <- list(NULL, c("subbas_id", "lu_id", "fraction"))
     write.table(sub_lu_stats, paste(dir_out, lu_ofile, sep="/"), quote=F, row.names=F, sep="\t")
   
+    }, error = function(e) {
+    # set basin-wide mask again
+    execGRASS("r.mask", input=mask, flags=c("o"))
+    # remove all output
+    execGRASS("g.remove", rast="lu,MASK_t,cell_len_t,stream_main_t,flowacc_minmax_t")
+    stop(paste(e))
+  })
+
+    
   ### LANDSCAPE UNIT PARAMETERS ###
-    # load lu file
+  if (lupar_ofile != "")
+    tryCatch({
+# load lu file
     #lu_dat <- read.table(paste(dir_out,luoutfile,sep="/"), header=T)
     
     # calculate mean soil depth for every LU
@@ -283,6 +312,8 @@ lump_grass_post <- function(
   if (!is.null(soil_depth) && soil_depth!="")
     {
       cmd_out <- execGRASS("r.univar", zones=lu, map=soil_depth, fs=",", flags=c("t"),intern=T)
+      if (grepl(pattern="[0-9]+.*[\b]+",x=tail(cmd_out, n=1)))
+        cmd_out <- cmd_out[-length(cmd_out)] #last line contains progress indicator, remove
       cmd_out <- strsplit(cmd_out, ",")
       cmd_out <- matrix(unlist(cmd_out[-1]), ncol=length(cmd_out[[1]]), byrow=T,
                         dimnames=list(NULL, cmd_out[[1]]))
@@ -291,6 +322,20 @@ lump_grass_post <- function(
     } else lu_depth=NA
     lu_par <- cbind(lu_ids, lu_depth)
     colnames(lu_par) <- c("pid", "soil_depth")
+  
+  if (!is.null(sdr) && sdr!="")
+  {
+    cmd_out <- execGRASS("r.univar", zones=lu, map=sdr, fs=",", flags=c("t"),intern=T)
+    if (grepl(pattern="[0-9]+.*[\b]+",x=tail(cmd_out, n=1)))
+      cmd_out <- cmd_out[-length(cmd_out)] #last line contains progress indicator, remove
+    cmd_out <- strsplit(cmd_out, ",")
+    cmd_out <- matrix(unlist(cmd_out[-1]), ncol=length(cmd_out[[1]]), byrow=T,
+                      dimnames=list(NULL, cmd_out[[1]]))
+    sdr_vals <- as.numeric(cmd_out[,"mean"]) 
+    lu_ids = as.numeric(cmd_out[,"zone"])
+    lu_par <- cbind(lu_par, sdr_lu=sdr_vals[match(lu_par[,"pid"], lu_ids)])
+  }
+  
   
     # groundwater parameters (so far only default values)
     # groundwater for every LU
