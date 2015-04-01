@@ -135,19 +135,27 @@ area2catena <- function(
   qual_rast <- NULL # initialise object containing all qualitative raster layers
   supp_data_classnames <- NULL # initialise object containing different classnames per attribute
   n_supp_data_qual_classes <- NULL # initialise object containing number of classes per attribute
-  for (i in supp_qual) {
-    tmp <- readRAST6(i)
-    tmp2 <- raster(tmp)
-    qual_rast <- stack(tmp2, qual_rast)
-    supp_data_classnames[[i]] <- raster::unique(tmp2)
-    n_supp_data_qual_classes <- c(n_supp_data_qual_classes, length(raster::unique(tmp2)))
-  }
+  if (!is.null(supp_qual)) 
+    supp_qual=supp_qual[supp_qual!=""]
   
-  # convert (at) symbol to point (in case input comes from another GRASS mapset; readRAST6() convert it to point implicitly which causes errors during later processing)
-  supp_qual <- gsub("@", ".", supp_qual)
-  
-  names(n_supp_data_qual_classes) <- supp_qual
-  
+  if (length(supp_qual)==0) supp_qual=NULL
+  if (!is.null(supp_qual)) 
+  {  
+    
+    
+    for (i in supp_qual) {
+      tmp <- readRAST6(i)
+      tmp2 <- raster(tmp)
+      qual_rast <- stack(tmp2, qual_rast)
+      supp_data_classnames[[i]] <- raster::unique(tmp2)
+      n_supp_data_qual_classes <- c(n_supp_data_qual_classes, length(raster::unique(tmp2)))
+    }
+    
+    # convert (at) symbol to point (in case input comes from another GRASS mapset; readRAST6() convert it to point implicitly which causes errors during later processing)
+    supp_qual <- gsub("@", ".", supp_qual)
+    
+    names(n_supp_data_qual_classes) <- supp_qual
+  }  
   
   
   # load quantitative supplemental data
