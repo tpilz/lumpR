@@ -1010,7 +1010,7 @@ if (any(too_short)) {
     }
     
     # write into file
-    write(file=paste(dir_out,luoutfile,sep="/"), append=T, ncolumns=length(lu_out_dat), x=paste(lu_out_dat, sep=tab))
+    write(file=paste(dir_out,luoutfile,sep="/"), append=T, ncolumns=length(lu_out_dat), x=lu_out_dat, sep=tab)
     #----------end file output
     
     
