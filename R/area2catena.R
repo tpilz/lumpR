@@ -160,7 +160,7 @@ area2catena <- function(
   
   # load quantitative supplemental data
   quant_rast <- NULL # initialise object containing all quantitative raster layers
-  for (i in supp_quant) {
+  for (i in rev(supp_quant)) {
     tmp <- readRAST6(i)
     tmp2 <- raster(tmp)
     quant_rast <- stack(tmp2, quant_rast)
