@@ -48,9 +48,6 @@
 #'      
 #'      TODO:\cr
 #'        - \code{classify_type} 'load'\cr
-#'        - what to do with cluster analysis in prof_class.R (turned off, variance analysis
-#'          is used instead)?\cr
-#'        - seed obsolete?!
 #'
 #' @references Source code based on \code{SHELL} and \code{MATLAB} scripts of Till Francke.
 #' 
@@ -109,8 +106,6 @@ prof_class <- function(
     dir.create(paste(dir_out, "plots_prof_class", sep="/"), recursive=T)
   }
   
-  # immer der gleiche Zufall - hilft bei debuggen und erzeugt konstante Ergebnisse
-  set.seed(seed)
   
   # horizontal resolution of profiles/spacing of samples
   if (!(is.numeric(resolution) && is.finite(resolution) && (resolution>0)))
@@ -283,6 +278,9 @@ if (any(too_short)) {
   cidx_save <- NULL # initialise list to store classification results
   while (iw <= iw_max) {
     
+    
+    # ensure reproducible random numbers for debugging / repeatitions
+    set.seed(seed)
     
     # SUCCESSIVE weighting for each single attribute
     if (cf_mode == 'successive') {
@@ -1088,7 +1086,7 @@ if (any(too_short)) {
         treated_attribs <- treated_attribs+k
       }
       # write constitution of this TC (tc.dat)
-      write(file=paste(dir_out,tcoutfile,sep="/"), append=T, x=paste(tc_id, paste(dumstr,collapse=tab), sep=tab))
+      write(file=paste(dir_out,tcoutfile,sep="/"), append=T, x=paste(tc_id, paste(dumstr,collapse=tab), sep=""))
     } # end loop over ntc
     
     
