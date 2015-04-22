@@ -151,7 +151,7 @@ area2catena <- function(
       n_supp_data_qual_classes <- c(n_supp_data_qual_classes, length(raster::unique(tmp2)))
     }
     
-    # convert (at) symbol to point (in case input comes from another GRASS mapset; readRAST6() convert it to point implicitly which causes errors during later processing)
+    # convert (at) symbol to point (in case input comes from another GRASS mapset; readRAST6() converts it to point implicitly which causes errors during later processing)
     supp_qual <- gsub("@", ".", supp_qual)
     
     names(n_supp_data_qual_classes) <- supp_qual
@@ -166,7 +166,7 @@ area2catena <- function(
     quant_rast <- stack(tmp2, quant_rast)
   }
   
-  # convert (at) symbol to point (in case input comes from another GRASS mapset; readRAST6() convert it to point implicitly which causes errors during later processing)
+  # convert (at) symbol to point (in case input comes from another GRASS mapset; readRAST6() converts it to point implicitly which causes errors during later processing)
   supp_quant <- gsub("@", ".", supp_quant)
   
   rm(list=c("tmp","tmp2"))
@@ -257,7 +257,7 @@ area2catena <- function(
   
   # check if anything was produced (if NULL an unexpected error might have occured)
   if(is.null(logdata))
-    stop("An unexpected error occured while processing EHAs. Please contact the author.")
+    stop("Error: No valid EHAs remaining after processing. Something's fishy, check the warnings, eha_subset and coverage of the layers.")
   
   logdata = logdata[order(logdata[,1],logdata[,2]),] #sort by ID and distance (ensures consistent ordering even with .inorder=FALSE)
   
