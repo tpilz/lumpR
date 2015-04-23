@@ -4,18 +4,20 @@
 \alias{lump_grass_post}
 \title{Post-processing of Landscape Unit deviation using GRASS GIS}
 \usage{
-lump_grass_post(dem, recl_lu, eha, subbasin, mask, flowacc, flowdir,
-  stream_horton, soil_depth, sdr, lu, dir_out = "./", sub_ofile = "",
-  lu_ofile = "", lupar_ofile = "")
+lump_grass_post(dem, recl_lu = NULL, eha, fill_holes, subbasin, mask, flowacc,
+  flowdir, stream_horton, soil_depth, sdr, lu, dir_out = "./",
+  sub_ofile = "", lu_ofile = "", lupar_ofile = "")
 }
 \arguments{
 \item{dem}{DEM raster map in GRASS location as used in \code{\link[LUMP]{lump_grass_prep}}.}
 
 \item{recl_lu}{Name of GRASS reclassification file: EHA -> LU. Output of
-\code{\link[LUMP]{prof_class}}.}
+\code{\link[LUMP]{prof_class}}. If omitted, the existing raster layer \code{eha} is used.}
 
 \item{eha}{Name of Elementary Hillslope Areas (EHA) raster map in GRASS
 location. Output of \code{\link[LUMP]{lump_grass_prep}}.}
+
+\item{fill_holes}{TRUE: fill any holes in map \code{eha} (e.g. as result of skipped/non-classified EHAs) by growing}
 
 \item{subbasin}{Subbasin raster map in GRASS location as used in \code{\link[LUMP]{lump_grass_prep}}
 and/or created by \code{\link[LUMP]{calc_subbas}}.}
