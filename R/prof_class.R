@@ -364,6 +364,7 @@ if (any(too_short)) {
           all_na <- apply(p_supp,2,function(x) all(is.na(x)))
           if (any(all_na))
           {  
+            dev.off() #close PDF output
             na_attributes = names(datacolumns[-(1:3)])[unique(sapply (X = which(all_na), function(x) min(which(cumsum(datacolumns[-(1:3)]) >= x))))] #names of attributes with all NAs
             stop(paste0("Error: EHA ", p_id_unique[i]," has only NAs for attribute(s) ", paste0(na_attributes, collapse=", "),". Most likely a result of insufficient map coverage. Fix coverage, remove this attribute or replace NAs manually."))
           }

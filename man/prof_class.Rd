@@ -78,9 +78,6 @@ Function uses output of \code{\link[LUMP]{area2catena}}. However, no GRASS
 
      TODO:\cr
        - \code{classify_type} 'load'\cr
-       - what to do with cluster analysis in prof_class.R (turned off, variance analysis
-         is used instead)?\cr
-       - seed obsolete?!
 }
 \author{
 Tobias Pilz \email{tpilz@uni-potsdam.de}

@@ -110,7 +110,12 @@ area2catena <- function(
   
   if (plot_catena) {
     if(length(dir(paste(dir_out, "plots_area2catena", sep="/"))) != 0)
-      stop("Output directory for plots '", dir_out, "/plots_area2catena/' is not empty!")
+    {
+      print(paste0("Output directory for plots '", dir_out, "/plots_area2catena/' is not empty, type 'o' to overwrite, all else to abort."))
+      flush.console()
+      ch=readline()
+      if (ch!='o') stop('area2catena aborted.')
+    }
     
     dir.create(paste(dir_out, "plots_area2catena", sep="/"), recursive=T)
   }
@@ -272,7 +277,7 @@ area2catena <- function(
   # check for NAs
   if(any(is.na(logdata))) {
     warning(paste("NA values in the output which may crash function 'prof_class'! 
-         This might be caused by NAs in the input rasters. Check ", catena_out))
+         This might be caused by NAs in the input rasters. Check file", catena_out))
   }
   
   # write output
@@ -384,7 +389,9 @@ eha_calc <- function(id, eha_ids, eha_rast, flowaccum_rast, dist2river_rast, rel
     errcode <- 6
   }
   
-  na_vals <- apply(!is.finite(extract(quant_rast, curr_cells)), MARGIN=2, any)
+  na_vals <-            apply(!is.finite(extract(quant_rast, curr_cells)), MARGIN=2, any)
+  na_vals <- c(na_vals, apply(!is.finite(extract(qual_rast,  curr_cells)), MARGIN=2, any))
+  
   if (any(na_vals)) {  # cells found with NAs in auxiliary grids
     warning(paste('EHA ', curr_id, ': NAs in the grid(s) ', paste(names(na_vals[na_vals]), collapse=', ') ,'.', sep=""))
     errcode <- 7
