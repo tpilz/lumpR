@@ -7,6 +7,7 @@
 #'      \code{\link[LUMP]{area2catena}}.
 #' @param catena_head_file Name of file containing meta-information for classification
 #'      derived from \code{\link[LUMP]{area2catena}} and adjusted manually (see \code{Notes}).
+#' @param svc_column name of attribute that holds the information of SVCs for generating tc_contains_svc.dat. Default: 'svc'.
 #' @param dir_out Character string specifying output directory (will be created;
 #'      nothing will be overwritten).
 #' @param luoutfile Output: Name of file containing the average properties of
@@ -65,6 +66,7 @@ prof_class <- function(
   ### INPUT ###
   catena_file,
   catena_head_file,
+  svc_column='svc',
   
   ### OUTPUT ###
   dir_out="./",
@@ -724,7 +726,7 @@ if (any(too_short)) {
   svc_col_index <- 0
   # find index of column containing svcs
   for (j in 1:length(attr_names)) {
-    if (attr_names[j]=='svc' | attr_names[j]=='svc_new' | attr_names[j]=='svc_1957') {
+    if (attr_names[j]==svc_column) {
       svc_col_index <- j
       break
     }

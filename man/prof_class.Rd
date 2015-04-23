@@ -4,11 +4,11 @@
 \alias{prof_class}
 \title{Classification of mean catenas}
 \usage{
-prof_class(catena_file, catena_head_file, dir_out = "./", luoutfile,
-  tcoutfile, lucontainstcoutfile, tccontainssvcoutfile,
-  terraincomponentsoutfile, recl_lu, saved_clusters, seed, resolution,
-  classify_type = " ", max_com_length, com_length = NULL, make_plots = F,
-  eha_subset = NULL)
+prof_class(catena_file, catena_head_file, svc_column = "svc",
+  dir_out = "./", luoutfile, tcoutfile, lucontainstcoutfile,
+  tccontainssvcoutfile, terraincomponentsoutfile, recl_lu, saved_clusters, seed,
+  resolution, classify_type = " ", max_com_length, com_length = NULL,
+  make_plots = F, eha_subset = NULL)
 }
 \arguments{
 \item{catena_file}{Name of file containing mean catena information derived from
@@ -16,6 +16,8 @@ prof_class(catena_file, catena_head_file, dir_out = "./", luoutfile,
 
 \item{catena_head_file}{Name of file containing meta-information for classification
 derived from \code{\link[LUMP]{area2catena}} and adjusted manually (see \code{Notes}).}
+
+\item{svc_column}{name of attribute that holds the information of SVCs for generating tc_contains_svc.dat. Default: 'svc'.}
 
 \item{dir_out}{Character string specifying output directory (will be created;
 nothing will be overwritten).}
