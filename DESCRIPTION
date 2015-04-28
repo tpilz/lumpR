@@ -19,5 +19,6 @@ Depends:
     foreach
 Suggests:
     doMC,
-    doParallel
+    doParallel,
+    RODBC
 License: GPL-3

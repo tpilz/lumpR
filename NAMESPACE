@@ -3,6 +3,7 @@
 export(area2catena)
 export(calc_seasonality)
 export(calc_subbas)
+export(create_db)
 export(lump_grass_post)
 export(lump_grass_prep)
 export(prof_class)
