@@ -7,7 +7,7 @@ CREATE TABLE db_version (
 	new_tables NVARCHAR(250) COMMENT 'tables new in this version',
 	modified_tables NVARCHAR(250) COMMENT 'tables modified in this version',
 	remarks NVARCHAR(250) COMMENT 'additional remarks',
-	date DATETIME,
+	date_time DATETIME,
 	PRIMARY KEY (ID)
 ) ENGINE=InnoDB;
 
@@ -15,7 +15,7 @@ CREATE TABLE db_version (
 CREATE TABLE meta_info (
 pid INT(11) AUTO_INCREMENT NOT NULL COMMENT 'automatic counter, can be used as data-version number',
 mod_date DATETIME COMMENT 'date of modification',
-user NVARCHAR(50) COMMENT 'modified by',
+mod_user NVARCHAR(50) COMMENT 'modified by',
 affected_tables NVARCHAR(255) COMMENT 'modified tables',
 affected_columns NVARCHAR(255) COMMENT 'modified columns',
 remarks NVARCHAR(255) COMMENT 'remarks',
@@ -25,7 +25,7 @@ PRIMARY KEY (pid)
 
 CREATE TABLE vegetation (
 pid INT DEFAULT 0 COMMENT 'primary key',
-desc NVARCHAR(50) COMMENT 'description',
+description NVARCHAR(50) COMMENT 'description',
 stomat_r DOUBLE DEFAULT 0 COMMENT 'stomata resistance without water stress [sec/m]',
 min_suction DOUBLE DEFAULT 0 COMMENT 'suction threshold for water stress effect on resistance (begin of stomata closure) [hPa]',
 max_suction DOUBLE DEFAULT 0 COMMENT 'suction threshold for water stress effect on resistance (total closure of stomata – wilting point) [hPa]',
@@ -65,7 +65,7 @@ fk DOUBLE DEFAULT 0 COMMENT 'field capacity FK [Vol.-]',
 fk63 DOUBLE DEFAULT 0 COMMENT 'field capacity FK63 [Vol.-]',
 nfk DOUBLE DEFAULT 0 COMMENT 'usable field capacity  [Vol.-]',
 theta_s DOUBLE DEFAULT 0 COMMENT 'saturated water content [Vol.-]',
-depth DOUBLE DEFAULT 0 COMMENT 'thickness of soil horizon [mm]',
+thickness DOUBLE DEFAULT 0 COMMENT 'thickness of soil horizon [mm]',
 ks DOUBLE DEFAULT 0 COMMENT 'saturated hydraulic conductivity [mm/d]',
 suction DOUBLE DEFAULT 0 COMMENT 'suction at the wetting front [mm]',
 pore_size_i DOUBLE DEFAULT 0 COMMENT 'pore-size-index',
@@ -78,7 +78,7 @@ UNIQUE (soil_id, position)
 
 CREATE TABLE soils (
 pid INT DEFAULT 0,
-desc NVARCHAR(50),
+description NVARCHAR(50),
 bedrock_flag BOOL NOT NULL COMMENT 'bedrock below deepest horizon',
 alluvial_flag BOOL NOT NULL COMMENT 'this is an alluvial soil',
 b_om DOUBLE DEFAULT 0 COMMENT 'topsoil organic matter content [mass fraction]',
@@ -96,7 +96,7 @@ UNIQUE (pid)
 
 CREATE TABLE subbasins (
 pid INT NOT NULL DEFAULT 0,
-desc NVARCHAR(50),
+description NVARCHAR(50),
 drains_to INT NOT NULL DEFAULT 0 COMMENT 'forein key to subbasin',
 area DOUBLE NOT NULL DEFAULT 0 COMMENT 'area [km**2]',
 a_stream_order TINYINT DEFAULT 0 COMMENT 'stream order (gerated automatically by make_input)',
@@ -110,7 +110,7 @@ CREATE TABLE landscape_units (
 pid INT DEFAULT 0,
 descr NVARCHAR(50),
 kf_bedrock DOUBLE DEFAULT 0 COMMENT 'Hydraulic conductivity of bedrock [mm/d]',
-length DOUBLE DEFAULT 0 COMMENT 'Mean  slope length in landscape unit [m]',
+slopelength DOUBLE DEFAULT 0 COMMENT 'Mean  slope length in landscape unit [m]',
 soil_depth DOUBLE DEFAULT 0 COMMENT 'Mean maximum depth of soil zone [mm]',
 allu_depth DOUBLE DEFAULT 0 COMMENT 'Maximum depth of alluvial soil zone [mm]',
 riverbed_depth DOUBLE DEFAULT 0 COMMENT 'Depth of river bed below terrain component [mm]',
@@ -178,7 +178,7 @@ UNIQUE (tc_id, svc_id)
 
 CREATE TABLE particle_classes (
 class_id INT DEFAULT 0 COMMENT 'continuous number of particle size class',
-desc NVARCHAR(50) COMMENT 'optional name of particle size class (e.g. clay)',
+description NVARCHAR(50) COMMENT 'optional name of particle size class (e.g. clay)',
 upper_limit DOUBLE DEFAULT 0 COMMENT 'upper_limit of respective particle size class [mm]',
 UNIQUE (class_id)
 ) ENGINE=InnoDB;

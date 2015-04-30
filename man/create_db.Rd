@@ -19,15 +19,18 @@ This package uses the ODBC interface to connect to a database. Creating the data
 
  \itemize{
    \item{Install \emph{ODBC} and a \emph{Database Management System} on your computer.
-         Currently supported in this function is \emph{SQLite}.}
+         Currently supported (tested) are: SQLite (v. 3.8.9), MariaDB/MySQL (v. 10.0.17),
+         MS Access.}
    \item{Register an empty database at your ODBC configuration.}
    \item{Install and load the \code{\link{RODBC}} package as interface to R.}
    \item{Call this function to create the tables in the database.}
-   \item{Manual processing of the database and/or use functions coming with LUMP (TODO).}
+   \item{Processing of the database using external software (or R packages)
+         and/or use functions coming with LUMP (TODO).}
  }
+
+ More information can be found at the LUMP package wiki: \url{https://github.com/tpilz/LUMP/wiki}
 }
 \author{
-Tobias Pilz \email{tpilz@uni-potsdam.de}\cr
- Till Francke \email{francke@uni-potsdam.de}
+Tobias Pilz \email{tpilz@uni-potsdam.de}, Till Francke \email{francke@uni-potsdam.de}
 }
 
