@@ -3,11 +3,12 @@
 export(area2catena)
 export(calc_seasonality)
 export(calc_subbas)
-export(create_db)
 export(lump_grass_post)
 export(lump_grass_prep)
 export(prof_class)
 export(rainy_season)
 export(reservoir_outlet)
 export(wasa_reservoir_par)
+export(db_create)
+export(db_fill)
 #useDynLib(LUMP) #temporary fix to allow installation under Windows

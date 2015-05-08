@@ -3,7 +3,7 @@
 #' Function creates tables in a pre-defined empty database to store parameters relevant
 #' for modelling applications with the WASA model.
 #'
-#' @param dbname Name of the database that should be created. See \code{Details}.
+#' @param dbname Name of the data sources registered at ODBC. See \code{Details}.
 #' 
 #' @details
 #'  This package uses the ODBC interface to connect to a database. Creating the database
@@ -27,7 +27,7 @@
 #'  
 #' @export
 #' 
-create_db <- function(
+db_create <- function(
   dbname
 ) {
   
@@ -50,6 +50,7 @@ create_db <- function(
   script <- gsub("\t", "", script)
   script <- paste(script, collapse=" ")
   scriptparts <- strsplit(script, ";")[[1]]
+  scriptparts <- scriptparts[-length(scriptparts)]
   
   # loop over queries
   for(i in seq(along=scriptparts)){
@@ -72,6 +73,8 @@ create_db <- function(
       if(statementa != statement){
         statement <- gsub(", *PRIMARY KEY *\\([^)]*\\)","",statementa)
       }
+      # close with ';' otherwise an error occurs (at least under Linux in my case)
+      statement <- paste0(statement,";")
     }
     
     # MS Access
@@ -95,7 +98,11 @@ create_db <- function(
     
     # create table in database if it does not yet exist
     if(!(tablename %in% sqlTables(con)$TABLE_NAME)) {
-      sqlQuery(con, statement)
+      res <- sqlQuery(con, statement, errors=F)
+      if (res==-1){
+        odbcClose(con)
+        stop("Error in SQL query execution while creating db.")
+      }
     } 
     
   }

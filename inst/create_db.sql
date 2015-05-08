@@ -56,7 +56,7 @@ UNIQUE (pid)
 
 CREATE TABLE horizons (
 pid INT DEFAULT 0,
-descr NVARCHAR(50),
+description NVARCHAR(50),
 soil_id INT DEFAULT 0 COMMENT 'foreign_key soils',
 position INT DEFAULT 0 COMMENT 'position of horizon from top',
 theta_r DOUBLE DEFAULT 0 COMMENT 'residual soil water content [Vol.-]',
@@ -108,7 +108,7 @@ UNIQUE (pid)
 
 CREATE TABLE landscape_units (
 pid INT DEFAULT 0,
-descr NVARCHAR(50),
+description NVARCHAR(50),
 kf_bedrock DOUBLE DEFAULT 0 COMMENT 'Hydraulic conductivity of bedrock [mm/d]',
 slopelength DOUBLE DEFAULT 0 COMMENT 'Mean  slope length in landscape unit [m]',
 soil_depth DOUBLE DEFAULT 0 COMMENT 'Mean maximum depth of soil zone [mm]',
@@ -124,7 +124,7 @@ UNIQUE (pid)
 
 CREATE TABLE terrain_components (
 pid INT DEFAULT 0,
-descr NVARCHAR(50),
+description NVARCHAR(50),
 slope DOUBLE DEFAULT 0 COMMENT 'Slope of terrain component [%]',
 frac_rocky DOUBLE DEFAULT 0 COMMENT 'fraction of impermeable (rock) area in each terrain component [-]',
 beta_fac DOUBLE COMMENT '(optional for erosion modelling) ratio of rill/interrill erosion (computation of the L-factor see Renard et al., 1997, pp.101)',
@@ -135,7 +135,7 @@ UNIQUE (pid)
 
 CREATE TABLE soil_veg_components (
 pid INT DEFAULT 0,
-descr NVARCHAR(50),
+description NVARCHAR(50),
 soil_id INT NOT NULL DEFAULT 0 COMMENT 'foreign key soils',
 veg_id INT NOT NULL DEFAULT 0 COMMENT 'foreign key vegetation',
 musle_k DOUBLE DEFAULT 0 COMMENT 'MUSLE K-factor [(ton acre hr)/(acre ft-ton inch)]',
