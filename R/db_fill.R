@@ -501,12 +501,16 @@ db_fill <- function(
 
 
 
-# Internal functions
+# write data into parameter database
 writedb <- function(con, file, table, overwrite, verbose) {
   if(verbose) {
     print("")
     print(paste0("Writing data into table '", table, "' ..."))
   }
+  
+  # ensure MySQL/MariaDB uses ANSI quotation (double quotes instead of back ticks)
+  if(grepl("MariaDB", odbcGetInfo(con)["DBMS_Name"], ignore.case=T))
+    sqlQuery(con, "SET sql_mode='ANSI';")
   
   # read data
   dat <- read.table(file, header=T, sep="\t")
@@ -528,17 +532,17 @@ writedb <- function(con, file, table, overwrite, verbose) {
   
   # write values into table; in case of an error write a more meaningful error message
   tryCatch(
-    {
-      sqlSave(channel=con, tablename = table, dat=dat, verbose=verbose, 
-              append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
-    }, error = function(e) {
-      odbcClose(con)
-      stop(paste0("En error occured when writing into table '", table, "'. ",
-                  "All values written until error occurence will be kept in the database! ",
-                  "There might be a problem with the input data structure (e.g. gaps), ",
-                  "duplicate entries or entries that already exist in the database table. ",
-                  "Error message of the writing function: ", e))
-    }
+{
+  sqlSave(channel=con, tablename = table, dat=dat, verbose=verbose, 
+          append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
+}, error = function(e) {
+  odbcClose(con)
+  stop(paste0("An error occured when writing into table '", table, "'. ",
+              "All values written until error occurence will be kept in the database! ",
+              "There might be a problem with the input data structure (e.g. gaps), ",
+              "duplicate entries or entries that already exist in the database table. ",
+              "Error message of the writing function: ", e))
+}
   )
-  
+
 } # EOF

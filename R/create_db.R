@@ -41,6 +41,10 @@ db_create <- function(
     print(paste0("Could not connect to database '", dbname, "'. Type 'odbcDataSources()' to see the data sources known to ODBC.",
                  " If you want to connect to a MS Access database make sure you are using 32 bit R."))
   
+  # ensure MySQL/MariaDB uses ANSI quotation (double quotes instead of back ticks)
+  if(grepl("MariaDB", odbcGetInfo(con)["DBMS_Name"], ignore.case=T))
+    sqlQuery(con, "SET sql_mode='ANSI';")
+  
   # read file with sql statements to create tables of the database
   sql_file <- system.file("create_db.sql", package="LUMP")
   script  <- readLines(sql_file)
@@ -93,6 +97,10 @@ db_create <- function(
       statement <- gsub("ENGINE.*", "",statement )
       # alter primary key statement
       statement <- gsub("PRIMARY KEY","CONSTRAINT pk PRIMARY KEY",statement)
+      # BIT instead of BOOL to represent true/false data
+      statement <- gsub("BOOL", "BIT", statement)
+      # no tinyint
+      statement <- gsub("TINYINT", "INT", statement)
     }
     
     
