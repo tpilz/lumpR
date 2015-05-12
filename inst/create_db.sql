@@ -11,6 +11,15 @@ CREATE TABLE db_version (
 	PRIMARY KEY (ID)
 ) ENGINE=InnoDB;
 
+INSERT INTO db_version VALUES (
+	1, 
+	19, 
+	'First version within LUMP R-package', 
+	'none', 
+	'horizons, landscape_units, particle_classes, soils, soil_veg_components, subbasins, terrain_components, vegetation, db_version', 
+	'adjusted data type in db_version and column names for the other tables', 
+	'2015-05-11 17:08:00');
+
 
 CREATE TABLE meta_info (
 pid INT(11) AUTO_INCREMENT NOT NULL COMMENT 'automatic counter, can be used as data-version number',

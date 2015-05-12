@@ -3,7 +3,7 @@
 #' Function creates tables in a pre-defined empty database to store parameters relevant
 #' for modelling applications with the WASA model.
 #'
-#' @param dbname Name of the data sources registered at ODBC. See \code{Details}.
+#' @param dbname Name of the data source (DSN) registered at ODBC. See \code{Details}.
 #' 
 #' @details
 #'  This package uses the ODBC interface to connect to a database. Creating the database

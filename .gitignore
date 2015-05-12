@@ -1,3 +1,6 @@
+.*
+*.[oa]
+*.mod
+*.so
+*~
 .Rproj.user
-.Rhistory
-.RData

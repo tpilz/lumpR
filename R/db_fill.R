@@ -4,7 +4,7 @@
 #' WASA hydrological model into an existing database, preferably created with
 #' \code{\link[LUMP]{db_create}}.
 #' 
-#' @param dbname Name of the data sources registered at ODBC. See \code{Details} of
+#' @param dbname Name of the data source (DSN) registered at ODBC. See \code{Details} of
 #' \code{\link[LUMP]{db_create}}.
 #' 
 #' @param tables \code{vector} with name(s) of the table(s) in the database that should

@@ -11,4 +11,5 @@ export(reservoir_outlet)
 export(wasa_reservoir_par)
 export(db_create)
 export(db_fill)
+export(db_update)
 #useDynLib(LUMP) #temporary fix to allow installation under Windows
