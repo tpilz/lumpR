@@ -66,44 +66,8 @@ db_create <- function(
     tablename <- gsub("[[:space:]]*", "", tablename)
     
     # adjust to specific SQL dialects
-    # SQLite
-    if(grepl("SQLite", odbcGetInfo(con)["DBMS_Name"], ignore.case=T)) {
-      # remove comments
-      statement <- gsub("COMMENT.'[^']*'", "",statement )
-      # remove engine specification
-      statement <- gsub("ENGINE.*", "",statement )
-      # AUTO_INCREMENT is not supported
-      statementa <- gsub("INT\\(11\\) AUTO_INCREMENT NOT NULL", "INTEGER PRIMARY KEY",statement, ignore.case = T)
-      if(statementa != statement){
-        statement <- gsub(", *PRIMARY KEY *\\([^)]*\\)","",statementa)
-      }
-      # close with ';' otherwise an error occurs (at least under Linux in my case)
-      statement <- paste0(statement,";")
-    }
-    
-    # MS Access
-    if(grepl("access", odbcGetInfo(con)["DBMS_Name"], ignore.case=T)) {
-      # adjust column data type syntax
-      statement <- gsub("INT\\([0-9]*\\)", "INT", statement)
-      # nvarchar (i.e. unicode characters) are not supported -> convert to varchar
-      statement <- gsub("NVARCHAR", "VARCHAR", statement)
-      # auto increment syntax
-      statement <- gsub("INT AUTO_INCREMENT", "AUTOINCREMENT", statement)
-      # no comments supported
-      statement <- gsub("COMMENT.'[^']*'", "",statement )
-      # no default values supported
-      statement <- gsub("DEFAULT 0", "",statement )
-      # remove engine specification
-      statement <- gsub("ENGINE.*", "",statement )
-      # alter primary key statement
-      statement <- gsub("PRIMARY KEY","CONSTRAINT pk PRIMARY KEY",statement)
-      # BIT instead of BOOL to represent true/false data
-      statement <- gsub("BOOL", "BIT", statement)
-      # no tinyint
-      statement <- gsub("TINYINT", "INT", statement)
-    }
-    
-    
+    statement <- sql_dialect(con, statement)
+
     # create table in database if it does not yet exist
     if(!(tablename %in% sqlTables(con)$TABLE_NAME)) {
       res <- sqlQuery(con, statement, errors=F)

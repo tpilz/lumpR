@@ -33,6 +33,19 @@ db_update <- function(
     print(paste0("Could not connect to database '", dbname, "'. Type 'odbcDataSources()' to see the data sources known to ODBC.",
                  " If you want to connect to a MS Access database make sure you are using 32 bit R."))
   
+  # ensure MySQL/MariaDB uses ANSI quotation (double quotes instead of back ticks)
+  if(grepl("MariaDB", odbcGetInfo(con)["DBMS_Name"], ignore.case=T))
+    sqlQuery(con, "SET sql_mode='ANSI';")
+  
+  # check current db version
+  db_ver <- sqlFetch(con, "db_version")$version
+  if(max(db_ver) == 19)
+    stop("Database is up to date (version 19). Nothing to do.")
+  if(max(db_ver) < 18)
+    stop("Database needs to be version 18 for updating. Please contact the authors.")
+  
+  
+  
   # read file with sql statements
   sql_file <- system.file("update_db_v19.sql", package="LUMP")
   script  <- readLines(sql_file)
@@ -49,11 +62,32 @@ db_update <- function(
     
     statement <- scriptparts[i]
     
+    # check if column name already has been updated (that would cause an error by sqlQuery())
+    if(grepl("alter table", statement, ignore.case = TRUE)) {
+      split <- strsplit(statement, "[ ]+")[[1]]
+      pos <- grep("change", split, ignore.case = T)
+      tbl <- split[pos-1]
+      col_old <- split[pos+1]
+      col_new <- split[pos+2]
+      tbl_cols <- sqlColumns(con, tbl)$COLUMN_NAME
+      if (!any(grepl(paste0("^", col_old, "$"), tbl_cols, ignore.case=T)) & 
+           any(grepl(paste0("^", col_new, "$"), tbl_cols, ignore.case=T))) {
+        warning(paste0("In table '", tbl, "' column '", col_old, "' has already been updated to '",
+                       col_new, "'. Omitting that step."))
+        next
+      }
+    }
+    
+    
+    # adjust to specific SQL dialects
+    statement <- sql_dialect(con, statement)
+      
+    
     # send query to database
     res <- sqlQuery(con, statement, errors=F)
     if (res==-1){
       odbcClose(con)
-      stop("Error in SQL query execution while creating db.")
+      stop("Error in SQL query execution while updating db.")
     }
   }
   
