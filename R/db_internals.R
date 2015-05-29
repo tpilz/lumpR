@@ -45,7 +45,8 @@ sql_dialect <- function(con, statement) {
 
 
 
-# write data into parameter database
+
+# write data from external file into parameter database
 writedb <- function(con, file, table, overwrite, verbose) {
   if(verbose) {
     print("")
@@ -89,4 +90,79 @@ writedb <- function(con, file, table, overwrite, verbose) {
 }
   )
 
+} # EOF
+
+
+
+
+
+# filter disaggregated areas by areal fraction threshold
+filter_small_areas <- function(con, table, thres, verbose) {
+  if(verbose)
+    print(paste0("-> Processing table '", table, "' ..."))
+  
+  dat_contains <- sqlFetch(con, table)
+
+  # sum of 'fraction' should be 1 for every higher level class (rounding error allowed)
+  dat_contains_sum <- tapply(dat_contains$fraction, list(parent=dat_contains[[1]]), sum)
+  if(any(dat_contains_sum > 1.05 | dat_contains_sum < 0.99))
+    stop(paste0("Before removal of tiny areas: sum of fractions per higher level unit not always equal to one. Check table '", table, "'!"))
+  
+  # remove datasets where fraction < area_thresh
+  rows_rm <- which(dat_contains$fraction < thres)
+  
+  # further processing if any fraction < area_thresh only
+  if(!any(rows_rm)) {
+    print(paste0("-> In '", table, "' no fraction smaller ", thres, " could be found."))
+  } else {
+    
+    print(paste0("-> The following datasets will be removed from '", table, "':"))
+    print(dat_contains[rows_rm,])
+    
+    # keep datasets where LUs equal to more than 10% of the respective parent class' area would be removed
+    lu_rm_sum <- tapply(dat_contains$fraction[rows_rm], list(parent=dat_contains[[1]][rows_rm]), sum)
+    if(any(lu_rm_sum > 0.1)) {
+      keep_lu <- which(lu_rm_sum > 0.1)
+      print(paste0("-> For '", colnames(dat_contains)[1], "' ", paste(names(lu_rm_sum)[keep_lu], collapse=", "),
+                   " more than 10% of the area would be removed due to too many small '", colnames(dat_contains)[2], ". These datasets will be kept."))
+      
+      rows_rm_keep <- which(dat_contains[[1]][rows_rm] %in% names(lu_rm_sum)[keep_lu])
+      rows_rm <- rows_rm[-rows_rm_keep]
+      if (!any(rows_rm)) {
+        print(paste0("-> For '", table, "' nothing to remove or choose smaller value for 'area_thresh' and re-run check."))
+        return(NULL)
+      }
+        
+    }
+    
+    # remove datasets
+    dat_contains_rm <- dat_contains[-rows_rm,]
+    
+    # re-calculate areal fractions
+    if(verbose)
+      print("-> Re-calculate fraction ...")
+    dat_contains_sum <- tapply(dat_contains_rm$fraction, list(parent=dat_contains_rm[[1]]), sum)
+    dat_contains_new <- dat_contains_rm
+    for (s in 1:nrow(dat_contains_rm))
+      dat_contains_new$fraction[s] <- dat_contains_rm$fraction[s] / dat_contains_sum[paste0(dat_contains_rm[[1]][s])]
+    
+    # write updated data into database
+    tryCatch(
+    {
+      sqlQuery(con, paste0("delete from ", table))
+      sqlSave(channel=con, tablename = table, dat=dat_contains_new, verbose=verbose, 
+              append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
+    }, error = function(e) {
+      odbcClose(con)
+      stop(paste0("An error occured when updating table '", table, "'. ",
+                  "Error message of the writing function: ", e))
+    }
+    )
+
+
+  if(verbose)
+    print("-> OK.")
+  } # if any fraction < area_thresh
+
+  
 } # EOF

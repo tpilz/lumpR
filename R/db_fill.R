@@ -483,8 +483,10 @@ db_fill <- function(
   
   # check database (all 'tables' have to exist)
   check_tbl <- tables %in% sqlTables(con)$TABLE_NAME
-  if (any(!check_tbl))
+  if (any(!check_tbl)) {
+    odbcClose(con)
     stop(paste0("Table(s) ", paste(tables[which(!check_tbl)], sep=", "), " could not be found in database '", dbname, "'."))
+  }
  
   
   # write data into database (use internal function defined at the end of this file)

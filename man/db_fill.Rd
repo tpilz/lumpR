@@ -11,7 +11,7 @@ db_fill(dbname, tables = c("r_subbas_contains_lu", "subbasins",
   overwrite = FALSE, verbose = FALSE)
 }
 \arguments{
-\item{dbname}{Name of the data sources registered at ODBC. See \code{Details} of
+\item{dbname}{Name of the data source (DSN) registered at ODBC. See \code{Details} of
 \code{\link[LUMP]{db_create}}.}
 
 \item{tables}{\code{vector} with name(s) of the table(s) in the database that should

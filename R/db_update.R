@@ -47,7 +47,7 @@ db_update <- function(
   
   
   # read file with sql statements
-  sql_file <- system.file("update_db_v19.sql", package="LUMP")
+  sql_file <- system.file("database/update_db_v19.sql", package="LUMP")
   script  <- readLines(sql_file)
   
   # identify individual queries of the script
