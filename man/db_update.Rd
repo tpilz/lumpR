@@ -4,19 +4,21 @@
 \alias{db_update}
 \title{Update parameter database}
 \usage{
-db_update(dbname)
+db_update(dbname, to_ver = Inf)
 }
 \arguments{
 \item{dbname}{Name of the data source (DSN) registered at ODBC.}
+
+\item{to_ver}{Version number to update to (default: newest version available).}
 }
 \description{
-Function updates the parameter database to the latest version.
+Function updates the parameter database to the specified (or latest version).
 }
 \details{
 This function currently is only relevant to users who already have a parameter
    database from times before LUMP was an R package. In this case make sure you have
-   version 18 of the database (contact the authors if you have an earlier version).
-   Apply this function to update it to the latest version 19.
+   version 18 of the database (Do manual updates first, see db_version.txt).
+   Apply this function to update it to the desired version.
 
    It is planned to add further functionality to this function when the database
    structure is being further developed.
