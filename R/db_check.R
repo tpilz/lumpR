@@ -140,9 +140,9 @@ db_check <- function(
   if(verbose)
     print("Check database version ...")
   db_ver <- sqlFetch(con, "db_version")$version
-  if(max(db_ver) != 19) {
+  if(max(db_ver) < 19) {
     odbcClose(con)
-    stop("Database version is not equal to 19. Make sure you use the latest database version 19 (consider function db_update())!")
+    stop("Database version is prior to version 19. Make sure you use the latest database version (consider function db_update())!")
   }
   if(verbose)
     print("OK.")
@@ -435,6 +435,11 @@ db_check <- function(
     svc_water <- dat_svc$pid[rows_water]
     rows_contains_water <- which(dat_contains$svc_id %in% svc_water)
     
+    if (length(rows_contains_water)==0)
+    {
+      warning("No water-SVCs found, nothing done.")
+      return()              
+    }
     print("-> The following datasets will be removed from 'r_tc_contains_svc' ('fraction' will be updated):")
     print(dat_contains[rows_contains_water,])
     

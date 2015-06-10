@@ -1,7 +1,7 @@
 Package: LUMP
 Type: Package
 Title: Landscape Unit Mapping Program
-Version: 0.12.7
+Version: 0.12.8
 Date: 2015-06-10
 Author: Tobias Pilz <tpilz@uni-potsdam.de>
 Maintainer: Tobias Pilz <tpilz@uni-potsdam.de>
