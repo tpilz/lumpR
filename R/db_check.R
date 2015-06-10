@@ -1,6 +1,6 @@
 #'  Check parameter database for consistency
 #'  
-#'  Function includes several options to check the parameter database for completeness
+#'  Function includes several options to check and correct the parameter database for completeness
 #'  and consistency.
 #'  
 #'  @param dbname Name of the data source (DSN) registered at ODBC.
@@ -71,7 +71,8 @@
 #'  \bold{remove_water_svc}\cr
 #'  Remove SVCs marked as water from table 'r_tc_contains_svc', i.e. those SVCs where
 #'  in table 'soil_veg_components' column 'special_area' is equal to 1. Areal fractions
-#'  will be updated.
+#'  will be updated (normalized to 1). Requires column 'special_area' to be set correctly
+#'  (e.g. by running option 'special_area' before)
 #'  
 #'  \bold{compute_rocky_frac}\cr
 #'  Compute rocky fractions, i.e. fractions of impervious surfaces, for TCs (table
@@ -339,7 +340,7 @@ db_check <- function(
     
     # get SVC data
     dat_svc <- sqlFetch(con, "soil_veg_components")
-    
+    changes_made=FALSE
     
     # vegetation
     if("vegetation" %in% option$special_area$reference_tbl) {
@@ -354,12 +355,13 @@ db_check <- function(
         svc_rows_adj <- which(dat_svc$veg_id == option$special_area$ref_id[r])
         
         if(!any(svc_rows_adj)){
-          odbcClose(con)
-          stop(paste0("Option 'special_area': Vegetation id ", option$special_area$ref_id[r], " could not be found in column 'veg_id' of table 'soil_veg_components'."))
+          warning(paste0("Option 'special_area': Vegetation id ", option$special_area$ref_id[r], " could not be found in column 'veg_id' of table 'soil_veg_components'."))
+          next
         }
         
         # set special_area flag
         dat_svc$special_area[svc_rows_adj] <- option$special_area$special_id[r] 
+        changes_made=TRUE
       }
       
     } # end vegetation
@@ -378,34 +380,39 @@ db_check <- function(
         svc_rows_adj <- which(dat_svc$soil_id == option$special_area$ref_id[r])
         
         if(!any(svc_rows_adj)){
-          odbcClose(con)
-          stop(paste0("Option 'special_area': Soil id ", option$special_area$ref_id[r], " could not be found in column 'soil_id' of table 'soil_veg_components'."))
+          warning(paste0("Option 'special_area': Soil id ", option$special_area$ref_id[r], " could not be found in column 'soil_id' of table 'soil_veg_components'."))
+          next
         }
         
         # set special_area flag
         dat_svc$special_area[svc_rows_adj] <- option$special_area$special_id[r] 
+        changes_made=TRUE
       }
       
     } # end soils
     
     
     # update table
-    if(verbose)
-      print("-> Updating table 'soil_veg_components'...")
-    tryCatch(
-    {
-      sqlQuery(con, "delete from soil_veg_components")
-      sqlSave(channel=con, tablename = "soil_veg_components", dat=dat_svc, verbose=verbose, 
-              append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
-    }, error = function(e) {
-      odbcClose(con)
-      stop(paste0("An error occured when updating table 'soil_veg_components'. ",
-                  "Error message of the writing function: ", e))
-    }
-    )
     
-    if(verbose)
-      print("OK.")
+    if(changes_made)
+    {
+      if(verbose)
+        print("-> Updating table 'soil_veg_components'...")
+      tryCatch(
+      {
+        sqlQuery(con, "delete from soil_veg_components")
+        sqlSave(channel=con, tablename = "soil_veg_components", dat=dat_svc, verbose=verbose, 
+                append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
+        if(verbose) print("Table 'soil_veg_components' updated")
+      }, error = function(e) {
+        odbcClose(con)
+        stop(paste0("An error occured when updating table 'soil_veg_components'. ",
+                    "Error message of the writing function: ", e))
+      })
+    }  
+    else
+      if(verbose)
+        print("Nothing done.")
     
   } # check special_areas
 

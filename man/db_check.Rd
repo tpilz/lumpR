@@ -23,7 +23,7 @@ db_check(dbname, check = c("filter_small_areas", "tc_slope", "special_areas",
  external log file.}
 }
 \description{
-Function includes several options to check the parameter database for completeness
+Function includes several options to check and correct the parameter database for completeness
  and consistency.
 }
 \details{
@@ -82,7 +82,8 @@ The following checks are currently included and can be specified via argument \c
  \bold{remove_water_svc}\cr
  Remove SVCs marked as water from table 'r_tc_contains_svc', i.e. those SVCs where
  in table 'soil_veg_components' column 'special_area' is equal to 1. Areal fractions
- will be updated.
+ will be updated (normalized to 1). Requires column 'special_area' to be set correctly
+ (e.g. by running option 'special_area' before)
 
  \bold{compute_rocky_frac}\cr
  Compute rocky fractions, i.e. fractions of impervious surfaces, for TCs (table
