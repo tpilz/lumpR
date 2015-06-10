@@ -52,8 +52,8 @@ The following checks are currently included and can be specified via argument \c
  The first being one of \{1,2,3\}:\cr
  1: Remove TCs with slope <= 0 from 'r_lu_contains_tc' whereas areal fraction within
  the LU must be smaller than a defined threshold (second value of the vector).\cr
- 2: Change slope in \% of affected TCs to a small positive value specified as second
- value of the vector.\cr
+ 2: Where slope is 0, change it to small positive value specified as second
+ value of the vector (interpreted as slope in %).\cr
  3: A combination of the two former choices whereas option 1 is applied before
  option 2 and the second value of the vector defining the areal threshold and the
  third giving the slope replacement value. This is the default setting with
