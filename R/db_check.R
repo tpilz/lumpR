@@ -627,7 +627,7 @@ db_check <- function(
     dat_lu_t <- merge(dat_lu_t, data.frame(id=names(rocky_lu), rocky=rocky_lu), by.x="pid", by.y="id")
     
     # estimate proxy
-    proxy <- dat_lu_t$slopelength * (1-dat_lu_t$rocky) / dat_lu_t$slope
+    proxy <- dat_lu_t$length * (1-dat_lu_t$rocky) / dat_lu_t$slope
     
     # estimate frgw_delay
     dat_lu$frgw_delay <- proxy * option$total_mean_delay / mean(proxy)
