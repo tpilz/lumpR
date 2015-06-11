@@ -81,6 +81,8 @@
 #'  column 'position' equal to 1 and 'coarse_frag' equal to 1). These undergo special
 #'  treatment in the WASA model. SVCs with soil profile containing 100\% coarse
 #'  fragments in topmost horizon will be marked as impervious.
+#'  If the column 'frac_rocky' already contains values, the computed values are added to these.
+#'  In any case, this step should be followed by 'remove_impervious_svc'.
 #'  
 #'  \bold{remove_impervious_svc}\cr
 #'  Remove SVCs marked as impervious from table 'r_tc_contains_svc', i.e. those SVCs where
@@ -489,6 +491,10 @@ db_check <- function(
     dat_hor <- sqlFetch(con, "horizons")
     dat_contains <- sqlFetch(con, "r_tc_contains_svc")
     
+    dat_tc$frac_rocky[is.na(dat_tc$frac_rocky)] = 0 #set NAs to 0
+    if (max(dat_tc$frac_rocky)>0)
+      warning("Column 'frac_rocky' in table 'terrain_components' already contians some values. The coputed fractions will be added to these.")
+
     # identify soils with 100% coarse fragments in topmost horizon
     soil_impervious <- dat_hor$soil_id[which(dat_hor$position == 1 & dat_hor$coarse_frag == 1)]
     
@@ -510,11 +516,10 @@ db_check <- function(
     rows_tc_impervious <- which(dat_contains$svc_id %in% svc_impervious)
     
     # compute frac_rocky for every TC
-    dat_tc$frac_rocky <- 0
     tc_rocky <- tapply(dat_contains$fraction[rows_tc_impervious], list(parent=dat_contains$tc_id[rows_tc_impervious]), sum)
     for (t in 1:length(tc_rocky)) {
       row <- which(dat_tc$pid == names(tc_rocky)[t])
-      dat_tc$frac_rocky[row] <- tc_rocky[t]
+      dat_tc$frac_rocky[row] <- dat_tc$frac_rocky[row] + tc_rocky[t]
     }
     
     

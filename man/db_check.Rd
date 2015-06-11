@@ -92,6 +92,8 @@ The following checks are currently included and can be specified via argument \c
  column 'position' equal to 1 and 'coarse_frag' equal to 1). These undergo special
  treatment in the WASA model. SVCs with soil profile containing 100\% coarse
  fragments in topmost horizon will be marked as impervious.
+ If the column 'frac_rocky' already contains values, the computed values are added to these.
+ In any case, this step should be followed by 'remove_impervious_svc'.
 
  \bold{remove_impervious_svc}\cr
  Remove SVCs marked as impervious from table 'r_tc_contains_svc', i.e. those SVCs where
