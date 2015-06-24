@@ -264,8 +264,8 @@ lump_grass_post <- function(
     sub_stats[,"area"] <- sub_stats[,"area"]/1e6 #convert m? to km?
       
     # calculate stats of LUs in each subbasin and subbasin drainage ("drains_to")
-    sub_stats <- cbind(sub_stats, NA, NA, NA)
-    colnames(sub_stats)[c(3:5)] <- c("drains_to", "lag_time", "retention")
+    sub_stats <- cbind(sub_stats, NA, NA, NA, NA, NA)
+    colnames(sub_stats)[c(3:7)] <- c("drains_to", "lag_time", "retention", "description", "a_stream_order")
     sub_lu_stats <- NULL
     execGRASS("g.remove", rast="MASK_t,MASK", flags=c("f"))  
     for (SUB in sub_stats[,1]) {
@@ -369,13 +369,19 @@ if (lu_ofile != "")
     tryCatch({
 # load lu file
     #lu_dat <- read.table(paste(dir_out,luoutfile,sep="/"), header=T)
-    
-    # calculate mean soil depth for every LU
+      
+  # identify LUs
   lu_ids <- execGRASS("r.stats", input=lu, flags=c("n"), intern=TRUE)
   if (grepl(pattern="[0-9]+.*[\b]+",x=tail(lu_ids, n=1)))
     lu_ids <- as.numeric(lu_ids[-length(lu_ids)]) #last line contains progress indicator, remove
   
+  # initialise LU parameter output object
+  lu_par <- matrix(NA, ncol=11, nrow=length(lu_ids), 
+                   dimnames=list(NULL, c("pid", "description", "kf_bedrock", "slopelength",
+                                         "soil_depth", "allu_depth", "riverbed_depth",
+                                         "gw_flag", "gw_dist", "frgw_delay", "sdr_lu")))
   
+  # calculate mean soil depth for every LU
   if (!is.null(soil_depth) && soil_depth!="")
     {
       cmd_out <- execGRASS("r.univar", zones=lu, map=soil_depth, fs=",", flags=c("t"),intern=T)
@@ -387,8 +393,10 @@ if (lu_ofile != "")
       lu_depth <- as.numeric(cmd_out[,"mean"]) * 10
       lu_ids = as.numeric(cmd_out[,"zone"])
     } else lu_depth=NA
-    lu_par <- cbind(lu_ids, lu_depth)
-    colnames(lu_par) <- c("pid", "soil_depth")
+
+  lu_par[,"pid"] <- lu_ids
+  lu_par[,"soil_depth"] <- lu_depth
+
   
   if (!is.null(sdr) && sdr!="")
   {
@@ -400,21 +408,20 @@ if (lu_ofile != "")
                       dimnames=list(NULL, cmd_out[[1]]))
     sdr_vals <- as.numeric(cmd_out[,"mean"]) 
     lu_ids = as.numeric(cmd_out[,"zone"])
-    lu_par <- cbind(lu_par, sdr_lu=sdr_vals[match(lu_par[,"pid"], lu_ids)])
+    sdr_lu <- sdr_vals[match(lu_par[,"pid"], lu_ids)]
+    lu_par[,"sdr_lu"] <- sdr_lu
   }
   
   
     # groundwater parameters (so far only default values)
+    # TODO: alternative approaches?
     # groundwater for every LU
-    gw_flag <- rep(1, length(lu_depth))
+    lu_par[,"gw_flag"] <- rep(1, length(lu_depth))
     # initial depth of groundwater below surface: 1000 mm
-    gw_dist <- rep(1000, length(lu_depth))
-    # storage coefficient for groundwater outflow [days]
-    frgw_delay <- rep(200, length(lu_depth))
-  
-    # combine
-    lu_par <- cbind(lu_par,gw_flag,gw_dist,frgw_delay)
-    
+    lu_par[,"gw_dist"] <- rep(1000, length(lu_depth))
+    # storage coefficient for groundwater outflow [days]; TODO: estimate from baseflow analysis?!
+    lu_par[,"frgw_delay"] <- rep(200, length(lu_depth))
+
   
     # write output
     write.table(lu_par, paste(dir_out, lupar_ofile, sep="/"), quote=F, row.names=F, sep="\t")

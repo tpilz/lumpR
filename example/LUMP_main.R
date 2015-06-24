@@ -125,7 +125,7 @@ lump_grass_prep(
   mask_corr = "MASK_corr",
   svc = "svc",
   dir_out = output_dir,
-  svc_ofile = "soil_vegetation_components.csv",
+  svc_ofile = "soil_vegetation_components.dat",
   # PARAMETERS #
   eha_thres = 3000,
   sizefilter = 30,

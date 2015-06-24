@@ -83,8 +83,9 @@
 #'    
 #'  \bold{landscape_units}\cr
 #'  Landscape Unit parameters. Information can be obtained from \code{luoutfile}
-#'  created by \code{\link[LUMP]{prof_class}} and \code{lupar_ofile} created by
-#'  \code{\link[LUMP]{lump_grass_post}}. Columns:
+#'  created by \code{\link[LUMP]{prof_class}} (column 'x_length' which is identical
+#'  to 'slopelength') and \code{lupar_ofile} created by \code{\link[LUMP]{lump_grass_post}}
+#'  (all other information). Merge information by hand. Columns:
 #'  
 #'    \emph{pid}\cr
 #'    \code{integer}. Landscape Unit ID.
@@ -390,16 +391,16 @@
 #'    \emph{manning_n}\cr
 #'    \code{double}. Mannings n roughness coefficient for overland flow.
 #'    
-#'    \emph{c_musle_c1}\cr
+#'    \emph{musle_c1}\cr
 #'    \code{double}. \emph{Optional for Erosion modelling}.
 #'    
-#'    \emph{c_musle_c2}\cr
+#'    \emph{musle_c2}\cr
 #'    \code{double}. \emph{Optional for Erosion modelling}.  
 #'    
-#'    \emph{c_musle_c3}\cr
+#'    \emph{musle_c3}\cr
 #'    \code{double}. \emph{Optional for Erosion modelling}.  
 #'    
-#'    \emph{c_musle_c4}\cr
+#'    \emph{musle_c4}\cr
 #'    \code{double}. \emph{Optional for Erosion modelling}.
 #'    
 #'    

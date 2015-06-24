@@ -4,19 +4,17 @@
 #   - function to create WASA input files from database
 #   - finish db_check
 #   - solve DBMS issues (see github)
-#   - adjust LUMP output files to needs of db_fill() (e.g. columns names, file structures, etc.)
 #   - standard values for database (e.g. particle classes, standard soil and landcover parametrizations, ...)
 
 library(LUMP)
 
 # create database
 # consider LUMP wiki for necessary pre-processing steps: https://github.com/tpilz/LUMP/wiki/02-Databases-and-ODBC
-dbname <- "esera_2014_B" # DSN registered at ODBC
+dbname <- "test_wasa" # DSN registered at ODBC
 db_create(dbname)
 
 
 # LUMP output and other information (e.g. soil parameters) to database
-# ATTENTION: some LUMP output (e.g. column names) still have to be adjusted manually
 # further information see function doc
 ?db_fill
 db_fill(dbname=dbname,

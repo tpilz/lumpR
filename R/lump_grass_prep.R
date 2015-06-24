@@ -248,7 +248,7 @@ lump_grass_prep <- function(
 
     # header of svc output file
     svc_out <- matrix(NA, ncol=13, nrow=nrow(svc_cats_mat))
-    svc_out_head <- c("pid", "descr", "soil_id", "veg_id", "musle_k", "musle_c1","musle_c2","musle_c3","musle_c4","musle_p","coarse_frac","manning_n","special_area")
+    svc_out_head <- c("pid", "description", "soil_id", "veg_id", "musle_k", "musle_c1","musle_c2","musle_c3","musle_c4","musle_p","coarse_frac","manning_n","special_area")
     colnames(svc_out) <- svc_out_head
     
     # merge data with output mat
@@ -272,7 +272,7 @@ lump_grass_prep <- function(
 
 
     # write output
-    write.table(svc_out, paste(dir_out, svc_ofile, sep="/"), quote=F, sep=",", row.names=F)
+    write.table(svc_out, paste(dir_out, svc_ofile, sep="/"), quote=F, sep="\t", row.names=F)
 
 
 
