@@ -6,8 +6,9 @@
 \usage{
 db_check(dbname, check = c("filter_small_areas", "tc_slope", "special_areas",
   "remove_water_svc", "compute_rocky_frac", "remove_impervious_svc",
-  "proxy_frgw_delay"), option = list(area_thresh = 0.01, treat_slope = c(3,
-  0.01, 0.1)), verbose = FALSE)
+  "proxy_frgw_delay", "delete_obsolete", "completeness"),
+  option = list(area_thresh = 0.01, treat_slope = c(3, 0.01, 0.1)),
+  verbose = FALSE)
 }
 \arguments{
 \item{dbname}{Name of the data source (DSN) registered at ODBC.}
@@ -111,6 +112,16 @@ The following checks are currently included and can be specified via argument \c
  Total mean groundwater delay in \emph{days} estimated a priori for the whole
  catchment. All proxy values are scaled, so their mean matches this value (see formula
  above).
+
+ \bold{delete_obsolete}\cr
+ Delete obsolete datasets. I.e. special area SVCs, LUs not in any subbasin, TCs
+ not in any LU, and SVCs not in any TC.
+
+ \bold{completeness}\cr
+ Check database for completeness. I.e. check if all IDs in the \emph{contains}-tables
+ exist within the repective referenced tables. Furthermore, check if all vegetation
+ types and soils exist as referenced within 'soil_veg_components', and if all
+ soils exist as referenced within 'horizons'.
 }
 \author{
 Tobias Pilz \email{tpilz@uni-potsdam.de}, Till Francke \email{francke@uni-potsdam.de}

@@ -101,6 +101,16 @@
 #'  catchment. All proxy values are scaled, so their mean matches this value (see formula
 #'  above).
 #'  
+#'  \bold{delete_obsolete}\cr
+#'  Delete obsolete datasets. I.e. special area SVCs, LUs not in any subbasin, TCs
+#'  not in any LU, and SVCs not in any TC.
+#'  
+#'  \bold{completeness}\cr
+#'  Check database for completeness. I.e. check if all IDs in the \emph{contains}-tables
+#'  exist within the repective referenced tables. Furthermore, check if all vegetation
+#'  types and soils exist as referenced within 'soil_veg_components', and if all
+#'  soils exist as referenced within 'horizons'.
+#'  
 #'  
 #'  @author 
 #'  Tobias Pilz \email{tpilz@@uni-potsdam.de}, Till Francke \email{francke@@uni-potsdam.de}
@@ -110,7 +120,8 @@
 db_check <- function(
   dbname,
   check = c("filter_small_areas", "tc_slope", "special_areas", "remove_water_svc",
-            "compute_rocky_frac", "remove_impervious_svc", "proxy_frgw_delay"),
+            "compute_rocky_frac", "remove_impervious_svc", "proxy_frgw_delay",
+            "delete_obsolete", "completeness"),
   option = list(area_thresh=0.01,
                 treat_slope=c(3,0.01,0.1)),
   verbose=FALSE
@@ -658,10 +669,279 @@ db_check <- function(
 
 
 ###############################################################################
+### delete obsolete datasets
+  if (any(grepl("delete_obsolete", check))) {
+    if(verbose)
+      print("Delete obsolete datasets ...")
+    
+    
+    ### LUs not in any subbasin
+    
+    # get data
+    dat_sub_contains <- sqlFetch(con, "r_subbas_contains_lu")
+    dat_lu <- sqlFetch(con, "landscape_units")
+    
+    # identify LUs not in any subbasin
+    r_del <- which(!(dat_lu$pid %in% dat_sub_contains$lu_id))
+    
+    if(any(r_del)) {
+      print("-> The following datasets will be removed from 'landscape_units':")
+      print(dat_lu[r_del,])
+      
+      dat_lu <- dat_lu[-r_del,]
+      
+      # update database
+      tryCatch(
+      {
+        sqlQuery(con, "delete from landscape_units")
+        sqlSave(channel=con, tablename = "landscape_units", dat=dat_lu, verbose=verbose, 
+                append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
+      }, error = function(e) {
+        odbcClose(con)
+        stop(paste0("An error occured when updating table 'landscape_units'. ",
+                    "Error message of the writing function: ", e))
+      }
+      )
+      
+    } else {
+      if (verbose)
+        print("-> All LUs appear in subbasins.")
+    }
+    
+    
+    ### TCs not in any LU
+    
+    # get data
+    dat_lu_contains <- sqlFetch(con, "r_lu_contains_tc")
+    dat_tc <- sqlFetch(con, "terrain_components")
+    
+    # identify TCs not in any LU
+    r_del <- which(!(dat_tc$pid %in% dat_lu_contains$tc_id))
+    
+    if(any(r_del)) {
+      print("-> The following datasets will be removed from 'terrain_components':")
+      print(dat_tc[r_del,])
+      
+      dat_tc <- dat_tc[-r_del,]
+      
+      # update database
+      tryCatch(
+      {
+        sqlQuery(con, "delete from terrain_components")
+        sqlSave(channel=con, tablename = "terrain_components", dat=dat_tc, verbose=verbose, 
+                append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
+      }, error = function(e) {
+        odbcClose(con)
+        stop(paste0("An error occured when updating table 'terrain_components'. ",
+                    "Error message of the writing function: ", e))
+      }
+      )
+
+    } else {
+      if (verbose)
+        print("-> All TCs appear in LUs.")
+    }
+    
+    
+    ### SVCs not in any TC and SVCs from special areas
+    
+    # get data
+    dat_tc_contains <- sqlFetch(con, "r_tc_contains_svc")
+    dat_svc <- sqlFetch(con, "soil_veg_components")
+    
+    # identify SVCs not in any TC or special areas
+    r_del <- which(!(dat_svc$pid %in% dat_tc_contains$svc_id) | dat_svc$special_area != 0)
+    
+    if(any(r_del)) {
+      print("-> The following datasets will be removed from 'soil_veg_components':")
+      print(dat_svc[r_del,])
+      
+      dat_svc <- dat_svc[-r_del,]
+      
+      # update database
+      tryCatch(
+      {
+        sqlQuery(con, "delete from soil_veg_components")
+        sqlSave(channel=con, tablename = "soil_veg_components", dat=dat_svc, verbose=verbose, 
+                append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
+      }, error = function(e) {
+        odbcClose(con)
+        stop(paste0("An error occured when updating table 'soil_veg_components'. ",
+                    "Error message of the writing function: ", e))
+      }
+      )
+
+    } else {
+      if (verbose)
+        print("-> All SVCs appear in TCs.")
+    }
+    
+    
+    
+    if(verbose)
+      print("OK.")
+    
+  } # check delete_obsolete
+
+
+
+
+###############################################################################
+### check completeness
+  if (any(grepl("completeness", check))) {
+    if(verbose)
+      print("Check completeness ...")
+    
+    
+    ### r_subbas_contains_lu
+    
+    # get data
+    dat_sub_contains <- sqlFetch(con, "r_subbas_contains_lu")
+    dat_lu <- sqlFetch(con, "landscape_units")
+    dat_sub <- sqlFetch(con, "subbasins")
+    
+    # check subbasins
+    r_miss <- which(!(dat_sub_contains$subbas_id %in% dat_sub$pid))
+    
+    if(any(r_miss)) {
+      print("-> The following subbasins appear in 'r_subbas_contains_lu' but not in 'subbasins':")
+      print(paste("Subbasin IDs:", unique(dat_sub_contains$subbas_id[r_miss])))
+    }
+    
+    # check LUs
+    r_miss <- which(!(dat_sub_contains$lu_id %in% dat_lu$pid))
+    
+    if(any(r_miss)) {
+      print("-> The following LUs appear in 'r_subbas_contains_lu' but not in 'landscape_units':")
+      print(paste("LU IDs:", unique(dat_sub_contains$lu_id[r_miss])))
+    }
+    
+    
+    ### r_lu_contains_tc
+    
+    # get data
+    dat_lu_contains <- sqlFetch(con, "r_lu_contains_tc")
+    dat_lu <- sqlFetch(con, "landscape_units")
+    dat_tc <- sqlFetch(con, "terrain_components")
+    
+    # check LUs
+    r_miss <- which(!(dat_lu_contains$lu_id %in% dat_lu$pid))
+    
+    if(any(r_miss)) {
+      print("-> The following LUs appear in 'r_lu_contains_tc' but not in 'landscape_units':")
+      print(paste("LU IDs:", unique(dat_lu_contains$lu_id[r_miss])))
+    }
+    
+    # check TCs
+    r_miss <- which(!(dat_lu_contains$tc_id %in% dat_tc$pid))
+    
+    if(any(r_miss)) {
+      print("-> The following TCs appear in 'r_lu_contains_tc' but not in 'terrain_components':")
+      print(paste("TC IDs:", unique(dat_lu_contains$tc_id[r_miss])))
+    }
+    
+    
+    ### r_tc_contains_svc
+    
+    # get data
+    dat_tc_contains <- sqlFetch(con, "r_tc_contains_svc")
+    dat_svc <- sqlFetch(con, "soil_veg_components")
+    dat_tc <- sqlFetch(con, "terrain_components")
+    
+    # check TCs
+    r_miss <- which(!(dat_tc_contains$tc_id %in% dat_tc$pid))
+    
+    if(any(r_miss)) {
+      print("-> The following TCs appear in 'r_tc_contains_svc' but not in 'terrain_components':")
+      print(paste("TC IDs:", unique(dat_tc_contains$tc_id[r_miss])))
+    }
+    
+    # check LUs
+    r_miss <- which(!(dat_tc_contains$svc_id %in% dat_svc$pid))
+    
+    if(any(r_miss)) {
+      print("-> The following SVCs appear in 'r_tc_contains_svc' but not in 'soil_veg_components':")
+      print(paste("SVC IDs:", unique(dat_tc_contains$svc_id[r_miss])))
+    }
+    
+    
+    ### soil and vegetation
+    
+    # get data
+    dat_svc <- sqlFetch(con, "soil_veg_components")
+    dat_veg <- sqlFetch(con, "vegetation")
+    dat_soil <- sqlFetch(con, "soils")
+    
+    # check soils
+    r_miss <- which(!(dat_svc$soil_id %in% dat_soil$pid))
+    
+    if(any(r_miss)) {
+      print("-> The following soils appear in 'soil_veg_components' but not in 'soils':")
+      print(paste("Soil IDs:", unique(dat_svc$soil_id[r_miss])))
+    }
+    
+    # check vegetation
+    r_miss <- which(!(dat_svc$veg_id %in% dat_veg$pid))
+    
+    if(any(r_miss)) {
+      print("-> The following vegetation types appear in 'soil_veg_components' but not in 'vegetation':")
+      print(paste("Vegetation IDs:", unique(dat_svc$veg_id[r_miss])))
+    }
+    
+    
+    ### r_soil_contains_particles
+    
+    # get data
+    dat_contains <- sqlFetch(con, "r_soil_contains_particles")
+    dat_part <- sqlFetch(con, "particle_classes")
+    dat_soil <- sqlFetch(con, "soils")
+    
+    # check soils
+    r_miss <- which(!(dat_contains$soil_id %in% dat_soil$pid))
+    
+    if(any(r_miss)) {
+      print("-> The following soils appear in 'r_soil_contains_particles' but not in 'soils':")
+      print(paste("Soil IDs:", unique(dat_contains$soil_id[r_miss])))
+    }
+    
+    # check particle classes
+    r_miss <- which(!(dat_contains$class_id %in% dat_part$class_id))
+    
+    if(any(r_miss)) {
+      print("-> The following particle classes appear in 'r_soil_contains_particles' but not in 'particle_classes':")
+      print(paste("Particle class IDs:", unique(dat_contains$class_id[r_miss])))
+    }
+    
+    
+    ### soil horizons
+    
+    # get data
+    dat_hor <- sqlFetch(con, "horizons")
+    dat_soil <- sqlFetch(con, "soils")
+    
+    # check soils
+    r_miss <- which(!(dat_hor$soil_id %in% dat_soil$pid))
+    
+    if(any(r_miss)) {
+      print("-> The following soils appear in 'horizons' but not in 'soils':")
+      print(paste("Soil IDs:", unique(dat_hor$soil_id[r_miss])))
+    }
+    
+    
+    if(any(r_miss))
+      stop("Check for completeness failed. Restore data integrity before any further actions! Notice preceding output messages for more information.")
+    
+    if(verbose)
+      print("OK.")
+    
+  } # check completeness
+    
+
+
+###############################################################################
 ### end of function, close connection
 
-  if (verbose)
-    print("All Checks completed. Close ODBC connection.")
+  print("All checks completed successfully. Close ODBC connection.")
   
   odbcClose(con)
   

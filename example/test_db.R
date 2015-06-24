@@ -83,7 +83,13 @@ db_check(dbname,
          option=list(total_mean_delay=200),
          verbose=T)
 
+db_check(dbname,
+         check=c("delete_obsolete"),
+         verbose=T)
 
+db_check(dbname,
+         check=c("completeness"),
+         verbose=T)
 
 
 
