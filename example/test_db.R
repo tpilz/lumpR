@@ -54,41 +54,50 @@ db_update(dbname)
 db_check(dbname, 
          check=c("filter_small_areas"), 
          option=list(area_thresh=0.005),
+         fix=F,
          verbose=T)
 
 db_check(dbname, 
          check=c("tc_slope"), 
-         option=list(treat_slope=c(3,0.01,0.1),),
+         option=list(treat_slope=c(3,0.01,0.1)),
+         fix=F,
          verbose=T)
 
 db_check(dbname, 
          check=c("special_areas"), 
-         option=list(special_area = data.frame(reference_tbl=c("vegetation", "vegetation", "soils"), ref_id=c(3,4,10), special_id=c(1,1,2)),),
+         option=list(special_area = data.frame(reference_tbl=c("vegetation", "vegetation", "soils"), ref_id=c(3,4,10), special_id=c(1,1,2))),
+         fix=F,
          verbose=T)
 
 db_check(dbname, 
-         check=c("remove_water_svc"), 
+         check=c("remove_water_svc"),
+         fix=F,
          verbose=T)
 
 db_check(dbname, 
-         check=c("compute_rocky_frac"), 
+         check=c("compute_rocky_frac"),
+         fix=F,
          verbose=T)
 
 db_check(dbname, 
-         check=c("remove_impervious_svc"), 
+         check=c("remove_impervious_svc"),
+         fix=F,
          verbose=T)
 
 db_check(dbname, 
          check=c("proxy_frgw_delay"), 
          option=list(total_mean_delay=200),
+         fix=F,
          verbose=T)
 
 db_check(dbname,
          check=c("delete_obsolete"),
+         fix=F,
          verbose=T)
 
 db_check(dbname,
          check=c("completeness"),
+         fix=F,
          verbose=T)
 
 

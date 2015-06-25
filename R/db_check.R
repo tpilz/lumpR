@@ -10,10 +10,14 @@
 #'  @param option A list of options for certain checks. See \code{Details}
 #'  for the different options and their meaning.
 #'  
+#'  @param fix \code{logical}. If \code{FALSE} (the \code{default}) a report of the
+#'  selected checks will be created. The database will not be touched. If \code{TRUE}
+#'  canges to the database according to the selected checks will be made.
+#'  
 #'  @param verbose \code{logical}. Should detailed information during execution be
-#'  printed? Default: \code{FALSE}. When \code{TRUE} output of writing updated values
+#'  printed? When \code{TRUE} (the \code{default}) output of writing updated values
 #'  into database can be rather long so you might want to direct output into an
-#'  external log file.
+#'  external log file. Always set to \code{TRUE} if \code{fix = FALSE}.
 #'  
 #'  @details
 #'  The following checks are currently included and can be specified via argument \code{checks}.
@@ -42,7 +46,7 @@
 #'  1: Remove TCs with slope <= 0 from 'r_lu_contains_tc' whereas areal fraction within
 #'  the LU must be smaller than a defined threshold (second value of the vector).\cr
 #'  2: Where slope is 0, change it to small positive value specified as second
-#'  value of the vector (interpreted as slope in %).\cr
+#'  value of the vector (interpreted as slope in \%).\cr
 #'  3: A combination of the two former choices whereas option 1 is applied before
 #'  option 2 and the second value of the vector defining the areal threshold and the
 #'  third giving the slope replacement value. This is the default setting with
@@ -124,8 +128,17 @@ db_check <- function(
             "delete_obsolete", "completeness"),
   option = list(area_thresh=0.01,
                 treat_slope=c(3,0.01,0.1)),
+  fix=F,
   verbose=FALSE
 ) {
+  
+  # if fix = F (default) set verbose = T
+  if(!fix) {
+    verbose <- T
+    print("START database checks in report mode, i.e. fix = FALSE and database will not be touched.")
+    print("")
+  }
+    
   
   if (verbose)
     print("Loading package 'RODBC' and connecting to database ...")
@@ -174,13 +187,13 @@ db_check <- function(
     thres <- option[["area_thresh"]]
     
     # LUs
-    filter_small_areas(con=con, table="r_subbas_contains_lu", thres=thres, verbose=verbose)
+    filter_small_areas(con=con, table="r_subbas_contains_lu", thres=thres, fix=fix, verbose=verbose)
     
     # TCs
-    filter_small_areas(con=con, table="r_lu_contains_tc", thres=thres, verbose=verbose)
+    filter_small_areas(con=con, table="r_lu_contains_tc", thres=thres, fix=fix, verbose=verbose)
     
     # SVCs
-    filter_small_areas(con=con, table="r_tc_contains_svc", thres=thres, verbose=verbose)
+    filter_small_areas(con=con, table="r_tc_contains_svc", thres=thres, fix=fix, verbose=verbose)
     
     if(verbose)
       print("OK.")
@@ -191,7 +204,7 @@ db_check <- function(
 ### TC with slope <= 0
   if (any(grepl("tc_slope", check))) {
     if(verbose)
-      print("Find and handle TCs with slope <= 0 ...")
+      print("Find TCs with slope <= 0 ...")
     
     # get data
     dat_tc <- sqlFetch(con, "terrain_components")
@@ -208,7 +221,8 @@ db_check <- function(
       dat_lutc <- sqlFetch(con, "r_lu_contains_tc")
       
       # datasets of r_lu_contains_tc where slope is <= 0
-      tc_zero <- dat_tc$pid[which(dat_tc$slope <= 0)]
+      r_tc_zero <- which(dat_tc$slope <= 0)
+      tc_zero <- dat_tc$pid[r_tc_zero]
       lutc_zero <- dat_lutc[which(dat_lutc$tc_id %in% tc_zero),]
       dat_out <- dat_lutc[-which(dat_lutc$tc_id %in% tc_zero),]
       
@@ -226,7 +240,11 @@ db_check <- function(
           print("-> No TCs with fraction below defined threshold. No TCs will be removed.")
         } else {
           
-          print("-> The following datasets will be removed from 'r_lu_contains_tc' ('fraction' will be updated):")
+          if(fix) {
+            print("-> The following datasets will be removed from 'r_lu_contains_tc' ('fraction' will be updated):")
+          } else {
+            print("-> The following datasets in 'r_lu_contains_tc' contain slopes <= 0 and fractions below threshold:")
+          }
           print(lutc_zero[rows_lutc_rm,])
           
           # keep datasets where TCs equal to more than 10% of the respective parent class' area would be removed
@@ -275,40 +293,51 @@ db_check <- function(
         if (option[["treat_slope"]][1] == 3)
           repl_slope <- option[["treat_slope"]][3]
         
+        if(fix) {
+          print(paste("-> For the following datasets slopes in 'terrain_components' will be replaced by ", repl_slope, ":"))
+        } else {
+          print("-> The following datasets in 'terrain_components' contains slopes <= 0:")
+        }
+          print(dat_tc[r_tc_zero,])
+          
         # replace slope value
-        dat_tc[tc_zero,"slope"] <- repl_slope
+        dat_tc[r_tc_zero,"slope"] <- repl_slope
       } # end of option 2
       
       
       
       # update database
-      if(verbose)
-        print("-> Updating table 'r_lu_contains_tc'...")
-      tryCatch(
-      {
-        sqlQuery(con, "delete from r_lu_contains_tc")
-        sqlSave(channel=con, tablename = "r_lu_contains_tc", dat=dat_out, verbose=verbose, 
-                append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
-      }, error = function(e) {
-        odbcClose(con)
-        stop(paste0("An error occured when updating table 'r_lu_contains_tc'. ",
-                    "Error message of the writing function: ", e))
-      }
-      )
-      
-      if(verbose)
-        print("-> Updating table 'terrain_components'...")
-      tryCatch(
-      {
-        sqlQuery(con, "delete from terrain_components")
-        sqlSave(channel=con, tablename = "terrain_components", dat=dat_tc, verbose=verbose, 
-                append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
-      }, error = function(e) {
-        odbcClose(con)
-        stop(paste0("An error occured when updating table 'terrain_components'. ",
-                    "Error message of the writing function: ", e))
-      }
-      )
+      if(fix) {
+        
+        if(verbose)
+          print("-> Updating table 'r_lu_contains_tc'...")
+        tryCatch(
+        {
+          sqlQuery(con, "delete from r_lu_contains_tc")
+          sqlSave(channel=con, tablename = "r_lu_contains_tc", dat=dat_out, verbose=verbose, 
+                  append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
+        }, error = function(e) {
+          odbcClose(con)
+          stop(paste0("An error occured when updating table 'r_lu_contains_tc'. ",
+                      "Error message of the writing function: ", e))
+        }
+        )
+        
+        if(verbose)
+          print("-> Updating table 'terrain_components'...")
+        tryCatch(
+        {
+          sqlQuery(con, "delete from terrain_components")
+          sqlSave(channel=con, tablename = "terrain_components", dat=dat_tc, verbose=verbose, 
+                  append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
+        }, error = function(e) {
+          odbcClose(con)
+          stop(paste0("An error occured when updating table 'terrain_components'. ",
+                      "Error message of the writing function: ", e))
+        }
+        )
+        
+      } # if fix
     
     } # TC with slope <= 0?
     
@@ -351,6 +380,7 @@ db_check <- function(
     }
     
     
+    
     # get SVC data
     dat_svc <- sqlFetch(con, "soil_veg_components")
     changes_made=FALSE
@@ -368,10 +398,10 @@ db_check <- function(
         svc_rows_adj <- which(dat_svc$veg_id == option$special_area$ref_id[r])
         
         if(!any(svc_rows_adj)){
-          warning(paste0("Option 'special_area': Vegetation id ", option$special_area$ref_id[r], " could not be found in column 'veg_id' of table 'soil_veg_components'."))
+          print(paste0("-> ATTENTION: Option 'special_area': Vegetation id ", option$special_area$ref_id[r], " could not be found in column 'veg_id' of table 'soil_veg_components'."))
           next
         }
-        
+          
         # set special_area flag
         dat_svc$special_area[svc_rows_adj] <- option$special_area$special_id[r] 
         changes_made=TRUE
@@ -393,7 +423,7 @@ db_check <- function(
         svc_rows_adj <- which(dat_svc$soil_id == option$special_area$ref_id[r])
         
         if(!any(svc_rows_adj)){
-          warning(paste0("Option 'special_area': Soil id ", option$special_area$ref_id[r], " could not be found in column 'soil_id' of table 'soil_veg_components'."))
+          print(paste0("-> ATTENTION: Option 'special_area': Soil id ", option$special_area$ref_id[r], " could not be found in column 'soil_id' of table 'soil_veg_components'."))
           next
         }
         
@@ -407,7 +437,7 @@ db_check <- function(
     
     # update table
     
-    if(changes_made)
+    if(changes_made & fix)
     {
       if(verbose)
         print("-> Updating table 'soil_veg_components'...")
@@ -427,6 +457,9 @@ db_check <- function(
       if(verbose)
         print("Nothing done.")
     
+    if(verbose)
+      print("OK.")
+    
   } # check special_areas
 
 
@@ -436,8 +469,11 @@ db_check <- function(
 ###############################################################################
 ### remove water SVCs
   if (any(grepl("remove_water_svc", check))) {
-    if(verbose)
+    if(verbose & fix)
       print("Remove SVCs marked as water ...")
+    
+    if(!fix)
+      print("Identify SVCs marked as water ...")
     
     # get data
     dat_svc <- sqlFetch(con, "soil_veg_components")
@@ -450,35 +486,43 @@ db_check <- function(
     
     if (length(rows_contains_water)==0)
     {
-      warning("No water-SVCs found, nothing done.")
-      return()              
-    }
-    print("-> The following datasets will be removed from 'r_tc_contains_svc' ('fraction' will be updated):")
-    print(dat_contains[rows_contains_water,])
+      print("-> No water-SVCs found, nothing done.")          
+    } else {
     
-    # remove water SVCs
-    dat_contains_act <- dat_contains[-rows_contains_water,]
-    
-    # update fractions
-    frac_sum <- tapply(dat_contains_act$fraction, list(parent=dat_contains_act$tc_id), sum)
-    for (s in 1:nrow(dat_contains_act))
-      dat_contains_act$fraction[s] <- dat_contains_act$fraction[s] / frac_sum[paste0(dat_contains_act$tc_id[s])]
-    
-    
-    # update database
-    if(verbose)
-      print("-> Updating table 'r_tc_contains_svc'...")
-    tryCatch(
-    {
-      sqlQuery(con, "delete from r_tc_contains_svc")
-      sqlSave(channel=con, tablename = "r_tc_contains_svc", dat=dat_contains_act, verbose=verbose, 
-              append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
-    }, error = function(e) {
-      odbcClose(con)
-      stop(paste0("An error occured when updating table 'r_tc_contains_svc'. ",
-                  "Error message of the writing function: ", e))
-    }
-    )
+      if(!fix){
+        print("-> The following datasets in 'r_tc_contains_svc' were identified as water areas:")
+        print(dat_contains[rows_contains_water,])
+      } else {
+        print("-> The following datasets will be removed from 'r_tc_contains_svc' ('fraction' will be updated):")
+        print(dat_contains[rows_contains_water,])
+      
+        # remove water SVCs
+        dat_contains_act <- dat_contains[-rows_contains_water,]
+        
+        # update fractions
+        frac_sum <- tapply(dat_contains_act$fraction, list(parent=dat_contains_act$tc_id), sum)
+        for (s in 1:nrow(dat_contains_act))
+          dat_contains_act$fraction[s] <- dat_contains_act$fraction[s] / frac_sum[paste0(dat_contains_act$tc_id[s])]
+        
+        
+        # update database
+        if(verbose)
+          print("-> Updating table 'r_tc_contains_svc'...")
+        tryCatch(
+        {
+          sqlQuery(con, "delete from r_tc_contains_svc")
+          sqlSave(channel=con, tablename = "r_tc_contains_svc", dat=dat_contains_act, verbose=verbose, 
+                  append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
+        }, error = function(e) {
+          odbcClose(con)
+          stop(paste0("An error occured when updating table 'r_tc_contains_svc'. ",
+                      "Error message of the writing function: ", e))
+        }
+        )
+        
+      } # if fix
+      
+    } # if water SVCs found
     
     
     if(verbose)
@@ -504,7 +548,7 @@ db_check <- function(
     
     dat_tc$frac_rocky[is.na(dat_tc$frac_rocky)] = 0 #set NAs to 0
     if (max(dat_tc$frac_rocky)>0)
-      warning("Column 'frac_rocky' in table 'terrain_components' already contians some values. The coputed fractions will be added to these.")
+      print("-> ATTENTION: Column 'frac_rocky' in table 'terrain_components' already contains some values. The coputed fractions will be added to these.")
 
     # identify soils with 100% coarse fragments in topmost horizon
     soil_impervious <- dat_hor$soil_id[which(dat_hor$position == 1 & dat_hor$coarse_frag == 1)]
@@ -513,7 +557,11 @@ db_check <- function(
     if(any(soil_impervious)) {
       rows_svc_impervious <- which(dat_svc$soil_id %in% soil_impervious)
       
-      print("-> The following datasets in 'soil_veg_components' will be marked as impervious due to 100% coarse fragments in topmost soil horizon:")
+      if(fix) {
+        print("-> The following datasets in 'soil_veg_components' will be marked as impervious due to 100% coarse fragments in topmost soil horizon:")
+      } else {
+        print("-> The following datasets in 'soil_veg_components' were identified as impervious due to 100% coarse fragments in topmost soil horizon:")
+      }
       print(dat_svc[rows_svc_impervious,])
       
       dat_svc$special_area[rows_svc_impervious] <- 2
@@ -535,19 +583,23 @@ db_check <- function(
     
     
     # update database
-    if(verbose)
-      print("-> Updating table 'terrain_components'...")
-    tryCatch(
-    {
-      sqlQuery(con, "delete from terrain_components")
-      sqlSave(channel=con, tablename = "terrain_components", dat=dat_tc, verbose=verbose, 
-              append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
-    }, error = function(e) {
-      odbcClose(con)
-      stop(paste0("An error occured when updating table 'terrain_components'. ",
-                  "Error message of the writing function: ", e))
-    }
-    )
+    if(fix) {
+      
+      if(verbose)
+        print("-> Updating table 'terrain_components'...")
+      tryCatch(
+      {
+        sqlQuery(con, "delete from terrain_components")
+        sqlSave(channel=con, tablename = "terrain_components", dat=dat_tc, verbose=verbose, 
+                append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
+      }, error = function(e) {
+        odbcClose(con)
+        stop(paste0("An error occured when updating table 'terrain_components'. ",
+                    "Error message of the writing function: ", e))
+      }
+      )
+    
+    } # if fix
     
     if(verbose)
       print("OK.")
@@ -562,8 +614,11 @@ db_check <- function(
 ###############################################################################
 ### remove impervious SVCs
   if (any(grepl("remove_impervious_svc", check))) {
-    if(verbose)
+    if(verbose & fix)
       print("Remove SVCs marked as impervious ...")
+    
+    if(!fix)
+      print("Identify SVCs marked as impervious ...")
     
     # get data
     dat_svc <- sqlFetch(con, "soil_veg_components")
@@ -574,36 +629,48 @@ db_check <- function(
     svc_impervious <- dat_svc$pid[rows_impervious]
     rows_contains_impervious <- which(dat_contains$svc_id %in% svc_impervious)
     
-    print("-> The following datasets will be removed from 'r_tc_contains_svc' ('fraction' will be updated):")
-    print(dat_contains[rows_contains_impervious,])
+    if(!any(rows_contains_impervious)) {
+      print("-> No impervious SVCs could be found. Nothing done.")
+    } else {
     
-    # remove impervious SVCs
-    dat_contains_act <- dat_contains[-rows_contains_impervious,]
-    
-    # update fractions
-    frac_sum <- tapply(dat_contains_act$fraction, list(parent=dat_contains_act$tc_id), sum)
-    for (s in 1:nrow(dat_contains_act))
-      dat_contains_act$fraction[s] <- dat_contains_act$fraction[s] / frac_sum[paste0(dat_contains_act$tc_id[s])]
-    
-    
-    # update database
+      if(!fix) {
+        print("-> The following datasets in 'r_tc_contains_svc' were identified as impervious:")
+        print(dat_contains[rows_contains_impervious,])
+      } else {
+        print("-> The following datasets will be removed from 'r_tc_contains_svc' ('fraction' will be updated):")
+        print(dat_contains[rows_contains_impervious,])
+        
+        # remove impervious SVCs
+        dat_contains_act <- dat_contains[-rows_contains_impervious,]
+        
+        # update fractions
+        frac_sum <- tapply(dat_contains_act$fraction, list(parent=dat_contains_act$tc_id), sum)
+        for (s in 1:nrow(dat_contains_act))
+          dat_contains_act$fraction[s] <- dat_contains_act$fraction[s] / frac_sum[paste0(dat_contains_act$tc_id[s])]
+        
+        
+        # update database
+        if(verbose)
+          print("-> Updating table 'r_tc_contains_svc'...")
+        tryCatch(
+        {
+          sqlQuery(con, "delete from r_tc_contains_svc")
+          sqlSave(channel=con, tablename = "r_tc_contains_svc", dat=dat_contains_act, verbose=verbose, 
+                  append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
+        }, error = function(e) {
+          odbcClose(con)
+          stop(paste0("An error occured when updating table 'r_tc_contains_svc'. ",
+                      "Error message of the writing function: ", e))
+        }
+        )
+        
+      } # if fix
+      
+    } # if any impervious SVC
+  
+  
     if(verbose)
-      print("-> Updating table 'r_tc_contains_svc'...")
-    tryCatch(
-    {
-      sqlQuery(con, "delete from r_tc_contains_svc")
-      sqlSave(channel=con, tablename = "r_tc_contains_svc", dat=dat_contains_act, verbose=verbose, 
-              append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
-    }, error = function(e) {
-      odbcClose(con)
-      stop(paste0("An error occured when updating table 'r_tc_contains_svc'. ",
-                  "Error message of the writing function: ", e))
-    }
-    )
-  
-  
-  if(verbose)
-    print("OK.")
+      print("OK.")
   
   } # check remove_impervious_svc
   
@@ -623,42 +690,47 @@ db_check <- function(
       stop("No option 'total_mean_delay' specified for check 'proxy_frgw_delay'.")
     }
     
-    # get data
-    dat_tc <- sqlFetch(con, "terrain_components")
-    dat_lu <- sqlFetch(con, "landscape_units")
-    dat_contains <- sqlFetch(con, "r_lu_contains_tc")
+    if(!fix) {
+      print("-> Running in report mode. Nothing to report for this check.")
+    } else {
     
-    # compute area-weighted average slope for every LU
-    dat_contains_t <- merge(dat_contains, dat_tc, by.y="pid", by.x="tc_id")
-    slope_lu <- sapply(split(dat_contains_t, dat_contains_t$lu_id), function(x) weighted.mean(x$slope, x$fraction))
-    dat_lu_t <- merge(dat_lu, data.frame(id=names(slope_lu), slope=slope_lu), by.x="pid", by.y="id")
-    
-    # compute area-weighted average rocky fraction for every lu
-    rocky_lu <- sapply(split(dat_contains_t, dat_contains_t$lu_id), function(x) weighted.mean(x$frac_rocky, x$fraction))
-    dat_lu_t <- merge(dat_lu_t, data.frame(id=names(rocky_lu), rocky=rocky_lu), by.x="pid", by.y="id")
-    
-    # estimate proxy
-    proxy <- dat_lu_t$length * (1-dat_lu_t$rocky) / dat_lu_t$slope
-    
-    # estimate frgw_delay
-    dat_lu$frgw_delay <- proxy * option$total_mean_delay / mean(proxy)
-    
-    
-    # update database
-    if(verbose)
-      print("-> Updating table 'landscape_units'...")
-    tryCatch(
-    {
-      sqlQuery(con, "delete from landscape_units")
-      sqlSave(channel=con, tablename = "landscape_units", dat=dat_lu, verbose=verbose, 
-              append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
-    }, error = function(e) {
-      odbcClose(con)
-      stop(paste0("An error occured when updating table 'landscape_units'. ",
-                  "Error message of the writing function: ", e))
-    }
-    )
-    
+      # get data
+      dat_tc <- sqlFetch(con, "terrain_components")
+      dat_lu <- sqlFetch(con, "landscape_units")
+      dat_contains <- sqlFetch(con, "r_lu_contains_tc")
+      
+      # compute area-weighted average slope for every LU
+      dat_contains_t <- merge(dat_contains, dat_tc, by.y="pid", by.x="tc_id")
+      slope_lu <- sapply(split(dat_contains_t, dat_contains_t$lu_id), function(x) weighted.mean(x$slope, x$fraction))
+      dat_lu_t <- merge(dat_lu, data.frame(id=names(slope_lu), slope=slope_lu), by.x="pid", by.y="id")
+      
+      # compute area-weighted average rocky fraction for every lu
+      rocky_lu <- sapply(split(dat_contains_t, dat_contains_t$lu_id), function(x) weighted.mean(x$frac_rocky, x$fraction))
+      dat_lu_t <- merge(dat_lu_t, data.frame(id=names(rocky_lu), rocky=rocky_lu), by.x="pid", by.y="id")
+      
+      # estimate proxy
+      proxy <- dat_lu_t$length * (1-dat_lu_t$rocky) / dat_lu_t$slope
+      
+      # estimate frgw_delay
+      dat_lu$frgw_delay <- proxy * option$total_mean_delay / mean(proxy)
+      
+      
+      # update database
+      if(verbose)
+        print("-> Updating table 'landscape_units'...")
+      tryCatch(
+      {
+        sqlQuery(con, "delete from landscape_units")
+        sqlSave(channel=con, tablename = "landscape_units", dat=dat_lu, verbose=verbose, 
+                append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
+      }, error = function(e) {
+        odbcClose(con)
+        stop(paste0("An error occured when updating table 'landscape_units'. ",
+                    "Error message of the writing function: ", e))
+      }
+      )
+      
+    } # if fix
     
     if(verbose)
       print("OK.")
@@ -671,8 +743,12 @@ db_check <- function(
 ###############################################################################
 ### delete obsolete datasets
   if (any(grepl("delete_obsolete", check))) {
-    if(verbose)
+    
+    if(fix & verbose)
       print("Delete obsolete datasets ...")
+    
+    if(!fix)
+      print("Identify obsolete datasets ...")
     
     
     ### LUs not in any subbasin
@@ -685,23 +761,31 @@ db_check <- function(
     r_del <- which(!(dat_lu$pid %in% dat_sub_contains$lu_id))
     
     if(any(r_del)) {
-      print("-> The following datasets will be removed from 'landscape_units':")
-      print(dat_lu[r_del,])
       
-      dat_lu <- dat_lu[-r_del,]
-      
-      # update database
-      tryCatch(
-      {
-        sqlQuery(con, "delete from landscape_units")
-        sqlSave(channel=con, tablename = "landscape_units", dat=dat_lu, verbose=verbose, 
-                append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
-      }, error = function(e) {
-        odbcClose(con)
-        stop(paste0("An error occured when updating table 'landscape_units'. ",
-                    "Error message of the writing function: ", e))
-      }
-      )
+      if(!fix) {
+        print("-> The following datasets in 'landscape_units' are obsolete:")
+        print(dat_lu[r_del,])
+      } else {
+          
+        print("-> The following datasets will be removed from 'landscape_units':")
+        print(dat_lu[r_del,])
+        
+        dat_lu <- dat_lu[-r_del,]
+        
+        # update database
+        tryCatch(
+        {
+          sqlQuery(con, "delete from landscape_units")
+          sqlSave(channel=con, tablename = "landscape_units", dat=dat_lu, verbose=verbose, 
+                  append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
+        }, error = function(e) {
+          odbcClose(con)
+          stop(paste0("An error occured when updating table 'landscape_units'. ",
+                      "Error message of the writing function: ", e))
+        }
+        )
+        
+      } # if fix
       
     } else {
       if (verbose)
@@ -719,23 +803,31 @@ db_check <- function(
     r_del <- which(!(dat_tc$pid %in% dat_lu_contains$tc_id))
     
     if(any(r_del)) {
-      print("-> The following datasets will be removed from 'terrain_components':")
-      print(dat_tc[r_del,])
       
-      dat_tc <- dat_tc[-r_del,]
-      
-      # update database
-      tryCatch(
-      {
-        sqlQuery(con, "delete from terrain_components")
-        sqlSave(channel=con, tablename = "terrain_components", dat=dat_tc, verbose=verbose, 
-                append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
-      }, error = function(e) {
-        odbcClose(con)
-        stop(paste0("An error occured when updating table 'terrain_components'. ",
-                    "Error message of the writing function: ", e))
-      }
-      )
+      if(!fix) {
+        print("-> The following datasets in 'terrain_components' are obsolete:")
+        print(dat_lu[r_del,])
+      } else {
+        
+        print("-> The following datasets will be removed from 'terrain_components':")
+        print(dat_tc[r_del,])
+        
+        dat_tc <- dat_tc[-r_del,]
+        
+        # update database
+        tryCatch(
+        {
+          sqlQuery(con, "delete from terrain_components")
+          sqlSave(channel=con, tablename = "terrain_components", dat=dat_tc, verbose=verbose, 
+                  append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
+        }, error = function(e) {
+          odbcClose(con)
+          stop(paste0("An error occured when updating table 'terrain_components'. ",
+                      "Error message of the writing function: ", e))
+        }
+        )
+        
+      } # if fix
 
     } else {
       if (verbose)
@@ -753,23 +845,31 @@ db_check <- function(
     r_del <- which(!(dat_svc$pid %in% dat_tc_contains$svc_id) | dat_svc$special_area != 0)
     
     if(any(r_del)) {
-      print("-> The following datasets will be removed from 'soil_veg_components':")
-      print(dat_svc[r_del,])
       
-      dat_svc <- dat_svc[-r_del,]
+      if(!fix) {
+        print("-> The following datasets in 'soil_veg_components' are obsolete:")
+        print(dat_lu[r_del,])
+      } else {
+        
+        print("-> The following datasets will be removed from 'soil_veg_components':")
+        print(dat_svc[r_del,])
+        
+        dat_svc <- dat_svc[-r_del,]
+        
+        # update database
+        tryCatch(
+        {
+          sqlQuery(con, "delete from soil_veg_components")
+          sqlSave(channel=con, tablename = "soil_veg_components", dat=dat_svc, verbose=verbose, 
+                  append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
+        }, error = function(e) {
+          odbcClose(con)
+          stop(paste0("An error occured when updating table 'soil_veg_components'. ",
+                      "Error message of the writing function: ", e))
+        }
+        )
       
-      # update database
-      tryCatch(
-      {
-        sqlQuery(con, "delete from soil_veg_components")
-        sqlSave(channel=con, tablename = "soil_veg_components", dat=dat_svc, verbose=verbose, 
-                append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
-      }, error = function(e) {
-        odbcClose(con)
-        stop(paste0("An error occured when updating table 'soil_veg_components'. ",
-                    "Error message of the writing function: ", e))
-      }
-      )
+      } # if fix
 
     } else {
       if (verbose)
@@ -928,8 +1028,10 @@ db_check <- function(
     }
     
     
-    if(any(r_miss))
-      stop("Check for completeness failed. Restore data integrity before any further actions! Notice preceding output messages for more information.")
+    if(any(r_miss)) {
+      stop("Check for completeness failed. Restore data integrity before any further actions! Notice preceding output messages for more information. Close ODBC connection.")
+      odbcClose(con)
+    }
     
     if(verbose)
       print("OK.")

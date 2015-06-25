@@ -97,7 +97,7 @@ writedb <- function(con, file, table, overwrite, verbose) {
 
 
 # filter disaggregated areas by areal fraction threshold
-filter_small_areas <- function(con, table, thres, verbose) {
+filter_small_areas <- function(con, table, thres, fix, verbose) {
   if(verbose)
     print(paste0("-> Processing table '", table, "' ..."))
   
@@ -110,8 +110,13 @@ filter_small_areas <- function(con, table, thres, verbose) {
 
   # sum of 'fraction' should be 1 for every higher level class (rounding error allowed)
   dat_contains_sum <- tapply(dat_contains$fraction, list(parent=dat_contains[[1]]), sum)
-  if(any(dat_contains_sum > 1.05 | dat_contains_sum < 0.99))
-    stop(paste0("Before removal of tiny areas: sum of fractions per higher level unit not always equal to one. Check table '", table, ifelse(table=="r_tc_contains_svc", " and terrain_components (column frac_rocky)",""),"'!"))
+  if(any(dat_contains_sum > 1.05 | dat_contains_sum < 0.99)) {
+    if(fix) {
+      stop(paste0("Before removal of tiny areas: sum of fractions per higher level unit not always equal to one. Check table '", table, ifelse(table=="r_tc_contains_svc", " and terrain_components (column frac_rocky)",""),"'!"))
+    } else {
+      print(paste0("-> ATTENTION: Before removal of tiny areas: sum of fractions per higher level unit not always equal to one. Check table '", table, ifelse(table=="r_tc_contains_svc", " and terrain_components (column frac_rocky)",""),"'!"))
+    }
+  }
   
   # remove datasets where fraction < area_thresh
   rows_rm <- which(dat_contains$fraction < thres && dat_contains[,2]!=-1) #find entities below threshold, omit special case "rocky fractions"
@@ -121,7 +126,11 @@ filter_small_areas <- function(con, table, thres, verbose) {
     print(paste0("-> In '", table, "' no fraction smaller ", thres, " could be found."))
   } else {
     
-    print(paste0("-> The following datasets will be removed from '", table, "':"))
+    if(fix) {
+      print(paste0("-> The following datasets will be removed from '", table, "':"))
+    } else {
+      print(paste0("-> The following datasets contain fractions < threshold in '", table, "':"))
+    }
     print(dat_contains[rows_rm,])
     
     # keep datasets where entities of more than 10% of the respective parent class' area would be removed
@@ -144,48 +153,52 @@ filter_small_areas <- function(con, table, thres, verbose) {
     dat_contains_rm <- dat_contains[-rows_rm,]
     
     # re-calculate areal fractions
-    if(verbose)
-      print("-> Re-calculate fraction ...")
-    dat_contains_sum <- tapply(dat_contains_rm$fraction, list(parent=dat_contains_rm[[1]]), sum)
-    dat_contains_new <- dat_contains_rm
-    for (s in 1:nrow(dat_contains_rm))
-      dat_contains_new$fraction[s] <- dat_contains_rm$fraction[s] / dat_contains_sum[paste0(dat_contains_rm[[1]][s])]
-    
-    
-    # write updated data into database
-    if (table=="r_tc_contains_svc") #for TCs also the rocky fraction needs to be considered
-    {
-      rocky_frac=        dat_contains_new[dat_contains_new$svc_id==-1,] #extract information on rocky fraction - this needs to go into another table
-      rocky_frac$svc_id = NULL #was just a marker for rocky fractions, not needed anymore
-      dat_contains_new = dat_contains_new[dat_contains_new$svc_id!=-1,] #keep only real SVCs, discard rocky fractions
-    
-      terrain_components <- sqlFetch(con, "terrain_components")
-      terrain_components = merge(terrain_components, rocky_frac, by.x="pid", by.y="tc_id")
-      if (!identical(terrain_components$frac_rocky, terrain_components$fraction))
+    if(fix) {
+      
+      if(verbose)
+        print("-> Re-calculate fraction ...")
+      dat_contains_sum <- tapply(dat_contains_rm$fraction, list(parent=dat_contains_rm[[1]]), sum)
+      dat_contains_new <- dat_contains_rm
+      for (s in 1:nrow(dat_contains_rm))
+        dat_contains_new$fraction[s] <- dat_contains_rm$fraction[s] / dat_contains_sum[paste0(dat_contains_rm[[1]][s])]
+      
+      
+      # write updated data into database
+      if (table=="r_tc_contains_svc") #for TCs also the rocky fraction needs to be considered
+      {
+        rocky_frac=        dat_contains_new[dat_contains_new$svc_id==-1,] #extract information on rocky fraction - this needs to go into another table
+        rocky_frac$svc_id = NULL #was just a marker for rocky fractions, not needed anymore
+        dat_contains_new = dat_contains_new[dat_contains_new$svc_id!=-1,] #keep only real SVCs, discard rocky fractions
+      
+        terrain_components <- sqlFetch(con, "terrain_components")
+        terrain_components = merge(terrain_components, rocky_frac, by.x="pid", by.y="tc_id")
+        if (!identical(terrain_components$frac_rocky, terrain_components$fraction))
+        tryCatch(
+        {
+          sqlQuery(con, paste0("delete from terrain_components"))
+          sqlSave(channel=con, tablename = "terrain_components", dat=terrain_components, verbose=verbose, 
+                  append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
+        }, error = function(e) {
+          odbcClose(con)
+          stop(paste0("An error occured when updating table terrain_components. ",
+                      "Error message of the writing function: ", e))
+        }
+              )
+      }
+      
       tryCatch(
       {
-        sqlQuery(con, paste0("delete from terrain_components"))
-        sqlSave(channel=con, tablename = "terrain_components", dat=terrain_components, verbose=verbose, 
+        sqlQuery(con, paste0("delete from ", table))
+        sqlSave(channel=con, tablename = table, dat=dat_contains_new, verbose=verbose, 
                 append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
       }, error = function(e) {
         odbcClose(con)
-        stop(paste0("An error occured when updating table terrain_components. ",
+        stop(paste0("An error occured when updating table '", table, "'. ",
                     "Error message of the writing function: ", e))
       }
-            )
-    }
-    
-    tryCatch(
-    {
-      sqlQuery(con, paste0("delete from ", table))
-      sqlSave(channel=con, tablename = table, dat=dat_contains_new, verbose=verbose, 
-              append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
-    }, error = function(e) {
-      odbcClose(con)
-      stop(paste0("An error occured when updating table '", table, "'. ",
-                  "Error message of the writing function: ", e))
-    }
-    )
+      )
+      
+    } # if fix
 
 
   if(verbose)

@@ -7,7 +7,7 @@
 db_check(dbname, check = c("filter_small_areas", "tc_slope", "special_areas",
   "remove_water_svc", "compute_rocky_frac", "remove_impervious_svc",
   "proxy_frgw_delay", "delete_obsolete", "completeness"),
-  option = list(area_thresh = 0.01, treat_slope = c(3, 0.01, 0.1)),
+  option = list(area_thresh = 0.01, treat_slope = c(3, 0.01, 0.1)), fix = F,
   verbose = FALSE)
 }
 \arguments{
@@ -18,10 +18,14 @@ db_check(dbname, check = c("filter_small_areas", "tc_slope", "special_areas",
 \item{option}{A list of options for certain checks. See \code{Details}
  for the different options and their meaning.}
 
+\item{fix}{\code{logical}. If \code{FALSE} (the \code{default}) a report of the
+ selected checks will be created. The database will not be touched. If \code{TRUE}
+ canges to the database according to the selected checks will be made.}
+
 \item{verbose}{\code{logical}. Should detailed information during execution be
- printed? Default: \code{FALSE}. When \code{TRUE} output of writing updated values
+ printed? When \code{TRUE} (the \code{default}) output of writing updated values
  into database can be rather long so you might want to direct output into an
- external log file.}
+ external log file. Always set to \code{TRUE} if \code{fix = FALSE}.}
 }
 \description{
 Function includes several options to check and correct the parameter database for completeness
@@ -54,7 +58,7 @@ The following checks are currently included and can be specified via argument \c
  1: Remove TCs with slope <= 0 from 'r_lu_contains_tc' whereas areal fraction within
  the LU must be smaller than a defined threshold (second value of the vector).\cr
  2: Where slope is 0, change it to small positive value specified as second
- value of the vector (interpreted as slope in %).\cr
+ value of the vector (interpreted as slope in \%).\cr
  3: A combination of the two former choices whereas option 1 is applied before
  option 2 and the second value of the vector defining the areal threshold and the
  third giving the slope replacement value. This is the default setting with
