@@ -19,3 +19,5 @@ install_github("tPilz/LUMP")
 
 FEEDBACK and BUGS
 * feel free to comment on https://github.com/tpilz/LUMP/issues
+
+* detailed manual: https://github.com/tpilz/LUMP/wiki and R help pages for the included functions
