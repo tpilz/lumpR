@@ -99,7 +99,8 @@ rainy_season <- function(
                     # OUTPUT#
                     outyear=as.integer(rep(-999, no_years)), 
                     outbegin=as.integer(rep(-999, no_years)), 
-                    outend=as.integer(rep(-999, no_years)))
+                    outend=as.integer(rep(-999, no_years)),
+                    PACKAGE="LUMP")
     
     # remove missing year if present
     na_t <- which(season$outyear==-999)

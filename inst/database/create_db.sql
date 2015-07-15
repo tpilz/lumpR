@@ -12,7 +12,7 @@ CREATE TABLE db_version (
 ) ENGINE=InnoDB;
 
 INSERT INTO db_version VALUES (
-	1, 
+	19, 
 	19, 
 	'First version within LUMP R-package', 
 	'none', 
@@ -199,5 +199,4 @@ class_id INT DEFAULT 0 COMMENT 'foreign key to particle_classes',
 fraction DOUBLE DEFAULT 0 COMMENT 'mass-fraction that falls into the respective particle size class',
 UNIQUE (soil_id, class_id)
 ) ENGINE=InnoDB;
-
 

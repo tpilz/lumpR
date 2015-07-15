@@ -34,8 +34,8 @@
 //$con=sql_connect('tutorial','','');	//WASA tutorial
 //$dest_dir="./out_tutorial/";	//#DEST-DIR	specify the directory in which the output files (=WASA input files) are 
 
-$con=sql_connect('esera_2014','','');	//Esera 2014
-$dest_dir="./out_esera_2014/";	//#DEST-DIR	specify the directory in which the output files (=WASA input files) are 
+$con=sql_connect('test_wasa','','');	//Esera 2014
+$dest_dir="/home/tobias/Promotion/Modellierung/Jaguaribe/WASA/make_wasa_input/php_test_checks_dis/";	//#DEST-DIR	specify the directory in which the output files (=WASA input files) are 
 
 //$con=sql_connect('esera_2014_B','','');	//Esera 2014 with model enhancements
 //$dest_dir="./out_esera_2014_b/";	//#DEST-DIR	specify the directory in which the output files (=WASA input files) are 
@@ -71,13 +71,13 @@ $dest_dir="./out_esera_2014/";	//#DEST-DIR	specify the directory in which the ou
 
 
 //#USER_SETTINGS
-$print_process=0;		//enable/disable detailed screen output of process
-$normalize_lus_in_subbas=1;  //enable/disable automatic correction that all fractions of lus within a subbasin sum up to 1	
-$normalize_tc_in_lu=1;		//enable/disable automatic correction that all fractions of tcs within a lu sum up to 1
-$normalize_svc_in_tc=1;		//enable/disable automatic correction that all fractions of svcs within a tc sum up to 1
-$compute_stream_order=1;	//enable/disable automatic computation of column a_stream_order in subbasins
+$print_process=1;		//enable/disable detailed screen output of process
+$normalize_lus_in_subbas=0;  //enable/disable automatic correction that all fractions of lus within a subbasin sum up to 1	
+$normalize_tc_in_lu=0;		//enable/disable automatic correction that all fractions of tcs within a lu sum up to 1
+$normalize_svc_in_tc=0;		//enable/disable automatic correction that all fractions of svcs within a tc sum up to 1
+$compute_stream_order=0;	//enable/disable automatic computation of column a_stream_order in subbasins
 
-$coarse_fraction=0;		//source of coarse fraction for erosion modelling
+$coarse_fraction=1;		//source of coarse fraction for erosion modelling
 				//options:	0:read from table soil_veg_components
 				//		1:use entry of topmost horizon of respective soil
 ?>

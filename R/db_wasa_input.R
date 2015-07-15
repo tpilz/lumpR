@@ -1,0 +1,1164 @@
+#'  Create WASA input files
+#'  
+#'  Function takes parameters from a parameter database and generates ASCII files
+#'  as input to the WASA hydrological model.
+#'  
+#'  @param dbname Name of the data source (DSN) registered at ODBC.
+#'  
+#'  @param dest_dir The directory in which the output files (= WASA input files) are
+#'  created. Will be created if it does not exist. Default: \code{./}. Includes the
+#'  sub-directories 'Hillslope' and 'River'.
+#'  
+#'  @param files Character vector specifying WASA input files that should be created. 
+#'  See \code{Details}. By default all files will be created.
+#'  
+#'  @param overwrite \code{logical}. Should existing files in \code{dest_dir} be
+#'  overwriten? Default: \code{FALSE}.
+#'  
+#'  @param verbose \code{logical}. Should detailed information during execution be
+#'  printed? Default: \code{TRUE}.
+#'  
+#'  
+#'  @details
+#'  Consider function db_check() before running this function to ensure consistency in
+#'  and completeness of data in the database. Otherwise the input files might contain
+#'  errors which might lead to errors or unexpected results during model application.
+#'  
+#'  Note differences in variable notations between parameter database and WASA's
+#'  input files!
+#'  
+#'  Sediment transport specific variables are not yet included.
+#'  
+#'  The following files will be created:
+#'  
+#'  \bold{info.dat}\cr
+#'  General information (actual date, parameter database version etc.).
+#'  
+#'  \bold{River/routing.dat}\cr
+#'  File contains routing order (i.e. flow direction) at subbasin level.
+#'  
+#'  \bold{River/response.dat}\cr
+#'  File contains routing parameters (lag time and retention in \emph{days})
+#'  at subbasin level.
+#'  
+#'  
+#'  \bold{Hillslope/hymo.dat}\cr
+#'  File contains relations between subbasins and landscape units. Only subbasins
+#'  present in table 'subbasins' AND 'r_subbas_contains_lu' will be considered.
+#'  Columns:
+#'  
+#'  \emph{Subbasin-ID}\cr
+#'  ID of subbasin.
+#'  
+#'  \emph{Area}\cr
+#'  Area of each subbasin in \emph{km^2} (including reservoir areas).
+#'  
+#'  \emph{nbr}\cr
+#'  Number of landscape units in the respective subbasin.
+#'  
+#'  \emph{LU-IDs}\cr
+#'  IDs of landscape units in the respective subbasin
+#'  
+#'  \emph{areal_fraction_of_LU}\cr
+#'  Areal fraction of each LU in the respective subbasin.
+#'  
+#'  
+#'  \bold{Hillslope/soter.dat}\cr
+#'  File contains landscape unit parameters and associated terrain components. Only LUs
+#'  present in table 'landscape_units' AND 'r_lu_contains_tc' will be considered.
+#'  
+#'  \emph{LU-ID}\cr
+#'  ID of landscape unit.
+#'  
+#'  \emph{No._of_TC}\cr
+#'  Number of TCs in the corresponding LU.
+#'  
+#'  \emph{TC1}\cr
+#'  ID of first terrain component.
+#'  
+#'  \emph{TC2}\cr
+#'  ID of second terrain component.
+#'  
+#'  \emph{TC3}\cr
+#'  ID of third terrain component.
+#'  
+#'  \emph{TCx}\cr
+#'  IDs of the other TCs as specified in field \emph{No._of_TC} (if available).
+#'  
+#'  \emph{kfsu[mm/d]}\cr
+#'  Hydraulic conductivity of bedrock in \emph{mm/d}.
+#'  
+#'  \emph{length[m]}\cr
+#'  Mean  slope length in LU in \emph{m}.
+#'  
+#'  \emph{meandep[mm]}\cr
+#'  Mean maximum depth of soil zone in \emph{mm}.
+#'  
+#'  \emph{maxdep[mm]}\cr
+#'  Maximum depth of alluvial soil zone in \emph{mm}.
+#'  
+#'  \emph{Riverbed[mm]}\cr
+#'  Depth of River bed below terrain componen in \emph{mm}.
+#'  
+#'  \emph{gwflag[0/1]}\cr
+#'  Groundwater flag for LU. 0: no groundwater, 1: with groundwater. 
+#'  
+#'  \emph{gw_dist[mm]}\cr
+#'  Initial depth of groundwater below surface in \emph{mm}.
+#'  
+#'  \emph{frgw_delay[day]}\cr
+#'  Storage coefficient for groundwater outflow in \emph{days}.
+#'  
+#'  
+#'  \bold{Hillslope/terrain.dat}\cr
+#'  File contains specification of terrain components. Only TCs
+#'  present in table 'terrain_components' AND 'r_lu_contains_tc' will be considered.
+#'  
+#'  \emph{TC-ID}\cr
+#'  ID of terrain component.
+#'  
+#'  \emph{fraction}\cr
+#'  Areal fraction of TC in corresponding LU.
+#'  
+#'  \emph{slope[\%]}\cr
+#'  Slope of TC in \emph{\%}.
+#'  
+#'  \emph{position}\cr
+#'  Number indicating the relative position of TC along the hillslope. 1: highland,
+#'  2: middle, ..., [highest]: downslope.
+#'  ATTENTION: Order in WASA input file is reversed in comparison to order within
+#'  database!
+#'  
+#'  
+#'  \bold{Hillslope/svc_in_tc.dat}\cr
+#'  SVC relations to TC.
+#'  
+#'  
+#'  \bold{Hillslope/soil_vegetation.dat}\cr
+#'  Definition of soil vegetation components. Only SVCs occurring in table 'r_tc_contains_svc'
+#'  will be considered.
+#'  
+#'  
+#'  \bold{Hillslope/soil.dat}\cr
+#'  Horizon specific soil parameters. See file header and \code{\link[LUMP]{db_fill}}
+#'  for more information. Only soil types occurring in tables 'soil_veg_components'
+#'  and 'r_tc_contains_svc' will be considered.
+#'  
+#'  \bold{Hillslope/vegetation.dat}\cr
+#'  Vegetation parameters. See file header and \code{\link[LUMP]{db_fill}}
+#'  for more information. Only vegetation types occurring in table 'soil_veg_components'
+#'  and 'r_tc_contains_svc' will be considered.
+#'  
+#'  \bold{do.dat}\cr
+#'  File contains general parameters and control flags for WASA. See file's comments for
+#'  more information. Manual investigation and adjustment after creation is necessary
+#'  (e.g. for input/output locations, start/stop year of simulation etc.). Note that,
+#'  depending on your choices, the manual creation of additional input files will
+#'  be necessary. Consult WASA's documentation you should have recieved along with
+#'  the model.
+#'  
+#'  \bold{maxdim.dat}\cr
+#'  \emph{Optional} file that contains maximum dimensions of spatial units to
+#'  optimise memory management and improve computational performance.
+#'  
+#'  \bold{part_class.dat}\cr
+#'  \emph{Optional} file for sediment modelling of multiple particle size classes.
+#'   File defines the number and the properties of the particle sizes that will be
+#'   modelled. Please note that class numbering has to be continuous, starting with
+#'   1. The particle size classes must be ordered from fine to coarse.
+#'   
+#'   \bold{Hillslope/soil_particles.dat}\cr
+#'   File contains particle size distributions of topmost soil horizons.
+#'   
+#'   \bold{rainy_season}\cr
+#'   \emph{Optional} file defining days of year (i.e. nodes, cf. vegetation parameters)
+#'   of the rainy/growing season for each year, subbasin and vegetation type. See
+#'   doc of \code{\link[LUMP]{db_fill}} and \code{\link[LUMP]{rainy_season}} for
+#'   more information. If this file is not supplied only the first node value of 
+#'   seasonal vegetation parameters is used.
+#'  
+#'  
+#'  @author 
+#'  Tobias Pilz \email{tpilz@@uni-potsdam.de}, Till Francke \email{francke@@uni-potsdam.de}
+#'  
+#'  @export
+
+db_wasa_input <- function(
+  dbname,
+  dest_dir = "./",
+  files=c("info.dat", "River/routing.dat", "River/response.dat", "Hillslope/hymo.dat",
+          "Hillslope/soter.dat", "Hillslope/terrain.dat", "Hillslope/soil_vegetation.dat",
+          "Hillslope/soil.dat", "Hillslope/vegetation.dat", "Hillslope/svc_in_tc.dat",
+          "do.dat", "maxdim.dat", "part_class.dat", "Hillslope/soil_particles.dat",
+          "Hillslope/rainy_season.dat"),
+  overwrite=F,
+  verbose = TRUE
+) {
+  
+  if (verbose)
+    print("Loading package 'RODBC' and connecting to database ...")
+  
+  # load ODBC R interface
+  require(RODBC)
+  
+  # connect to ODBC registered database
+  suppressWarnings(con <- odbcConnect(dbname, believeNRows=F))
+  
+  if (con == -1)
+    print(paste0("Could not connect to database '", dbname, "'. Type 'odbcDataSources()' to see the data sources known to ODBC.",
+                 " If you want to connect to a MS Access database make sure you are using 32 bit R."))
+  
+  if(verbose)
+    print("OK.")
+  
+  # ensure MySQL/MariaDB uses ANSI quotation (double quotes instead of back ticks)
+  if(grepl("MariaDB", odbcGetInfo(con)["DBMS_Name"], ignore.case=T))
+    sqlQuery(con, "SET sql_mode='ANSI';")
+  
+  
+  # get most recent db version from update sql files in source directory
+  db_dir <- system.file("database/", package="LUMP")
+  db_up_files <- dir(db_dir, pattern="update_[a-zA-Z0-9_]*.sql")
+  db_ver_max <- max(as.integer(sub(".sql", "", sub("update_db_v", "", db_up_files))))
+  
+  #check current db version
+  if(verbose)
+    print("Check database version ...")
+  db_ver <- max(sqlFetch(con, "db_version")$version)
+  if(db_ver < db_ver_max) {
+    odbcClose(con)
+    stop(paste0("Database version is prior to version ",db_ver_max, ". Make sure you use the latest database version (consider function db_update())!"))
+  }
+  if(verbose)
+    print("OK.")
+
+  # create and/or check output directory
+  if(!file.exists(dest_dir)) {
+    if(verbose)
+      print(paste("Output directory ", dest_dir, " with all sub-directories will be created."))
+    dir.create(dest_dir, recursive=T)
+    dir.create(paste(dest_dir, "River", sep="/"), recursive=T)
+    dir.create(paste(dest_dir, "Hillslope", sep="/"), recursive=T)
+  } else {
+    if(verbose)
+      print(paste("Output will be written to ", dest_dir))
+    
+    pathfiles <- paste0(dest_dir, files)
+    if(any(file.exists(pathfiles)))
+      if(overwrite) {
+        if(verbose)
+          print(paste0("The following files in specified path '", dest_dir, "' will be overwritten: ", paste(files[file.exists(pathfiles)], collapse=", ")))
+      } else {
+        stop(paste0("There are still files at '", dest_dir, "' that shall not be overwritten: ", paste(files[file.exists(pathfiles)], collapse=", ")))
+      }
+
+  }
+
+
+  
+
+###############################################################################
+### info.dat
+  if("info.dat" %in% files) {
+    if(verbose)
+      print("Create info.dat ...")
+  
+    # create file
+    if(!file.exists(paste(dest_dir, "info.dat", sep="/")) | overwrite){
+      file.create(paste(dest_dir, "info.dat", sep="/"))
+    } else {
+      stop("File 'info.dat' exists!")
+    }
+  
+    # get actual database revision from meta_info
+    meta_dat <- sqlFetch(con, "meta_info")
+    meta_rev <- max(meta_dat$pid)
+    
+    # write data into file
+    writeLines(con=paste(dest_dir, "info.dat", sep="/"),
+               text=paste0("generated on ", Sys.time(), " with R-Package LUMP function db_wasa_input() version ",
+                      installed.packages()["LUMP","Version"], " from database version ",
+                      db_ver, " revision ", meta_rev,"."))
+    
+    if(verbose)
+      print("OK.")
+  }
+
+
+
+
+###############################################################################
+### River/routing.dat
+  if("River/routing.dat" %in% files) {
+    if(verbose)
+      print("Create River/routing.dat ...")
+    
+    # create file
+    if(!file.exists(paste(dest_dir, "River/routing.dat", sep="/")) | overwrite){
+      file.create(paste(dest_dir, "River/routing.dat", sep="/"))
+    } else {
+      stop("File 'River/routing.dat' exists!")
+    }
+    
+    # write header
+    writeLines(con=paste(dest_dir, "River/routing.dat", sep="/"),
+               text=c("Specification of routing order (flow directions)",
+                      "No.\tSubasin-ID(upstream)\tSubasin-ID(downstream)"))
+
+    
+    # get data
+    dat <- sqlFetch(con, "subbasins")
+    
+    if(any(is.na(cbind(dat$pid, dat$drains_to, dat$a_stream_order))))
+      stop("Cannot write file River/routing.dat. Column(s) 'pid', 'drains_to' and/or 'a_stream_order' of table 'subbasins' contain missing values!")
+    
+    # sort
+    r_order <- order(dat$a_stream_order, decreasing=TRUE)
+    dat_out <- dat[r_order,]
+    dat_out <- cbind(1:nrow(dat_out), dat_out$pid, dat_out$drains_to)
+    
+    # write output
+    write.table(dat_out, paste(dest_dir, "River/routing.dat", sep="/"), append=T,
+                quote=F, sep="\t", row.names=F, col.names=F)
+    
+    
+    if(verbose)
+      print("OK.")
+  } # River/routing.dat
+
+
+
+
+###############################################################################
+### River/response.dat
+  if("River/response.dat" %in% files) {
+    if(verbose)
+      print("Create River/response.dat ...")
+    
+    # create file
+    if(!file.exists(paste(dest_dir, "River/response.dat", sep="/")) | overwrite){
+      file.create(paste(dest_dir, "River/response.dat", sep="/"))
+    } else {
+      stop("File 'River/response.dat' exists!")
+    }
+    
+    # write header
+    writeLines(con=paste(dest_dir, "River/response.dat", sep="/"),
+               text=c("Specification of routing parameter",
+                      "Subbasin-ID\tlag time [d]\tretention [d]"))
+    
+    # get data
+    dat <- sqlFetch(con, "subbasins")
+    
+    # data for output
+    dat_out <- cbind(dat$pid, dat$lag_time, dat$retention)
+    if(any(is.na(dat_out)))
+      stop("Cannot write file River/response.dat Column(s) 'pid', 'lag_time' and/or 'retention' of table 'subbasins' contain missing values!")
+    
+    # write output
+    write.table(dat_out, paste(dest_dir, "River/response.dat", sep="/"), append=T,
+                quote=F, sep="\t", row.names=F, col.names=F)
+    
+    if(verbose)
+      print("OK.")
+    
+  } # River/response.dat
+
+
+
+
+###############################################################################
+### Hillslope/hymo.dat
+  if("Hillslope/hymo.dat" %in% files) {
+    if(verbose)
+      print("Create Hillslope/hymo.dat ...")
+    
+    # create file
+    if(!file.exists(paste(dest_dir, "Hillslope/hymo.dat", sep="/")) | overwrite){
+      file.create(paste(dest_dir, "Hillslope/hymo.dat", sep="/"))
+    } else {
+      stop("File 'Hillslope/hymo.dat' exists!")
+    }
+    
+    # write header
+    writeLines(con=paste(dest_dir, "Hillslope/hymo.dat", sep="/"),
+               text=c("Specification of the sub-basins and their total number, type and areal fraction of SOTER units",
+                      "Subasin-ID[-]\tArea[km**2]\tnbr[-]\tLU-ID[-]\tareal_fraction_of_LU[-]"))
+    
+    # get data
+    dat_sub <- sqlFetch(con, "subbasins")
+    dat_contains <- sqlFetch(con, "r_subbas_contains_lu")
+    
+    # select only subbasins which are in the contains table
+    r_sub_out <- which(!(dat_sub$pid %in% dat_contains$subbas_id))
+    if(any(r_sub_out)) {
+      warning(paste0("Subbasins ", paste0(dat_sub$pid[r_sub_out], collapse=", "), " from table 'subbasins' are not in table 'r_subbas_contains_lu' and will be ignored."))
+      dat_sub <- dat_sub[-r_sub_out,]
+    }
+    
+    if(any(is.na(cbind(dat_sub$pid,dat_sub$area))))
+      stop("Cannot write file Hillslope/hymo.dat Column(s) 'pid' and/or 'area' of table 'subbasins' contain missing values!")
+    if(any(is.na(dat_contains)))
+      stop("Cannot write file Hillslope/hymo.dat Table 'r_subbas_contains_lu' contains missing values!")
+
+    
+    # loop over subbasins, reversely ordered by a_stream_order
+    r_sub_ordered <- rev(order(dat_sub$a_stream_order))
+    for(s in r_sub_ordered) {
+      # identify rows in contains table of current subbasin
+      r_contains <- which(dat_contains$subbas_id == dat_sub$pid[s])
+      
+      # check that fractions sum up to 1
+      if(round(sum(dat_contains$fraction[r_contains]),3) != 1)
+        stop(paste0("For subbasin ", dat_sub$pid[s], " sum of areal fractions of landscape units (table 'r_subbas_contains_lu') are not equal to one. Consider function db_check()."))
+      
+      # string for output file with relevant information
+#       str_out <- paste(dat_sub$pid[s], round(dat_sub$area[s],2), length(r_contains), 
+#                        paste(dat_contains$lu_id[r_contains], collapse="\t"),
+#                        paste(round(dat_contains$fraction[r_contains],3), collapse="\t"), sep="\t")
+      str_out <- paste(dat_sub$pid[s], dat_sub$area[s], length(r_contains), 
+                       paste(dat_contains$lu_id[r_contains], collapse="\t"),
+                       paste(dat_contains$fraction[r_contains], collapse="\t"), sep="\t")
+      
+      # write output
+      write(file=paste(dest_dir, "Hillslope/hymo.dat", sep="/"),x=str_out,append=T,sep="\n")
+    }
+    
+    
+    if(verbose)
+      print("OK.")
+    
+  } # Hillslope/hymo.dat
+  
+
+
+
+
+###############################################################################
+### Hillslope/soter.dat
+  if("Hillslope/soter.dat" %in% files) {
+    if(verbose)
+      print("Create Hillslope/soter.dat ...")
+    
+    # create file
+    if(!file.exists(paste(dest_dir, "Hillslope/soter.dat", sep="/")) | overwrite){
+      file.create(paste(dest_dir, "Hillslope/soter.dat", sep="/"))
+    } else {
+      stop("File 'Hillslope/soter.dat' exists!")
+    }
+    
+    # write header
+    writeLines(con=paste(dest_dir, "Hillslope/soter.dat", sep="/"),
+               text=c("Specification of landscape units",
+                      "LU-ID[id]\tNo._of_TC[-]\tTC1[id]\tTC2[id]\tTC3[id]\tkfsu[mm/d]\tlength[m]\tmeandep[mm]\tmaxdep[mm]\tRiverbed[mm]\tgwflag[0/1]\tgw_dist[mm]\tfrgw_delay[day]"))
+    
+    # get data
+    dat_lu <- sqlFetch(con, "landscape_units")
+    dat_contains <- sqlFetch(con, "r_lu_contains_tc")
+    
+    # select only LUs which are in the contains table
+    r_lu_out <- which(!(dat_lu$pid %in% dat_contains$lu_id))
+    if(any(r_lu_out)) {
+      warning(paste0("LUs ", paste0(dat_lu$pid[r_lu_out], collapse=", "), " from table 'landscape_units' are not in table 'r_lu_contains_tc' and will be ignored."))
+      dat_lu <- dat_lu[-r_lu_out,]
+    }
+    
+    if(any(is.na(dat_lu[,-c(2,11)])))
+      stop("Cannot write file Hillslope/soter.dat Table 'landscape_units' contains missing values!")
+    if(any(is.na(dat_contains)))
+      stop("Cannot write file Hillslope/soter.dat Table 'r_lu_contains_tc' contains missing values!")
+    
+    
+    # loop over LUs
+    for(s in 1:nrow(dat_lu)) {
+      # identify rows in contains table of current LU
+      r_contains <- which(dat_contains$lu_id == dat_lu$pid[s])
+      
+      # check that fractions sum up to 1
+      if(round(sum(dat_contains$fraction[r_contains]),3) != 1)
+        stop(paste0("For LU ", dat_lu$pid[s], " sum of areal fractions of terrain components (table 'r_lu_contains_tc') are not equal to one. Consider function db_check()."))
+      
+      # string for output file with relevant information
+#       str_out <- paste(dat_lu$pid[s], length(r_contains), 
+#                        paste(dat_contains$tc_id[r_contains], collapse="\t"),
+#                        paste(round(dat_lu[s,-c(1,2,11)],1), collapse="\t"), sep="\t")
+      str_out <- paste(dat_lu$pid[s], length(r_contains), 
+                       paste(dat_contains$tc_id[r_contains], collapse="\t"),
+                       paste(dat_lu[s,-c(1,2,11)], collapse="\t"), sep="\t")
+
+      # write output
+      write(file=paste(dest_dir, "Hillslope/soter.dat", sep="/"),x=str_out,append=T,sep="\n")
+    }
+    
+    
+    if(verbose)
+      print("OK.")
+    
+  } # Hillslope/soter.dat
+
+
+
+
+###############################################################################
+### Hillslope/terrain.dat
+  if("Hillslope/terrain.dat" %in% files) {
+    if(verbose)
+      print("Create Hillslope/terrain.dat ...")
+    
+    # create file
+    if(!file.exists(paste(dest_dir, "Hillslope/terrain.dat", sep="/")) | overwrite){
+      file.create(paste(dest_dir, "Hillslope/terrain.dat", sep="/"))
+    } else {
+      stop("File 'Hillslope/terrain.dat' exists!")
+    }
+    
+    # write header
+    writeLines(con=paste(dest_dir, "Hillslope/terrain.dat", sep="/"),
+               text=c("Specification of terrain components",
+                      "TC-ID\tfraction\tslope[%]\tposition[-]"))
+    
+    # get data
+    dat_tc <- sqlFetch(con, "terrain_components")
+    dat_contains <- sqlFetch(con, "r_lu_contains_tc")
+    
+    # select only TCs which are in the contains table
+    r_tc_out <- which(!(dat_tc$pid %in% dat_contains$tc_id))
+    if(any(r_tc_out)) {
+      warning(paste0("TCs ", paste0(dat_tc$pid[r_tc_out], collapse=", "), " from table 'terrain_components' are not in table 'r_lu_contains_tc' and will be ignored."))
+      dat_tc <- dat_tc[-r_tc_out,]
+    }
+    
+    if(any(is.na(dat_tc[,c(1,3)])))
+      stop("Cannot write file Hillslope/terrain.dat. Column(s) 'pid' and/or 'slope' of table 'terrain_components' contain missing values!")
+    if(any(is.na(dat_contains)))
+      stop("Cannot write file Hillslope/terrain.dat. Table 'r_lu_contains_tc' contains missing values!")
+    
+    # reverse positions (in WASA input the opposite couting compared to database)
+    for (l in unique(dat_contains$lu_id)){
+      rows <- which(dat_contains$lu_id == l)
+      dat_contains$position[rows] <- rev(dat_contains$position[rows])
+    }
+    
+    # loop over TCs
+    for(s in 1:nrow(dat_tc)) {
+      # identify rows in contains table of current LU
+      r_contains <- which(dat_contains$tc_id == dat_tc$pid[s])
+      
+      # string for output file with relevant information
+#       str_out <- paste(dat_tc$pid[s], round(dat_contains$fraction[r_contains],3),
+#                        round(dat_tc[s,"slope"],3), dat_contains$position[r_contains], sep="\t")
+str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
+                 dat_tc[s,"slope"], dat_contains$position[r_contains], sep="\t")
+      
+      # write output
+      write(file=paste(dest_dir, "Hillslope/terrain.dat", sep="/"),x=str_out,append=T,sep="\n")
+    }
+    
+    
+    if(verbose)
+      print("OK.")
+    
+  } # Hillslope/terrain.dat
+
+
+
+
+###############################################################################
+### Hillslope/svc_in_tc.dat
+  if("Hillslope/svc_in_tc.dat" %in% files) {
+    if(verbose)
+      print("Create Hillslope/svc_in_tc.dat ...")
+    
+    # create file
+    if(!file.exists(paste(dest_dir, "Hillslope/svc_in_tc.dat", sep="/")) | overwrite){
+      file.create(paste(dest_dir, "Hillslope/svc_in_tc.dat", sep="/"))
+    } else {
+      stop("File 'Hillslope/svc_in_tc.dat' exists!")
+    }
+    
+    # write header
+    writeLines(con=paste(dest_dir, "Hillslope/svc_in_tc.dat", sep="/"),
+               text=c("Specification of which SVCs are contained in each TC",
+                      "TC-ID[-]\tSVC-ID[-]\tfraction[-]"))
+    
+    # get data
+    dat_contains <- sqlFetch(con, "r_tc_contains_svc")
+    
+    # check data
+    if(any(is.na(dat_contains)))
+      stop("Could not write file Hillslope/svc_in_tc.dat. There are missing values in table 'r_tc_contains_svc'!")
+    
+    frac_sums <- round(tapply(dat_contains$fraction, dat_contains$tc_id, sum),3)
+    if(any(frac_sums !=1)) {
+      stop("Check table 'r_tc_contains_svc'! Not all fractions per TC sum up to one.")
+    }
+    
+    # write output
+#     write.table(round(dat_contains,4), paste(dest_dir, "Hillslope/svc_in_tc.dat", sep="/"), append=T,
+#                 quote=F, sep="\t", row.names=F, col.names=F)
+    write.table(dat_contains, paste(dest_dir, "Hillslope/svc_in_tc.dat", sep="/"), append=T,
+                quote=F, sep="\t", row.names=F, col.names=F)
+    
+    if(verbose)
+      print("OK.")
+    
+  } # Hillslope/svc_in_tc.dat
+
+
+
+
+###############################################################################
+### Hillslope/soil_vegetation.dat
+  if("Hillslope/soil_vegetation.dat" %in% files) {
+    if(verbose)
+      print("Create Hillslope/soil_vegetation.dat ...")
+    
+    # create file
+    if(!file.exists(paste(dest_dir, "Hillslope/soil_vegetation.dat", sep="/")) | overwrite){
+      file.create(paste(dest_dir, "Hillslope/soil_vegetation.dat", sep="/"))
+    } else {
+      stop("File 'Hillslope/soil_vegetation.dat' exists!")
+    }
+    
+    # write header
+    writeLines(con=paste(dest_dir, "Hillslope/soil_vegetation.dat", sep="/"),
+               text=c("Specification of soil-vegetation components (links soter, terrain component, soil and vegetation properties)",
+                      "For each block: first line Soil IDs, Second line Land use, third line fraction of SVCs in each terrain component",
+                      "Subasin-ID[id]\tLU-ID[id]\tTC-ID[id]\tfraction_rocky[-]\tnbrSVC[-]\tSoil-ID(n_values)[-]\tVegetation-ID(n_values)[-]\tfraction(n_values)[-]"))
+    
+    # get data
+    dat_tc <- sqlFetch(con, "terrain_components")
+    dat_svc <- sqlFetch(con, "soil_veg_components")
+    dat_sub_contains <- sqlFetch(con, "r_subbas_contains_lu")
+    dat_lu_contains <- sqlFetch(con, "r_lu_contains_tc")
+    dat_tc_contains <- sqlFetch(con, "r_tc_contains_svc")
+    
+    # loop over subbasins
+    for(s in unique(dat_sub_contains$subbas_id)) {
+      # identify rows in contains table of current subbasin
+      r_sub_contains <- which(dat_sub_contains$subbas_id == s)
+      
+      # loop over LUs in this subbasin
+      for(l in dat_sub_contains$lu_id[r_sub_contains]) {
+        # identify rows in contains table of current LU
+        r_lu_contains <- which(dat_lu_contains$lu_id == l)
+        
+        # loop over TCs in this LU
+        for(tc in dat_lu_contains$tc_id[r_lu_contains]){
+          # identify rows in contains table of current TC
+          r_tc_contains <- which(dat_tc_contains$tc_id == tc)
+          
+          # rows in svc table (only svc in contains table are considered)
+          tc_svc <- dat_tc_contains$svc_id[r_tc_contains]
+          r_svc <- which(dat_svc$pid %in% tc_svc)
+          
+          # check that fractions sum up to 1
+          if(round(sum(dat_tc_contains$fraction[r_tc_contains]), 3) != 1)
+            stop(paste0("For TC ", tc, " sum of areal fractions of SVCs (table 'r_tc_contains_svc') are not equal to one. Consider function db_check()."))
+          
+          # string for output file with relevant information
+#           str_out_1 <- paste(s, l, tc, round(dat_tc$frac_rocky[which(dat_tc$pid == tc)],3), length(r_tc_contains),
+#                              paste(dat_svc$soil_id[r_svc], collapse="\t"), sep="\t")
+#           str_out_2 <- paste(s, l, tc, round(dat_tc$frac_rocky[which(dat_tc$pid == tc)],3), length(r_tc_contains),
+#                              paste(dat_svc$veg_id[r_svc], collapse="\t"), sep="\t")
+#           str_out_3 <- paste(s, l, tc, round(dat_tc$frac_rocky[which(dat_tc$pid == tc)],3), length(r_tc_contains),
+#                              paste(round(dat_tc_contains$fraction[r_tc_contains],4), collapse="\t"), sep="\t")
+          str_out_1 <- paste(s, l, tc, dat_tc$frac_rocky[which(dat_tc$pid == tc)], length(r_tc_contains),
+                             paste(dat_svc$soil_id[r_svc], collapse="\t"), sep="\t")
+          str_out_2 <- paste(s, l, tc, dat_tc$frac_rocky[which(dat_tc$pid == tc)], length(r_tc_contains),
+                             paste(dat_svc$veg_id[r_svc], collapse="\t"), sep="\t")
+          str_out_3 <- paste(s, l, tc, dat_tc$frac_rocky[which(dat_tc$pid == tc)], length(r_tc_contains),
+                             paste(dat_tc_contains$fraction[r_tc_contains], collapse="\t"), sep="\t")
+          
+          # write output
+          write(file=paste(dest_dir, "Hillslope/soil_vegetation.dat", sep="/"),
+                x=c(str_out_1, str_out_2, str_out_3), append=T, sep="\n")
+                           
+        } # TCs
+      } # LUs
+    } # sub
+    
+    
+    if(verbose)
+      print("OK.")
+    
+  } # Hillslope/soil_vegetation.dat
+
+
+
+
+###############################################################################
+### Hillslope/soil.dat
+  if("Hillslope/soil.dat" %in% files) {
+    if(verbose)
+      print("Create Hillslope/soil.dat ...")
+    
+    # create file
+    if(!file.exists(paste(dest_dir, "Hillslope/soil.dat", sep="/")) | overwrite){
+      file.create(paste(dest_dir, "Hillslope/soil.dat", sep="/"))
+    } else {
+      stop("File 'Hillslope/soil.dat' exists!")
+    }
+    
+    # write header
+    writeLines(con=paste(dest_dir, "Hillslope/soil.dat", sep="/"),
+               text=c("Specification of soil parameters",
+                      "Soil-ID[-]\tnumber(horizons)[-]\t(n_res[Vol-]\tn_PWP[-]\tn_FK2.6[-]\tn_FK1.8[-]\tn_nFK[-]\tn_saturated[-]\tn_thickness[mm]\tn_ks[mm/d]\tn_suction[mm]\tn_pore-size-index[-]\tn_bubblepressure[cm]\tn_coarse_frag[-]*n\tn_shrinks[0/1])\tbedrock[0/1]\talluvial[0/1]"))
+    
+    # get data
+    dat_hor <- sqlFetch(con, "horizons")
+    dat_soil <- sqlFetch(con, "soils")    
+    dat_svc <- sqlFetch(con, "soil_veg_components")
+    dat_contains <- sqlFetch(con, "r_tc_contains_svc")
+    
+    # only soil types occurring in soil_veg_components and r_tc_contains_svc will be considered
+    r_svc_out <- which(!(dat_svc$pid %in% dat_contains$svc_id))
+    if(any(r_svc_out))
+      dat_svc <- dat_svc[-r_svc_out,]
+    
+    r_soil_out <- which(!(dat_soil$pid %in% dat_svc$soil_id))
+    if(any(r_soil_out)) {
+      warning(paste0("Soil types ", paste0(dat_soil$pid[r_soil_out], collapse=", "), " from table 'soils' are not in table 'soil_veg_components', or the respective SVCs are not in 'r_tc_contains_svc', and will be ignored."))
+      dat_soil <- dat_soil[-r_soil_out,]
+    }
+    
+    
+    # loop over soils
+    for(s in 1:nrow(dat_soil)) {
+      # get rows of current soil
+      r_hor <- which(dat_hor$soil_id == dat_soil$pid[s])
+      
+      # string for output file with relevant information
+#       dat_out <- round(dat_hor[r_hor, c("theta_r", "theta_pwp", "fk", "fk63", "nfk", "theta_s", "thickness",
+#                                         "ks", "suction", "pore_size_i", "bubb_pres", "coarse_frag", "shrinks")],3)
+      dat_out <- dat_hor[r_hor, c("theta_r", "theta_pwp", "fk", "fk63", "nfk", "theta_s", "thickness",
+                                        "ks", "suction", "pore_size_i", "bubb_pres", "coarse_frag", "shrinks")]
+      
+      if(any(is.na(cbind(dat_out, dat_soil$pid[s], dat_soil$bedrock_flag[s], dat_soil$alluvial_flag[s]))))
+        stop(paste("Could not successfully write Hillslope/soil.dat. For soil ", dat_soil$pid[s], " there are missing values. Check tables 'soils' and 'horizons'!"))
+      
+      str_out <- paste(dat_soil$pid[s], length(r_hor),
+                       paste(apply(dat_out,1,paste,collapse="\t"),collapse="\t"),
+                       dat_soil$bedrock_flag[s], dat_soil$alluvial_flag[s], sep="\t")
+      
+      # write output
+      write(file=paste(dest_dir, "Hillslope/soil.dat", sep="/"),
+            x=str_out, append=T, sep="\n")
+    }
+    
+    if(verbose)
+      print("OK.")
+    
+  } # Hillslope/soil.dat
+
+
+
+
+###############################################################################
+### Hillslope/vegetation.dat
+  if("Hillslope/vegetation.dat" %in% files) {
+    if(verbose)
+      print("Create Hillslope/vegetation.dat ...")
+    
+    # create file
+    if(!file.exists(paste(dest_dir, "Hillslope/vegetation.dat", sep="/")) | overwrite){
+      file.create(paste(dest_dir, "Hillslope/vegetation.dat", sep="/"))
+    } else {
+      stop("File 'Hillslope/vegetation.dat' exists!")
+    }
+    
+    # write header
+    writeLines(con=paste(dest_dir, "Hillslope/vegetation.dat", sep="/"),
+               text=c("Specification of vegetation parameters",
+                      "Veg-ID\tStomata_Resistance[s/m]\tminsuction[hPa]\tmaxsuction[hPa]\theight1[m]\theight2[m]\theight3[m]\theight4[m]\trootdepth1[m]\trootdepth2[m]\trootdepth3[m]\trootdepth4[m]\tLAI1[-]\tLAI2[-]\tLAI3[-]\tLAI4[-]\talbedo1[-]\talbedo2[-]\talbedo3[-]\talbedo4[-]"))
+    
+    # get data
+    dat_veg <- sqlFetch(con, "vegetation")
+    dat_svc <- sqlFetch(con, "soil_veg_components")
+    dat_contains <- sqlFetch(con, "r_tc_contains_svc")
+    
+    # only veg types occurring in soil_veg_components and r_tc_contains_svc will be considered
+    r_svc_out <- which(!(dat_svc$pid %in% dat_contains$svc_id))
+    if(any(r_svc_out))
+      dat_svc <- dat_svc[-r_svc_out,]
+    
+    r_veg_out <- which(!(dat_veg$pid %in% dat_svc$veg_id))
+    if(any(r_veg_out)) {
+      warning(paste0("Vegetation types ", paste0(dat_veg$pid[r_veg_out], collapse=", "), " from table 'vegetation' are not in table 'soil_veg_components', or the respective SVCs are not in 'r_tc_contains_svc', and will be ignored."))
+      dat_veg_out <- dat_veg[-r_veg_out,]
+    }
+    
+    
+    # only the following columns in the following order
+    cols <- c("pid", "stomat_r", "min_suction", "max_suction", 
+              "height1", "height2", "height3", "height4",
+              "root_depth1", "root_depth2", "root_depth3", "root_depth4",
+              "lai1", "lai2", "lai3", "lai4",
+              "alb1", "alb2", "alb3", "alb4")
+    r_cols <- which(colnames(dat_veg_out) %in% cols)
+    dat_veg_out <- dat_veg_out[, r_cols]
+    
+    # write output
+    write.table(dat_veg_out, paste(dest_dir, "Hillslope/vegetation.dat", sep="/"), append=T,
+                quote=F, sep="\t", row.names=F, col.names=F)
+    
+    
+    if(verbose)
+      print("OK.")
+    
+  } # Hillslope/vegetation.dat
+
+
+
+
+###############################################################################
+### do.dat
+  if("do.dat" %in% files) {
+    if(verbose)
+      print("Create do.dat ...")
+    
+    # create file
+    if(!file.exists(paste(dest_dir, "do.dat", sep="/")) | overwrite){
+      file.create(paste(dest_dir, "do.dat", sep="/"))
+    } else {
+      stop("File 'do.dat' exists!")
+    }
+    
+    
+    ### get relevant output information
+    
+    # no. of subbasin
+    dat_sub <- sqlFetch(con, "subbasins")
+    dat_contains <- sqlFetch(con, "r_subbas_contains_lu")
+    dat_sub <- dat_sub[which(dat_sub$pid %in% dat_contains$subbas_id),]
+    no_sub <- nrow(dat_sub)
+    
+    # no. of combinations of sub-basins, landscape units, terrain components
+    dat_sub <- sqlFetch(con, "r_subbas_contains_lu")
+    dat_lu <- sqlFetch(con, "r_lu_contains_tc")
+    dat_merge <- merge(dat_sub[,c(1,2)], dat_lu[,c(1,2)], by.x="lu_id", by.y="lu_id")
+    no_sblutc <- nrow(dat_merge)
+    
+    # no. of landscape units
+    dat_lu <- sqlFetch(con, "landscape_units")
+    dat_contains <- sqlFetch(con, "r_subbas_contains_lu")
+    dat_lu <- dat_lu[which(dat_lu$pid %in% dat_contains$lu_id),]
+    no_lu <- nrow(dat_lu)
+    
+    # no. of terrain components
+    dat_tc <- sqlFetch(con, "terrain_components")
+    dat_contains <- sqlFetch(con, "r_lu_contains_tc")
+    dat_tc <- dat_tc[which(dat_tc$pid %in% dat_contains$tc_id),]
+    no_tc <- nrow(dat_tc)
+    
+    # no. of soils
+    dat_soil <- sqlFetch(con, "soils")
+    dat_svc <- sqlFetch(con, "soil_veg_components")
+    dat_contains <- sqlFetch(con, "r_tc_contains_svc")
+    
+    dat_svc <- dat_svc[which(dat_svc$pid %in% dat_contains$svc_id),]
+    dat_soil <- dat_soil[which(dat_soil$pid %in% dat_svc$soil_id),]
+    no_soil <- nrow(dat_soil)
+    
+    # no. of veg types
+    dat_veg <- sqlFetch(con, "vegetation")
+    dat_svc <- sqlFetch(con, "soil_veg_components")
+    dat_contains <- sqlFetch(con, "r_tc_contains_svc")
+    
+    dat_svc <- dat_svc[which(dat_svc$pid %in% dat_contains$svc_id),]
+    dat_veg <- dat_veg[which(dat_veg$pid %in% dat_svc$veg_id),]
+    no_veg <- nrow(dat_veg)
+    
+    # no. of soil particle size classes
+    dat_part <- sqlFetch(con, "particle_classes")
+    no_part <- nrow(dat_part)
+    
+    
+    ### write output
+    writeLines(con=paste(dest_dir, "do.dat", sep="/"),
+               text=c(paste0("v1.33 Parameter specification for the WASA Model (SESAM-Project), generated with R-Package LUMP function db_wasa_input() version ", installed.packages()["LUMP","Version"]),
+                      "path/to/inut_dir/",
+                      "path/to/output_dir/",
+                      "//tstart (start year of simulation)",
+                      "//tstop (end year of simulation)",
+                      "//mstart (start month of simulation)",
+                      "//mstop (end month of simulation)",
+                      paste0(no_sub, "\t//no. of sub-basins"),
+                      paste0(no_sblutc, "\t//no. of combinations of sub-basins, landscape units, terrain components (TC-instances)"),
+                      paste0(no_lu, "\t//total no. of Landscape units in study area"),
+                      paste0(no_tc, "\t//total no. of terrain components (types) in study area"),
+                      paste0(no_soil, "\t//total no. of soil components in study area"),
+                      paste0(no_veg, "\t//total no. of vegetation units in study area"),
+                      ".f.\t//doreservoir: do reservoir calculations",
+                      ".f.\t//doacudes:includes dam calculations",
+                      ".t.\t//dolattc: do latflow between TCs",
+                      ".f.\t//doalllattc: rout latflow compeletely to next downslope TC",
+                      ".t.\t//dolatsc: do latflow within TCs (surface runoff)",
+                      ".t.\t//dolatscsub: do latflow within TCs (subsurface runoff)",
+                      ".f.\t//dotrans: do water transpositions betwen sub-basins",
+                      ".f.\t//dohour: do hourly version",
+                      "0\t//scenario: choose scenario (0:less rain (ECHAM), 1:no trend, 2:more rain (Hadley))",
+                      "0\t//krig: type of precipitation interpolation (0:OK, 1:EDK, 2:EDKxyz, 3:csimabsed3, 4:csimreled3, 5:csimreled1, 6:csimabsed1, 7:statdata, 8:statdatacon, 9:gerstdatacon, 10:gerstdata, 11:ok_mean1cell)",
+                      "15.0\t//kfkorr:  hydraulic conductivity factor (for daily model version) (kfkorr)",
+                      "0.30\t//intcf: interception capacity per unit LAI (mm)",
+                      "0\t//dointc: type of interception routine (simple bucket:0, modified bucket:1)",
+                      ".f.\t//doscale: do scaling due to rainfall interpolation ?",
+                      ".f.\t//domuncell: for muni/ezg-nocell-version, use rainfall input derived from cells ? (change kf_calib.dat !)",
+                      "1.\t//sensfactor: factor for sensitivity studies",
+                      "24\t//dt: time step in [hours]",
+                      ".f.\t//dosediment",
+                      paste0(no_part, "\t//No. of soil grain size classes"),
+                      "1\t// type of sediment transport model at the Hillslope",
+                      "1\t// type of sediment transport model in the River (1) old WASA routing, (2) Muskingum",
+                      "1\t//type of sediment model in the reservoir: choose sediment transport equation (1:Wu et al., 2000; 2:Ashida and Michiue, 1973; 3: Yang, 1973 and 1984; 4: Ackers and White, 1973)",
+                      ".f.\t//load state of storages from files (if present) at start (optional)",
+                      ".f.\t//save state of storages to files after simulation period (optional)"))
+    
+    if(verbose)
+      print("OK.")
+    
+  } # do.dat
+
+
+
+
+###############################################################################
+### maxdim.dat
+  if("maxdim.dat" %in% files) {
+    if(verbose)
+      print("Create maxdim.dat ...")
+    
+    # create file
+    if(!file.exists(paste(dest_dir, "maxdim.dat", sep="/")) | overwrite){
+      file.create(paste(dest_dir, "maxdim.dat", sep="/"))
+    } else {
+      stop("File 'maxdim.dat' exists!")
+    }
+    
+    
+    ### get relevant output information
+    
+    # max no. of LU in a subbasin
+    dat_contains <- sqlFetch(con, "r_subbas_contains_lu")
+    counts <- tapply(dat_contains$lu_id, dat_contains$subbas_id, length)
+    no_max_lu <- max(counts)
+    
+    # max no. of TC in a LU
+    dat_contains <- sqlFetch(con, "r_lu_contains_tc")
+    counts <- tapply(dat_contains$tc_id, dat_contains$lu_id, length)
+    no_max_tc <- max(counts)
+    
+    # max no. of SVC in a TC
+    dat_contains <- sqlFetch(con, "r_tc_contains_svc")
+    counts <- tapply(dat_contains$svc_id, dat_contains$tc_id, length)
+    no_max_svc <- max(counts)
+    
+    # max no. of horizons in a soil
+    dat_contains <- sqlFetch(con, "horizons")
+    counts <- tapply(dat_contains$position, dat_contains$soil_id, length)
+    no_max_hor <- max(counts)
+    
+    
+    ### write output
+    writeLines(con=paste(dest_dir, "maxdim.dat", sep="/"),
+               text=c("contains maximum dimensions of spatial units",
+                      paste0(no_max_lu, "\t//maximum no. of landscape units in a sub-basins"),
+                      paste0(no_max_tc, "\t//maximum no. of terrain components in a landscape unit"),
+                      paste0(no_max_svc, "\t//maximum no. of soil vegetation components in a terrain component"),
+                      paste0(no_max_hor, "\t//maximum no. of horizons in a soil"),
+                      "2\t//maximum no. transpositions between sub-basins (only dummy; no value > 2 supported yet)"))
+    
+    if(verbose)
+      print("OK.")
+    
+  } # maxdim.dat
+
+
+
+
+###############################################################################
+### part_class.dat
+  if("part_class.dat" %in% files) {
+    if(verbose)
+      print("Create part_class.dat ...")
+    
+    # create file
+    if(!file.exists(paste(dest_dir, "part_class.dat", sep="/")) | overwrite){
+      file.create(paste(dest_dir, "part_class.dat", sep="/"))
+    } else {
+      stop("File 'part_class.dat' exists!")
+    }
+    
+    # get data
+    dat_part <- sqlFetch(con, "particle_classes")
+    
+    # write header
+    writeLines(con=paste(dest_dir, "part_class.dat", sep="/"),
+               text=c("Particle size classes to be used in sediment modelling",
+                      "class_number\tupper_limit[mm]"))
+    
+    # write output
+    write.table(dat_part[,c(1,3)], paste(dest_dir, "part_class.dat", sep="/"), append=T,
+                quote=F, sep="\t", row.names=F, col.names=F)
+    
+    
+    if(verbose)
+      print("OK.")
+    
+  } # part_class.dat
+
+
+
+
+###############################################################################
+### Hillslope/soil_particles.dat
+  if("Hillslope/soil_particles.dat" %in% files) {
+    if(verbose)
+      print("Create Hillslope/soil_particles.dat ...")
+    
+    # create file
+    if(!file.exists(paste(dest_dir, "Hillslope/soil_particles.dat", sep="/")) | overwrite){
+      file.create(paste(dest_dir, "Hillslope/soil_particles.dat", sep="/"))
+    } else {
+      stop("File 'Hillslope/soil_particles.dat' exists!")
+    }
+    
+    # write header
+    writeLines(con=paste(dest_dir, "Hillslope/soil_particles.dat", sep="/"),
+               text=c("Particle size distribution of topmost horizons of soils",
+                      "soil_id\tpart_class_id\tfraction[-]"))
+    
+    # get data
+    dat_contains_part <- sqlFetch(con, "r_soil_contains_particles")
+    dat_svc <- sqlFetch(con, "soil_veg_components")
+    dat_contains_svc <- sqlFetch(con, "r_tc_contains_svc")
+    
+    # only soil types occurring in soil_veg_components and r_tc_contains_svc will be considered
+    r_svc_out <- which(!(dat_svc$pid %in% dat_contains_svc$svc_id))
+    if(any(r_svc_out))
+      dat_svc <- dat_svc[-r_svc_out,]
+    
+    r_soil_out <- which(!(dat_contains_part$soil_id %in% dat_svc$soil_id))
+    if(any(r_soil_out)) {
+      warning(paste0("Soil types ", paste0(unique(dat_contains_part$soil_id[r_soil_out]), collapse=", "), " from table 'r_soil_contains_particles' are not in table 'soil_veg_components', or the respective SVCs are not in 'r_tc_contains_svc', and will be ignored."))
+      dat_contains_part <- dat_contains_part[-r_soil_out,]
+    }
+    
+    frac_sums <- round(tapply(dat_contains_part$fraction, dat_contains_part$soil_id, sum),3)
+    if(any(frac_sums != 1))
+      stop("Could not successfully write file Hillslope/soil_particles.dat. In table 'r_soil_contains_particles' not all fractions sum up to 1.")
+    
+    # write output
+    #write.table(round(dat_contains_part,3), paste(dest_dir, "Hillslope/soil_particles.dat", sep="/"), append=T,
+    #            quote=F, sep="\t", row.names=F, col.names=F)
+    write.table(dat_contains_part, paste(dest_dir, "Hillslope/soil_particles.dat", sep="/"), append=T,
+                quote=F, sep="\t", row.names=F, col.names=F)
+    
+    if(verbose)
+      print("OK.")
+    
+  } # Hillslope/soil_particles.dat
+
+
+
+
+###############################################################################
+### Hillslope/rainy_season.dat
+  if("Hillslope/rainy_season.dat" %in% files) {
+    if(verbose)
+      print("Create Hillslope/rainy_season.dat ...")
+    
+    # create file
+    if(!file.exists(paste(dest_dir, "Hillslope/rainy_season.dat", sep="/")) | overwrite){
+      file.create(paste(dest_dir, "Hillslope/rainy_season.dat", sep="/"))
+    } else {
+      stop("File 'Hillslope/rainy_season.dat' exists!")
+    }
+    
+    # write header
+    writeLines(con=paste(dest_dir, "Hillslope/rainy_season.dat", sep="/"),
+               text=c("Specification of the rainy/growing season (per year)",
+                      "for the interpolation of temporal distribution of vegetation characteristics (Rootdepth,height,lai,albedo)",
+                      "Subasin\tVeg_id\tYear\tDOY1\tDOY2\tDOY3\tDOY4"))
+    
+    # get data
+    dat_rs <- sqlFetch(con, "rainy_season")
+    
+    
+    ### sort data, i.e. wildcards at the last lines
+    
+    # search for years with wildcards and put them at the end of the data.frame
+    r_year_wild <- which(dat_rs$yearm == -1)
+    if(any(r_year_wild)) {
+      # substract rows from data.frame
+      dat_rs_t <- dat_rs[-r_year_wild,]
+      # put them at the end of the data.frame
+      dat_rs <- rbind(dat_rs_t, dat_rs[r_year_wild,])
+    }
+    
+    # loop over years and search for subbas with wildcards and put them at the end of the respective year
+    for (y in unique(dat_rs$yearm)) {
+      rows <- which(dat_rs$yearm == y)
+      dat_rs_t <- dat_rs[rows,]
+      r_sub_wild <- which(dat_rs_t$subbas_id == -1)
+      if (any(r_sub_wild)) {
+        dat_rs_t2 <- dat_rs_t[-r_sub_wild,]
+        dat_rs_t <- rbind(dat_rs_t2, dat_rs_t[r_sub_wild,])
+      }
+      
+      # loop over subbasins and search for veg with wildcards and put them at the end of the respective subbasin
+      for (s in unique(dat_rs_t$subbas_id)) {
+        rows2 <- which(dat_rs_t$subbas_id == s)
+        dat_rs_t2 <- dat_rs_t[rows2,]
+        r_veg_wild <- which(dat_rs_t2$veg_id == -1)
+        if (any(r_veg_wild)) {
+          dat_rs_t3 <- dat_rs_t2[-r_veg_wild,]
+          dat_rs_t2 <- rbind(dat_rs_t3, dat_rs_t2[r_veg_wild,])
+        }
+        
+        dat_rs_t[rows2,] <- dat_rs_t2
+      }
+      
+      dat_rs[rows,] <- dat_rs_t
+    }
+    
+    
+    
+    # write output
+    write.table(dat_rs[,-1], paste(dest_dir, "Hillslope/rainy_season.dat", sep="/"), append=T,
+                quote=F, sep="\t", row.names=F, col.names=F)
+    
+  
+    if(verbose)
+      print("OK.")
+    
+  } # Hillslope/rainy_season.dat
+  
+
+
+
+###############################################################################
+### end of function, write changes into 'meta_info', close connection
+
+  # update table meta_info
+  meta_dat <- sqlFetch(con, "meta_info")
+  if(any(meta_dat$pid)) {
+    pid_new <- max(meta_dat$pid) +1
+  } else {
+    pid_new <- 1
+  }
+  meta_out <- data.frame(pid=pid_new,
+                         mod_date=as.POSIXct(Sys.time()),
+                         mod_user=paste0("db_wasa_input(), v. ", installed.packages()["LUMP","Version"]),
+                         affected_tables=paste0("WASA files: ", paste(files, collapse=", ")),
+                         affected_columns="none",
+                         remarks=paste0("WASA input files written using R package LUMP to ", dest_dir, " ."))
+  write_meta(con, meta_out, verbose)
+
+
+
+  print("All output files written successfully. Close ODBC connection.")
+  
+  odbcClose(con)
+
+} # EOF

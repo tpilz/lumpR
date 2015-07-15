@@ -75,7 +75,8 @@ for (s in 1:nrow(seasonality)) {
                            seasonality_in=as.integer(rs), nv=as.integer(length(rs)),
                            support_values=as.double(sn),
                            # OUTPUT #
-                           seasonality_out=out)$seasonality_out
+                           seasonality_out=out,
+                           PACKAGE="LUMP")$seasonality_out
     })
     
     # merge with output object

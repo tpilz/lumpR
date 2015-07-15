@@ -225,7 +225,6 @@ area2catena <- function(
   #   for (curr_id in eha_ids) {
 
   ##initialize parallelism
-  library(foreach)
   if (ncores>1)
   {  
     if(require(doMC))

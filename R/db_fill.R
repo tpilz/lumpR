@@ -22,11 +22,11 @@
 #'  existing values will be kept und the table expanded. Default: \code{FALSE}.
 #' 
 #' @param verbose \code{logical}. Should detailed information during execution be
-#'  printed? Default: \code{FALSE}.
+#'  printed? Default: \code{TRUE}.
 #'  
 #' @details 
 #'  For each table a single file has to be prepared manually and/or using functions of
-#'  \code{\link{LUMP}}. All files have to be tabulator-separated textfiles, the top-line
+#'  \code{LUMP}. All files have to be tabulator-separated textfiles, the top-line
 #'  being the header. Column names have to be identical to column names of the 
 #'  respective tables in the database. All columns of a table have to exist in the 
 #'  respective data file. If a certain column is not needed for your purpose or
@@ -63,7 +63,8 @@
 #'    \code{character}. Short subbasin name or description.
 #'  
 #'    \emph{drains_to}\cr
-#'    \code{integer}. Pid of subbasin the current subbasin drains to.
+#'    \code{integer}. Pid of subbasin the current subbasin drains to. The outlet
+#'    subbasin has to be labelled by one of c(9999,-9999,999,-999).
 #'  
 #'    \emph{area}\cr
 #'    \code{double}. Subbasin area in \emph{km^2}.
@@ -97,7 +98,8 @@
 #'    \code{double}. Hydraulic conductivity of bedrock in \emph{mm/d}.
 #'    
 #'    \emph{slopelength}\cr
-#'    \code{double}. Mean slope length in landscape unit in \emph{m}.
+#'    \code{double}. Mean slope length in landscape unit in \emph{m}. Meant is
+#'    the length in x-direction, not the hypotenuse of the hillslope profile triangle.
 #'    
 #'    \emph{soil_depth}\cr
 #'    \code{double}. Mean maximum depth of soil zone in \emph{mm}.
@@ -187,7 +189,7 @@
 #'    \emph{description}\cr
 #'    \code{character}. Short name or description.
 #'    
-#'    \emph{stomata_r}\cr
+#'    \emph{stomat_r}\cr
 #'    \code{double}. Stomata resistance without water stress in \emph{s/m}.
 #'    
 #'    \emph{min_suction}\cr
@@ -429,6 +431,42 @@
 #'    
 #'    \emph{fraction}\cr
 #'    \code{double}. Mass-fraction that falls into the respective particle size class \emph{[-]}.
+#'    
+#'    
+#'  \bold{rainy_season}\cr
+#'  Fill in values \bold{manually} (i.e. this is not supported by this function) 
+#'  using output of \code{\link[LUMP]{rainy_season}}. You can define separate
+#'  seasonalities for different vegetation types if you want (i.e. 'growing season'
+#'  instead of 'rainy season'). In this case the rainy/growing season starts and ends
+#'  differently for the respective vegetation types. This, however, is not
+#'  respected by function \code{\link[LUMP]{rainy_season}} which determines seasonalities
+#'  based on precipitation only. You can use the wildcard value '-1' for all
+#'  (remaining) vegetation types. Columns:
+#'    
+#'    \emph{pid}\cr
+#'    \code{integer}. Dataset ID.
+#'    
+#'    \emph{subbas_id}\cr
+#'    \code{integer}. Id of subbasin or '-1' as wildcard for all (remaining) subbasins.
+#'    
+#'    \emph{veg_id}\cr
+#'    \code{integer}. Id of vegetation type or '-1' as wildcard for all (remaining)
+#'    vegetation types.
+#'    
+#'    \emph{yearm}\cr
+#'    \code{integer}. Current year or '-1' as wildcard for all (remaining) years.
+#'    
+#'    \emph{node1}\cr
+#'    \code{integer}. Start day of year (DOY) of rainy/growing season.
+#'    
+#'    \emph{node2}\cr
+#'    \code{integer}. DOY when climax of vegetation is reached.
+#'    
+#'    \emph{node3}\cr
+#'    \code{integer}. DOY of end of rainy/growing season (begin of vegetation degradation).
+#'    
+#'    \emph{node4}\cr
+#'    \code{integer}. DOY of end of main phase of vegetation degradation.
 #'  
 #'          
 #' 
@@ -465,7 +503,7 @@ db_fill <- function(
   dat_files,
   dat_dir,
   overwrite=FALSE,
-  verbose=FALSE
+  verbose=TRUE
 ) {
   
   
@@ -490,11 +528,27 @@ db_fill <- function(
   }
  
   
-  # write data into database (use internal function defined at the end of this file)
+  # write data into database (use internal function defined in db_internals.R)
   for (t in 1:length(tables)) {
     writedb(con = con, file = paste(dat_dir,dat_files[t], sep="/"), table = tables[t],
             overwrite = overwrite, verbose = verbose)
   }
+  
+  # update table meta_info
+  meta_dat <- sqlFetch(con, "meta_info")
+  if(any(meta_dat$pid)) {
+    pid_new <- max(meta_dat$pid) +1
+  } else {
+    pid_new <- 1
+  }
+  meta_out <- data.frame(pid=pid_new,
+                         mod_date=as.POSIXct(Sys.time()),
+                         mod_user=paste0("db_fill(), v. ", installed.packages()["LUMP","Version"]),
+                         affected_tables=paste(tables, collapse=", "),
+                         affected_columns="all",
+                         remarks=paste0("Automated filling of tables with R package LUMP using files from location ", dat_dir, "."))
+  write_meta(con, meta_out, verbose)
+  
   
   # close connection
   odbcClose(con)

@@ -22,7 +22,7 @@ This package uses the ODBC interface to connect to a database. Creating the data
          Currently supported (tested) are: SQLite (v. 3.8.9), MariaDB/MySQL (v. 10.0.17),
          MS Access.}
    \item{Register an empty database at your ODBC configuration.}
-   \item{Install and load the \code{\link{RODBC}} package as interface to R.}
+   \item{Install and load the \code{\link[RODBC]{RODBC}} package as interface to R.}
    \item{Call this function to create the tables in the database.}
    \item{Processing of the database using external software (or R packages)
          and/or use functions coming with LUMP (TODO).}

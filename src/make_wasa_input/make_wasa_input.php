@@ -4,7 +4,12 @@
 //Till Francke, till@comets.de
 //-------------------------------------------------------------
 
-$script_ver=1.33;
+$script_ver=1.34;
+
+// Tobias (1.34): 15.07.2015: 
+//made sql statements comliant with SQLite
+//table horizons: column name "depth" used in this script (for soil.dat) changed to "thickness"
+//terrain.dat: header already in tamplate file; writing of header commented out
 
 // Till (1.33): 30.3.2015: correctly check sum of SVC-fractions considering rocky fraction of TC
 // Till (1.32): 27.3.2015: write meta info into "info.dat"
@@ -162,7 +167,7 @@ if (!$con)
   die ("$sql_err_msg: could not connect to odbc-database, quitting.");
 
 
-$db_ver_exp=18;		//this script expects a database of version 18
+$db_ver_exp=20;		//this script expects a database of version 18
 include("check_db_version.php"); //check data-dase version
 
 $dirmake=1;
@@ -225,7 +230,10 @@ if ($compute_stream_order)
 
 	for ($i=1;$i<100;$i++)
 	{
-		$sql="UPDATE subbasins AS a LEFT JOIN subbasins AS b ON a.drains_to=b.pid SET a.a_stream_order = ".($i+1)." WHERE (b.a_stream_order=$i);";
+		//incompatible with SQLite
+		//$sql="UPDATE subbasins AS a LEFT JOIN subbasins AS b ON a.drains_to=b.pid SET a.a_stream_order = ".($i+1)." WHERE (b.a_stream_order=$i);";
+		//alternative compatible with SQLite
+		$sql="UPDATE subbasins SET a_stream_order=".($i+1)." WHERE pid in (SELECT a.pid FROM subbasins AS a LEFT JOIN subbasins AS b ON a.drains_to=b.pid WHERE b.a_stream_order=$i);";
 		//update next order basins
 		$res = sql_query($sql);
 		if(!$res)
@@ -407,7 +415,7 @@ else
 			fwrite($fid, "\t".$row2["tc_id"]);		//write IDs of contained TCs
 		}
 		if (!$row["gw_flag"]) $row["gw_flag"]="0";
-		fwrite($fid, "\t".$row["kf_bedrock"]."\t".$row["length"]."\t".$row["soil_depth"]."\t".$row["allu_depth"]."\t".$row["riverbed_depth"]."\t".$row["gw_flag"]."\t".$row["gw_dist"]."\t".$row["frgw_delay"]."\t"."\n");		//newline, end of record
+		fwrite($fid, "\t".$row["kf_bedrock"]."\t".$row["slopelength"]."\t".$row["soil_depth"]."\t".$row["allu_depth"]."\t".$row["riverbed_depth"]."\t".$row["gw_flag"]."\t".$row["gw_dist"]."\t".$row["frgw_delay"]."\t"."\n");		//newline, end of record
 
 	}
 }
@@ -416,27 +424,27 @@ echo("\nfinished writing $dest.\n\n");
 
 
 //write sdr_lu.dat (optional)
-	$dest=$dest_dir."hillslope/sdr_lu.dat";
-	unlink($dest); 
-	if ($db_ver_cur >= 15)
-	{
-		$sql =  "SELECT pid, sdr_lu FROM landscape_units where not sdr_lu=1"; // check if any sdr other than 1 is specified
-		$res2 = sql_query($sql);
-		if (sql_num_rows($res2)>0)
-		{
-			$source="./templ/sdr_lu.dat";
-			$dest=$dest_dir."hillslope/sdr_lu.dat";
-			echo("\ncreating $dest...\n");
-			if(!copy ($source,$dest ))
-			die("template file $source not found.");
-
-			$fid=fopen($dest,"a");
-			if(!$fid) die("Could not write to $dest");
-			while($row = sql_fetch_array($res2))		//do for all landscape_units found
-				fwrite($fid, $row["pid"]."\t".$row["sdr_lu"]."\n");
-			fclose($fid);
-		}
-	} 
+// 	$dest=$dest_dir."hillslope/sdr_lu.dat";
+// 	unlink($dest); 
+// 	if ($db_ver_cur >= 15)
+// 	{
+// 		$sql =  "SELECT pid, sdr_lu FROM landscape_units where not sdr_lu=1"; // check if any sdr other than 1 is specified
+// 		$res2 = sql_query($sql);
+// 		if (sql_num_rows($res2)>0)
+// 		{
+// 			$source="./templ/sdr_lu.dat";
+// 			$dest=$dest_dir."hillslope/sdr_lu.dat";
+// 			echo("\ncreating $dest...\n");
+// 			if(!copy ($source,$dest ))
+// 			die("template file $source not found.");
+// 
+// 			$fid=fopen($dest,"a");
+// 			if(!$fid) die("Could not write to $dest");
+// 			while($row = sql_fetch_array($res2))		//do for all landscape_units found
+// 				fwrite($fid, $row["pid"]."\t".$row["sdr_lu"]."\n");
+// 			fclose($fid);
+// 		}
+// 	} 
 
 //make terrain.dat-----------------------------------------------------
 $source="./templ/terrain.dat";
@@ -451,8 +459,10 @@ if(!$fid) die("Could not write to $dest");
 
 $sql =  "drop table temp_table"; 	//drop temporary table
 $res=sql_query($sql);
+$sql = "CREATE TABLE temp_table (lu_id INT(3), max_pos INT(3));";
+$res=sql_query($sql);
 
-$sql =  "SELECT lu_id, max(position) as max_pos into temp_table FROM r_lu_contains_tc GROUP BY lu_id;";
+$sql =  "INSERT INTO temp_table SELECT lu_id, max(position) as max_pos FROM r_lu_contains_tc GROUP BY lu_id;";
 	//determine maximum number of terrain components in each LU and write to temporary table
 if(!($res = sql_query($sql)))
 	die("Could not write temp_table ($sql_err_msg).");
@@ -473,10 +483,10 @@ if(!($res = sql_query($sql)))
 	$include_sdr = $include_beta_fac = FALSE;
 	
 	//write header
-	fwrite($fid, "TC-ID	fraction	slope[%]	position[-]");
-	if ($include_beta_fac) fwrite($fid, "	beta_fac[-]");
-	if ($include_sdr)      fwrite($fid, "	SDR[-]");
-	fwrite($fid, "\n");
+// 	fwrite($fid, "TC-ID	fraction	slope[%]	position[-]");
+// 	if ($include_beta_fac) fwrite($fid, "	beta_fac[-]");
+// 	if ($include_sdr)      fwrite($fid, "	SDR[-]");
+// 	fwrite($fid, "\n");
 		
 
 $sql =  "SELECT terrain_components.pid, slope, fraction, position, max_pos";
@@ -671,7 +681,7 @@ else
 		while($row2 = sql_fetch_array($res2))
 		{
 			if (!$row2["shrinks"]) $row2["shrinks"]="0"; //use 0 instead of empty string
-			fwrite($fid, "\t".$row2["theta_r"]."\t".$row2["theta_pwp"]."\t".$row2["fk"]."\t".$row2["fk63"]."\t".$row2["nfk"]."\t".$row2["theta_s"]."\t".$row2["depth"]);
+			fwrite($fid, "\t".$row2["theta_r"]."\t".$row2["theta_pwp"]."\t".$row2["fk"]."\t".$row2["fk63"]."\t".$row2["nfk"]."\t".$row2["theta_s"]."\t".$row2["thickness"]);
 			fwrite($fid, "\t".$row2["ks"]."\t".$row2["suction"]."\t".$row2["pore_size_i"]."\t".$row2["bubb_pres"]."\t".$row2["coarse_frag"]."\t".$row2["shrinks"]);
 		}
 		if (!$row["bedrock_flag"]) $row["bedrock_flag"]="0";	//use 0 instead of empty string
@@ -1131,7 +1141,7 @@ if ($db_ver_cur > 16)
 	$source="./templ/rainy_season.dat";
 	$dest=$dest_dir."hillslope/rainy_season.dat";
 
-	$sql =  "SELECT * FROM rainy_season order by id";
+	$sql =  "SELECT * FROM rainy_season order by pid";
 	$res = sql_query($sql);
 
 	if(!$res)

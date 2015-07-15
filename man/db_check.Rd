@@ -6,9 +6,9 @@
 \usage{
 db_check(dbname, check = c("filter_small_areas", "tc_slope", "special_areas",
   "remove_water_svc", "compute_rocky_frac", "remove_impervious_svc",
-  "proxy_frgw_delay", "delete_obsolete", "completeness"),
+  "proxy_frgw_delay", "delete_obsolete", "completeness", "subbasin_order"),
   option = list(area_thresh = 0.01, treat_slope = c(3, 0.01, 0.1)), fix = F,
-  verbose = FALSE)
+  verbose = TRUE)
 }
 \arguments{
 \item{dbname}{Name of the data source (DSN) registered at ODBC.}
@@ -114,8 +114,8 @@ The following checks are currently included and can be specified via argument \c
  Existing values of 'frgw_delay' will be overwritten.\cr
  \emph{Option: 'total_mean_delay'}\cr
  Total mean groundwater delay in \emph{days} estimated a priori for the whole
- catchment. All proxy values are scaled, so their mean matches this value (see formula
- above).
+ catchment (e.g. from baseflow analysis). All proxy values are scaled, so their
+ mean matches this value (see formula above).
 
  \bold{delete_obsolete}\cr
  Delete obsolete datasets. I.e. special area SVCs, LUs not in any subbasin, TCs
@@ -126,6 +126,10 @@ The following checks are currently included and can be specified via argument \c
  exist within the repective referenced tables. Furthermore, check if all vegetation
  types and soils exist as referenced within 'soil_veg_components', and if all
  soils exist as referenced within 'horizons'.
+
+ \bold{subbasin_order}\cr
+ Compute subbasin order for WASA's routing input file routing.dat. Order will
+ be defined in column 'a_stream_order' of table 'subbasins'.
 }
 \author{
 Tobias Pilz \email{tpilz@uni-potsdam.de}, Till Francke \email{francke@uni-potsdam.de}

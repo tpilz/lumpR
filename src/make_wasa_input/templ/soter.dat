@@ -1,0 +1,2 @@
+Specification of landscape units										
+LU-ID[id]	No._of_TC[-]	TC1[id]	TC2[id]	TC3[id]	kfsu[mm/d]	length[m]	meandep[mm]	maxdep[mm]	riverbed[mm]	gwflag[0/1]	gw_dist[mm]	frgw_delay[day]

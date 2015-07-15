@@ -1,10 +1,11 @@
 # example file to illustrate and test LUMP parameter database functions
 
 # TODO:
-#   - function to create WASA input files from database
-#   - finish db_check
 #   - solve DBMS issues (see github)
 #   - standard values for database (e.g. particle classes, standard soil and landcover parametrizations, ...)
+
+# you might want to direct all output messages into an external file
+sink(file="/home/tobias/Promotion/Modellierung/Jaguaribe/WASA/LUMP/test/db_test_msg.out")
 
 library(LUMP)
 
@@ -14,14 +15,19 @@ dbname <- "test_wasa" # DSN registered at ODBC
 db_create(dbname)
 
 
+# update database in case you have a pre-R-package version of the database; version 18 required
+db_update(dbname)
+
+
 # LUMP output and other information (e.g. soil parameters) to database
 # further information see function doc
 ?db_fill
+
 db_fill(dbname=dbname,
         tables = c("r_subbas_contains_lu", "subbasins",
                    "landscape_units", "r_lu_contains_tc", "terrain_components",
                    "r_tc_contains_svc", "vegetation", "soils", "horizons", "soil_veg_components",
-                   "particle_classes", "r_soil_contains_particles")
+                   "particle_classes", "r_soil_contains_particles"),
         dat_files=c("lu_stats.txt", "sub_stats.txt", "lu_db.dat", "lucontainstc.dat",
                     "terraincomponents.dat", "tc_contains_svc.dat", "vegetation.dat",
                     "soils.dat", "horizons.dat", "soil_vegetation_components.dat",
@@ -29,10 +35,6 @@ db_fill(dbname=dbname,
         dat_dir="/home/tobias/Promotion/Modellierung/Jaguaribe/WASA/LUMP/test/",
         overwrite=T, verbose=T)
 
-
-
-# update database in case you have a pre-R-package version of the database; version 18 required
-db_update(dbname)
 
 
 # check database and do some post-processing
@@ -87,19 +89,29 @@ db_check(dbname,
 db_check(dbname, 
          check=c("proxy_frgw_delay"), 
          option=list(total_mean_delay=200),
-         fix=F,
+         fix=T,
          verbose=T)
 
 db_check(dbname,
          check=c("delete_obsolete"),
-         fix=F,
+         fix=T,
          verbose=T)
 
 db_check(dbname,
          check=c("completeness"),
-         fix=F,
+         fix=T,
+         verbose=T)
+
+db_check(dbname,
+         check=c("subbasin_order"),
+         fix=T,
          verbose=T)
 
 
 
+# create WASA input files
+db_wasa_input(dbname,
+              dest_dir = "/home/tobias/Promotion/Modellierung/Jaguaribe/WASA/make_wasa_input/LUMP_pkg_test/",
+              overwrite=T,
+              verbose=T)
 

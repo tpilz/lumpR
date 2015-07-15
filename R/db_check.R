@@ -102,8 +102,8 @@
 #'  Existing values of 'frgw_delay' will be overwritten.\cr
 #'  \emph{Option: 'total_mean_delay'}\cr
 #'  Total mean groundwater delay in \emph{days} estimated a priori for the whole
-#'  catchment. All proxy values are scaled, so their mean matches this value (see formula
-#'  above).
+#'  catchment (e.g. from baseflow analysis). All proxy values are scaled, so their 
+#'  mean matches this value (see formula above).
 #'  
 #'  \bold{delete_obsolete}\cr
 #'  Delete obsolete datasets. I.e. special area SVCs, LUs not in any subbasin, TCs
@@ -115,6 +115,10 @@
 #'  types and soils exist as referenced within 'soil_veg_components', and if all
 #'  soils exist as referenced within 'horizons'.
 #'  
+#'  \bold{subbasin_order}\cr
+#'  Compute subbasin order for WASA's routing input file routing.dat. Order will
+#'  be defined in column 'a_stream_order' of table 'subbasins'.
+#'  
 #'  
 #'  @author 
 #'  Tobias Pilz \email{tpilz@@uni-potsdam.de}, Till Francke \email{francke@@uni-potsdam.de}
@@ -125,11 +129,11 @@ db_check <- function(
   dbname,
   check = c("filter_small_areas", "tc_slope", "special_areas", "remove_water_svc",
             "compute_rocky_frac", "remove_impervious_svc", "proxy_frgw_delay",
-            "delete_obsolete", "completeness"),
+            "delete_obsolete", "completeness", "subbasin_order"),
   option = list(area_thresh=0.01,
                 treat_slope=c(3,0.01,0.1)),
   fix=F,
-  verbose=FALSE
+  verbose=TRUE
 ) {
   
   # if fix = F (default) set verbose = T
@@ -160,15 +164,24 @@ db_check <- function(
   if(grepl("MariaDB", odbcGetInfo(con)["DBMS_Name"], ignore.case=T))
     sqlQuery(con, "SET sql_mode='ANSI';")
   
+  # initialise vector to keep track of changed tables
+  tbl_changed <- NULL
+  
   
 ###############################################################################
 ### check current db version
   if(verbose)
     print("Check database version ...")
-  db_ver <- sqlFetch(con, "db_version")$version
-  if(max(db_ver) < 19) {
+
+  # get most recent db version from update sql files in source directory
+  db_dir <- system.file("database/", package="LUMP")
+  db_up_files <- dir(db_dir, pattern="update_[a-zA-Z0-9_]*.sql")
+  db_ver_max <- max(as.integer(sub(".sql", "", sub("update_db_v", "", db_up_files))))
+
+  db_ver <- max(sqlFetch(con, "db_version")$version)
+  if(db_ver < db_ver_max) {
     odbcClose(con)
-    stop("Database version is prior to version 19. Make sure you use the latest database version (consider function db_update())!")
+    stop(paste0("Database version is prior to version ", db_ver_max, ". Make sure you use the latest database version (consider function db_update())!"))
   }
   if(verbose)
     print("OK.")
@@ -187,13 +200,16 @@ db_check <- function(
     thres <- option[["area_thresh"]]
     
     # LUs
-    filter_small_areas(con=con, table="r_subbas_contains_lu", thres=thres, fix=fix, verbose=verbose)
+    tbl_ch <- filter_small_areas(con=con, table="r_subbas_contains_lu", thres=thres, fix=fix, verbose=verbose, tbl_changed=tbl_changed)
+    tbl_changed <- c(tbl_changed, tbl_ch)
     
     # TCs
-    filter_small_areas(con=con, table="r_lu_contains_tc", thres=thres, fix=fix, verbose=verbose)
+    tbl_ch <- filter_small_areas(con=con, table="r_lu_contains_tc", thres=thres, fix=fix, verbose=verbose, tbl_changed=tbl_changed)
+    tbl_changed <- c(tbl_changed, tbl_ch)
     
     # SVCs
-    filter_small_areas(con=con, table="r_tc_contains_svc", thres=thres, fix=fix, verbose=verbose)
+    tbl_ch <- filter_small_areas(con=con, table="r_tc_contains_svc", thres=thres, fix=fix, verbose=verbose, tbl_changed=tbl_changed)
+    tbl_changed <- c(tbl_changed, tbl_ch)
     
     if(verbose)
       print("OK.")
@@ -213,6 +229,22 @@ db_check <- function(
     } else {
       
       if(!("treat_slope" %in% names(option))) {
+        # update table meta_info
+        if(fix) {
+          meta_dat <- sqlFetch(con, "meta_info")
+          if(any(meta_dat$pid)) {
+            pid_new <- max(meta_dat$pid) +1
+          } else {
+            pid_new <- 1
+          }
+          meta_out <- data.frame(pid=pid_new,
+                                 mod_date=as.POSIXct(Sys.time()),
+                                 mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                                 affected_tables=paste(unique(tbl_changed), collapse=", "),
+                                 affected_columns="various",
+                                 remarks=paste0("ATTENTION: Error while checking database using R package LUMP check tc_slope. Nevertheless, affected_tables have already been changed."))
+          write_meta(con, meta_out, verbose)
+        }
         odbcClose(con)
         stop("No option 'treat_slope' specified for check 'tc_slope'.")
       }
@@ -314,9 +346,24 @@ db_check <- function(
         tryCatch(
         {
           sqlQuery(con, "delete from r_lu_contains_tc")
-          sqlSave(channel=con, tablename = "r_lu_contains_tc", dat=dat_out, verbose=verbose, 
+          sqlSave(channel=con, tablename = "r_lu_contains_tc", dat=dat_out, verbose=F, 
                   append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
+          tbl_changed <- c(tbl_changed, "r_lu_contains_tc")
         }, error = function(e) {
+          # update table meta_info
+          meta_dat <- sqlFetch(con, "meta_info")
+          if(any(meta_dat$pid)) {
+            pid_new <- max(meta_dat$pid) +1
+          } else {
+            pid_new <- 1
+          }
+          meta_out <- data.frame(pid=pid_new,
+                                 mod_date=as.POSIXct(Sys.time()),
+                                 mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                                 affected_tables=paste(unique(tbl_changed), collapse=", "),
+                                 affected_columns="various",
+                                 remarks=paste0("ATTENTION: Error while checking database using R package LUMP check tc_slope. Nevertheless, affected_tables have already been changed."))
+          write_meta(con, meta_out, verbose)
           odbcClose(con)
           stop(paste0("An error occured when updating table 'r_lu_contains_tc'. ",
                       "Error message of the writing function: ", e))
@@ -328,9 +375,24 @@ db_check <- function(
         tryCatch(
         {
           sqlQuery(con, "delete from terrain_components")
-          sqlSave(channel=con, tablename = "terrain_components", dat=dat_tc, verbose=verbose, 
+          sqlSave(channel=con, tablename = "terrain_components", dat=dat_tc, verbose=F, 
                   append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
+          tbl_changed <- c(tbl_changed, "terrain_components")
         }, error = function(e) {
+          # update table meta_info
+          meta_dat <- sqlFetch(con, "meta_info")
+          if(any(meta_dat$pid)) {
+            pid_new <- max(meta_dat$pid) +1
+          } else {
+            pid_new <- 1
+          }
+          meta_out <- data.frame(pid=pid_new,
+                                 mod_date=as.POSIXct(Sys.time()),
+                                 mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                                 affected_tables=paste(unique(tbl_changed), collapse=", "),
+                                 affected_columns="various",
+                                 remarks=paste0("ATTENTION: Error while checking database using R package LUMP check tc_slope. Nevertheless, affected_tables have already been changed."))
+          write_meta(con, meta_out, verbose)
           odbcClose(con)
           stop(paste0("An error occured when updating table 'terrain_components'. ",
                       "Error message of the writing function: ", e))
@@ -355,26 +417,106 @@ db_check <- function(
     
     # check arguments
     if(!("special_area" %in% names(option))) {
+      # update table meta_info
+      if(fix) {
+        meta_dat <- sqlFetch(con, "meta_info")
+        if(any(meta_dat$pid)) {
+          pid_new <- max(meta_dat$pid) +1
+        } else {
+          pid_new <- 1
+        }
+        meta_out <- data.frame(pid=pid_new,
+                               mod_date=as.POSIXct(Sys.time()),
+                               mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                               affected_tables=paste(unique(tbl_changed), collapse=", "),
+                               affected_columns="various",
+                               remarks=paste0("ATTENTION: Error while checking database using R package LUMP check special_areas. Nevertheless, affected_tables have already been changed."))
+        write_meta(con, meta_out, verbose)
+      }
       odbcClose(con)
       stop("No option 'special_area' specified for check 'special_areas'.")
     }
     
     if(class(option$special_area) != "data.frame") {
+      # update table meta_info
+      if(fix) {
+        meta_dat <- sqlFetch(con, "meta_info")
+        if(any(meta_dat$pid)) {
+          pid_new <- max(meta_dat$pid) +1
+        } else {
+          pid_new <- 1
+        }
+        meta_out <- data.frame(pid=pid_new,
+                               mod_date=as.POSIXct(Sys.time()),
+                               mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                               affected_tables=paste(unique(tbl_changed), collapse=", "),
+                               affected_columns="various",
+                               remarks=paste0("ATTENTION: Error while checking database using R package LUMP check special_areas. Nevertheless, affected_tables have already been changed."))
+        write_meta(con, meta_out, verbose)
+      }
       odbcClose(con)
       stop("Option 'special_area' is not a data.frame.")
     }
     
     if(any(!(c("reference_tbl", "ref_id", "special_id") %in% names(option$special_area)))) {
+      # update table meta_info
+      if(fix) {
+        meta_dat <- sqlFetch(con, "meta_info")
+        if(any(meta_dat$pid)) {
+          pid_new <- max(meta_dat$pid) +1
+        } else {
+          pid_new <- 1
+        }
+        meta_out <- data.frame(pid=pid_new,
+                               mod_date=as.POSIXct(Sys.time()),
+                               mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                               affected_tables=paste(unique(tbl_changed), collapse=", "),
+                               affected_columns="various",
+                               remarks=paste0("ATTENTION: Error while checking database using R package LUMP check special_areas. Nevertheless, affected_tables have already been changed."))
+        write_meta(con, meta_out, verbose)
+      }
       odbcClose(con)
       stop("Option 'special_area' does not contain all necessary named vectors.")
     }
     
     if(any(!(unique(option$special_area$reference_tbl) %in% c("vegetation", "soils")))) {
+      # update table meta_info
+      if(fix) {
+        meta_dat <- sqlFetch(con, "meta_info")
+        if(any(meta_dat$pid)) {
+          pid_new <- max(meta_dat$pid) +1
+        } else {
+          pid_new <- 1
+        }
+        meta_out <- data.frame(pid=pid_new,
+                               mod_date=as.POSIXct(Sys.time()),
+                               mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                               affected_tables=paste(unique(tbl_changed), collapse=", "),
+                               affected_columns="various",
+                               remarks=paste0("ATTENTION: Error while checking database using R package LUMP check special_areas. Nevertheless, affected_tables have already been changed."))
+        write_meta(con, meta_out, verbose)
+      }
       odbcClose(con)
       stop("Option 'special_area' vector 'reference_tbl' supports values 'vegetation' and 'soils' only.")
     }
     
     if(any(!(unique(option$special_area$special_id) %in% c(0,1,2)))) {
+      # update table meta_info
+      if(fix) {
+        meta_dat <- sqlFetch(con, "meta_info")
+        if(any(meta_dat$pid)) {
+          pid_new <- max(meta_dat$pid) +1
+        } else {
+          pid_new <- 1
+        }
+        meta_out <- data.frame(pid=pid_new,
+                               mod_date=as.POSIXct(Sys.time()),
+                               mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                               affected_tables=paste(unique(tbl_changed), collapse=", "),
+                               affected_columns="various",
+                               remarks=paste0("ATTENTION: Error while checking database using R package LUMP check special_areas. Nevertheless, affected_tables have already been changed."))
+        write_meta(con, meta_out, verbose)
+      }
       odbcClose(con)
       stop("Option 'special_area' vector 'special_id' supports values '0', '1', and '2' only.")
     }
@@ -444,10 +586,25 @@ db_check <- function(
       tryCatch(
       {
         sqlQuery(con, "delete from soil_veg_components")
-        sqlSave(channel=con, tablename = "soil_veg_components", dat=dat_svc, verbose=verbose, 
+        sqlSave(channel=con, tablename = "soil_veg_components", dat=dat_svc, verbose=F, 
                 append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
+        tbl_changed <- c(tbl_changed, "soil_veg_components")
         if(verbose) print("Table 'soil_veg_components' updated")
       }, error = function(e) {
+        # update table meta_info
+        meta_dat <- sqlFetch(con, "meta_info")
+        if(any(meta_dat$pid)) {
+          pid_new <- max(meta_dat$pid) +1
+        } else {
+          pid_new <- 1
+        }
+        meta_out <- data.frame(pid=pid_new,
+                               mod_date=as.POSIXct(Sys.time()),
+                               mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                               affected_tables=paste(unique(tbl_changed), collapse=", "),
+                               affected_columns="various",
+                               remarks=paste0("ATTENTION: Error while checking database using R package LUMP check special_areas. Nevertheless, affected_tables have already been changed."))
+        write_meta(con, meta_out, verbose)
         odbcClose(con)
         stop(paste0("An error occured when updating table 'soil_veg_components'. ",
                     "Error message of the writing function: ", e))
@@ -511,9 +668,24 @@ db_check <- function(
         tryCatch(
         {
           sqlQuery(con, "delete from r_tc_contains_svc")
-          sqlSave(channel=con, tablename = "r_tc_contains_svc", dat=dat_contains_act, verbose=verbose, 
+          sqlSave(channel=con, tablename = "r_tc_contains_svc", dat=dat_contains_act, verbose=F, 
                   append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
+          tbl_changed <- c(tbl_changed, "r_tc_contains_svc")
         }, error = function(e) {
+          # update table meta_info
+          meta_dat <- sqlFetch(con, "meta_info")
+          if(any(meta_dat$pid)) {
+            pid_new <- max(meta_dat$pid) +1
+          } else {
+            pid_new <- 1
+          }
+          meta_out <- data.frame(pid=pid_new,
+                                 mod_date=as.POSIXct(Sys.time()),
+                                 mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                                 affected_tables=paste(unique(tbl_changed), collapse=", "),
+                                 affected_columns="various",
+                                 remarks=paste0("ATTENTION: Error while checking database using R package LUMP check remove_water_svc. Nevertheless, affected_tables have already been changed."))
+          write_meta(con, meta_out, verbose)
           odbcClose(con)
           stop(paste0("An error occured when updating table 'r_tc_contains_svc'. ",
                       "Error message of the writing function: ", e))
@@ -590,9 +762,24 @@ db_check <- function(
       tryCatch(
       {
         sqlQuery(con, "delete from terrain_components")
-        sqlSave(channel=con, tablename = "terrain_components", dat=dat_tc, verbose=verbose, 
+        sqlSave(channel=con, tablename = "terrain_components", dat=dat_tc, verbose=F, 
                 append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
+        tbl_changed <- c(tbl_changed, "terrain_components")
       }, error = function(e) {
+        # update table meta_info
+        meta_dat <- sqlFetch(con, "meta_info")
+        if(any(meta_dat$pid)) {
+          pid_new <- max(meta_dat$pid) +1
+        } else {
+          pid_new <- 1
+        }
+        meta_out <- data.frame(pid=pid_new,
+                               mod_date=as.POSIXct(Sys.time()),
+                               mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                               affected_tables=paste(unique(tbl_changed), collapse=", "),
+                               affected_columns="various",
+                               remarks=paste0("ATTENTION: Error while checking database using R package LUMP check compute_rocky_frac. Nevertheless, affected_tables have already been changed."))
+        write_meta(con, meta_out, verbose)
         odbcClose(con)
         stop(paste0("An error occured when updating table 'terrain_components'. ",
                     "Error message of the writing function: ", e))
@@ -655,9 +842,24 @@ db_check <- function(
         tryCatch(
         {
           sqlQuery(con, "delete from r_tc_contains_svc")
-          sqlSave(channel=con, tablename = "r_tc_contains_svc", dat=dat_contains_act, verbose=verbose, 
+          sqlSave(channel=con, tablename = "r_tc_contains_svc", dat=dat_contains_act, verbose=F, 
                   append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
+          tbl_changed <- c(tbl_changed, "r_tc_contains_svc")
         }, error = function(e) {
+          # update table meta_info
+          meta_dat <- sqlFetch(con, "meta_info")
+          if(any(meta_dat$pid)) {
+            pid_new <- max(meta_dat$pid) +1
+          } else {
+            pid_new <- 1
+          }
+          meta_out <- data.frame(pid=pid_new,
+                                 mod_date=as.POSIXct(Sys.time()),
+                                 mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                                 affected_tables=paste(unique(tbl_changed), collapse=", "),
+                                 affected_columns="various",
+                                 remarks=paste0("ATTENTION: Error while checking database using R package LUMP check remove_impervious_svc. Nevertheless, affected_tables have already been changed."))
+          write_meta(con, meta_out, verbose)
           odbcClose(con)
           stop(paste0("An error occured when updating table 'r_tc_contains_svc'. ",
                       "Error message of the writing function: ", e))
@@ -686,6 +888,22 @@ db_check <- function(
     
     # check arguments
     if(!("total_mean_delay" %in% names(option))) {
+      # update table meta_info
+      if(fix) {
+        meta_dat <- sqlFetch(con, "meta_info")
+        if(any(meta_dat$pid)) {
+          pid_new <- max(meta_dat$pid) +1
+        } else {
+          pid_new <- 1
+        }
+        meta_out <- data.frame(pid=pid_new,
+                               mod_date=as.POSIXct(Sys.time()),
+                               mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                               affected_tables=paste(unique(tbl_changed), collapse=", "),
+                               affected_columns="various",
+                               remarks=paste0("ATTENTION: Error while checking database using R package LUMP check proxy_frgw_delay. Nevertheless, affected_tables have already been changed."))
+        write_meta(con, meta_out, verbose)
+      }
       odbcClose(con)
       stop("No option 'total_mean_delay' specified for check 'proxy_frgw_delay'.")
     }
@@ -709,7 +927,11 @@ db_check <- function(
       dat_lu_t <- merge(dat_lu_t, data.frame(id=names(rocky_lu), rocky=rocky_lu), by.x="pid", by.y="id")
       
       # estimate proxy
-      proxy <- dat_lu_t$length * (1-dat_lu_t$rocky) / dat_lu_t$slope
+      proxy <- dat_lu_t$slopelength * (1-dat_lu_t$rocky) / dat_lu_t$slope
+      
+      # in case of zero slopes set infinite proxy values to 10000 days
+      if(any(is.infinite(proxy)))
+        proxy[which(is.infinite(proxy))] <- 10000
       
       # estimate frgw_delay
       dat_lu$frgw_delay <- proxy * option$total_mean_delay / mean(proxy)
@@ -721,9 +943,24 @@ db_check <- function(
       tryCatch(
       {
         sqlQuery(con, "delete from landscape_units")
-        sqlSave(channel=con, tablename = "landscape_units", dat=dat_lu, verbose=verbose, 
+        sqlSave(channel=con, tablename = "landscape_units", dat=dat_lu, verbose=F, 
                 append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
+        tbl_changed <- c(tbl_changed, "landscape_units")
       }, error = function(e) {
+        # update table meta_info
+        meta_dat <- sqlFetch(con, "meta_info")
+        if(any(meta_dat$pid)) {
+          pid_new <- max(meta_dat$pid) +1
+        } else {
+          pid_new <- 1
+        }
+        meta_out <- data.frame(pid=pid_new,
+                               mod_date=as.POSIXct(Sys.time()),
+                               mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                               affected_tables=paste(unique(tbl_changed), collapse=", "),
+                               affected_columns="various",
+                               remarks=paste0("ATTENTION: Error while checking database using R package LUMP check proxy_frgw_delay. Nevertheless, affected_tables have already been changed."))
+        write_meta(con, meta_out, verbose)
         odbcClose(con)
         stop(paste0("An error occured when updating table 'landscape_units'. ",
                     "Error message of the writing function: ", e))
@@ -776,9 +1013,24 @@ db_check <- function(
         tryCatch(
         {
           sqlQuery(con, "delete from landscape_units")
-          sqlSave(channel=con, tablename = "landscape_units", dat=dat_lu, verbose=verbose, 
+          sqlSave(channel=con, tablename = "landscape_units", dat=dat_lu, verbose=F, 
                   append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
+          tbl_changed <- c(tbl_changed, "landscape_units")
         }, error = function(e) {
+          # update table meta_info
+          meta_dat <- sqlFetch(con, "meta_info")
+          if(any(meta_dat$pid)) {
+            pid_new <- max(meta_dat$pid) +1
+          } else {
+            pid_new <- 1
+          }
+          meta_out <- data.frame(pid=pid_new,
+                                 mod_date=as.POSIXct(Sys.time()),
+                                 mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                                 affected_tables=paste(unique(tbl_changed), collapse=", "),
+                                 affected_columns="various",
+                                 remarks=paste0("ATTENTION: Error while checking database using R package LUMP check delete_obsolete. Nevertheless, affected_tables have already been changed."))
+          write_meta(con, meta_out, verbose)
           odbcClose(con)
           stop(paste0("An error occured when updating table 'landscape_units'. ",
                       "Error message of the writing function: ", e))
@@ -806,7 +1058,7 @@ db_check <- function(
       
       if(!fix) {
         print("-> The following datasets in 'terrain_components' are obsolete:")
-        print(dat_lu[r_del,])
+        print(dat_tc[r_del,])
       } else {
         
         print("-> The following datasets will be removed from 'terrain_components':")
@@ -818,9 +1070,24 @@ db_check <- function(
         tryCatch(
         {
           sqlQuery(con, "delete from terrain_components")
-          sqlSave(channel=con, tablename = "terrain_components", dat=dat_tc, verbose=verbose, 
+          sqlSave(channel=con, tablename = "terrain_components", dat=dat_tc, verbose=F, 
                   append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
+          tbl_changed <- c(tbl_changed, "terrain_components")
         }, error = function(e) {
+          # update table meta_info
+          meta_dat <- sqlFetch(con, "meta_info")
+          if(any(meta_dat$pid)) {
+            pid_new <- max(meta_dat$pid) +1
+          } else {
+            pid_new <- 1
+          }
+          meta_out <- data.frame(pid=pid_new,
+                                 mod_date=as.POSIXct(Sys.time()),
+                                 mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                                 affected_tables=paste(unique(tbl_changed), collapse=", "),
+                                 affected_columns="various",
+                                 remarks=paste0("ATTENTION: Error while checking database using R package LUMP check delete_obsolete. Nevertheless, affected_tables have already been changed."))
+          write_meta(con, meta_out, verbose)
           odbcClose(con)
           stop(paste0("An error occured when updating table 'terrain_components'. ",
                       "Error message of the writing function: ", e))
@@ -848,7 +1115,7 @@ db_check <- function(
       
       if(!fix) {
         print("-> The following datasets in 'soil_veg_components' are obsolete:")
-        print(dat_lu[r_del,])
+        print(dat_svc[r_del,])
       } else {
         
         print("-> The following datasets will be removed from 'soil_veg_components':")
@@ -860,9 +1127,24 @@ db_check <- function(
         tryCatch(
         {
           sqlQuery(con, "delete from soil_veg_components")
-          sqlSave(channel=con, tablename = "soil_veg_components", dat=dat_svc, verbose=verbose, 
+          sqlSave(channel=con, tablename = "soil_veg_components", dat=dat_svc, verbose=F, 
                   append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
+          tbl_changed <- c(tbl_changed, "soil_veg_components")
         }, error = function(e) {
+          # update table meta_info
+          meta_dat <- sqlFetch(con, "meta_info")
+          if(any(meta_dat$pid)) {
+            pid_new <- max(meta_dat$pid) +1
+          } else {
+            pid_new <- 1
+          }
+          meta_out <- data.frame(pid=pid_new,
+                                 mod_date=as.POSIXct(Sys.time()),
+                                 mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                                 affected_tables=paste(unique(tbl_changed), collapse=", "),
+                                 affected_columns="various",
+                                 remarks=paste0("ATTENTION: Error while checking database using R package LUMP check delete_obsolete. Nevertheless, affected_tables have already been changed."))
+          write_meta(con, meta_out, verbose)
           odbcClose(con)
           stop(paste0("An error occured when updating table 'soil_veg_components'. ",
                       "Error message of the writing function: ", e))
@@ -1029,19 +1311,216 @@ db_check <- function(
     
     
     if(any(r_miss)) {
-      stop("Check for completeness failed. Restore data integrity before any further actions! Notice preceding output messages for more information. Close ODBC connection.")
+      # update table meta_info
+      if(fix) {
+        meta_dat <- sqlFetch(con, "meta_info")
+        if(any(meta_dat$pid)) {
+          pid_new <- max(meta_dat$pid) +1
+        } else {
+          pid_new <- 1
+        }
+        meta_out <- data.frame(pid=pid_new,
+                               mod_date=as.POSIXct(Sys.time()),
+                               mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                               affected_tables=paste(unique(tbl_changed), collapse=", "),
+                               affected_columns="various",
+                               remarks=paste0("ATTENTION: Error while checking database using R package LUMP check completeness. Nevertheless, affected_tables have already been changed."))
+        write_meta(con, meta_out, verbose)
+      }
       odbcClose(con)
+      stop("Check for completeness failed. Restore data integrity before any further actions! Notice preceding output messages for more information. Close ODBC connection.")
     }
     
     if(verbose)
       print("OK.")
     
   } # check completeness
-    
+
+
 
 
 ###############################################################################
-### end of function, close connection
+### determine subbasin order
+  if (any(grepl("subbasin_order", check))) {
+    if(verbose)
+      print("Determine subbasin_order (column 'a_stream_order' of table 'subbasins') ...")
+    
+    if(!fix) {
+      print("-> Running in report mode. Nothing to report for this check.")
+    } else {
+      
+      # get data
+      dat_sub <- sqlFetch(con, "subbasins")
+      
+      if(any(!is.na(dat_sub$a_stream_order))) {
+        # update table meta_info
+        meta_dat <- sqlFetch(con, "meta_info")
+        if(any(meta_dat$pid)) {
+          pid_new <- max(meta_dat$pid) +1
+        } else {
+          pid_new <- 1
+        }
+        meta_out <- data.frame(pid=pid_new,
+                               mod_date=as.POSIXct(Sys.time()),
+                               mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                               affected_tables=paste(unique(tbl_changed), collapse=", "),
+                               affected_columns="various",
+                               remarks=paste0("ATTENTION: Error while checking database using R package LUMP check subbasin_order. Nevertheless, affected_tables have already been changed."))
+        write_meta(con, meta_out, verbose)
+        odbcClose(con)
+        stop("There are already values in column 'a_stream_order' of table 'subbasins'. Set them all to 'NULL' if you want to compute subbasin order!")
+      }
+      
+      ### determine stream order
+      
+      # identify outlet subbasin
+      r_outlet <- which(dat_sub$drains_to %in% c(9999,-9999,999,-999))
+      
+      if(!any(r_outlet)) {
+        # update table meta_info
+        meta_dat <- sqlFetch(con, "meta_info")
+        if(any(meta_dat$pid)) {
+          pid_new <- max(meta_dat$pid) +1
+        } else {
+          pid_new <- 1
+        }
+        meta_out <- data.frame(pid=pid_new,
+                               mod_date=as.POSIXct(Sys.time()),
+                               mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                               affected_tables=paste(unique(tbl_changed), collapse=", "),
+                               affected_columns="various",
+                               remarks=paste0("ATTENTION: Error while checking database using R package LUMP check subbasin_order. Nevertheless, affected_tables have already been changed."))
+        write_meta(con, meta_out, verbose)
+        odbcClose(con)
+        stop("Could not identify outlet subbasin from column 'drains_to' in table 'subbasins'. Must be one of values c(9999,-9999,999,-999).")
+      }
+      if(length(r_outlet) > 1) {
+        # update table meta_info
+        meta_dat <- sqlFetch(con, "meta_info")
+        if(any(meta_dat$pid)) {
+          pid_new <- max(meta_dat$pid) +1
+        } else {
+          pid_new <- 1
+        }
+        meta_out <- data.frame(pid=pid_new,
+                               mod_date=as.POSIXct(Sys.time()),
+                               mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                               affected_tables=paste(unique(tbl_changed), collapse=", "),
+                               affected_columns="various",
+                               remarks=paste0("ATTENTION: Error while checking database using R package LUMP check subbasin_order. Nevertheless, affected_tables have already been changed."))
+        write_meta(con, meta_out, verbose)
+        odbcClose(con)
+        stop("More than one subbasin has been identified as outlet. Check column 'drains_to' in table 'subbasins'!")
+      }
+      
+      dat_sub$a_stream_order[r_outlet] <- 1
+      
+      # determine rest of stream order
+      fin <- FALSE
+      i <- 0
+      while(fin == F) {
+        i <- i+1
+        
+        # determine index of previously filled 'a_stream_order'
+        r <- which(dat_sub$a_stream_order == i)
+        
+        # get pid of upstream subbasin
+        sub_up <- dat_sub$pid[r]
+        
+        # find this subbasin in 'drains_to'
+        r_up <- which(dat_sub$drains_to %in% sub_up)
+        
+        # set corresponding 'a_stream_order' value to i+1
+        dat_sub$a_stream_order[r_up] <- i+1
+        
+        # check if finished
+        if(!any(is.na(dat_sub$a_stream_order)))
+          fin <- TRUE
+        
+        # throw an error if i is already very large (In this case there must be something wrong)
+        if (i > 10000) {
+          # update table meta_info
+          meta_dat <- sqlFetch(con, "meta_info")
+          if(any(meta_dat$pid)) {
+            pid_new <- max(meta_dat$pid) +1
+          } else {
+            pid_new <- 1
+          }
+          meta_out <- data.frame(pid=pid_new,
+                                 mod_date=as.POSIXct(Sys.time()),
+                                 mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                                 affected_tables=paste(unique(tbl_changed), collapse=", "),
+                                 affected_columns="various",
+                                 remarks=paste0("ATTENTION: Error while checking database using R package LUMP check subbasin_order. Nevertheless, affected_tables have already been changed."))
+          write_meta(con, meta_out, verbose)
+          odbcClose(con)
+          stop("Cannot successfully determine subbasin order (column 'a_stream_order' of table 'subbasins'). Check the table for errors!")
+        }
+      }
+      
+      
+      ### write results to db
+      if(verbose)
+        print("-> Updating table 'subbasins'...")
+      tryCatch(
+      {
+        sqlQuery(con, "delete from subbasins")
+        sqlSave(channel=con, tablename = "subbasins", dat=dat_sub, verbose=F, 
+                append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
+        tbl_changed <- c(tbl_changed, "subbasins")
+      }, error = function(e) {
+        # update table meta_info
+        meta_dat <- sqlFetch(con, "meta_info")
+        if(any(meta_dat$pid)) {
+          pid_new <- max(meta_dat$pid) +1
+        } else {
+          pid_new <- 1
+        }
+        meta_out <- data.frame(pid=pid_new,
+                               mod_date=as.POSIXct(Sys.time()),
+                               mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                               affected_tables=paste(unique(tbl_changed), collapse=", "),
+                               affected_columns="various",
+                               remarks=paste0("ATTENTION: Error while checking database using R package LUMP check subbasin_order. Nevertheless, affected_tables have already been changed."))
+        write_meta(con, meta_out, verbose)
+        odbcClose(con)
+        stop(paste0("An error occured when updating table 'subbasins'. ",
+                    "Error message of the writing function: ", e))
+      }
+      )   
+      
+    } # if fix
+    
+    if(verbose)
+      print("OK.")
+    
+  } # determine subbasin order
+
+
+
+
+###############################################################################
+### end of function, write changes into 'meta_info', close connection
+  
+  if(fix) {
+    
+    # update table meta_info
+    meta_dat <- sqlFetch(con, "meta_info")
+    if(any(meta_dat$pid)) {
+      pid_new <- max(meta_dat$pid) +1
+    } else {
+      pid_new <- 1
+    }
+    meta_out <- data.frame(pid=pid_new,
+                           mod_date=as.POSIXct(Sys.time()),
+                           mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                           affected_tables=paste(unique(tbl_changed), collapse=", "),
+                           affected_columns="various",
+                           remarks=paste0("Database checked and adjusted using R package LUMP. Applied checks: ", paste(check, collapse=", "), ". Options: ", paste(names(option), option, sep=" = ", collapse=", ")))
+    write_meta(con, meta_out, verbose)
+  
+  } # fix
+
 
   print("All checks completed successfully. Close ODBC connection.")
   

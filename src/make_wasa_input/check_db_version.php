@@ -1,7 +1,7 @@
 <?php
 //checks if the used database has the appropiate version number
 
-$sql =  "select version from db_version order by date desc"; 
+$sql =  "select version from db_version order by date_time desc"; 
 if(!($res = sql_query($sql)))
 $row["version"]="unknown";
 else

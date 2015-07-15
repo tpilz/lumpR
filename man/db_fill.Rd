@@ -8,7 +8,7 @@ db_fill(dbname, tables = c("r_subbas_contains_lu", "subbasins",
   "landscape_units", "r_lu_contains_tc", "terrain_components",
   "r_tc_contains_svc", "vegetation", "soils", "horizons", "soil_veg_components",
   "particle_classes", "r_soil_contains_particles"), dat_files, dat_dir,
-  overwrite = FALSE, verbose = FALSE)
+  overwrite = FALSE, verbose = TRUE)
 }
 \arguments{
 \item{dbname}{Name of the data source (DSN) registered at ODBC. See \code{Details} of
@@ -29,7 +29,7 @@ db_fill(dbname, tables = c("r_subbas_contains_lu", "subbasins",
  existing values will be kept und the table expanded. Default: \code{FALSE}.}
 
 \item{verbose}{\code{logical}. Should detailed information during execution be
- printed? Default: \code{FALSE}.}
+ printed? Default: \code{TRUE}.}
 }
 \description{
 Function to write parameter values relevant for modelling application with the
@@ -38,7 +38,7 @@ WASA hydrological model into an existing database, preferably created with
 }
 \details{
 For each table a single file has to be prepared manually and/or using functions of
- \code{\link{LUMP}}. All files have to be tabulator-separated textfiles, the top-line
+ \code{LUMP}. All files have to be tabulator-separated textfiles, the top-line
  being the header. Column names have to be identical to column names of the
  respective tables in the database. All columns of a table have to exist in the
  respective data file. If a certain column is not needed for your purpose or
@@ -75,7 +75,8 @@ For each table a single file has to be prepared manually and/or using functions 
    \code{character}. Short subbasin name or description.
 
    \emph{drains_to}\cr
-   \code{integer}. Pid of subbasin the current subbasin drains to.
+   \code{integer}. Pid of subbasin the current subbasin drains to. The outlet
+   subbasin has to be labelled by one of c(9999,-9999,999,-999).
 
    \emph{area}\cr
    \code{double}. Subbasin area in \emph{km^2}.
@@ -109,7 +110,8 @@ For each table a single file has to be prepared manually and/or using functions 
    \code{double}. Hydraulic conductivity of bedrock in \emph{mm/d}.
 
    \emph{slopelength}\cr
-   \code{double}. Mean slope length in landscape unit in \emph{m}.
+   \code{double}. Mean slope length in landscape unit in \emph{m}. Meant is
+   the length in x-direction, not the hypotenuse of the hillslope profile triangle.
 
    \emph{soil_depth}\cr
    \code{double}. Mean maximum depth of soil zone in \emph{mm}.
@@ -199,7 +201,7 @@ For each table a single file has to be prepared manually and/or using functions 
    \emph{description}\cr
    \code{character}. Short name or description.
 
-   \emph{stomata_r}\cr
+   \emph{stomat_r}\cr
    \code{double}. Stomata resistance without water stress in \emph{s/m}.
 
    \emph{min_suction}\cr
@@ -441,6 +443,42 @@ For each table a single file has to be prepared manually and/or using functions 
 
    \emph{fraction}\cr
    \code{double}. Mass-fraction that falls into the respective particle size class \emph{[-]}.
+
+
+ \bold{rainy_season}\cr
+ Fill in values \bold{manually} (i.e. this is not supported by this function)
+ using output of \code{\link[LUMP]{rainy_season}}. You can define separate
+ seasonalities for different vegetation types if you want (i.e. 'growing season'
+ instead of 'rainy season'). In this case the rainy/growing season starts and ends
+ differently for the respective vegetation types. This, however, is not
+ respected by function \code{\link[LUMP]{rainy_season}} which determines seasonalities
+ based on precipitation only. You can use the wildcard value '-1' for all
+ (remaining) vegetation types. Columns:
+
+   \emph{pid}\cr
+   \code{integer}. Dataset ID.
+
+   \emph{subbas_id}\cr
+   \code{integer}. Id of subbasin or '-1' as wildcard for all (remaining) subbasins.
+
+   \emph{veg_id}\cr
+   \code{integer}. Id of vegetation type or '-1' as wildcard for all (remaining)
+   vegetation types.
+
+   \emph{yearm}\cr
+   \code{integer}. Current year or '-1' as wildcard for all (remaining) years.
+
+   \emph{node1}\cr
+   \code{integer}. Start day of year (DOY) of rainy/growing season.
+
+   \emph{node2}\cr
+   \code{integer}. DOY when climax of vegetation is reached.
+
+   \emph{node3}\cr
+   \code{integer}. DOY of end of rainy/growing season (begin of vegetation degradation).
+
+   \emph{node4}\cr
+   \code{integer}. DOY of end of main phase of vegetation degradation.
 }
 \author{
 Tobias Pilz \email{tpilz@uni-potsdam.de}, Till Francke \email{francke@uni-potsdam.de}

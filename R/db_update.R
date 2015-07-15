@@ -38,17 +38,30 @@ db_update <- function(
   if(grepl("MariaDB", odbcGetInfo(con)["DBMS_Name"], ignore.case=T))
     sqlQuery(con, "SET sql_mode='ANSI';")
   
+  # get most recent db version from update sql files in source directory
+  db_dir <- system.file("database/", package="LUMP")
+  db_up_files <- dir(db_dir, pattern="update_[a-zA-Z0-9_]*.sql")
+  db_ver_max <- max(as.integer(sub(".sql", "", sub("update_db_v", "", db_up_files))))
+  
+  if(is.infinite(to_ver))
+    to_ver <- db_ver_max
+    
   # check current db version
   db_ver <- sqlFetch(con, "db_version")$version
   db_ver = max(db_ver)
-  if(db_ver == 19)
-    stop("Database is up to date (version 19). Nothing to do.")
+  db_ver_init <- db_ver
+  
+  if(to_ver > db_ver_max)
+    stop(paste0("Requested update (", to_ver, ") is greater than newest available database version (", db_ver_max, ")!"))
+  
+  if(db_ver == db_ver_max)
+    stop(paste0("Database is up to date (version ", db_ver_max, "). Nothing to do."))
   
   if(db_ver > to_ver)
     stop(paste0("Database (", db_ver, ") is newer than the requested update (", to_ver, "). Nothing to do."))
   
   if(db_ver < 18)
-    stop("Database needs to be at least version 18 for updating. Do manual updates first (see db_version.txt).")
+    stop("Database needs to be at least version 18 for updating. Do manual updates first (see db_version.txt in LUMP's source directory 'src/make_wasa_input/').")
   
   
   if(db_ver == 18) #ver 18 -> 19
@@ -138,13 +151,45 @@ db_update <- function(
   
   
 
-  if((db_ver == 19) & (db_ver > to_ver)) #ver 19->20
+  if((db_ver == 19) & (to_ver > db_ver)) #ver 19->20
   { 
     #fill in update steps
+    # read file with sql statements
+    sql_file <- system.file("database/update_db_v20.sql", package="LUMP")
+    script  <- readLines(sql_file)
+    
+    # identify individual queries of the script
+    script <- gsub("--.*", "", script)
+    script <- gsub("\t", "", script)
+    script <- paste(script, collapse=" ")
+    scriptparts <- strsplit(script, ";")[[1]]
+    scriptparts <- scriptparts[-length(scriptparts)]
+    
+    # loop over queries
+    for(i in seq(along=scriptparts)){
+      
+      statement <- scriptparts[i]
+      
+      # adjust to specific SQL dialects
+      statement <- sql_dialect(con, statement)
+      
+      if(is.null(statement))
+        next
+      
+      
+      # send query to database
+      res <- sqlQuery(con, statement, errors=F)
+      if (res==-1){
+        odbcClose(con)
+        stop("Error in SQL query execution while updating db.")
+      }
+    }
+  
+    
     db_ver=20
   }
   
-  if((db_ver == 20) & (db_ver > to_ver)) #ver 20->21
+  if((db_ver == 20) & (to_ver > db_ver)) #ver 20->21
   { 
     #fill in update steps
   
@@ -152,6 +197,20 @@ db_update <- function(
   }
   
 
+  # update table meta_info
+  meta_dat <- sqlFetch(con, "meta_info")
+  if(any(meta_dat$pid)) {
+    pid_new <- max(meta_dat$pid) +1
+  } else {
+    pid_new <- 1
+  }
+  meta_out <- data.frame(pid=pid_new,
+                         mod_date=as.POSIXct(Sys.time()),
+                         mod_user=paste0("db_update(), v. ", installed.packages()["LUMP","Version"]),
+                         affected_tables="See LUMPs source database/update_db_v*.sql.",
+                         affected_columns="See LUMPs source database/update_db_v*.sql.",
+                         remarks=paste0("Database updated from version ", db_ver_init, " to version ", db_ver, "."))
+  write_meta(con, meta_out, verbose=F)
   
   # close connection
   odbcClose(con)

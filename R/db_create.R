@@ -14,7 +14,7 @@
 #'          Currently supported (tested) are: SQLite (v. 3.8.9), MariaDB/MySQL (v. 10.0.17), 
 #'          MS Access.}
 #'    \item{Register an empty database at your ODBC configuration.}
-#'    \item{Install and load the \code{\link{RODBC}} package as interface to R.}
+#'    \item{Install and load the \code{\link[RODBC]{RODBC}} package as interface to R.}
 #'    \item{Call this function to create the tables in the database.}
 #'    \item{Processing of the database using external software (or R packages)
 #'          and/or use functions coming with LUMP (TODO).}
@@ -78,6 +78,21 @@ db_create <- function(
     } 
     
   }
+  
+  # update table meta_info
+  meta_dat <- sqlFetch(con, "meta_info")
+  if(any(meta_dat$pid)) {
+    pid_new <- max(meta_dat$pid) +1
+  } else {
+    pid_new <- 1
+  }
+  meta_out <- data.frame(pid=pid_new,
+                         mod_date=as.POSIXct(Sys.time()),
+                         mod_user=paste0("db_create(), v. ", installed.packages()["LUMP","Version"]),
+                         affected_tables="all",
+                         affected_columns="all",
+                         remarks=paste0("Created database version ", max(sqlFetch(con, "db_version")$version), " using R package LUMP."))
+  write_meta(con, meta_out, verbose=F)
   
   # close connection
   odbcClose(con)

@@ -1,0 +1,3 @@
+Specification of soil-vegetation components (links soter, terrain component, soil and vegetation properties)
+For each block: first line Soil IDs, Second line Land use, third line fraction of SVCs in each terrain component
+Subasin-ID[id]	LU-ID[id]	TC-ID[id]	fraction_rocky[-]	nbrSVC[-]	Soil-ID(n_values)[-]	Vegetation-ID(n_values)[-]	fraction(n_values)[-]
