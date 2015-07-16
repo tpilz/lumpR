@@ -82,7 +82,7 @@ Function uses output of \code{\link[LUMP]{area2catena}}. However, no GRASS
        - \code{classify_type} 'load'\cr
 }
 \author{
-Tobias Pilz \email{tpilz@uni-potsdam.de}
+Tobias Pilz \email{tpilz@uni-potsdam.de}, Till Francke \email{francke@uni-potsdam.de}
 }
 \references{
 Source code based on \code{SHELL} and \code{MATLAB} scripts of Till Francke.

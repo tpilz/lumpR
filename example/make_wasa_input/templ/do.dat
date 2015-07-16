@@ -1,0 +1,7 @@
+Parameter specification for the WASA Model (SESAM-Project), generated with make_wasa_input.php
+../input/esera/
+../output/esera/ 
+1980  //tstart (start year of simulation)
+2000  //tstop (end year of simulation)
+1     //mstart (start month of simulation)			
+12     //mstop (end month of simulation) 

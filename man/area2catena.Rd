@@ -85,7 +85,7 @@ Prepare GRASS location and necessary raster files in advance (e.g. using
          the loop to show error messages
 }
 \author{
-Tobias Pilz \email{tpilz@uni-potsdam.de}
+Tobias Pilz \email{tpilz@uni-potsdam.de}, Till Francke \email{francke@uni-potsdam.de}
 }
 \references{
 Source code based on \code{SHELL} and \code{MATLAB} scripts of Till Francke.

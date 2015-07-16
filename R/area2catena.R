@@ -64,7 +64,7 @@
 #'      hydrological modelling units. \emph{International Journal of Geographical
 #'      Information Science, Informa UK Limited}, 22(2), 111-132, DOI: 10.1080/13658810701300873
 #'      
-#' @author Tobias Pilz \email{tpilz@@uni-potsdam.de}
+#' @author Tobias Pilz \email{tpilz@@uni-potsdam.de}, Till Francke \email{francke@@uni-potsdam.de}
 #' 
 #' @export
 area2catena <- function(
