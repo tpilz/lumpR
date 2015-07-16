@@ -1,2 +1,0 @@
-Specification of soil parameters
-Soil-ID[-]	number(horizons)[-]	(n_res[Vol-]	n_PWP[-]	n_FK63[-]	n_FK1.8[-]	n_nFK[-]	n_saturated[-]	n_thickness[mm]	n_ks[mm/d]	n_suction[mm]	n_pore-size-index[-]	n_bubblepressure[cm]	n_coarse_frag[-]*n	n_shrinks[0/1])	bedrock[0/1]	alluvial[0/1]
