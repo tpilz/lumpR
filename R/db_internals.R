@@ -37,9 +37,22 @@ sql_dialect <- function(con, statement) {
       varspec <- meta_tbl_mod$TYPE_NAME
       names(varspec) <- meta_tbl_mod$COLUMN_NAME
       varspec[r_col_mod] <- split[r_tbl_mod+2]
-      # write modified table to database
-      sqlSave(channel=con, tablename=tbl_mod, dat=dat_tbl_mod, varTypes=varspec, append=FALSE, 
-                nastring = NULL, fast = TRUE, rownames = FALSE)
+      # re-create table and write modified data to database
+      # if dat_tbl_mod has no values sqlSave throws an error but table is created successfully -> suppress error in that case; could not find a more elegant workaround
+      if(nrow(dat_tbl_mod) == 0) {
+        try(sqlSave(channel=con, tablename=tbl_mod, dat=dat_tbl_mod, varTypes=varspec, append=FALSE, 
+                    nastring = NULL, fast = TRUE, rownames = FALSE),
+            silent=T)
+      } else {
+        suppressWarnings(sqlSave(channel=con, tablename=tbl_mod, dat=dat_tbl_mod, varTypes=varspec, append=FALSE, 
+                nastring = NULL, fast = TRUE, rownames = FALSE))
+      }
+      
+      # in case of columns of type datetime (see function write_datetabs() below)
+      if(any(grepl("datetime", meta_tbl_mod$TYPE_NAME, ignore.case = T))) {
+        sqlQuery(con, paste0("delete from ", tbl_mod, ";"))
+        write_datetabs(con, dat=dat_tbl_mod, tab=tbl_mod, verbose=F)
+      }
 
       
       # return NULL as statement
@@ -49,6 +62,9 @@ sql_dialect <- function(con, statement) {
   
   # MS Access
   if(grepl("access", odbcGetInfo(con)["DBMS_Name"], ignore.case=T)) {
+    # if 'alter table' statement -> 'alter column' instead of 'modify'
+    if(grepl("modify", statement, ignore.case = T))
+      statement <- gsub("modify", "alter column", statement, ignore.case = T)
     # adjust column data type syntax
     statement <- gsub("INT\\([0-9]*\\)", "INT", statement)
     # nvarchar (i.e. unicode characters) are not supported -> convert to varchar
@@ -67,6 +83,16 @@ sql_dialect <- function(con, statement) {
     statement <- gsub("BOOL", "BIT", statement)
     # no tinyint
     statement <- gsub("TINYINT", "INT", statement)
+    # maximum length of a data type is 255
+    len <- suppressWarnings(as.integer(unlist(strsplit(statement, "\\(|\\)"))))
+    len <- len[which(!is.na(len))]
+    if(any(len)) {
+      len_oversize <- len[which(len > 255)]
+      if(any(len_oversize)) {
+        statement <- gsub(paste(len_oversize, collapse="|"), "255", statement)
+      }
+    }
+    
   }
   
   return(statement)
@@ -126,30 +152,30 @@ writedb <- function(con, file, table, overwrite, verbose) {
 
 
 
-# write data.frame into table meta_info
-# Reason: sqlSave() does not work for columns of type datetime (recognized column size is 3 and dates are truncated to 3 characters)
-write_meta <- function(con, dat, verbose) {
-  # create statement from dat
-  statement <- paste0("INSERT INTO meta_info VALUES (",
-                      "'", dat$pid, "',",
-                      "'", dat$mod_date, "',",
-                      "'", dat$mod_user, "',",
-                      "'", dat$affected_tables, "',",
-                      "'", dat$affected_columns, "',",
-                      "'", dat$remarks, "');")
+# write data.frame into tables having column of type datetime
+# Reason: sqlSave() does not work for columns of type datetime for DBMS SQLite (recognized column size is 3 and dates are truncated to 3 characters)
+write_datetabs <- function(con, dat, tab, verbose) {
   
-  # adjust SQL dialect if necessary
-  statement <- sql_dialect(con, statement)
+  # loop over rows of data.frame
+  for(i in 1:nrow(dat)) {
+    # create statement from dat
+    statement <- paste0("INSERT INTO ", tab, " VALUES (",
+                        apply(dat[i,],1,function(x) paste0("'", x, "'", collapse=", ")),
+                        ");")
   
-  # apply statement
-  res <- sqlQuery(con, statement, errors=F)
-  if (res==-1){
-    odbcClose(con)
-    stop("Error in SQL query execution while writing into table 'meta_info'.")
+    # adjust SQL dialect if necessary
+    statement <- sql_dialect(con, statement)
+  
+    # apply statement
+    res <- sqlQuery(con, statement, errors=F)
+    if (res==-1){
+      odbcClose(con)
+      stop(paste0("Error in SQL query execution while writing into table '",tab,"'."))
+    }
   }
   
   if(verbose)
-    print("Updated table 'meta_info'.")
+    print(paste0("Updated table '",tab,"'."))
   
 } # EOF
 
@@ -187,7 +213,7 @@ filter_small_areas <- function(con, table, thres, fix, verbose, tbl_changed) {
                              affected_tables=paste(unique(tbl_changed), collapse=", "),
                              affected_columns="various",
                              remarks=paste0("ATTENTION: Error while checking database using R package LUMP check filter_small_areas. Nevertheless, affected_tables have already been changed."))
-      write_meta(con, meta_out, verbose)
+      write_datetabs(con, meta_out, tab="meta_info", verbose)
       stop(paste0("Before removal of tiny areas: sum of fractions per higher level unit not always equal to one. Check table '", table, ifelse(table=="r_tc_contains_svc", " and terrain_components (column frac_rocky)",""),"'!"))
     } else {
       print(paste0("-> ATTENTION: Before removal of tiny areas: sum of fractions per higher level unit not always equal to one. Check table '", table, ifelse(table=="r_tc_contains_svc", " and terrain_components (column frac_rocky)",""),"'!"))
@@ -214,7 +240,7 @@ filter_small_areas <- function(con, table, thres, fix, verbose, tbl_changed) {
     if(any(lu_rm_sum > 0.1)) {
       keep_lu <- which(lu_rm_sum > 0.1)
       print(paste0("-> For '", colnames(dat_contains)[1], "' ", paste(names(lu_rm_sum)[keep_lu], collapse=", "),
-                   " more than 10% of the area would be removed due to too many small '", colnames(dat_contains)[2], ". These datasets will be kept."))
+                   " more than 10% of the area would be removed due to too many small '", colnames(dat_contains)[2], "'. These datasets will be kept."))
       
       rows_rm_keep <- which(dat_contains[[1]][rows_rm] %in% names(lu_rm_sum)[keep_lu])
       rows_rm <- rows_rm[-rows_rm_keep]
@@ -269,7 +295,7 @@ filter_small_areas <- function(con, table, thres, fix, verbose, tbl_changed) {
                                    affected_tables=paste(unique(tbl_changed), collapse=", "),
                                    affected_columns="various",
                                    remarks=paste0("ATTENTION: Error while checking database using R package LUMP check filter_small_areas. Nevertheless, affected_tables have already been changed."))
-            write_meta(con, meta_out, verbose)
+            write_datetabs(con, meta_out, tab="meta_info", verbose)
             odbcClose(con)
             stop(paste0("An error occured when updating table terrain_components. ",
                         "Error message of the writing function: ", e))
@@ -298,7 +324,7 @@ filter_small_areas <- function(con, table, thres, fix, verbose, tbl_changed) {
                                affected_tables=paste(unique(tbl_changed), collapse=", "),
                                affected_columns="various",
                                remarks=paste0("ATTENTION: Error while checking database using R package LUMP check filter_small_areas. Nevertheless, affected_tables have already been changed."))
-        write_meta(con, meta_out, verbose)
+        write_datetabs(con, meta_out, tab="meta_info", verbose)
         odbcClose(con)
         stop(paste0("An error occured when updating table '", table, "'. ",
                     "Error message of the writing function: ", e))

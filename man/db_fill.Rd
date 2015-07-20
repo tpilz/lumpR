@@ -453,7 +453,8 @@ For each table a single file has to be prepared manually and/or using functions 
  differently for the respective vegetation types. This, however, is not
  respected by function \code{\link[LUMP]{rainy_season}} which determines seasonalities
  based on precipitation only. You can use the wildcard value '-1' for all
- (remaining) vegetation types. Columns:
+ (remaining) vegetation types. After manual fill don't forget to update 'meta_info'.
+ Columns:
 
    \emph{pid}\cr
    \code{integer}. Dataset ID.

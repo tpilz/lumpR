@@ -441,7 +441,8 @@
 #'  differently for the respective vegetation types. This, however, is not
 #'  respected by function \code{\link[LUMP]{rainy_season}} which determines seasonalities
 #'  based on precipitation only. You can use the wildcard value '-1' for all
-#'  (remaining) vegetation types. Columns:
+#'  (remaining) vegetation types. After manual fill don't forget to update 'meta_info'.
+#'  Columns:
 #'    
 #'    \emph{pid}\cr
 #'    \code{integer}. Dataset ID.
@@ -547,7 +548,7 @@ db_fill <- function(
                          affected_tables=paste(tables, collapse=", "),
                          affected_columns="all",
                          remarks=paste0("Automated filling of tables with R package LUMP using files from location ", dat_dir, "."))
-  write_meta(con, meta_out, verbose)
+  write_datetabs(con, meta_out, tab="meta_info", verbose)
   
   
   # close connection

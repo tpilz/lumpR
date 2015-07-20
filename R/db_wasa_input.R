@@ -233,7 +233,7 @@ db_wasa_input <- function(
     print("OK.")
 
   # create and/or check output directory
-  if(!file.exists(dest_dir)) {
+  if(!file_test("-d", dest_dir)) {
     if(verbose)
       print(paste("Output directory ", dest_dir, " with all sub-directories will be created."))
     dir.create(dest_dir, recursive=T)
@@ -309,7 +309,7 @@ db_wasa_input <- function(
     # get data
     dat <- sqlFetch(con, "subbasins")
     
-    if(any(is.na(cbind(dat$pid, dat$drains_to, dat$a_stream_order))))
+    if(any(is.na(cbind(dat$pid, dat$drains_to, dat$a_stream_order))) | nrow(dat) == 0)
       stop("Cannot write file River/routing.dat. Column(s) 'pid', 'drains_to' and/or 'a_stream_order' of table 'subbasins' contain missing values!")
     
     # sort
@@ -352,7 +352,7 @@ db_wasa_input <- function(
     
     # data for output
     dat_out <- cbind(dat$pid, dat$lag_time, dat$retention)
-    if(any(is.na(dat_out)))
+    if(any(is.na(dat_out)) | nrow(dat) == 0)
       stop("Cannot write file River/response.dat Column(s) 'pid', 'lag_time' and/or 'retention' of table 'subbasins' contain missing values!")
     
     # write output
@@ -396,9 +396,9 @@ db_wasa_input <- function(
       dat_sub <- dat_sub[-r_sub_out,]
     }
     
-    if(any(is.na(cbind(dat_sub$pid,dat_sub$area))))
+    if(any(is.na(cbind(dat_sub$pid,dat_sub$area))) | nrow(dat_sub) == 0)
       stop("Cannot write file Hillslope/hymo.dat Column(s) 'pid' and/or 'area' of table 'subbasins' contain missing values!")
-    if(any(is.na(dat_contains)))
+    if(any(is.na(dat_contains)) | nrow(dat_contains) == 0)
       stop("Cannot write file Hillslope/hymo.dat Table 'r_subbas_contains_lu' contains missing values!")
 
     
@@ -463,9 +463,9 @@ db_wasa_input <- function(
       dat_lu <- dat_lu[-r_lu_out,]
     }
     
-    if(any(is.na(dat_lu[,-c(2,11)])))
+    if(any(is.na(dat_lu[,-c(2,11)])) | nrow(dat_lu) == 0)
       stop("Cannot write file Hillslope/soter.dat Table 'landscape_units' contains missing values!")
-    if(any(is.na(dat_contains)))
+    if(any(is.na(dat_contains)) | nrow(dat_contains) == 0)
       stop("Cannot write file Hillslope/soter.dat Table 'r_lu_contains_tc' contains missing values!")
     
     
@@ -528,9 +528,9 @@ db_wasa_input <- function(
       dat_tc <- dat_tc[-r_tc_out,]
     }
     
-    if(any(is.na(dat_tc[,c(1,3)])))
+    if(any(is.na(dat_tc[,c(1,3)])) | nrow(dat_tc) == 0)
       stop("Cannot write file Hillslope/terrain.dat. Column(s) 'pid' and/or 'slope' of table 'terrain_components' contain missing values!")
-    if(any(is.na(dat_contains)))
+    if(any(is.na(dat_contains)) | nrow(dat_contains) == 0)
       stop("Cannot write file Hillslope/terrain.dat. Table 'r_lu_contains_tc' contains missing values!")
     
     # reverse positions (in WASA input the opposite couting compared to database)
@@ -585,7 +585,7 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
     dat_contains <- sqlFetch(con, "r_tc_contains_svc")
     
     # check data
-    if(any(is.na(dat_contains)))
+    if(any(is.na(dat_contains)) | nrow(dat_contains) == 0)
       stop("Could not write file Hillslope/svc_in_tc.dat. There are missing values in table 'r_tc_contains_svc'!")
     
     frac_sums <- round(tapply(dat_contains$fraction, dat_contains$tc_id, sum),3)
@@ -734,7 +734,7 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
       dat_out <- dat_hor[r_hor, c("theta_r", "theta_pwp", "fk", "fk63", "nfk", "theta_s", "thickness",
                                         "ks", "suction", "pore_size_i", "bubb_pres", "coarse_frag", "shrinks")]
       
-      if(any(is.na(cbind(dat_out, dat_soil$pid[s], dat_soil$bedrock_flag[s], dat_soil$alluvial_flag[s]))))
+      if(any(is.na(cbind(dat_out, dat_soil$pid[s], dat_soil$bedrock_flag[s], dat_soil$alluvial_flag[s]))) | nrow(dat_soil) == 0)
         stop(paste("Could not successfully write Hillslope/soil.dat. For soil ", dat_soil$pid[s], " there are missing values. Check tables 'soils' and 'horizons'!"))
       
       str_out <- paste(dat_soil$pid[s], length(r_hor),
@@ -997,6 +997,9 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
                text=c("Particle size classes to be used in sediment modelling",
                       "class_number\tupper_limit[mm]"))
     
+    if(any(is.na(dat_part)) | nrow(dat_part) == 0)
+      stop("There are missing values in table 'particle_classes'!")
+    
     # write output
     write.table(dat_part[,c(1,3)], paste(dest_dir, "part_class.dat", sep="/"), append=T,
                 quote=F, sep="\t", row.names=F, col.names=F)
@@ -1084,6 +1087,8 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
     # get data
     dat_rs <- sqlFetch(con, "rainy_season")
     
+    if(any(is.na(dat_rs)) | nrow(dat_rs) == 0)
+      stop("There are missing values in table 'rainy_season'!")
     
     ### sort data, i.e. wildcards at the last lines
     
@@ -1153,7 +1158,7 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
                          affected_tables=paste0("WASA files: ", paste(files, collapse=", ")),
                          affected_columns="none",
                          remarks=paste0("WASA input files written using R package LUMP to ", dest_dir, " ."))
-  write_meta(con, meta_out, verbose)
+  write_datetabs(con, meta_out, tab="meta_info", verbose)
 
 
 

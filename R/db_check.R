@@ -243,7 +243,7 @@ db_check <- function(
                                  affected_tables=paste(unique(tbl_changed), collapse=", "),
                                  affected_columns="various",
                                  remarks=paste0("ATTENTION: Error while checking database using R package LUMP check tc_slope. Nevertheless, affected_tables have already been changed."))
-          write_meta(con, meta_out, verbose)
+          write_datetabs(con, meta_out, tab="meta_info", verbose)
         }
         odbcClose(con)
         stop("No option 'treat_slope' specified for check 'tc_slope'.")
@@ -363,7 +363,7 @@ db_check <- function(
                                  affected_tables=paste(unique(tbl_changed), collapse=", "),
                                  affected_columns="various",
                                  remarks=paste0("ATTENTION: Error while checking database using R package LUMP check tc_slope. Nevertheless, affected_tables have already been changed."))
-          write_meta(con, meta_out, verbose)
+          write_datetabs(con, meta_out, tab="meta_info", verbose)
           odbcClose(con)
           stop(paste0("An error occured when updating table 'r_lu_contains_tc'. ",
                       "Error message of the writing function: ", e))
@@ -392,7 +392,7 @@ db_check <- function(
                                  affected_tables=paste(unique(tbl_changed), collapse=", "),
                                  affected_columns="various",
                                  remarks=paste0("ATTENTION: Error while checking database using R package LUMP check tc_slope. Nevertheless, affected_tables have already been changed."))
-          write_meta(con, meta_out, verbose)
+          write_datetabs(con, meta_out, tab="meta_info", verbose)
           odbcClose(con)
           stop(paste0("An error occured when updating table 'terrain_components'. ",
                       "Error message of the writing function: ", e))
@@ -431,7 +431,7 @@ db_check <- function(
                                affected_tables=paste(unique(tbl_changed), collapse=", "),
                                affected_columns="various",
                                remarks=paste0("ATTENTION: Error while checking database using R package LUMP check special_areas. Nevertheless, affected_tables have already been changed."))
-        write_meta(con, meta_out, verbose)
+        write_datetabs(con, meta_out, tab="meta_info", verbose)
       }
       odbcClose(con)
       stop("No option 'special_area' specified for check 'special_areas'.")
@@ -452,7 +452,7 @@ db_check <- function(
                                affected_tables=paste(unique(tbl_changed), collapse=", "),
                                affected_columns="various",
                                remarks=paste0("ATTENTION: Error while checking database using R package LUMP check special_areas. Nevertheless, affected_tables have already been changed."))
-        write_meta(con, meta_out, verbose)
+        write_datetabs(con, meta_out, tab="meta_info", verbose)
       }
       odbcClose(con)
       stop("Option 'special_area' is not a data.frame.")
@@ -473,7 +473,7 @@ db_check <- function(
                                affected_tables=paste(unique(tbl_changed), collapse=", "),
                                affected_columns="various",
                                remarks=paste0("ATTENTION: Error while checking database using R package LUMP check special_areas. Nevertheless, affected_tables have already been changed."))
-        write_meta(con, meta_out, verbose)
+        write_datetabs(con, meta_out, tab="meta_info", verbose)
       }
       odbcClose(con)
       stop("Option 'special_area' does not contain all necessary named vectors.")
@@ -494,7 +494,7 @@ db_check <- function(
                                affected_tables=paste(unique(tbl_changed), collapse=", "),
                                affected_columns="various",
                                remarks=paste0("ATTENTION: Error while checking database using R package LUMP check special_areas. Nevertheless, affected_tables have already been changed."))
-        write_meta(con, meta_out, verbose)
+        write_datetabs(con, meta_out, tab="meta_info", verbose)
       }
       odbcClose(con)
       stop("Option 'special_area' vector 'reference_tbl' supports values 'vegetation' and 'soils' only.")
@@ -515,7 +515,7 @@ db_check <- function(
                                affected_tables=paste(unique(tbl_changed), collapse=", "),
                                affected_columns="various",
                                remarks=paste0("ATTENTION: Error while checking database using R package LUMP check special_areas. Nevertheless, affected_tables have already been changed."))
-        write_meta(con, meta_out, verbose)
+        write_datetabs(con, meta_out, tab="meta_info", verbose)
       }
       odbcClose(con)
       stop("Option 'special_area' vector 'special_id' supports values '0', '1', and '2' only.")
@@ -604,7 +604,7 @@ db_check <- function(
                                affected_tables=paste(unique(tbl_changed), collapse=", "),
                                affected_columns="various",
                                remarks=paste0("ATTENTION: Error while checking database using R package LUMP check special_areas. Nevertheless, affected_tables have already been changed."))
-        write_meta(con, meta_out, verbose)
+        write_datetabs(con, meta_out, tab="meta_info", verbose)
         odbcClose(con)
         stop(paste0("An error occured when updating table 'soil_veg_components'. ",
                     "Error message of the writing function: ", e))
@@ -685,7 +685,7 @@ db_check <- function(
                                  affected_tables=paste(unique(tbl_changed), collapse=", "),
                                  affected_columns="various",
                                  remarks=paste0("ATTENTION: Error while checking database using R package LUMP check remove_water_svc. Nevertheless, affected_tables have already been changed."))
-          write_meta(con, meta_out, verbose)
+          write_datetabs(con, meta_out, tab="meta_info", verbose)
           odbcClose(con)
           stop(paste0("An error occured when updating table 'r_tc_contains_svc'. ",
                       "Error message of the writing function: ", e))
@@ -779,7 +779,7 @@ db_check <- function(
                                affected_tables=paste(unique(tbl_changed), collapse=", "),
                                affected_columns="various",
                                remarks=paste0("ATTENTION: Error while checking database using R package LUMP check compute_rocky_frac. Nevertheless, affected_tables have already been changed."))
-        write_meta(con, meta_out, verbose)
+        write_datetabs(con, meta_out, tab="meta_info", verbose)
         odbcClose(con)
         stop(paste0("An error occured when updating table 'terrain_components'. ",
                     "Error message of the writing function: ", e))
@@ -859,7 +859,7 @@ db_check <- function(
                                  affected_tables=paste(unique(tbl_changed), collapse=", "),
                                  affected_columns="various",
                                  remarks=paste0("ATTENTION: Error while checking database using R package LUMP check remove_impervious_svc. Nevertheless, affected_tables have already been changed."))
-          write_meta(con, meta_out, verbose)
+          write_datetabs(con, meta_out, tab="meta_info", verbose)
           odbcClose(con)
           stop(paste0("An error occured when updating table 'r_tc_contains_svc'. ",
                       "Error message of the writing function: ", e))
@@ -902,7 +902,7 @@ db_check <- function(
                                affected_tables=paste(unique(tbl_changed), collapse=", "),
                                affected_columns="various",
                                remarks=paste0("ATTENTION: Error while checking database using R package LUMP check proxy_frgw_delay. Nevertheless, affected_tables have already been changed."))
-        write_meta(con, meta_out, verbose)
+        write_datetabs(con, meta_out, tab="meta_info", verbose)
       }
       odbcClose(con)
       stop("No option 'total_mean_delay' specified for check 'proxy_frgw_delay'.")
@@ -960,7 +960,7 @@ db_check <- function(
                                affected_tables=paste(unique(tbl_changed), collapse=", "),
                                affected_columns="various",
                                remarks=paste0("ATTENTION: Error while checking database using R package LUMP check proxy_frgw_delay. Nevertheless, affected_tables have already been changed."))
-        write_meta(con, meta_out, verbose)
+        write_datetabs(con, meta_out, tab="meta_info", verbose)
         odbcClose(con)
         stop(paste0("An error occured when updating table 'landscape_units'. ",
                     "Error message of the writing function: ", e))
@@ -1030,7 +1030,7 @@ db_check <- function(
                                  affected_tables=paste(unique(tbl_changed), collapse=", "),
                                  affected_columns="various",
                                  remarks=paste0("ATTENTION: Error while checking database using R package LUMP check delete_obsolete. Nevertheless, affected_tables have already been changed."))
-          write_meta(con, meta_out, verbose)
+          write_datetabs(con, meta_out, tab="meta_info", verbose)
           odbcClose(con)
           stop(paste0("An error occured when updating table 'landscape_units'. ",
                       "Error message of the writing function: ", e))
@@ -1087,7 +1087,7 @@ db_check <- function(
                                  affected_tables=paste(unique(tbl_changed), collapse=", "),
                                  affected_columns="various",
                                  remarks=paste0("ATTENTION: Error while checking database using R package LUMP check delete_obsolete. Nevertheless, affected_tables have already been changed."))
-          write_meta(con, meta_out, verbose)
+          write_datetabs(con, meta_out, tab="meta_info", verbose)
           odbcClose(con)
           stop(paste0("An error occured when updating table 'terrain_components'. ",
                       "Error message of the writing function: ", e))
@@ -1144,7 +1144,7 @@ db_check <- function(
                                  affected_tables=paste(unique(tbl_changed), collapse=", "),
                                  affected_columns="various",
                                  remarks=paste0("ATTENTION: Error while checking database using R package LUMP check delete_obsolete. Nevertheless, affected_tables have already been changed."))
-          write_meta(con, meta_out, verbose)
+          write_datetabs(con, meta_out, tab="meta_info", verbose)
           odbcClose(con)
           stop(paste0("An error occured when updating table 'soil_veg_components'. ",
                       "Error message of the writing function: ", e))
@@ -1325,7 +1325,7 @@ db_check <- function(
                                affected_tables=paste(unique(tbl_changed), collapse=", "),
                                affected_columns="various",
                                remarks=paste0("ATTENTION: Error while checking database using R package LUMP check completeness. Nevertheless, affected_tables have already been changed."))
-        write_meta(con, meta_out, verbose)
+        write_datetabs(con, meta_out, tab="meta_info", verbose)
       }
       odbcClose(con)
       stop("Check for completeness failed. Restore data integrity before any further actions! Notice preceding output messages for more information. Close ODBC connection.")
@@ -1366,7 +1366,7 @@ db_check <- function(
                                affected_tables=paste(unique(tbl_changed), collapse=", "),
                                affected_columns="various",
                                remarks=paste0("ATTENTION: Error while checking database using R package LUMP check subbasin_order. Nevertheless, affected_tables have already been changed."))
-        write_meta(con, meta_out, verbose)
+        write_datetabs(con, meta_out, tab="meta_info", verbose)
         odbcClose(con)
         stop("There are already values in column 'a_stream_order' of table 'subbasins'. Set them all to 'NULL' if you want to compute subbasin order!")
       }
@@ -1390,7 +1390,7 @@ db_check <- function(
                                affected_tables=paste(unique(tbl_changed), collapse=", "),
                                affected_columns="various",
                                remarks=paste0("ATTENTION: Error while checking database using R package LUMP check subbasin_order. Nevertheless, affected_tables have already been changed."))
-        write_meta(con, meta_out, verbose)
+        write_datetabs(con, meta_out, tab="meta_info", verbose)
         odbcClose(con)
         stop("Could not identify outlet subbasin from column 'drains_to' in table 'subbasins'. Must be one of values c(9999,-9999,999,-999).")
       }
@@ -1408,7 +1408,7 @@ db_check <- function(
                                affected_tables=paste(unique(tbl_changed), collapse=", "),
                                affected_columns="various",
                                remarks=paste0("ATTENTION: Error while checking database using R package LUMP check subbasin_order. Nevertheless, affected_tables have already been changed."))
-        write_meta(con, meta_out, verbose)
+        write_datetabs(con, meta_out, tab="meta_info", verbose)
         odbcClose(con)
         stop("More than one subbasin has been identified as outlet. Check column 'drains_to' in table 'subbasins'!")
       }
@@ -1452,7 +1452,7 @@ db_check <- function(
                                  affected_tables=paste(unique(tbl_changed), collapse=", "),
                                  affected_columns="various",
                                  remarks=paste0("ATTENTION: Error while checking database using R package LUMP check subbasin_order. Nevertheless, affected_tables have already been changed."))
-          write_meta(con, meta_out, verbose)
+          write_datetabs(con, meta_out, tab="meta_info", verbose)
           odbcClose(con)
           stop("Cannot successfully determine subbasin order (column 'a_stream_order' of table 'subbasins'). Check the table for errors!")
         }
@@ -1482,7 +1482,7 @@ db_check <- function(
                                affected_tables=paste(unique(tbl_changed), collapse=", "),
                                affected_columns="various",
                                remarks=paste0("ATTENTION: Error while checking database using R package LUMP check subbasin_order. Nevertheless, affected_tables have already been changed."))
-        write_meta(con, meta_out, verbose)
+        write_datetabs(con, meta_out, tab="meta_info", verbose)
         odbcClose(con)
         stop(paste0("An error occured when updating table 'subbasins'. ",
                     "Error message of the writing function: ", e))
@@ -1517,7 +1517,7 @@ db_check <- function(
                            affected_tables=paste(unique(tbl_changed), collapse=", "),
                            affected_columns="various",
                            remarks=paste0("Database checked and adjusted using R package LUMP. Applied checks: ", paste(check, collapse=", "), ". Options: ", paste(names(option), option, sep=" = ", collapse=", ")))
-    write_meta(con, meta_out, verbose)
+    write_datetabs(con, meta_out, tab="meta_info", verbose)
   
   } # fix
 

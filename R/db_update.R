@@ -151,11 +151,11 @@ db_update <- function(
   
   
 
-  if((db_ver == 19) & (to_ver > db_ver)) #ver 19->20
+  while(to_ver > db_ver) # other
   { 
     #fill in update steps
     # read file with sql statements
-    sql_file <- system.file("database/update_db_v20.sql", package="LUMP")
+    sql_file <- system.file(paste0("database/update_db_v", db_ver+1, ".sql"), package="LUMP")
     script  <- readLines(sql_file)
     
     # identify individual queries of the script
@@ -186,15 +186,9 @@ db_update <- function(
     }
   
     
-    db_ver=20
+    db_ver <- db_ver +1
   }
   
-  if((db_ver == 20) & (to_ver > db_ver)) #ver 20->21
-  { 
-    #fill in update steps
-  
-    db_ver=21
-  }
   
 
   # update table meta_info
@@ -210,7 +204,7 @@ db_update <- function(
                          affected_tables="See LUMPs source database/update_db_v*.sql.",
                          affected_columns="See LUMPs source database/update_db_v*.sql.",
                          remarks=paste0("Database updated from version ", db_ver_init, " to version ", db_ver, "."))
-  write_meta(con, meta_out, verbose=F)
+  write_datetabs(con, meta_out, tab="meta_info", verbose=F)
   
   # close connection
   odbcClose(con)

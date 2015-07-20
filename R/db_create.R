@@ -17,7 +17,7 @@
 #'    \item{Install and load the \code{\link[RODBC]{RODBC}} package as interface to R.}
 #'    \item{Call this function to create the tables in the database.}
 #'    \item{Processing of the database using external software (or R packages)
-#'          and/or use functions coming with LUMP (TODO).}
+#'          and/or use functions coming with LUMP.}
 #'  }
 #'  
 #'  More information can be found at the LUMP package wiki: \url{https://github.com/tpilz/LUMP/wiki}
@@ -92,7 +92,7 @@ db_create <- function(
                          affected_tables="all",
                          affected_columns="all",
                          remarks=paste0("Created database version ", max(sqlFetch(con, "db_version")$version), " using R package LUMP."))
-  write_meta(con, meta_out, verbose=F)
+  write_datetabs(con, meta_out, tab="meta_info", verbose=F)
   
   # close connection
   odbcClose(con)

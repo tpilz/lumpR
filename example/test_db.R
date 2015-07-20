@@ -5,17 +5,19 @@
 #   - standard values for database (e.g. particle classes, standard soil and landcover parametrizations, ...)
 
 # you might want to direct all output messages into an external file
-sink(file="/home/tobias/Promotion/Modellierung/Jaguaribe/WASA/LUMP/test/db_test_msg.out")
+sink(file="C:/Users/pilz/Documents/LUMP_db_test_data/LUMP_out/db_test_msg.out")
 
 library(LUMP)
 
 # create database
-# consider LUMP wiki for necessary pre-processing steps: https://github.com/tpilz/LUMP/wiki/02-Databases-and-ODBC
-dbname <- "test_wasa" # DSN registered at ODBC
+# consider LUMP wiki for necessary pre-processing steps: https://github.com/tpilz/LUMP/wiki
+dbname <- "test_myodbc_ansi" # DSN registered at ODBC
+dbname <- "test_sqlite"
+dbname <- "test_mdb"
 db_create(dbname)
 
 
-# update database in case you have a pre-R-package version of the database; version 18 required
+# update database (if necessary)
 db_update(dbname)
 
 
@@ -32,7 +34,7 @@ db_fill(dbname=dbname,
                     "terraincomponents.dat", "tc_contains_svc.dat", "vegetation.dat",
                     "soils.dat", "horizons.dat", "soil_vegetation_components.dat",
                     "particle_classes.dat", "r_soil_contains_particles.dat"), 
-        dat_dir="/home/tobias/Promotion/Modellierung/Jaguaribe/WASA/LUMP/test/",
+        dat_dir="C:/Users/pilz/Documents/LUMP_db_test_data/",
         overwrite=T, verbose=T)
 
 
@@ -56,13 +58,13 @@ db_fill(dbname=dbname,
 db_check(dbname, 
          check=c("filter_small_areas"), 
          option=list(area_thresh=0.005),
-         fix=F,
+         fix=T,
          verbose=T)
 
 db_check(dbname, 
          check=c("tc_slope"), 
          option=list(treat_slope=c(3,0.01,0.1)),
-         fix=F,
+         fix=T,
          verbose=T)
 
 db_check(dbname, 
@@ -73,17 +75,17 @@ db_check(dbname,
 
 db_check(dbname, 
          check=c("remove_water_svc"),
-         fix=F,
+         fix=T,
          verbose=T)
 
 db_check(dbname, 
          check=c("compute_rocky_frac"),
-         fix=F,
+         fix=T,
          verbose=T)
 
 db_check(dbname, 
          check=c("remove_impervious_svc"),
-         fix=F,
+         fix=T,
          verbose=T)
 
 db_check(dbname, 
@@ -111,7 +113,8 @@ db_check(dbname,
 
 # create WASA input files
 db_wasa_input(dbname,
-              dest_dir = "/home/tobias/Promotion/Modellierung/Jaguaribe/WASA/make_wasa_input/LUMP_pkg_test/",
+              files=files,
+              dest_dir = "C:/Users/pilz/Documents/LUMP_db_test_data/LUMP_out/WASA_input/",
               overwrite=T,
               verbose=T)
 

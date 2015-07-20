@@ -25,7 +25,7 @@ This package uses the ODBC interface to connect to a database. Creating the data
    \item{Install and load the \code{\link[RODBC]{RODBC}} package as interface to R.}
    \item{Call this function to create the tables in the database.}
    \item{Processing of the database using external software (or R packages)
-         and/or use functions coming with LUMP (TODO).}
+         and/or use functions coming with LUMP.}
  }
 
  More information can be found at the LUMP package wiki: \url{https://github.com/tpilz/LUMP/wiki}
