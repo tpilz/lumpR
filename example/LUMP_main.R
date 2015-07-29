@@ -10,7 +10,7 @@
 # 1.
 # Install LUMP from github:
 # library(devtools)
-# install_github("https://github.com/tpilz/LUMP")
+# install_github("tpilz/LUMP")
 # 
 # 2.
 # import GIS data to GRASS

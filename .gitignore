@@ -4,3 +4,4 @@
 *.so
 *~
 .Rproj.user
+*.Rproj
