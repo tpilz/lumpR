@@ -238,7 +238,7 @@ lump_grass_prep <- function(
     # transformations ...
     svc_cats_grp <- grep("^0", svc_cats, invert=T, value=T)
     svc_cats_sub <- gsub(",|;", "", svc_cats_grp)
-    svc_cats_spl <- strsplit(svc_cats_sub, "category")
+    svc_cats_spl <- strsplit(svc_cats_sub, "category|Category")
 
     if (!is.null(watermask) & !is.null(imperviousmask)) {
       svc_cats_mat_t <- matrix(as.integer(unlist(svc_cats_spl)),ncol=5, byrow=T)

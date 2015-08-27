@@ -151,29 +151,43 @@ calc_subbas <- function(
     subcatch_rasts <- execGRASS("g.mlist", type="rast", pattern=paste0("basin_recl_[0-9]*_t"), intern=T)
     subcatch_rasts <- c(subcatch_rasts, "basin_outlet_t")
 
-    # max 30 maps at once, create multiple cross products if necessary
-    iterations <- ceiling(length(subcatch_rasts)/30)
-    for (j in 1:iterations){
-      if (j == iterations) {
-        execGRASS("r.cross", input=paste(subcatch_rasts[((j-1)*30+1):length(subcatch_rasts)], collapse=","), output=paste0("basin_cross_", j, "_t"))
-        #print(paste0("Iteration ", j,": ", paste(subcatch_rasts[((j-1)*30+1):length(subcatch_rasts)], collapse=",")))
-      } else {
-        execGRASS("r.cross", input=paste(subcatch_rasts[((j-1)*30+1):(j*30)], collapse=","), output=paste0("basin_cross_", j, "_t"))
-        #print(paste0("Iteration ", j,": ", paste(subcatch_rasts[((j-1)*30+1):(j*30)], collapse=",")))
+    # if more than one sub-catchment
+    if(no_catch > 1) {
+        
+      # max 30 maps at once, create multiple cross products if necessary
+      iterations <- ceiling(length(subcatch_rasts)/30)
+      for (j in 1:iterations){
+        if (j == iterations) {
+          execGRASS("r.cross", input=paste(subcatch_rasts[((j-1)*30+1):length(subcatch_rasts)], collapse=","), output=paste0("basin_cross_", j, "_t"))
+          #print(paste0("Iteration ", j,": ", paste(subcatch_rasts[((j-1)*30+1):length(subcatch_rasts)], collapse=",")))
+        } else {
+          execGRASS("r.cross", input=paste(subcatch_rasts[((j-1)*30+1):(j*30)], collapse=","), output=paste0("basin_cross_", j, "_t"))
+          #print(paste0("Iteration ", j,": ", paste(subcatch_rasts[((j-1)*30+1):(j*30)], collapse=",")))
+        }
       }
+      
+      # merge cross products
+      cross_rasts <- execGRASS("g.mlist", type="rast", pattern=paste0("basin_cross_[0-9]*_t"), intern=T)
+      if(length(cross_rasts) == 1) {
+        execGRASS("g.rename", rast=paste(cross_rasts, "basin_all_t", sep=","))
+      } else {
+        execGRASS("r.cross", input=paste(cross_rasts,collapse=","), output="basin_all_t")
+      }
+      
+      # constrain to catchment of outlet point
+      execGRASS("r.mapcalculator", amap="basin_outlet_t", bmap="basin_all_t", outfile=basin_out,
+            formula="A*B")
+      
+      
+    } else { # only one sub-catchment
+      
+      if(no_catch == 0)
+        stop("Number of identified sub-catchments is zero. Check input data!")
+      
+      # basin_outlet_t is basin_out
+      execGRASS("g.rename", rast=paste("basin_outlet_t", basin_out, sep=","))
     }
-    
-    # merge cross products
-    cross_rasts <- execGRASS("g.mlist", type="rast", pattern=paste0("basin_cross_[0-9]*_t"), intern=T)
-    if(length(cross_rasts) == 1) {
-      execGRASS("g.rename", rast=paste(cross_rasts, "basin_all_t", sep=","))
-    } else {
-      execGRASS("r.cross", input=paste(cross_rasts,collapse=","), output="basin_all_t")
-    }
-    
-    # constrain to catchment of outlet point
-    execGRASS("r.mapcalculator", amap="basin_outlet_t", bmap="basin_all_t", outfile=basin_out,
-          formula="A*B") 
+
 
     # set values of zero to NULL
     execGRASS("r.null", map=basin_out, setnull="0")

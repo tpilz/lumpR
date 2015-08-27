@@ -190,7 +190,8 @@ area2catena <- function(
   # convert (at) symbol to point (in case input comes from another GRASS mapset; readRAST6() converts it to point implicitly which causes errors during later processing)
   supp_quant <- gsub("@", ".", supp_quant)
   
-  rm(list=c("tmp","tmp2"))
+  if(exists("tmp"))
+    rm(list=c("tmp","tmp2"))
   
   
   # compare Rasters for extent, no. of rows and cols, CRS, resolution and origin
@@ -299,9 +300,8 @@ area2catena <- function(
   #out_pre <- mapply(logdata[,c(3:length(logdata))], FUN=function(x) formatC(x, format="f", digits=3))
   #out_fmt <- cbind(logdata[,c(1,2)], out_pre)
   #format output to reasonable number of digits
-  logdata[,3:4]               <- round(logdata[,3:4]              , digits=1)
-  logdata[,5:length(logdata)] <- round(logdata[,5:length(logdata)], digits=3)
-  
+  logdata <- round(logdata,3)
+
   write.table(logdata, paste(dir_out,catena_out, sep="/"), col.names=F, row.names=F, quote=F, sep="\t")
   
   
@@ -404,8 +404,11 @@ eha_calc <- function(id, eha_ids, eha_rast, flowaccum_rast, dist2river_rast, rel
     errcode <- 6
   }
   
-  na_vals <-            apply(!is.finite(extract(quant_rast, curr_cells)), MARGIN=2, any)
-  na_vals <- c(na_vals, apply(!is.finite(extract(qual_rast,  curr_cells)), MARGIN=2, any))
+  na_vals <- NULL
+  if(!is.null(quant_rast))
+    na_vals <- c(na_vals, apply(!is.finite(extract(quant_rast, curr_cells)), MARGIN=2, any))
+  if(!is.null(qual_rast))
+    na_vals <- c(na_vals, apply(!is.finite(extract(qual_rast,  curr_cells)), MARGIN=2, any))
   
   if (any(na_vals)) {  # cells found with NAs in auxiliary grids
     warning(paste('EHA ', curr_id, ': NAs in the grid(s) ', paste(names(na_vals[na_vals]), collapse=', ') ,'.', sep=""))
