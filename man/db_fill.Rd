@@ -92,8 +92,10 @@ For each table a single file has to be prepared manually and/or using functions 
    \emph{retention}\cr
    \code{double}. Maximum time period in \emph{days} over which a runoff signal
    is distributed by the routing process.
-   
-   
+
+   \emph{lat}\cr
+   \code{double}. Latitude of subbasin centroid in \emph{decimal degree}.
+
  \bold{landscape_units}\cr
  Landscape Unit parameters. Information can be obtained from \code{luoutfile}
  created by \code{\link[lumpR]{prof_class}} (column 'x_length' which is identical
@@ -274,8 +276,10 @@ For each table a single file has to be prepared manually and/or using functions 
    
    \emph{c_musle_c4}\cr
    \code{double}. \emph{Optional for Erosion modelling}.
-   
-   
+
+   \emph{intfc}\cr
+   \code{double}. Interception capacity per unit LAI in \emph{m}.
+
  \bold{soils}\cr
  General soil parameters (horizon-specific parameters see below). Columns:
  
@@ -372,8 +376,10 @@ For each table a single file has to be prepared manually and/or using functions 
    
    \emph{shrinks}\cr
    \code{integer}. Flag for soil structure, currently not used, set to \code{0} (not \code{NA}!).
-   
-   
+
+   \emph{soil_dens}\cr
+   \code{double}. Bulk density in \emph{kg/m3}.
+
  \bold{soil_veg_components}\cr
  Parameters specific for soil-vegetation components. \code{svc_ofile} created by
  \code{\link[lumpR]{lump_grass_prep}} can be used directly. Columns:
