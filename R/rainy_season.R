@@ -94,7 +94,7 @@ rainy_season <- function(
     prec_ts[which(is.na(prec_ts))] <- -999.9
     nodata <- -999.9
   } else {
-    prec_ts[which(prec_ts==nodata)] <- -999.9
+    prec_ts <- apply(prec_ts, 2, function(x) replace(x, x==nodata, -999.9))
     nodata <- -999.9
   }
   
