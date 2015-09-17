@@ -60,24 +60,38 @@ calc_seasonality <- function(
 ) {
 
 
+# prepare input objects (make sure IDs are integer values for Fortran routine)
+ids_rainy <- as.character(rainy_season[,1])
+ids_season <- as.character(seasonality[,1])
+if(any(!(ids_rainy %in% ids_season)))
+  stop("Not all IDs in 'rainy_season' occur in 'seasonality'!")
+
+id_sub <- 1:length(ids_season)
+seasonality[,1] <- id_sub
+rainy_season <- as.matrix(rainy_season)
+for(i in 1:length(ids_season)) {
+  rows <- which(as.character(rainy_season[,1]) == ids_season[i])
+  rainy_season[rows,1] <- id_sub[i]
+}
+
 #rainy_season as integer matrix
 rainy_season_mat <- apply(rainy_season, 2, as.integer)
 
 # loop over different stations
-start_date <- strftime(paste0(head(rainy_season$year,n=1), "-01-01 00:00:00"), format="%Y-%m-%d %H:%M:%S")
-end_date <- strftime(paste0(tail(rainy_season$year,n=1), "-12-31 00:00:00"), format="%Y-%m-%d %H:%M:%S")
+start_date <- strftime(paste0(head(rainy_season_mat[,2],n=1), "-01-01 00:00:00"), format="%Y-%m-%d %H:%M:%S")
+end_date <- strftime(paste0(tail(rainy_season_mat[,2],n=1), "-12-31 00:00:00"), format="%Y-%m-%d %H:%M:%S")
 output <- xts(NULL, seq.POSIXt(as.POSIXct(start_date, tz=timezone), as.POSIXct(end_date, tz=timezone), by="day"))                   
 
 for (s in 1:nrow(seasonality)) {
   
   sub_t <- seasonality[s,1]
   # get relevant rows in rainy_season
-  rows <- which(rainy_season$sub_id == sub_t)
+  rows <- which(rainy_season_mat[,1] == sub_t)
   dat_t <- rainy_season_mat[rows,]
   
   # loop over years
   out_t <- NULL
-  for (y in unique(rainy_season$year)) {
+  for (y in unique(rainy_season_mat[,2])) {
     
     # apply function over all days of year y
     if (y %% 4 == 0) {
@@ -107,6 +121,10 @@ for (s in 1:nrow(seasonality)) {
 } # loop over stations
 
 colnames(output) <- sub("id_", "", colnames(output))
+
+# re-substitute IDs
+colnames(output)[sort(as.integer(colnames(output)))] <- ids_season
+
 return(output)
 
 } # EOF
