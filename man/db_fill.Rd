@@ -280,6 +280,10 @@ For each table a single file has to be prepared manually and/or using functions 
    \emph{intfc}\cr
    \code{double}. Interception capacity per unit LAI in \emph{m}.
 
+   \emph{crop_makk}\cr
+   \code{double}. Crop-factor for calculation of pot. evapotransp. after Makkink
+   (optional) \emph{[-]}.
+
  \bold{soils}\cr
  General soil parameters (horizon-specific parameters see below). Columns:
  
