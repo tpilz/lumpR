@@ -474,11 +474,11 @@ db_echse_input <- function(
             if(h==1) {
               sour_name <- c(rep(paste("svc", s, l, t, svc, sep="_"),4),
                              rep("dummy",2),
-                             paste("node_svc_wcroot", s, l, t, svc, sep="_"))
+                             paste("node_svc_wcplant", s, l, t, svc, sep="_"))
             } else {
               sour_name <- c(rep(paste("svc", s, l, t, svc, sep="_"),3),
                              rep(paste("hor", s, l, t, svc, h-1, sep="_"),3),
-                             paste("node_svc_wcroot", s, l, t, svc, sep="_"))
+                             paste("node_svc_wcplant", s, l, t, svc, sep="_"))
             }
             
             # source variable are those of type output of the source object as defined in declaration file (engine's class declaration)
@@ -838,7 +838,7 @@ db_echse_input <- function(
   # expand dat_rainy_in (unique vegetation types for each subbasin); prepare rainy_season matrix for calc_seasonality()
   # write external location links; include day of year
   veg_vars <- c("height", "rootd", "lai", "alb")
-  veg_vars_hor <- "rootd"
+  veg_vars_hor <- c("rootd", "rootgr")
   veg_vars_svc <- c("height", "lai", "alb")
   dat_rainy_expand <- NULL
   for (s in unique(dat_rsub$subbas_id)) {
@@ -900,6 +900,22 @@ db_echse_input <- function(
   
     # calculate time series
     veg_ts <- calc_seasonality(dat_rainy_expand, season_in, timezone = 'UTC')
+    
+    # if rootd calculate also increments between time steps (i.e. root growth)
+    if (v == "rootd") {
+      # initialise xts object
+      rootgr <- veg_ts
+      # set first values to zero
+      rootgr[1,] <- 0
+    
+      for (i in 2:length(index(veg_ts)))
+        rootgr[i,] <- as.numeric(veg_ts[i,]) - as.numeric(veg_ts[i-1,])
+      
+      # write output file
+      write(c("end_of_interval", colnames(rootgr)), paste(proj_dir, proj_name, "data", ts_dir, paste0("veg_rootgr_data.dat"), sep="/"), sep="\t", ncolumns=ncol(rootgr)+1) 
+      write.table(rootgr, paste(proj_dir, proj_name, "data", ts_dir, paste0("veg_rootgr_data.dat"), sep="/"),
+                  sep="\t", quote=F, col.names=F, row.names=format(index(rootgr), '%Y-%m-%d %H:%M:%S'), append=T)
+    }
     
     # write into ECHSE time series data file
     write(c("end_of_interval", colnames(veg_ts)), paste(proj_dir, proj_name, "data", ts_dir, paste0("veg_", v, "_data.dat"), sep="/"), sep="\t", ncolumns=ncol(veg_ts)+1) 
