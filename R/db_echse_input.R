@@ -438,13 +438,13 @@ db_echse_input <- function(
             r_tcpar <- which(dat_tc$pid == t)
             r_rtcpar <- which(dat_rtc$tc_id == t & dat_rtc$svc_id == svc)
             
-            dat_lu_sel$slopelength[r_lupar] <- dat_lu_sel$slopelength[r_lupar] * dat_rlu$fraction[r_lu][r_lu_order][r_tclu]
+            slopel <- dat_lu_sel$slopelength[r_lupar] * dat_rlu$fraction[r_lu][r_lu_order][r_tclu]
             
-            out_dat <- cbind(obj_name, dat_hor_sel[r_hor,][r_horord,][h,], dat_soil_sel[r_soil,], dat_lu_sel[r_lupar,],
+            out_dat <- cbind(obj_name, dat_hor_sel[r_hor,][r_horord,][h,], dat_soil_sel[r_soil,], slopel, dat_lu_sel[r_lupar,colnames(dat_lu_sel) != "slopelength"],
                              dat_tc_sel[r_tcpar,], dat_rtc_sel[r_rtcpar,], 1)
             
             if(flag.col.hor==T)
-              names(out_dat) <- c("object", names(dat_hor_sel), names(dat_soil_sel), names(dat_lu_sel),
+              names(out_dat) <- c("object", names(dat_hor_sel), names(dat_soil_sel), "slopelength", names(dat_lu_sel)[names(dat_lu_sel) != "slopelength"],
                                 names(dat_tc_sel), names(dat_rtc_sel), "k_scal")
             
             write.table(out_dat, file=paste(proj_dir, proj_name, "data", "parameter", objpar_hor, sep="/"),
