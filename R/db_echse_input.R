@@ -215,12 +215,12 @@ db_echse_input <- function(
     stop(paste0("File ", objpar_hor, " exists!"))
   }
   
-  objpar_svc <- "paramNum_WASA_svc.dat"
-  if(!file.exists(paste(proj_dir, proj_name, "data", "parameter", objpar_svc, sep="/")) | overwrite){
-    file.create(paste(proj_dir, proj_name, "data", "parameter", objpar_svc, sep="/"))
-  } else {
-    stop(paste0("File ", objpar_svc, " exists!"))
-  }
+#   objpar_svc <- "paramNum_WASA_svc.dat"
+#   if(!file.exists(paste(proj_dir, proj_name, "data", "parameter", objpar_svc, sep="/")) | overwrite){
+#     file.create(paste(proj_dir, proj_name, "data", "parameter", objpar_svc, sep="/"))
+#   } else {
+#     stop(paste0("File ", objpar_svc, " exists!"))
+#   }
   
   objpar_tc <- "paramNum_WASA_tc.dat"
   if(!file.exists(paste(proj_dir, proj_name, "data", "parameter", objpar_tc, sep="/")) | overwrite){
@@ -323,6 +323,7 @@ db_echse_input <- function(
   dat_hor_sel$hor_depth <- dat_hor_sel$hor_depth/1000 # mm -> m
   dat_hor_sel$k_s <- dat_hor_sel$k_s / 1000 / 86400 # mm/day -> m/s
   dat_hor_sel$psi <- dat_hor_sel$psi/1000 # mm -> m
+  dat_hor_sel$depth_cum <- NA
   
   names(dat_lu_sel) <- c("ks_bed", "slopelength")
   dat_lu_sel$ks_bed <- dat_lu_sel$ks_bed / 1000 / 86400 # mm/day -> m/s
@@ -364,60 +365,7 @@ db_echse_input <- function(
           veg_id <- dat_svc$veg_id[r_svc]
           r_hor <- which(dat_hor$soil_id == soil_id)
           r_s <- which(dat_sub$pid == s)
-          
-          # DECL #
-          obj_name <- paste("svc", s, l, t, svc, sep="_")
-          
-          write(file=paste(proj_dir, proj_name, "data", "catchment", objdecl, sep="/"), append = T,
-                x=paste(obj_name, "WASA_svc", sep="\t"))
-          
-          
-          # PARAMETERS #
-          wc_sat_prof <- weighted.mean(dat_hor$theta_s[r_hor], dat_hor_sel$hor_depth[r_hor]/dat_hor_sel$soil_depth[r_hor])
-          soil_dens_top <- dat_hor$soil_dens[r_hor][which(dat_hor$position[r_hor] == 1)]
-          lati <- dat_sub$lat[r_s]
-          r_veg <- which(dat_veg$pid == veg_id)
-          r_rtcpar <- which(dat_rtc$tc_id == t & dat_rtc$svc_id == svc)
-          out_dat <- cbind(obj_name, dat_rtc_sel[r_rtcpar,], dat_veg_sel[r_veg,], wc_sat_prof, soil_dens_top, lati)
-          
-          if(flag.col.svc==T)
-            names(out_dat) <- c("object", names(dat_rtc_sel), names(dat_veg_sel), "wc_sat_prof", "soil_dens", "lat")
-          
-          write.table(out_dat, file=paste(proj_dir, proj_name, "data", "parameter", objpar_svc, sep="/"),
-                      col.names=flag.col.svc, row.names=F, append=T, quote=F, sep="\t")
-          
-          flag.col.svc <- F
-          
-          
-          # INITIALS #
-          out_dat <- data.frame(object=obj_name,
-                                variable="v_inter",
-                                value=0)
-          
-          write.table(out_dat, file=paste(proj_dir, proj_name, "data", "initials", initScal, sep="/"),
-                      col.names=flag.col.hor, row.names=F, append=T, quote=F, sep="\t")
-          
-          
-          # LINK #
-          tar_name <- rep(obj_name,9)
-          tar_var <- c("r_latsur_in", "r_latsub_in", "wc_vol_top", "wc_vol_root",
-                       "wc_prof", "wc_sat", "wc_res", "bubble", "pores_ind")
-          
-          sour_name <- c(rep(paste("tc", s, l, t, sep="_"), 2), 
-                         paste("hor", s, l, t, svc, 1, sep="_"),
-                         paste("node_svc_wcroot", s, l, t, svc, sep="_"),
-                         paste("node_svc_wcprof", s, l, t, svc, sep="_"),
-                         paste("node_svc_wcsat", s, l, t, svc, sep="_"),
-                         paste("node_svc_wcres", s, l, t, svc, sep="_"),
-                         paste("node_svc_bubb", s, l, t, svc, sep="_"),
-                         paste("node_svc_poresi", s, l, t, svc, sep="_"))
-          sour_var <- c("r_latsur_svc_out", "r_latsub_svc_out", "wc_top_out", rep("out", 6))
-          
-          feedb <- rep(F, length(sour_var))
-          
-          write(file=paste(proj_dir, proj_name, "data", "catchment", objlink, sep="/"), append = T,
-                x=paste(tar_name, tar_var, sour_name, sour_var, feedb, sep="\t", collapse="\n"))
-          
+      
           
           for(h in sort(dat_hor$position[r_hor])) {
             
@@ -440,12 +388,16 @@ db_echse_input <- function(
             
             slopel <- dat_lu_sel$slopelength[r_lupar] * dat_rlu$fraction[r_lu][r_lu_order][r_tclu]
             
+            soil_dens <- dat_hor$soil_dens[r_hor][which(dat_hor$position[r_hor] == h)]
+            lati <- dat_sub$lat[r_s]
+            r_veg <- which(dat_veg$pid == veg_id)
+            
             out_dat <- cbind(obj_name, dat_hor_sel[r_hor,][r_horord,][h,], dat_soil_sel[r_soil,], slopel, dat_lu_sel[r_lupar,colnames(dat_lu_sel) != "slopelength"],
-                             dat_tc_sel[r_tcpar,], dat_rtc_sel[r_rtcpar,], 1)
+                             dat_tc_sel[r_tcpar,], dat_rtc_sel[r_rtcpar,], 15, dat_veg_sel[r_veg,], soil_dens, lati)
             
             if(flag.col.hor==T)
               names(out_dat) <- c("object", names(dat_hor_sel), names(dat_soil_sel), "slopelength", names(dat_lu_sel)[names(dat_lu_sel) != "slopelength"],
-                                names(dat_tc_sel), names(dat_rtc_sel), "k_scal")
+                                names(dat_tc_sel), names(dat_rtc_sel), "k_scal", names(dat_veg_sel), "soil_dens", "lat")
             
             write.table(out_dat, file=paste(proj_dir, proj_name, "data", "parameter", objpar_hor, sep="/"),
                         col.names=flag.col.hor, row.names=F, append=T, quote=F, sep="\t")
@@ -455,8 +407,9 @@ db_echse_input <- function(
             
             # INITIALS #
             out_dat <- data.frame(object=obj_name,
-                                  variable="wc",
-                                  value=out_dat$wc_pwp + (out_dat$wc_fc-out_dat$wc_pwp)/2)
+                                  variable=c("wc", "v_interc", "inf_remain", "v_inf", "v_evap", "v_transp", "v_evap_inter",
+                                             "v_etp", "v_soilsurf", "v_run_sat", "v_percol", "v_latflow", "f_sat"),
+                                  value=c(out_dat$wc_pwp + (out_dat$wc_fc-out_dat$wc_pwp)/2, rep(0,12)))
             
             write.table(out_dat, file=paste(proj_dir, proj_name, "data", "initials", initScal, sep="/"),
                         col.names=flag.col.hor, row.names=F, append=T, quote=F, sep="\t")
@@ -464,35 +417,33 @@ db_echse_input <- function(
             
             # LINK #
             # current horizon is target object
-            tar_name <- rep(obj_name, 7)
+            tar_name <- rep(obj_name, 5)
             
             # target variables are those of type inputSim from declaration file WASA_horizon.txt
-            tar_var <- c("r_evap_in", "r_transp_in", "r_latflow_in", "r_prec_inf", 
-                         "r_percol_in", "v_inf_in", "wc_plant_root")
+            tar_var <- c("r_latsur_in", "r_latsub_in",
+                         "r_prec_inf", "r_percol_in", "v_inf_in")
             
             # source object either is above horizon or SVC for top horizon
             if(h==1) {
-              sour_name <- c(rep(paste("svc", s, l, t, svc, sep="_"),4),
-                             rep("dummy",2),
-                             paste("node_svc_wcplant", s, l, t, svc, sep="_"))
+              sour_name <- c(rep(paste("tc", s, l, t, sep="_"), 2),
+                             rep("dummy",3))
             } else {
-              sour_name <- c(rep(paste("svc", s, l, t, svc, sep="_"),3),
-                             rep(paste("hor", s, l, t, svc, h-1, sep="_"),3),
-                             paste("node_svc_wcplant", s, l, t, svc, sep="_"))
+              sour_name <- c("dummy", paste("tc", s, l, t, sep="_"),
+                             rep(paste("hor", s, l, t, svc, h-1, sep="_"),3))
             }
             
             # source variable are those of type output of the source object as defined in declaration file (engine's class declaration)
             # order compliant to order of tar_var
             if(h==1) {
-              sour_var <- c("r_evap_out", "r_transp_out", "r_soilsub", "r_soilsur",
-                            rep("dummy",2), "out")
+              sour_var <- c("r_latsur_svc_out", "r_latsub_svc_out",
+                            rep("dummy",3))
             } else {
-              sour_var <- c("r_evap_out", "r_transp_out", "r_soilsub", "r_prec_inf_out",
-                            "r_percol_out", "v_inf_out", "out")
+              sour_var <- c("dummy", "r_latsub_svc_out",
+                            "r_prec_inf_out", "r_percol_out", "v_inf_out")
             }
             
             # feedback types
-            feedb <- c(rep(T,6), F)
+            feedb <- c(F,F,T,T,T)
             
             # write to link file
             write(file=paste(proj_dir, proj_name, "data", "catchment", objlink, sep="/"), append = T,
@@ -506,31 +457,19 @@ db_echse_input <- function(
           obj_name <- c(paste("node_svc_latsursvc", s, l, t, svc, sep="_"),
                         paste("node_svc_latsurtc", s, l, t, svc, sep="_"),
                         paste("node_svc_latsubtc", s, l, t, svc, sep="_"),
-                        paste("node_svc_latsubsvc", s, l, t, svc, sep="_"),
-                        paste("node_svc_wcprof", s, l, t, svc, sep="_"),
-                        paste("node_svc_wcplant", s, l, t, svc, sep="_"),
-                        paste("node_svc_wcroot", s, l, t, svc, sep="_"),
-                        paste("node_svc_wcsat", s, l, t, svc, sep="_"),
-                        paste("node_svc_wcres", s, l, t, svc, sep="_"),
-                        paste("node_svc_bubb", s, l, t, svc, sep="_"),
-                        paste("node_svc_poresi", s, l, t, svc, sep="_"))
+                        paste("node_svc_latsubsvc", s, l, t, svc, sep="_"))
           
           # append to object declaration file
           decl_str <- paste(obj_name, paste0("WASA_node_n", length(r_hor)), sep="\t")
-          decl_str[1:2] <- paste(obj_name[1:2], paste0("WASA_node_n", length(r_hor)+1), sep="\t")
           write(file=paste(proj_dir, proj_name, "data", "catchment", objdecl, sep="/"), append = T,
                 x=decl_str)
           
           # LINK #
-          tar_name <- c(rep(obj_name, length(r_hor)), obj_name[1:2])
-          tar_var <- c(rep(paste0("in", 1:length(r_hor)), each=length(obj_name)), rep(paste0("in", length(r_hor)+1), 2))
+          tar_name <- rep(obj_name, length(r_hor))
+          tar_var <- rep(paste0("in", 1:length(r_hor)), each=length(obj_name))
           
-          sour_name <- c(rep(paste("hor", s, l, t, svc, 1:length(r_hor), sep="_"), each=length(obj_name)),
-                         rep(paste("svc", s, l, t, svc, sep="_"), 2))
-          sour_var <- c(rep(c("r_latsur_svc", "r_latsur_tc", "r_latsub_tc", "r_latsub_svc",
-                        "wc_prof_out", "wc_plant_out", "wc_root_out", "wc_sat_root",
-                        "wc_res_root", "bubble_root", "pores_ind_root"), length(r_hor)),
-                        "r_latsur_svc", "r_latsur_tc")
+          sour_name <- rep(paste("hor", s, l, t, svc, 1:length(r_hor), sep="_"), each=length(obj_name))
+          sour_var <- rep(c("r_latsur_svc", "r_latsur_tc", "r_latsub_tc", "r_latsub_svc"), length(r_hor))
 
           feedb <- rep(T,length(tar_name))
           
@@ -745,21 +684,24 @@ db_echse_input <- function(
     print(paste0("Calculate group-specific (shared) parameters ..."))
   
   out_dat <- data.frame(parameter=c("h_tempMeas", "h_windMeas", "h_humMeas", "choice_etp",
-                                    "choice_eta", "choice_evap", "choice_transp",
+                                    "choice_eta", 
                                     "emis_a", "emis_b", "fcorr_a", "fcorr_b", "radex_a", "radex_b",
                                     "ext", "glo_half", "res_b", "choice_rcs", "choice_rsa", "choice_raa",
+                                    "choice_roughLenMom", "choice_plantDisplace",
                                     "drag_coef", "rough_bare", "eddy_decay", "rss_a", "rss_b",
                                     "par_stressHum", "par_satVar1", "par_satVar2", "par_satFrac1",
-                                    "par_satFrac2", "par_satFrac3", "par_satFrac4", "par_satFrac5"),
-                        value=c(2, 6, 2, 4, 
-                                1, 1, 1,
+                                    "par_satFrac2", "par_satFrac3", "par_satFrac4", "par_satFrac5", "na_val"),
+                        value=c(2, 10, 2, 4, 
+                                1,
                                 0.52, -0.065, 1.35, -0.35, 0.18, 0.55,
                                 0.5, 100, 25, 2, 2, 2,
+                                2, 2,
                                 0.07, 0.01, 2.5, 26, -1,
                                 0.03, 0.05, 0.1, 0,
-                                0.1, 0.5, 0.9, 1))
+                                0.1, 0.5, 0.9, 1,
+                                -9999.0))
   
-  sharedpar_svc <- "sharedParamNum_WASA_svc.dat"
+  sharedpar_svc <- "sharedParamNum_WASA_horizon.dat"
   if(!file.exists(paste(proj_dir, proj_name, "data", "parameter", sharedpar_svc, sep="/")) | overwrite){
     file.create(paste(proj_dir, proj_name, "data", "parameter", sharedpar_svc, sep="/"))
   } else {
@@ -837,18 +779,17 @@ db_echse_input <- function(
   
   # expand dat_rainy_in (unique vegetation types for each subbasin); prepare rainy_season matrix for calc_seasonality()
   # write external location links; include day of year
-  veg_vars <- c("height", "rootd", "lai", "alb")
-  veg_vars_hor <- c("rootd", "rootgr")
-  veg_vars_svc <- c("height", "lai", "alb")
+  #veg_vars <- c("height", "rootd", "lai", "alb")
+  veg_vars <- c("rootd", "rootgr", "height", "lai", "alb")
   dat_rainy_expand <- NULL
   for (s in unique(dat_rsub$subbas_id)) {
     # get svc objects
-    svc <- grep(paste0("^svc_", s, "_*"), objDecl_dat$object, value=T)
+    #svc <- grep(paste0("^svc_", s, "_*"), objDecl_dat$object, value=T)
     
     # all/unique svcs
-    svc_un <- unlist(strsplit(svc, "_"))
-    svc_all <- svc_un[seq(5,length(svc_un), by=5)]
-    svc_un <- unique(svc_un[seq(5,length(svc_un), by=5)])
+    #svc_un <- unlist(strsplit(svc, "_"))
+    #svc_all <- svc_un[seq(5,length(svc_un), by=5)]
+    #svc_un <- unique(svc_un[seq(5,length(svc_un), by=5)])
     
     # horizons
     hor <- grep(paste0("^hor_", s, "_*"), objDecl_dat$object, value=T)
@@ -856,36 +797,36 @@ db_echse_input <- function(
     hor_all <- hor_all[seq(5,length(hor_all), by=6)]
     
     # get all/unique vegetation IDs corresponding to SVCs
-    veg <- unique(dat_svc$veg_id[dat_svc$pid %in% svc_un])
-    veg_all <- unlist(lapply(svc_all, function(x) dat_svc$veg_id[dat_svc$pid == x]))
-    veg_all_hor <- unlist(lapply(hor_all, function(x) dat_svc$veg_id[dat_svc$pid == x]))
+    #veg <- unique(dat_svc$veg_id[dat_svc$pid %in% svc_un])
+    #veg_all <- unlist(lapply(svc_all, function(x) dat_svc$veg_id[dat_svc$pid == x]))
+    veg_all <- unlist(lapply(hor_all, function(x) dat_svc$veg_id[dat_svc$pid == x]))
     
     # expand dat_rainy for each vegetation type within subbasin s
     r_rainy <- which(dat_rainy_in$subbas_id == s)
-    dat_rainy_expand_t <- merge(paste(s, veg, sep="_"), dat_rainy_in[r_rainy,])
+    dat_rainy_expand_t <- merge(paste(s, veg_all, sep="_"), dat_rainy_in[r_rainy,])
     dat_rainy_expand_t <- dat_rainy_expand_t[,-2]
     dat_rainy_expand <- rbind(dat_rainy_expand, dat_rainy_expand_t)
     
     # external location linkage
-    extLink_svc <- data.frame(object=rep(svc, length(veg_vars_svc)+1), 
-                               variable=c(rep(veg_vars_svc, each=length(svc)), rep("doy", length(svc))),
-                               location=c(rep(paste(s, veg_all, sep="_"), length(veg_vars_svc)), rep("any", length(svc))),
-                               weight=rep(1, (length(veg_vars_svc)+1)*length(svc)))
-    extLink_hor <- data.frame(object=rep(hor, length(veg_vars_hor)), 
-                              variable=rep(veg_vars_hor, each=length(hor)),
-                              location=rep(paste(s, veg_all_hor, sep="_"), length(veg_vars_hor)),
-                              weight=rep(1, length(veg_vars_hor)*length(hor)))
+#     extLink_svc <- data.frame(object=rep(svc, length(veg_vars_svc)+1), 
+#                                variable=c(rep(veg_vars_svc, each=length(svc)), rep("doy", length(svc))),
+#                                location=c(rep(paste(s, veg_all, sep="_"), length(veg_vars_svc)), rep("any", length(svc))),
+#                                weight=rep(1, (length(veg_vars_svc)+1)*length(svc)))
+    extLink <- data.frame(object=rep(hor, length(veg_vars)+1), 
+                              variable=c(rep(veg_vars, each=length(hor)), rep("doy", length(hor))),
+                              location=c(rep(paste(s, veg_all, sep="_"), length(veg_vars)), rep("any", length(hor))),
+                              weight=rep(1, (length(veg_vars)+1)*length(hor)))
     
     # write to file
-    extLink_out <- rbind(extLink_svc, extLink_hor)
-    write.table(extLink_out, paste(proj_dir, proj_name, "data", ts_dir, extloc_file, sep="/"), 
+    #extLink_out <- rbind(extLink_svc, extLink_hor)
+    write.table(extLink, paste(proj_dir, proj_name, "data", ts_dir, extloc_file, sep="/"), 
                 sep="\t", append=T, row.names = F, col.names = F, quote = F)
     
   }
   
   # loop over vegetation parameters and create time series
   colnames(dat_veg) <- gsub("root_depth", "rootd", colnames(dat_veg))
-  for(v in veg_vars) {
+  for(v in subset(veg_vars, veg_vars!="rootgr")) {
     
     # prepare seasonality matrix for calc_seasonality()
     cols <- grep(v, colnames(dat_veg))
@@ -938,6 +879,6 @@ db_echse_input <- function(
   
  
   
-  print("All outputs written. You still need to prepare the meteorological forcing (consider ECHSE tools, expand 'input_ext_locs.dat' accordingly)! Adjust sharedParamNum_WASA_svc.dat to your needs!")
+  print("All outputs written. You still need to prepare the meteorological forcing (consider ECHSE tools, expand 'input_ext_locs.dat' accordingly)! Adjust sharedParamNum_WASA_*.dat to your needs!")
 
 } # EOF
