@@ -35,7 +35,7 @@
 #'  @param verbose \code{logical}. Should detailed information during execution be
 #'  printed? Default: \code{TRUE}.
 #'  
-#'  
+#'  file:///home/tobias/Promotion/Modellierung/Bengue/ECHSE_WASA/test_restruct/run/run
 #'  @details Function creates most of the input files needed for ECHSE model engine WASA
 #'  except for meteorological forcing which has to be prepared separately considering
 #'  ECHSE tools, see \url{https://github.com/echse/echse_tools}.
@@ -175,11 +175,11 @@ db_echse_input <- function(
   if(!file_test("-d", paste(proj_dir, proj_name, sep="/")) | overwrite == T) {
     if(verbose)
       print(paste0("Output directory ", paste(proj_dir, proj_name, "data", sep="/"), " with all sub-directories will be created."))
-    dir.create(paste(proj_dir, proj_name, "data", "parameter", sep="/") , recursive=T)
-    dir.create(paste(proj_dir, proj_name, "data", "catchment", sep="/") , recursive=T)
-    dir.create(paste(proj_dir, proj_name, "data", "initials", sep="/") , recursive=T)
+    dir.create(paste(proj_dir, proj_name, "data", "parameter", sep="/") , recursive=T, showWarnings=F)
+    dir.create(paste(proj_dir, proj_name, "data", "catchment", sep="/") , recursive=T, showWarnings=F)
+    dir.create(paste(proj_dir, proj_name, "data", "initials", sep="/") , recursive=T, showWarnings=F)
     ts_dir <- "vegPar_time_series"
-    dir.create(paste(proj_dir, proj_name, "data", ts_dir, sep="/") , recursive=T)
+    dir.create(paste(proj_dir, proj_name, "data", ts_dir, sep="/") , recursive=T, showWarnings=F)
   } else {
     stop(paste0("Output directory ", paste(proj_dir, proj_name, sep="/"), " already exists!"))
   }
@@ -208,19 +208,26 @@ db_echse_input <- function(
     stop(paste0("File ", objlink, " exists!"))
   }
   
-  objpar_hor <- "paramNum_WASA_horizon.dat"
-  if(!file.exists(paste(proj_dir, proj_name, "data", "parameter", objpar_hor, sep="/")) | overwrite){
-    file.create(paste(proj_dir, proj_name, "data", "parameter", objpar_hor, sep="/"))
+  objpar_svc <- "paramNum_WASA_svc.dat"
+  if(!file.exists(paste(proj_dir, proj_name, "data", "parameter", objpar_svc, sep="/")) | overwrite){
+    file.create(paste(proj_dir, proj_name, "data", "parameter", objpar_svc, sep="/"))
   } else {
-    stop(paste0("File ", objpar_hor, " exists!"))
+    stop(paste0("File ", objpar_svc, " exists!"))
   }
   
-#   objpar_svc <- "paramNum_WASA_svc.dat"
-#   if(!file.exists(paste(proj_dir, proj_name, "data", "parameter", objpar_svc, sep="/")) | overwrite){
-#     file.create(paste(proj_dir, proj_name, "data", "parameter", objpar_svc, sep="/"))
-#   } else {
-#     stop(paste0("File ", objpar_svc, " exists!"))
-#   }
+  parfun_svc <- "paramFun_WASA_svc.dat"
+  if(!file.exists(paste(proj_dir, proj_name, "data", "parameter", parfun_svc, sep="/")) | overwrite){
+    file.create(paste(proj_dir, proj_name, "data", "parameter", parfun_svc, sep="/"))
+  } else {
+    stop(paste0("File ", parfun_svc, " exists!"))
+  }
+  
+  horpars_dir <- "parFun_horpars"
+  if(!dir.exists(paste(proj_dir, proj_name, "data", "parameter", horpars_dir, sep="/")) | overwrite){
+    dir.create(paste(proj_dir, proj_name, "data", "parameter", horpars_dir, sep="/"), recursive=T, showWarnings=F)
+  } else {
+    stop(paste0("Subdirectory ", horpars_dir, " exists!"))
+  }
   
   objpar_tc <- "paramNum_WASA_tc.dat"
   if(!file.exists(paste(proj_dir, proj_name, "data", "parameter", objpar_tc, sep="/")) | overwrite){
@@ -238,7 +245,7 @@ db_echse_input <- function(
   
   pos2area_dir <- "parFun_pos2area"
   if(!dir.exists(paste(proj_dir, proj_name, "data", "parameter", pos2area_dir, sep="/")) | overwrite){
-    dir.create(paste(proj_dir, proj_name, "data", "parameter", pos2area_dir, sep="/"), recursive=T)
+    dir.create(paste(proj_dir, proj_name, "data", "parameter", pos2area_dir, sep="/"), recursive=T, showWarnings=F)
   } else {
     stop(paste0("Subdirectory ", pos2area_dir, " exists!"))
   }
@@ -248,6 +255,13 @@ db_echse_input <- function(
     file.create(paste(proj_dir, proj_name, "data", "parameter", objpar_lu, sep="/"))
   } else {
     stop(paste0("File ", objpar_lu, " exists!"))
+  }
+  
+  objpar_sub <- "paramNum_WASA_sub.dat"
+  if(!file.exists(paste(proj_dir, proj_name, "data", "parameter", objpar_sub, sep="/")) | overwrite){
+    file.create(paste(proj_dir, proj_name, "data", "parameter", objpar_sub, sep="/"))
+  } else {
+    stop(paste0("File ", objpar_sub, " exists!"))
   }
   
   initScal <- "init_scal.dat"
@@ -272,9 +286,8 @@ db_echse_input <- function(
         x=c("targetObject\ttargetVariable\tsourceObject\tsourceVariable\tforwardType"))
   write(file=paste(proj_dir, proj_name, "data", "initials", initScal, sep="/"), append=T,
         x=c("object\tvariable\tvalue"))
-  # vector state initials not needed, create dummy file
-  write.table(file=paste(proj_dir, proj_name, "data", "initials", initVect, sep="/"), append=T, sep="\t",
-        x=data.frame(object="none", variable="none", index="none", value="none"), row.names = F, col.names = T, quote=F)
+  write(file=paste(proj_dir, proj_name, "data", "initials", initVect, sep="/"), append=T,
+        x=c("object\tvariable\tindex\tvalue"))
 
   
   # get data from database
@@ -290,13 +303,13 @@ db_echse_input <- function(
   dat_sub <- sqlFetch(con, "subbasins")
   
   # select parameters
-  dat_hor_sel <- dat_hor[,c("position", "thickness", "ks", "suction", "theta_s",
+  dat_hor_sel <- dat_hor[,c("soil_id", "position", "thickness", "ks", "suction", "theta_s",
                             "fk", "theta_pwp", "theta_r", "pore_size_i", "bubb_pres")]
-  dat_soil_sel <- data.frame(bedrock=dat_soil[,c("bedrock_flag")])
-  dat_lu_sel <- dat_lu[,c("kf_bedrock", "slopelength")]
+  dat_soil_sel <- dat_soil[,c("pid", "bedrock_flag", "Phil_s", "Phil_a", "Hort_ini", "Hort_end", "Hort_k")]
+  dat_lu_sel <- data.frame(slopelength=dat_lu[,c("slopelength")])
   dat_rtc_sel <- data.frame(fraction=dat_rtc[,c("fraction")])
   dat_tc_sel <- data.frame(slope=dat_tc[,c("slope")])
-  dat_veg_sel <- dat_veg[,c("crop_makk", "intfc", "stomat_r", "min_suction", "max_suction")]
+  dat_veg_sel <- dat_veg[,c("crop_makk", "crop_faoref", "intfc", "stomat_r", "min_suction", "max_suction", "wc_etmax", "par_stressHum", "glo_half")]
   
   # check if all necessary information are given
   if (ifelse(is.data.frame(dat_hor_sel), nrow(dat_hor_sel) == 0, length(dat_hor_sel) == 0) | any(is.na(dat_hor_sel)))
@@ -313,27 +326,26 @@ db_echse_input <- function(
     stop(paste0("Cannot write parameter file(s) as necessary column(s) contain missing values in table 'vegetation'!"))
   
   # calculate target information (incl. unit conversion, adjusting parameter names etc.)
-  names(dat_hor_sel) <- c("position", "hor_depth", "k_s", "psi", "wc_s", "wc_fc",
+  names(dat_hor_sel) <- c("soil_id", "position", "hor_depth", "ksat", "suc", "wc_sat", "wc_fc",
                           "wc_pwp", "wc_res", "pores_ind", "bubble")
   soil_depth <- tapply(dat_hor$thickness, dat_hor$soil_id, sum)
-  soil_depth <- data.frame(soil_depth=soil_depth, soil_id=names(soil_depth))
-  dat_hor_sel$soil_depth <- merge(dat_hor, soil_depth, by="soil_id")$soil_depth
+  soil_depth <- data.frame(soil_depth=soil_depth, pid=names(soil_depth))
+  dat_soil_sel$soil_depth <- merge(dat_soil, soil_depth, by="pid")$soil_depth
   
-  dat_hor_sel$soil_depth <- dat_hor_sel$soil_depth/1000 # mm -> m
+  dat_soil_sel$soil_depth <- dat_soil_sel$soil_depth/1000 # mm -> m
   dat_hor_sel$hor_depth <- dat_hor_sel$hor_depth/1000 # mm -> m
-  dat_hor_sel$k_s <- dat_hor_sel$k_s / 1000 / 86400 # mm/day -> m/s
-  dat_hor_sel$psi <- dat_hor_sel$psi/1000 # mm -> m
-  dat_hor_sel$depth_cum <- NA
-  
-  names(dat_lu_sel) <- c("ks_bed", "slopelength")
-  dat_lu_sel$ks_bed <- dat_lu_sel$ks_bed / 1000 / 86400 # mm/day -> m/s
+  dat_hor_sel$ksat <- dat_hor_sel$ksat / 1000 / 86400 # mm/day -> m/s
+  dat_hor_sel$suc <- dat_hor_sel$suc/1000 # mm -> m
+  dat_hor_sel$bubble <- dat_hor_sel$bubble/100 # cm -> m
   
   names(dat_rtc_sel) <- "frac_area"
   
   dat_tc_sel$slope <- dat_tc_sel$slope/100 # % -> dimensionless
   
-  names(dat_veg_sel) <- c("crop_makk", "intfc", "res_leaf_min", "wstressmin", "wstressmax")
+  names(dat_veg_sel) <- c("crop_makk", "crop_faoref", "intfc", "res_leaf_min", "wstressmin", "wstressmax", "wc_etmax", "par_stressHum", "glo_half")
   
+  dat_veg_sel$wstressmin <- dat_veg_sel$wstressmin/100 # hPa -> 100 hPa THAT IS cm -> m of water
+  dat_veg_sel$wstressmax <- dat_veg_sel$wstressmax/100 # hPa -> 100 hPa THAT IS cm -> m of water
   
   # loop over all data and declare objects
   # first: dummy object
@@ -344,11 +356,13 @@ db_echse_input <- function(
   flag.col.svc <- T
   flag.col.tc <- T
   flag.col.lu <- T
+  flag.col.sub <- T
   for (s in unique(dat_rsub$subbas_id)) {
     r_sub <- which(dat_rsub$subbas_id == s)
     
     
     for(l in dat_rsub$lu_id[r_sub]) {
+      r_lusub <- which(dat_rsub$lu_id == l & dat_rsub$subbas_id == s)
       r_lu <- which(dat_rlu$lu_id == l)
       r_lu_order <- order(dat_rlu$position[r_lu], decreasing=T) # order accordinto position (upslope to downslope)
       
@@ -363,150 +377,185 @@ db_echse_input <- function(
           r_svc <- which(dat_svc$pid == svc)
           soil_id <- dat_svc$soil_id[r_svc]
           veg_id <- dat_svc$veg_id[r_svc]
-          r_hor <- which(dat_hor$soil_id == soil_id)
+          r_rtcpar <- which(dat_rtc$tc_id == t & dat_rtc$svc_id == svc)
           r_s <- which(dat_sub$pid == s)
+          r_hors <- which(dat_hor_sel$soil_id == soil_id)
+          r_soil <- which(dat_soil_sel$pid == soil_id)
+          r_lupar <- which(dat_lu$pid == l)
+          r_tcpar <- which(dat_tc$pid == t)
+          r_veg <- which(dat_veg$pid == veg_id)
+          
+          
+          
+          # DECL #
+          obj_name <- paste("svc", s, l, t, svc, sep="_")
+          
+          write(file=paste(proj_dir, proj_name, "data", "catchment", objdecl, sep="/"), append = T,
+                x=paste(obj_name, "WASA_svc", sep="\t"))
+          
       
           
-          for(h in sort(dat_hor$position[r_hor])) {
-            
-            
-            # DECL #
-            obj_name <- paste("hor", s, l, t, svc, h, sep="_")
-            
-            write(file=paste(proj_dir, proj_name, "data", "catchment", objdecl, sep="/"), append = T,
-                       x=paste(obj_name, "WASA_horizon", sep="\t"))
-            
-            
-            # PARAMETERS #
-            r_horord <- order(dat_hor$position[r_hor])
-            dat_hor_sel$depth_cum[r_hor][r_horord][h] <- sum(dat_hor$thickness[r_hor][r_horord][1:h])/1000 # mm -> m
-            
-            r_soil <- which(dat_soil$pid == soil_id)
-            r_lupar <- which(dat_lu$pid == l)
-            r_tcpar <- which(dat_tc$pid == t)
-            r_rtcpar <- which(dat_rtc$tc_id == t & dat_rtc$svc_id == svc)
-            
-            slopel <- dat_lu_sel$slopelength[r_lupar] * dat_rlu$fraction[r_lu][r_lu_order][r_tclu]
-            
-            soil_dens <- dat_hor$soil_dens[r_hor][which(dat_hor$position[r_hor] == h)]
-            lati <- dat_sub$lat[r_s]
-            r_veg <- which(dat_veg$pid == veg_id)
-            
-            out_dat <- cbind(obj_name, dat_hor_sel[r_hor,][r_horord,][h,], dat_soil_sel[r_soil,], slopel, dat_lu_sel[r_lupar,colnames(dat_lu_sel) != "slopelength"],
-                             dat_tc_sel[r_tcpar,], dat_rtc_sel[r_rtcpar,], 15, dat_veg_sel[r_veg,], soil_dens, lati)
-            
-            if(flag.col.hor==T)
-              names(out_dat) <- c("object", names(dat_hor_sel), names(dat_soil_sel), "slopelength", names(dat_lu_sel)[names(dat_lu_sel) != "slopelength"],
-                                names(dat_tc_sel), names(dat_rtc_sel), "k_scal", names(dat_veg_sel), "soil_dens", "lat")
-            
-            write.table(out_dat, file=paste(proj_dir, proj_name, "data", "parameter", objpar_hor, sep="/"),
-                        col.names=flag.col.hor, row.names=F, append=T, quote=F, sep="\t")
-            
-            flag.col.hor <- F
-            
-            
-            # INITIALS #
-            out_dat <- data.frame(object=obj_name,
-                                  variable=c("wc", "v_interc", "inf_remain", "v_inf", "v_evap", "v_transp", "v_evap_inter",
-                                             "v_etp", "v_soilsurf", "v_run_sat", "v_percol", "v_latflow", "f_sat"),
-                                  value=c(out_dat$wc_pwp + (out_dat$wc_fc-out_dat$wc_pwp)/2, rep(0,12)))
-            
-            write.table(out_dat, file=paste(proj_dir, proj_name, "data", "initials", initScal, sep="/"),
-                        col.names=flag.col.hor, row.names=F, append=T, quote=F, sep="\t")
-                                    
-            
-            # LINK #
-            # current horizon is target object
-            tar_name <- rep(obj_name, 5)
-            
-            # target variables are those of type inputSim from declaration file WASA_horizon.txt
-            tar_var <- c("r_latsur_in", "r_latsub_in",
-                         "r_prec_inf", "r_percol_in", "v_inf_in")
-            
-            # source object either is above horizon or SVC for top horizon
-            if(h==1) {
-              sour_name <- c(rep(paste("tc", s, l, t, sep="_"), 2),
-                             rep("dummy",3))
-            } else {
-              sour_name <- c("dummy", paste("tc", s, l, t, sep="_"),
-                             rep(paste("hor", s, l, t, svc, h-1, sep="_"),3))
-            }
-            
-            # source variable are those of type output of the source object as defined in declaration file (engine's class declaration)
-            # order compliant to order of tar_var
-            if(h==1) {
-              sour_var <- c("r_latsur_svc_out", "r_latsub_svc_out",
-                            rep("dummy",3))
-            } else {
-              sour_var <- c("dummy", "r_latsub_svc_out",
-                            "r_prec_inf_out", "r_percol_out", "v_inf_out")
-            }
-            
-            # feedback types
-            feedb <- c(F,F,T,T,T)
-            
-            # write to link file
-            write(file=paste(proj_dir, proj_name, "data", "catchment", objlink, sep="/"), append = T,
-                  x=paste(tar_name, tar_var, sour_name, sour_var, feedb, sep="\t", collapse="\n"))
-            
-            
-          } # horizon loop
+          # PARAMETERS #
+          # horizon-specific -> paramFun; for each soil type one file
+          parfun_soilpar_file <- paste(proj_dir, proj_name, "data", "parameter", horpars_dir, paste0("horpars_Soil", soil_id, ".dat"), sep="/")
+          write.table(dat_hor_sel[r_hors, -1], parfun_soilpar_file, quote=F, sep="\t", row.names=F)
+          # paramFun file
+          out_dat <- data.frame(object=obj_name, "function"=names(dat_hor_sel)[-c(1,2)], col_arg="position", col_val=names(dat_hor_sel)[-c(1,2)],
+                                file=parfun_soilpar_file)
+          names(out_dat)[2] <- "function"
+          suppressWarnings(write.table(out_dat, file=paste(proj_dir, proj_name, "data", "parameter", parfun_svc, sep="/"),
+                      col.names=flag.col.svc, row.names=F, append=T, quote=F, sep="\t"))
           
           
-          # node object to combine horizon fluxes of specific svc
-          obj_name <- c(paste("node_svc_latsursvc", s, l, t, svc, sep="_"),
-                        paste("node_svc_latsurtc", s, l, t, svc, sep="_"),
-                        paste("node_svc_latsubtc", s, l, t, svc, sep="_"),
-                        paste("node_svc_latsubsvc", s, l, t, svc, sep="_"))
+          # svc parameters -> paramNum
+          out_dat <- cbind(obj_name, dat_rtc_sel[r_rtcpar,], dat_sub$lat[r_s], dat_sub$lon[r_s], dat_sub$elev[r_s],
+                           dat_soil_sel[r_soil,-1], dat_hor$soil_dens[r_hors][1], dat_lu_sel$slopelength[r_lupar] * dat_rlu$fraction[r_lu][r_lu_order][r_tclu],
+                           dat_tc_sel$slope[r_tcpar], dat_veg_sel[r_veg,])
+          if(flag.col.svc==T)
+            names(out_dat) <- c("object", "frac_area", "lat", "lon", "elev",
+                              "bedrock", "Phil_s", "Phil_a", "Hort_ini", "Hort_end", "Hort_k", "soil_depth", "soil_dens", "slopelength",
+                              "slope", "crop_makk", "crop_faoref", "intfc", "res_leaf_min", "wstressmin", "wstressmax", "wc_etmax", "par_stressHum", "glo_half")
           
-          # append to object declaration file
-          decl_str <- paste(obj_name, paste0("WASA_node_n", length(r_hor)), sep="\t")
-          write(file=paste(proj_dir, proj_name, "data", "catchment", objdecl, sep="/"), append = T,
-                x=decl_str)
+          suppressWarnings(write.table(out_dat, file=paste(proj_dir, proj_name, "data", "parameter", objpar_svc, sep="/"),
+                      col.names=flag.col.svc, row.names=F, append=T, quote=F, sep="\t"))
           
-          # LINK #
-          tar_name <- rep(obj_name, length(r_hor))
-          tar_var <- rep(paste0("in", 1:length(r_hor)), each=length(obj_name))
           
-          sour_name <- rep(paste("hor", s, l, t, svc, 1:length(r_hor), sep="_"), each=length(obj_name))
-          sour_var <- rep(c("r_latsur_svc", "r_latsur_tc", "r_latsub_tc", "r_latsub_svc"), length(r_hor))
 
-          feedb <- rep(T,length(tar_name))
+          
+          # INITIALS #
+          # vect
+          out_dat <- data.frame(object=obj_name,
+                                variable=rep(c("wc", "w_eta", "mat_pot", "k_u"), each=length(r_hors)),
+                                index=rep( seq(0,length(r_hors)-1), 4),
+                                value=c(dat_hor_sel$wc_fc[r_hors], rep(-9999.,3*length(r_hors))))
+          suppressWarnings(write.table(out_dat, file=paste(proj_dir, proj_name, "data", "initials", initVect, sep="/"),
+                      col.names=F, row.names=F, append=T, quote=F, sep="\t"))
+          
+          # scal
+          out_dat <- data.frame(object=obj_name,
+                                variable=c("runst_surf_sat", "runst_surf_inf", "runst_surf", "runst_sub", "runst_gw",
+                                           "v_interc", "s_longrad", "et_p", "et_a", "et_i", "r_interc"),
+                                value=0)
+          suppressWarnings(write.table(out_dat, file=paste(proj_dir, proj_name, "data", "initials", initScal, sep="/"),
+                      col.names=F, row.names=F, append=T, quote=F, sep="\t"))
+          
+          
+          
+  
+          # LINK #
+          # current horizon is target object
+          tar_name <- rep(obj_name, 2)
+          
+          # target variables are those of type inputSim from declaration file WASA_svc.txt
+          tar_var <- c("r_surf_in", "r_sub_in")
+          
+          # source object is TC (re-)distributing flows
+          sour_name <- rep(paste("tc", s, l, t, sep="_"), 2)
+          
+          # source variable are those of type output of the source object as defined in declaration file (engine's class declaration)
+          # order compliant to order of tar_var
+          sour_var <- c("r_latsur_svc_out", "r_latsub_svc_out")
+          
+          # feedback types
+          feedb <- c(F,F)
           
           # write to link file
           write(file=paste(proj_dir, proj_name, "data", "catchment", objlink, sep="/"), append = T,
                 x=paste(tar_name, tar_var, sour_name, sour_var, feedb, sep="\t", collapse="\n"))
           
+          
+          
+          
+          flag.col.svc <- F
+          
         } # svc loop
         
         
-        # NODE object to combine svc fluxes of specific TC
-        obj_name <- c(paste("node_tc_latsurtc", s, l, t, sep="_"),
-                      paste("node_tc_latsubtc", s, l, t, sep="_"),
-                      paste("node_tc_latsursvc", s, l, t, sep="_"),
-                      paste("node_tc_latsubsvc", s, l, t, sep="_"),
-                      paste("node_tc_percol", s, l, t, sep="_"))
         
+        
+        
+        
+        # NODE object to combine svc fluxes of specific TC
+        obj_nodetc <- c(paste("node_tc_surfsat_tc", s, l, t, sep="_"),
+                      paste("node_tc_surfinf_tc", s, l, t, sep="_"),
+                      paste("node_tc_sub_tc", s, l, t, sep="_"),
+                      paste("node_tc_surfsat_svc", s, l, t, sep="_"),
+                      paste("node_tc_surfinf_svc", s, l, t, sep="_"),
+                      paste("node_tc_sub_svc", s, l, t, sep="_"),
+                      paste("node_tc_gw", s, l, t, sep="_"),
+                      paste("node_tc_sat", s, l, t, sep="_"),
+                      paste("node_tc_plantwat", s, l, t, sep="_"),
+                      paste("node_tc_soilwat", s, l, t, sep="_"),
+                      paste("node_tc_etp", s, l, t, sep="_"),
+                      paste("node_tc_eta", s, l, t, sep="_"),
+                      paste("node_tc_eti", s, l, t, sep="_"))
+        
+        if( length(r_tc) <= 20 ) {
+          node_n <- length(r_tc)
+        } else if( (length(r_tc) > 20) && (length(r_tc) <= 50) ) {
+          node_n <- 50
+        } else if( (length(r_tc) > 50) && (length(r_tc) <= 100) ) {
+          node_n <- 100
+        } else if( (length(r_tc) > 100) && (length(r_tc) <= 150) ) {
+          node_n <- 150
+        } else if( (length(r_tc) > 150) && (length(r_tc) <= 200) ) {
+          node_n <- 200
+        } else if( (length(r_tc) > 200) && (length(r_tc) <= 250) ) {
+          node_n <- 250
+        } 
+        # append to object declaration file
+        decl_str <- paste(obj_nodetc, paste0("WASA_node_n", node_n), sep="\t")
         write(file=paste(proj_dir, proj_name, "data", "catchment", objdecl, sep="/"), append = T,
-              x=paste(obj_name, paste0("WASA_node_n", length(r_tc)), sep="\t"))
+              x=decl_str)
+
         
         # Link
-        tar_name <- rep(obj_name, each=length(r_tc))
-        tar_var <- rep(paste0("in", 1:length(r_tc)), length(obj_name))
+        tar_name <- rep(obj_nodetc, each=node_n)
         
-        s_id <- dat_svc$soil_id[dat_svc$pid %in% dat_rtc$svc_id[r_tc]]
-        hors <- unlist(lapply(s_id, function(x) max(dat_hor$position[dat_hor$soil_id == x])))
-        sour_name <- c(paste("node_svc_latsurtc", s, l, t, dat_rtc$svc_id[r_tc], sep="_"),
-                      paste("node_svc_latsubtc", s, l, t, dat_rtc$svc_id[r_tc], sep="_"),
-                      paste("node_svc_latsursvc", s, l, t, dat_rtc$svc_id[r_tc], sep="_"),
-                      paste("node_svc_latsubsvc", s, l, t, dat_rtc$svc_id[r_tc], sep="_"),
-                      paste("hor", s, l, t, dat_rtc$svc_id[r_tc], hors, sep="_"))
-        sour_var <- c(rep("out", 4*length(r_tc)), rep("r_percol_out", length(r_tc)))
+        tar_var <- rep(paste0("in", 1:node_n), length(obj_nodetc))
         
-        feedb <- rep(T,length(tar_name))
+        sour_name <- paste("svc", s, l, t, dat_rtc$svc_id[r_tc], sep="_")
+        if (length(sour_name) < length(tar_name)/length(obj_nodetc)) {
+          sour_name <- c(sour_name, rep("dummy", length(tar_name)/length(obj_nodetc) - length(sour_name)))
+        }
+        
+        len_diff <- length(sour_name) - length(r_tc)
+        sour_var <- c(rep("run_surf_sat_tc", length(r_tc)),
+                      rep("dummy", len_diff), 
+                      rep("run_surf_inf_tc", length(r_tc)),
+                      rep("dummy", len_diff),
+                      rep("run_sub_tc", length(r_tc)),
+                      rep("dummy", len_diff), 
+                      rep("run_surf_sat_svc", length(r_tc)),
+                      rep("dummy", len_diff), 
+                      rep("run_surf_inf_svc", length(r_tc)),
+                      rep("dummy", len_diff), 
+                      rep("run_sub_svc", length(r_tc)),
+                      rep("dummy", len_diff), 
+                      rep("run_gw", length(r_tc)),
+                      rep("dummy", len_diff), 
+                      rep("saturation", length(r_tc)),
+                      rep("dummy", len_diff), 
+                      rep("v_plantwat", length(r_tc)),
+                      rep("dummy", len_diff), 
+                      rep("v_soilwat", length(r_tc)),
+                      rep("dummy", len_diff), 
+                      rep("etp", length(r_tc)),
+                      rep("dummy", len_diff), 
+                      rep("eta", length(r_tc)),
+                      rep("dummy", len_diff), 
+                      rep("eti", length(r_tc)),
+                      rep("dummy", len_diff)) 
+        
+        feedb <- rep(T,length(sour_name))
         
         write(file=paste(proj_dir, proj_name, "data", "catchment", objlink, sep="/"), append = T,
               x=paste(tar_name, tar_var, sour_name, sour_var, feedb, sep="\t", collapse="\n"))
+        
+        
+        
+        
+        
         
         
         # TC OBJECT #
@@ -518,48 +567,45 @@ db_echse_input <- function(
         
         # PARAMETERS #
         # numeric
-        out_dat <- cbind(obj_name, dat_rlu$position[r_lu][r_lu_order][r_tclu], length(r_lu))
+        #out_dat <- cbind(obj_name, dat_rlu$position[r_lu][r_lu_order][r_tclu], length(r_lu))
+        out_dat <- cbind(obj_name, r_tclu, length(r_lu)) # reverse definition of TC "position"
         
         if(flag.col.tc==T)
           dimnames(out_dat) <- list(NULL, c("object", "position", "no_tc"))
         
-        write.table(out_dat, file=paste(proj_dir, proj_name, "data", "parameter", objpar_tc, sep="/"),
-                    col.names=flag.col.tc, row.names=F, append=T, quote=F, sep="\t")
+        suppressWarnings(write.table(out_dat, file=paste(proj_dir, proj_name, "data", "parameter", objpar_tc, sep="/"),
+                    col.names=flag.col.tc, row.names=F, append=T, quote=F, sep="\t"))
         
         # parameter function
         if(r_tclu == 1) {
-          parfun_file <- paste(proj_dir, proj_name, "data", "parameter", pos2area_dir, paste0("pos2area_LU",l, ".dat"), sep="/")
-          out_dat <- data.frame(position=dat_rlu$position[r_lu], area_frac=dat_rlu$fraction[r_lu])
-          write.table(out_dat, file=parfun_file, quote=F, sep="\t", row.names=F)
+          parfun_pos2area_file <- paste(proj_dir, proj_name, "data", "parameter", pos2area_dir, paste0("pos2area_LU",l, ".dat"), sep="/")
+          out_dat <- data.frame(position=1:length(r_lu), area_frac=dat_rlu$fraction[r_lu][r_lu_order]) # reverse definition of TC "position"
+          write.table(out_dat, file=parfun_pos2area_file, quote=F, sep="\t", row.names=F)
         }
           
         out_dat <- data.frame(object=obj_name, "function"="pos2area", col_arg="position", col_val="area_frac",
-                              file=parfun_file)
+                              file=parfun_pos2area_file)
         names(out_dat)[2] <- "function"
         
-        write.table(out_dat, file=paste(proj_dir, proj_name, "data", "parameter", parfun_tc, sep="/"),
-                    col.names=flag.col.tc, row.names=F, append=T, quote=F, sep="\t")
+        suppressWarnings(write.table(out_dat, file=paste(proj_dir, proj_name, "data", "parameter", parfun_tc, sep="/"),
+                    col.names=flag.col.tc, row.names=F, append=T, quote=F, sep="\t"))
         
         flag.col.tc <- F
         
         # LINK #
         if(r_tclu == 1) { # upslope TC
-          sour_name <- c(rep("dummy", 2), paste("node_tc_latsurtc", s, l, t, sep="_"),
-                         paste("node_tc_latsubtc", s, l, t, sep="_"),
-                         paste("node_tc_latsursvc", s, l, t, sep="_"),
-                         paste("node_tc_latsubsvc", s, l, t, sep="_"))
-          sour_var <- c(rep("dummy", 2), rep("out", 4))
+          sour_name <- c("dummy", "dummy", obj_nodetc)
+          sour_var <- c(rep("dummy", 2), rep("out", length(obj_nodetc)))
         } else { # downslope TC
-          sour_name <- c(rep(obj_tc_last, 2), paste("node_tc_latsurtc", s, l, t, sep="_"),
-                         paste("node_tc_latsubtc", s, l, t, sep="_"),
-                         paste("node_tc_latsursvc", s, l, t, sep="_"),
-                         paste("node_tc_latsubsvc", s, l, t, sep="_"))
-          sour_var <- c("r_latsur_tc_out", "r_latsub_tc_out", rep("out", 4))
+          sour_name <- c(rep(obj_tc_last, 2), obj_nodetc)
+          sour_var <- c("r_latsur_tc_out", "r_latsub_tc_out", rep("out", length(obj_nodetc)))
         }
         
         tar_name <- rep(obj_name, length(sour_var))
-        tar_var <- c("r_latsur_up", "r_latsub_up", "r_latsur_tc", "r_latsub_tc",
-                     "r_latsur_svc", "r_latsub_svc")
+        tar_var <- c("r_latsur_up", "r_latsub_up",
+                     "r_latsur_inf_tc", "r_latsur_sat_tc", "r_latsub_tc",
+                     "r_latsur_inf_svc", "r_latsur_sat_svc", "r_latsub_svc",
+                     "run_gw_svc", "sat_svc", "plantwat_svc", "soilwat_svc", "etp_svc", "eta_svc", "eti_svc")
         
         feedb <- rep(T,length(tar_name))
         
@@ -572,20 +618,67 @@ db_echse_input <- function(
       } # tc loop
       
       
-      # node object to combine tc fluxes of specific lu
-      obj_name <- c(paste("node_lu_river", s, l, sep="_"),
-                    paste("node_lu_gw", s, l, sep="_"))
       
+      
+      
+      # NODE object to combine tc fluxes of specific lu
+      obj_nodelu <- c(paste("node_lu_riversurf", s, l, sep="_"),
+                    paste("node_lu_gw", s, l, sep="_"),
+                    paste("node_lu_plantwat", s, l, sep="_"),
+                    paste("node_lu_soilwat", s, l, sep="_"),
+                    paste("node_lu_surfsat", s, l, sep="_"),
+                    paste("node_lu_surfinf", s, l, sep="_"),
+                    paste("node_lu_sub", s, l, sep="_"),
+                    paste("node_lu_etp", s, l, sep="_"),
+                    paste("node_lu_eta", s, l, sep="_"),
+                    paste("node_lu_eti", s, l, sep="_"))
+      
+      if( length(r_lu) <= 20 ) {
+        node_n <- length(r_lu)
+      } else if( (length(r_lu) > 20) && (length(r_lu) <= 50) ) {
+        node_n <- 50
+      } else if( (length(r_lu) > 50) && (length(r_lu) <= 100) ) {
+        node_n <- 100
+      } else if( (length(r_lu) > 100) && (length(r_lu) <= 150) ) {
+        node_n <- 150
+      } else if( (length(r_lu) > 150) && (length(r_lu) <= 200) ) {
+        node_n <- 200
+      } else if( (length(r_lu) > 200) && (length(r_lu) <= 250) ) {
+        node_n <- 250
+      } 
       write(file=paste(proj_dir, proj_name, "data", "catchment", objdecl, sep="/"), append = T,
-            x=paste(obj_name, paste0("WASA_node_n", length(r_lu)), sep="\t"))
+            x=paste(obj_nodelu, paste0("WASA_node_n", node_n), sep="\t"))
       
       # link
-      tar_name <- rep(obj_name, each=length(r_lu))
-      tar_var <- rep(paste0("in", 1:length(r_lu)), length(obj_name))
+      tar_name <- rep(obj_nodelu, each=node_n)
+      tar_var <- rep(paste0("in", 1:node_n), length(obj_nodelu))
       
-      sour_name <- c(paste("tc", s, l, dat_rlu$tc_id[r_lu], sep="_"),
-                     paste("node_tc_percol", s, l, dat_rlu$tc_id[r_lu], sep="_"))
-      sour_var <- c(rep("r_river_out", length(r_lu)), rep("out", length(r_lu)))
+      sour_name <- paste("tc", s, l, dat_rlu$tc_id[r_lu], sep="_")
+      if (length(sour_name) < length(tar_name)/length(obj_nodelu)) {
+        sour_name <- c(sour_name, rep("dummy", length(tar_name)/length(obj_nodelu) - length(sour_name)))
+      }
+      
+      len_diff <- length(sour_name) - length(r_lu)
+      sour_var <- c(rep("r_river_surf", length(r_lu)),
+                    rep("dummy", len_diff), 
+                    rep("run_gw", length(r_lu)),
+                    rep("dummy", len_diff),
+                    rep("v_plantwat", length(r_lu)),
+                    rep("dummy", len_diff), 
+                    rep("v_soilwat", length(r_lu)),
+                    rep("dummy", len_diff), 
+                    rep("run_surf_sat", length(r_lu)),
+                    rep("dummy", len_diff), 
+                    rep("run_surf_inf", length(r_lu)),
+                    rep("dummy", len_diff), 
+                    rep("run_sub", length(r_lu)),
+                    rep("dummy", len_diff), 
+                    rep("etp", length(r_lu)),
+                    rep("dummy", len_diff), 
+                    rep("eta", length(r_lu)),
+                    rep("dummy", len_diff), 
+                    rep("eti", length(r_lu)),
+                    rep("dummy", len_diff)) 
         
       feedb <- rep(T, length(sour_name))
       
@@ -593,37 +686,42 @@ db_echse_input <- function(
             x=paste(tar_name, tar_var, sour_name, sour_var, feedb, sep="\t", collapse="\n"))
       
       
-      # lu object
+      
+      
+      
+      # LU OBJECT
       obj_name <- paste("lu", s, l, sep="_")
       
       write(file=paste(proj_dir, proj_name, "data", "catchment", objdecl, sep="/"), append = T,
             x=paste(obj_name, "WASA_lu", sep="\t"))
       
       # PARAMETERS #
-      out_dat <- cbind(obj_name, dat_lu$gw_flag[r_lupar], dat_lu$frgw_delay[r_lupar])
+      out_dat <- cbind(obj_name, dat_rsub$fraction[r_lusub], dat_lu$frgw_delay[r_lupar]*86400, 1, -9999., -9999.)
       
       if(flag.col.lu==T)
-        dimnames(out_dat) <- list(NULL, c("object", "gw_flag", "gw_delay"))
+        dimnames(out_dat) <- list(NULL, c("object", "frac_area", "ct_index", "str_base", "str_surf", "str_inter"))
       
-      write.table(out_dat, file=paste(proj_dir, proj_name, "data", "parameter", objpar_lu, sep="/"),
-                  col.names=flag.col.lu, row.names=F, append=T, quote=F, sep="\t")
+      suppressWarnings(write.table(out_dat, file=paste(proj_dir, proj_name, "data", "parameter", objpar_lu, sep="/"),
+                  col.names=flag.col.lu, row.names=F, append=T, quote=F, sep="\t"))
       
       flag.col.lu <- F
       
       # INITIALS #
       out_dat <- data.frame(object=obj_name,
-                            variable="v_gw",
+                            variable=c("vol_surf", "vol_inter", "vol_base"),
                             value=0)
       
-      write.table(out_dat, file=paste(proj_dir, proj_name, "data", "initials", initScal, sep="/"),
-                  col.names=flag.col.hor, row.names=F, append=T, quote=F, sep="\t")
+      suppressWarnings(write.table(out_dat, file=paste(proj_dir, proj_name, "data", "initials", initScal, sep="/"),
+                  col.names=F, row.names=F, append=T, quote=F, sep="\t"))
       
       # Link
       tar_name <- obj_name
-      tar_var <- "r_gw_rch"
+      tar_var <- c("r_river_sub", "r_river_surf", "r_gw_rch", "v_plantwat_tc", "v_soilwat_tc",
+                   "run_surf_sat_tc", "run_surf_inf_tc", "run_sub_tc",
+                   "etp_tc", "eta_tc", "eti_tc")
       
-      sour_name <- paste("node_lu_gw", s, l, sep="_")
-      sour_var <- "out"
+      sour_name <- c(obj_tc_last, obj_nodelu)
+      sour_var <- c("r_river_sub", rep("out", length(obj_nodelu)))
       
       feedb <- T
       
@@ -633,43 +731,118 @@ db_echse_input <- function(
     } # lu loop
     
     
-    # node object to combine lu fluxes of specific sub
-    obj_name <- c(paste("node_su_quick", s, sep="_"),
-                  paste("node_su_base", s, sep="_"))
     
+    
+    
+    # NODE object to combine lu fluxes of specific sub
+    obj_nodesu <- c(paste("node_su_riversurf", s, sep="_"),
+                    paste("node_su_riversub", s, sep="_"),
+                    paste("node_su_rivergw", s, sep="_"),
+                    paste("node_su_plantwat", s, sep="_"),
+                    paste("node_su_soilwat", s, sep="_"),
+                    paste("node_su_runstor", s, sep="_"),
+                    paste("node_su_surfsat", s, sep="_"),
+                    paste("node_su_surfinf", s, sep="_"),
+                    paste("node_su_sub", s, sep="_"),
+                    paste("node_su_gw", s, sep="_"),
+                    paste("node_su_etp", s, sep="_"),
+                    paste("node_su_eta", s, sep="_"),
+                    paste("node_su_eti", s, sep="_"))
+    
+    if( length(r_sub) <= 20 ) {
+      node_n <- length(r_sub)
+    } else if( (length(r_sub) > 20) && (length(r_sub) <= 50) ) {
+      node_n <- 50
+    } else if( (length(r_sub) > 50) && (length(r_sub) <= 100) ) {
+      node_n <- 100
+    } else if( (length(r_sub) > 100) && (length(r_sub) <= 150) ) {
+      node_n <- 150
+    } else if( (length(r_sub) > 150) && (length(r_sub) <= 200) ) {
+      node_n <- 200
+    } else if( (length(r_sub) > 200) && (length(r_sub) <= 250) ) {
+      node_n <- 250
+    } 
     write(file=paste(proj_dir, proj_name, "data", "catchment", objdecl, sep="/"), append = T,
-          x=paste(obj_name, paste0("WASA_node_n", length(r_sub)), sep="\t"))
+          x=paste(obj_nodesu, paste0("WASA_node_n", node_n), sep="\t"))
     
     # link
-    tar_name <- rep(obj_name, each=length(r_sub))
-    tar_var <- rep(paste0("in", 1:length(r_sub)), length(obj_name))
+    tar_name <- rep(obj_nodesu, each=node_n)
+    tar_var <- rep(paste0("in", 1:node_n), length(obj_nodesu))
     
-    sour_name <- c(paste("node_lu_river", s, dat_rsub$lu_id[r_sub], sep="_"),
-                   paste("lu", s, dat_rsub$lu_id[r_sub], sep="_"))
-    sour_var <- c(rep("out", length(r_sub)), rep("r_gw_out", length(r_sub)))
+    sour_name <- paste("lu", s, dat_rsub$lu_id[r_sub], sep="_")
+    if (length(sour_name) < length(tar_name)/length(obj_nodesu)) {
+      sour_name <- c(sour_name, rep("dummy", length(tar_name)/length(obj_nodesu) - length(sour_name)))
+    }
+    len_diff <- length(sour_name) - length(r_sub)
+    sour_var <- c(rep("r_out_surf", length(r_sub)),
+                  rep("dummy", len_diff), 
+                  rep("r_out_inter", length(r_sub)),
+                  rep("dummy", len_diff),
+                  rep("r_out_base", length(r_sub)),
+                  rep("dummy", len_diff), 
+                  rep("v_plantwat", length(r_sub)),
+                  rep("dummy", len_diff), 
+                  rep("v_soilwat", length(r_sub)),
+                  rep("dummy", len_diff), 
+                  rep("v_runstor", length(r_sub)),
+                  rep("dummy", len_diff), 
+                  rep("run_surf_sat", length(r_sub)),
+                  rep("dummy", len_diff), 
+                  rep("run_surf_inf", length(r_sub)),
+                  rep("dummy", len_diff), 
+                  rep("run_sub", length(r_sub)),
+                  rep("dummy", len_diff), 
+                  rep("run_gw", length(r_sub)),
+                  rep("dummy", len_diff), 
+                  rep("etp", length(r_sub)),
+                  rep("dummy", len_diff), 
+                  rep("eta", length(r_sub)),
+                  rep("dummy", len_diff), 
+                  rep("eti", length(r_sub)),
+                  rep("dummy", len_diff)) 
     
     feedb <- rep(T, length(sour_name))
     
     write(file=paste(proj_dir, proj_name, "data", "catchment", objlink, sep="/"), append = T,
           x=paste(tar_name, tar_var, sour_name, sour_var, feedb, sep="\t", collapse="\n"))
     
-    # sub object
+    
+    
+    
+    
+    # SUB OBJECT
     obj_name <- paste("sub", s, sep="_")
     
     write(file=paste(proj_dir, proj_name, "data", "catchment", objdecl, sep="/"), append = T,
           x=paste(obj_name, "WASA_sub", sep="\t"))
     
     # link
-    tar_name <- rep(obj_name,2)
-    tar_var <- c("r_river_quick", "r_river_base")
+    tar_name <- rep(obj_name, length(obj_nodesu))
+    tar_var <- c("r_river_surf", "r_river_sub", "r_river_gw", 
+                 "v_plantwat_lu", "v_soilwat_lu", "v_runstor_lu", "run_surf_sat_lu", "run_surf_inf_lu", "run_sub_lu", "run_gw_lu",
+                 "etp_lu", "eta_lu", "eti_lu")
     
-    sour_name <- c(paste("node_su_quick", s, sep="_"), paste("node_su_base", s, sep="_"))
-    sour_var <- rep("out",2)
+    sour_name <- obj_nodesu
+    sour_var <- rep("out", length(obj_nodesu))
     
-    feedb <- c(T, T)
+    feedb <- rep(T, length(sour_name))
     
     write(file=paste(proj_dir, proj_name, "data", "catchment", objlink, sep="/"), append = T,
           x=paste(tar_name, tar_var, sour_name, sour_var, feedb, sep="\t", collapse="\n"))
+    
+    
+    # PARAMETERS #
+    out_dat <- cbind(obj_name, dat_sub$area[which(dat_sub$pid == s)])
+    
+    if(flag.col.sub==T)
+      dimnames(out_dat) <- list(NULL, c("object", "area"))
+    
+    suppressWarnings(write.table(out_dat, file=paste(proj_dir, proj_name, "data", "parameter", objpar_sub, sep="/"),
+                                 col.names=flag.col.sub, row.names=F, append=T, quote=F, sep="\t"))
+    
+    flag.col.sub <- F
+    
+    
     
   } # sub loop
   
@@ -683,33 +856,55 @@ db_echse_input <- function(
   if(verbose)
     print(paste0("Calculate group-specific (shared) parameters ..."))
   
-  out_dat <- data.frame(parameter=c("h_tempMeas", "h_windMeas", "h_humMeas", "choice_etp",
-                                    "choice_eta", 
-                                    "emis_a", "emis_b", "fcorr_a", "fcorr_b", "radex_a", "radex_b",
-                                    "ext", "glo_half", "res_b", "choice_rcs", "choice_rsa", "choice_raa",
-                                    "choice_roughLenMom", "choice_plantDisplace",
-                                    "drag_coef", "rough_bare", "eddy_decay", "rss_a", "rss_b",
-                                    "par_stressHum", "par_satVar1", "par_satVar2", "par_satFrac1",
-                                    "par_satFrac2", "par_satFrac3", "par_satFrac4", "par_satFrac5", "na_val"),
-                        value=c(2, 10, 2, 4, 
-                                1,
-                                0.52, -0.065, 1.35, -0.35, 0.18, 0.55,
-                                0.5, 100, 25, 2, 2, 2,
-                                2, 2,
-                                0.07, 0.01, 2.5, 26, -1,
-                                0.03, 0.05, 0.1, 0,
-                                0.1, 0.5, 0.9, 1,
-                                -9999.0))
   
-  sharedpar_svc <- "sharedParamNum_WASA_horizon.dat"
+  
+  # SVC
+  out_dat <- data.frame(parameter=c("# Meteorological parameters",
+                                    "h_tempMeas", "h_windMeas", "h_humMeas", 
+                                    "emis_a", "emis_b", "fcorr_a", "fcorr_b", "radex_a", "radex_b", "f_day", "f_night",
+                                    "# Vegetation and land-cover parameters",
+                                    "ext", "res_b", "drag_coef", "rough_bare", "eddy_decay", "rss_a", "rss_b",
+                                    "# Soil water parameters",
+                                    "Phil_cal", "var1", "var2", "var3", "var4", "var5", "frac1", "frac2", "frac3", "frac4", "frac5",
+                                    "# Choices",
+                                    "choice_et", "choice_rcs", "choice_roughLen", "choice_plantDispl", "choice_gloradmax",
+                                    "choice_inf", "choice_perc", "choice_soilmod",
+                                    "# Other",
+                                    "na_val", "ode_accuracy", "ode_max_iter", "choice_odesolve"),
+                        value=c("", 2, 2, 2, 0.34, -0.14, 1.35, -0.35, 0.25, 0.50, 0.2, 0.7,
+                                "", 0.5, 25, 0.07, 0.01, 2.5, 26, -1,
+                                "", 0.4, 9999, 9999, 9999, 9999, 9999, 0, 0, 0, 0, 0,
+                                "", 13, 2, 2, 2, 1, 3, 2, 1,
+                                "", -9999., 1e-3, 1e5, 36))
+  
+  sharedpar_svc <- "sharedParamNum_WASA_svc.dat"
   if(!file.exists(paste(proj_dir, proj_name, "data", "parameter", sharedpar_svc, sep="/")) | overwrite){
     file.create(paste(proj_dir, proj_name, "data", "parameter", sharedpar_svc, sep="/"))
   } else {
     stop(paste0("File ", sharedpar_svc, " exists!"))
   }
   
-  write.table(out_dat, file=paste(proj_dir, proj_name, "data", "parameter", sharedpar_svc, sep="/"),
-              col.names=T, row.names=F, append=T, quote=F, sep="\t")
+  suppressWarnings(write.table(out_dat, file=paste(proj_dir, proj_name, "data", "parameter", sharedpar_svc, sep="/"),
+              col.names=T, row.names=F, append=T, quote=F, sep="\t"))
+  
+  
+  
+  
+  # LU 
+  out_dat <- data.frame(parameter=c("choice_runconc"),
+                        value=c(2))
+  
+  sharedpar_svc <- "sharedParamNum_WASA_lu.dat"
+  if(!file.exists(paste(proj_dir, proj_name, "data", "parameter", sharedpar_svc, sep="/")) | overwrite){
+    file.create(paste(proj_dir, proj_name, "data", "parameter", sharedpar_svc, sep="/"))
+  } else {
+    stop(paste0("File ", sharedpar_svc, " exists!"))
+  }
+  
+  suppressWarnings(write.table(out_dat, file=paste(proj_dir, proj_name, "data", "parameter", sharedpar_svc, sep="/"),
+              col.names=T, row.names=F, append=T, quote=F, sep="\t"))
+  
+  
   
   if(verbose)
     print("OK.")
@@ -730,8 +925,8 @@ db_echse_input <- function(
     stop(paste0("File ", objpar_dummy, " exists!"))
   }
   
-  write.table(out_dat, file=paste(proj_dir, proj_name, "data", "parameter", objpar_dummy, sep="/"),
-              col.names=T, row.names=F, append=T, quote=F, sep="\t")
+  suppressWarnings(write.table(out_dat, file=paste(proj_dir, proj_name, "data", "parameter", objpar_dummy, sep="/"),
+              col.names=T, row.names=F, append=T, quote=F, sep="\t"))
   
   
   out_dat <- data.frame(object="NODATA", 'function'="NODATA", col_arg=0, col_val=0, file="NODATA")
@@ -744,8 +939,8 @@ db_echse_input <- function(
     stop(paste0("File ", objpar_dummy, " exists!"))
   }
   
-  write.table(out_dat, file=paste(proj_dir, proj_name, "data", "parameter", objpar_dummy, sep="/"),
-              col.names=T, row.names=F, append=T, quote=F, sep="\t")
+  suppressWarnings(write.table(out_dat, file=paste(proj_dir, proj_name, "data", "parameter", objpar_dummy, sep="/"),
+              col.names=T, row.names=F, append=T, quote=F, sep="\t"))
   
   if(verbose)
     print("OK.")
@@ -778,28 +973,18 @@ db_echse_input <- function(
   objDecl_dat <- read.table(paste(proj_dir, proj_name, "data", "catchment", objdecl, sep="/"), header=T)
   
   # expand dat_rainy_in (unique vegetation types for each subbasin); prepare rainy_season matrix for calc_seasonality()
-  # write external location links; include day of year
-  #veg_vars <- c("height", "rootd", "lai", "alb")
-  veg_vars <- c("rootd", "rootgr", "height", "lai", "alb")
+  # write external location links; include day of year and hour of day
+  veg_vars <- c("cano_height", "rootd", "lai", "alb")
   dat_rainy_expand <- NULL
   for (s in unique(dat_rsub$subbas_id)) {
-    # get svc objects
-    #svc <- grep(paste0("^svc_", s, "_*"), objDecl_dat$object, value=T)
     
-    # all/unique svcs
-    #svc_un <- unlist(strsplit(svc, "_"))
-    #svc_all <- svc_un[seq(5,length(svc_un), by=5)]
-    #svc_un <- unique(svc_un[seq(5,length(svc_un), by=5)])
-    
-    # horizons
-    hor <- grep(paste0("^hor_", s, "_*"), objDecl_dat$object, value=T)
-    hor_all <- unlist(strsplit(hor, "_"))
-    hor_all <- hor_all[seq(5,length(hor_all), by=6)]
+    # SVC
+    svc <- grep(paste0("^svc_", s, "_*"), objDecl_dat$object, value=T)
+    svc_all <- unlist(strsplit(svc, "_"))
+    svc_all <- svc_all[seq(5,length(svc_all), by=5)]
     
     # get all/unique vegetation IDs corresponding to SVCs
-    #veg <- unique(dat_svc$veg_id[dat_svc$pid %in% svc_un])
-    #veg_all <- unlist(lapply(svc_all, function(x) dat_svc$veg_id[dat_svc$pid == x]))
-    veg_all <- unlist(lapply(hor_all, function(x) dat_svc$veg_id[dat_svc$pid == x]))
+    veg_all <- unlist(lapply(svc_all, function(x) dat_svc$veg_id[dat_svc$pid == x]))
     
     # expand dat_rainy for each vegetation type within subbasin s
     r_rainy <- which(dat_rainy_in$subbas_id == s)
@@ -808,17 +993,12 @@ db_echse_input <- function(
     dat_rainy_expand <- rbind(dat_rainy_expand, dat_rainy_expand_t)
     
     # external location linkage
-#     extLink_svc <- data.frame(object=rep(svc, length(veg_vars_svc)+1), 
-#                                variable=c(rep(veg_vars_svc, each=length(svc)), rep("doy", length(svc))),
-#                                location=c(rep(paste(s, veg_all, sep="_"), length(veg_vars_svc)), rep("any", length(svc))),
-#                                weight=rep(1, (length(veg_vars_svc)+1)*length(svc)))
-    extLink <- data.frame(object=rep(hor, length(veg_vars)+1), 
-                              variable=c(rep(veg_vars, each=length(hor)), rep("doy", length(hor))),
-                              location=c(rep(paste(s, veg_all, sep="_"), length(veg_vars)), rep("any", length(hor))),
-                              weight=rep(1, (length(veg_vars)+1)*length(hor)))
+    extLink <- data.frame(object=rep(svc, length(veg_vars)+3), 
+                              variable=c(rep(veg_vars, each=length(svc)), rep(c("doy", "hour", "utc_add"), each=length(svc))),
+                              location=c(rep(paste(s, veg_all, sep="_"), length(veg_vars)), rep(c("any", "dummy", "dummy"), each=length(svc))),
+                              weight=rep(1, (length(veg_vars)+3)*length(svc)))
     
     # write to file
-    #extLink_out <- rbind(extLink_svc, extLink_hor)
     write.table(extLink, paste(proj_dir, proj_name, "data", ts_dir, extloc_file, sep="/"), 
                 sep="\t", append=T, row.names = F, col.names = F, quote = F)
     
@@ -826,6 +1006,7 @@ db_echse_input <- function(
   
   # loop over vegetation parameters and create time series
   colnames(dat_veg) <- gsub("root_depth", "rootd", colnames(dat_veg))
+  colnames(dat_veg) <- gsub("height", "cano_height", colnames(dat_veg))
   for(v in subset(veg_vars, veg_vars!="rootgr")) {
     
     # prepare seasonality matrix for calc_seasonality()
@@ -842,22 +1023,6 @@ db_echse_input <- function(
     # calculate time series
     veg_ts <- calc_seasonality(dat_rainy_expand, season_in, timezone = 'UTC')
     
-    # if rootd calculate also increments between time steps (i.e. root growth)
-    if (v == "rootd") {
-      # initialise xts object
-      rootgr <- veg_ts
-      # set first values to zero
-      rootgr[1,] <- 0
-    
-      for (i in 2:length(index(veg_ts)))
-        rootgr[i,] <- as.numeric(veg_ts[i,]) - as.numeric(veg_ts[i-1,])
-      
-      # write output file
-      write(c("end_of_interval", colnames(rootgr)), paste(proj_dir, proj_name, "data", ts_dir, paste0("veg_rootgr_data.dat"), sep="/"), sep="\t", ncolumns=ncol(rootgr)+1) 
-      write.table(rootgr, paste(proj_dir, proj_name, "data", ts_dir, paste0("veg_rootgr_data.dat"), sep="/"),
-                  sep="\t", quote=F, col.names=F, row.names=format(index(rootgr), '%Y-%m-%d %H:%M:%S'), append=T)
-    }
-    
     # write into ECHSE time series data file
     write(c("end_of_interval", colnames(veg_ts)), paste(proj_dir, proj_name, "data", ts_dir, paste0("veg_", v, "_data.dat"), sep="/"), sep="\t", ncolumns=ncol(veg_ts)+1) 
     write.table(veg_ts, paste(proj_dir, proj_name, "data", ts_dir, paste0("veg_", v, "_data.dat"), sep="/"),
@@ -873,6 +1038,7 @@ db_echse_input <- function(
   write(c("end_of_interval", colnames(doy_ts)), paste(proj_dir, proj_name, "data", ts_dir, "doy_data.dat", sep="/"), sep="\t", ncolumns=ncol(doy_ts)+1) 
   write.table(doy_ts, paste(proj_dir, proj_name, "data", ts_dir, "doy_data.dat", sep="/"),
               sep="\t", quote=F, col.names=F, row.names=format(index(doy_ts), '%Y-%m-%d %H:%M:%S'), append=T)
+
   
   if(verbose)
     print("OK.")

@@ -21,7 +21,9 @@ db_echse_input(dbname, proj_dir = "./", proj_name = "", overwrite = F,
  overwriten? Default: \code{FALSE}.}
 
 \item{verbose}{\code{logical}. Should detailed information during execution be
- printed? Default: \code{TRUE}.}
+ printed? Default: \code{TRUE}.
+
+ file:///home/tobias/Promotion/Modellierung/Bengue/ECHSE_WASA/test_restruct/run/run}
 }
 \value{
 The following subdirectories and files within \code{proj_dir}/\code{proj_name}/data

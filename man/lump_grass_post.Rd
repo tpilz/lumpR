@@ -93,7 +93,20 @@ using outputs of \code{\link[lumpR]{lump_grass_prep}} and \code{\link[lumpR]{pro
      
      \emph{pid}\cr
      Subbasin identifier.
-     
+
+     \emph{description}\cr
+     Subbasin description you can fill in manually if needed.
+
+     \emph{lat}\cr
+     Latitude of subbasin centroid in \emph{decimal degrees} (negative values for southern hemisphere).
+
+     \emph{lon}\cr
+     Longitude of subbasin centroid in \emph{decimal degrees west of Greenwhich}, e.g.
+     Greenwich: 0°, New York: 75°, Berlin: 345°.
+
+     \emph{elev}\cr
+     Average elevation above sea level of subbasin \emph{m}.
+
      \emph{area}\cr
      Subbasin area in \emph{km^2}.
      
