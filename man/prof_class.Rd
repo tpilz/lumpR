@@ -78,6 +78,11 @@ Units} and \emph{Terrain Components}.
 Function uses output of \code{\link[LUMP]{area2catena}}. However, no GRASS
      session needs to be started in this case.
 
+     After applying \code{recl_lu} the resulting landscape units raster map in your GRASS
+     location might show gaps depending on the number of generated landscape units
+     as each landscape unit refers to the representative EHA. The gaps can be filled
+     with GRASS function \code{r.grow}.
+
      TODO:\cr
        - \code{classify_type} 'load'\cr
 }

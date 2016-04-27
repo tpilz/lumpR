@@ -64,6 +64,11 @@
 #' @note Function uses output of \code{\link[LUMP]{area2catena}}. However, no GRASS
 #'      session needs to be started in this case.
 #'      
+#'      After applying \code{recl_lu} the resulting landscape units raster map in your GRASS
+#'      location might show gaps depending on the number of generated landscape units
+#'      as each landscape unit refers to the representative EHA. The gaps can be filled
+#'      with GRASS function \code{r.grow}. 
+#'      
 #'      TODO:\cr
 #'        - \code{classify_type} 'load'\cr
 #'
@@ -293,8 +298,76 @@ if (any(too_short)) {
   
   
   
+  
+  # do RESAMPLING of profiles and store resampled profiles
+  for (i in 1:length(profs)) {
+    # current relative location of sampling points on the scale [0:com_lengths-1]
+    cur_x <- profsx[[i]]/proflengths[i]*(com_length-1)
+    
+    # resample to common length
+    p_new <- approx(cur_x,profs[[i]],0:(com_length-1))$y
+    # set foot of profile to zero elevation
+    p_new <- p_new-p_new[1]
+    
+    # amplitude of profile will be scaled to 1
+    d <- max(p_new[1:com_length]) - min(p_new[1:com_length])
+    if(d==0) {
+      message('')
+      warning(paste('Warning: Profile ', p_id_unique[i], ' has no elevation gain (runs flat)', sep=""))
+      p_new[1:com_length] <- 0
+    } else {
+      # normalize profile in elevation (ie. normally, top end at elevation = 1)
+      p_new <- p_new / d
+    }
+    
+    # append the dimension components, unweighted
+    profs_resampled_stored[i,1:(com_length+2)] <- c(p_new, proflengths[i], profheights[i])
+    
+    # treat supp_data if present (resample, weigh and add to profile vector to be included in cluster analysis)
+    if (n_suppl_attributes) {
+      #retrieve all supplemental data for this profile
+      p_supp <- supp_data[which(p_id==p_id_unique[i]),]
+      all_na <- apply(p_supp,2,function(x) all(is.na(x)))
+      if (any(all_na))
+      {  
+        if (make_plots)
+          dev.off() #close PDF output
+        
+        na_attributes = names(datacolumns[-(1:3)])[unique(sapply (X = which(all_na), function(x) min(which(cumsum(datacolumns[-(1:3)]) >= x))))] #names of attributes with all NAs
+        stop(paste0("Error: EHA ", p_id_unique[i]," has only NAs for attribute(s) ", paste0(na_attributes, collapse=", "),". Most likely a result of insufficient map coverage. Fix coverage, remove this attribute or replace NAs manually."))
+      }
+      
+      # resample supplemental data to common resolution and store the results in a temporary vector
+      p_supp_resampled_temp <- apply(p_supp,2,function(x) approx(cur_x, x, 0:(com_length-1))$y)
+      
+      profs_resampled_stored[i,(com_length+3):(com_length+2+com_length*n_supp_data_columns)] <- as.vector(p_supp_resampled_temp)
+    }
+    
+  } # end resamling profiles
+  
+  # save memory
+  rm(supp_data)
+  
+  
+  # PLOT modified (resampled) profiles
+  if (make_plots) {
+    profs_resampled_plot <- matrix(0, nrow=length(profs), ncol=com_length*datacolumns[1])
+    for (i in 1:length(profs))
+      profs_resampled_plot[i,1:(com_length)] <- profs_resampled_stored[i,1:com_length]
+    plot(1,1,type="n", xlim=c(0,com_length-1), ylim=c(0,1),
+         main="catenas, resampled, reduced & normalized", xlab="catena point number", ylab="relative elevation")
+    for (i in 1:nrow(profs_resampled_plot)) {
+      lines(0:(com_length-1), profs_resampled_plot[i,])
+    }
+  }
+  
+
+  
+  
+  
   # classification loop through all attributes
-  cidx_save <- NULL # initialise list to store classification results
+  cidx_save <- list(NULL) # initialise list to store classification results
+  hc <- 0
   while (iw <= iw_max) {
     
     
@@ -343,64 +416,8 @@ if (any(too_short)) {
       
       message('')
       message(paste("successive clustering loop, treating attribute '", attr_names[iw], "' (", iw-(iw>2), "/", length(attr_names)-1, ")", sep="")) 
+      hc <- hc+1
     } # end cases of cf_mode 'successive'/'singlerun'
-    
-    
-    
-    
-    # first run, do RESAMPLING and store resampled profiles
-    if (iw==1) {
-      
-      # do resampling for all profiles
-      for (i in 1:length(profs)) {
-        
-        # current relative location of sampling points on the scale [0:com_lengths-1]
-        cur_x <- profsx[[i]]/proflengths[i]*(com_length-1)
-        
-        # resample to common length
-        p_new <- approx(cur_x,profs[[i]],0:(com_length-1))$y
-        # set foot of profile to zero elevation
-        p_new <- p_new-p_new[1]
-        
-        # amplitude of profile will be scaled to 1
-        d <- max(p_new[1:com_length]) - min(p_new[1:com_length])
-        if(d==0) {
-          message('')
-          warning(paste('Warning: Profile ', p_id_unique[i], ' has no elevation gain (runs flat)', sep=""))
-          p_new[1:com_length] <- 0
-        } else {
-          # normalize profile in elevation (ie. normally, top end at elevation = 1)
-          p_new <- p_new / d
-        }
-        
-        # append the dimension components, unweighted
-        profs_resampled_stored[i,1:(com_length+2)] <- c(p_new, proflengths[i], profheights[i])
-        
-        # treat supp_data if present (resample, weigh and add to profile vector to be included in cluster analysis)
-        if (n_suppl_attributes) {
-          #retrieve all supplemental data for this profile
-          p_supp <- supp_data[which(p_id==p_id_unique[i]),]
-          all_na <- apply(p_supp,2,function(x) all(is.na(x)))
-          if (any(all_na))
-          {  
-            dev.off() #close PDF output
-            na_attributes = names(datacolumns[-(1:3)])[unique(sapply (X = which(all_na), function(x) min(which(cumsum(datacolumns[-(1:3)]) >= x))))] #names of attributes with all NAs
-            stop(paste0("Error: EHA ", p_id_unique[i]," has only NAs for attribute(s) ", paste0(na_attributes, collapse=", "),". Most likely a result of insufficient map coverage. Fix coverage, remove this attribute or replace NAs manually."))
-          }
-          
-          # resample supplemental data to common resolution and store the results in a temporary vector
-          p_supp_resampled_temp <- apply(p_supp,2,function(x) approx(cur_x, x, 0:(com_length-1))$y)
-          
-          profs_resampled_stored[i,(com_length+3):(com_length+2+com_length*n_supp_data_columns)] <- as.vector(p_supp_resampled_temp)
-        }
-        
-      } # end resamling profiles
-      
-      # save memory
-      rm(supp_data)
-      
-    } # all profile and supplemental data resampled
-    
     
     
     
@@ -474,20 +491,6 @@ if (any(too_short)) {
       } # end treat suppl data   
       
     } # end weighting
-    
-    
-    
-    
-    # PLOT modified (resampled) profiles
-    if (make_plots && (cf_mode=='singlerun') || iw==1) {
-      profs_resampled_plot <- profs_resampled
-      plot(1,1,type="n", xlim=c(0,com_length-1), ylim=c(0,1),
-           main="catenas, resampled, reduced & normalized", xlab="catena point number", ylab="relative elevation")
-      for (i in 1:nrow(profs_resampled_plot)) {
-        lines(0:(com_length-1), profs_resampled_plot[i,])
-      }
-    }
-    
     
     
     
@@ -691,13 +694,15 @@ if (any(too_short)) {
   dumstr <- paste('LU-ID', tab, 'closest_catena', tab, 'closest_dist', tab, 'x_length', tab, 'y_length', sep="")
   
   # write header fields for calculated TC-limits, minimisation of variance
-  for (i in 1:(ntc-1)) {
-    dumstr <- paste(dumstr, tab, 'lim_var', i, sep="")
-  }
-  
-  # write header fields for calculated TC-limits, cluster analysis
-  for (i in 1:(ntc-1)) {
-    dumstr <- paste(dumstr, tab, 'lim_clu', i, sep="")
+  if (ntc > 1) {
+    for (i in 1:(ntc-1)) {
+      dumstr <- paste(dumstr, tab, 'lim_var', i, sep="")
+    }
+    
+    # write header fields for calculated TC-limits, cluster analysis
+    for (i in 1:(ntc-1)) {
+      dumstr <- paste(dumstr, tab, 'lim_clu', i, sep="")
+    }
   }
   
   # write header for all attributes
@@ -773,6 +778,12 @@ if (any(too_short)) {
   # decomposition into TCs
   cluster_centers <- matrix(NA, nrow=nclasses, ncol=ncol(profs_resampled_stored)) # initialise matrix for cluster centers for each class
   lu_contains_tc <- NULL
+  message('')
+  message('start decomposition of TCs')
+  if (attr_weights_partition[1]==1) {
+    message('')
+    message('only one TC per LU will be produced; not much to do, no partition plots will be produced')
+  }
   # decompose / partition the mean profile of each class
   for (i in 1:nclasses) {
     message('')
@@ -1126,6 +1137,7 @@ if (any(too_short)) {
 write.table(file=paste(dir_out,"lu_labels.dat",sep="/"), x=data.frame(no=1:nclasses, lu_labels=lu_labels), append=F, row.names=FALSE, quote=FALSE, sep=tab) #label file
   
   # close plot output device
+if (make_plots)
   dev.off()
   
   
@@ -1142,10 +1154,11 @@ write.table(file=paste(dir_out,"lu_labels.dat",sep="/"), x=data.frame(no=1:nclas
   
   # write LU contains TC files
   colnames(lu_contains_tc) <- c("lu_id", "tc_id", "fraction", "position", "slope")
-  write.table(lu_contains_tc[,-5], file=paste(dir_out,lucontainstcoutfile,sep="/"), quote=F, col.names=T, row.names=F, sep=tab)
+  lu_contains_out <- matrix(lu_contains_tc[,-5], ncol=4, dimnames=list(NULL, colnames(lu_contains_tc)[-5])) # ensure matrix if even if only one row exists
+  write.table(lu_contains_out, file=paste(dir_out,lucontainstcoutfile,sep="/"), quote=F, col.names=T, row.names=F, sep=tab)
   
   tc_dat <- cbind(lu_contains_tc[,2], rep("NA",nrow(lu_contains_tc)), round(lu_contains_tc[,5],2), rep(NA,nrow(lu_contains_tc)), rep(NA,nrow(lu_contains_tc)), rep(NA,nrow(lu_contains_tc)))
-  colnames(tc_dat) <- c("pid", "descr", "slope", "frac_rocky", "beta_fac", "sdr")
+  colnames(tc_dat) <- c("pid", "description", "slope", "frac_rocky", "beta_fac", "sdr")
   write.table(tc_dat, file=paste(dir_out,terraincomponentsoutfile,sep="/"), quote=F, col.names=T, row.names=F, sep=tab)
   
   
