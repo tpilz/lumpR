@@ -1,8 +1,8 @@
 Package: LUMP
 Type: Package
 Title: Landscape Unit Mapping Program
-Version: 1.3.0
-Date: 2016-04-27
+Version: 1.4.1
+Date: 2016-07-22
 Authors@R: c(person("Tobias", "Pilz", email="tpilz@uni-potsdam.de", 
 																		role=c("aut", "cre", "cph")),
 							person("Till", "Francke", email="francke@uni-potsdam.de",

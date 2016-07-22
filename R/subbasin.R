@@ -25,27 +25,34 @@
 #'      close to boundaries may occur.
 #' @param drain_points \code{SpatialPoints} object containing drainage locations in
 #'      units of and compliant with the projection of your respective GRASS location.
+#'      At least the watershed drainage point has to be given.
 #' @param river River vector map in GRASS location if available. If set to \code{NULL}
 #'      (default value) river network will be calculation by GRASS function \emph{r.watershed}.
 #' @param basin_out Output: Name of subbasins raster map exported into GRASS location.
 #' @param stream Output: Prefix of calculated stream segments vector (<stream>_vect) and
 #'      raster (<stream>_rast) maps exported into GRASS location. Only generated if
 #'      \code{river} is not set. Default: \code{NULL}.
-#' @param points_snap Output: Point vector file of \code{drain_points} snapped to river
-#'      exported to GRASS location.
+#' @param points_processed Output: Prefix of point vector files exported to GRASS location.
+#'      \code{<points_processed>_snap} are given \code{drain_points} snapped to river.
+#'      \code{<points_processed>_calc} are internally calculated drain points (only if
+#'      parameter \code{thresh_sub} is not \code{NULL}, see below).
 #' @param outlet Integer (row number) defining the catchment outlet in \code{drain_points}.
 #'      If there are \code{drain_points} outside the watershed delineated for the
-#'      outlet point these will be omitted.
+#'      outlet point these will be omitted. If \code{NULL} (default) and \code{drain_points}
+#'      contains only one point this will be assumed as catchment outlet.
 #' @param thresh_stream Integer defining threshold for stream calculation. Raster
 #'      cells in accumulation map with values greater than thresh_stream are
 #'      considered as streams. Needs to be set only if \code{river} is not set.
 #'      Default: \code{NULL}.
+#' @param thresh_sub Integer defining threshold for subbasin calculation. Parameter for
+#'      GRASS function \emph{r.watershed} defining the minimum size of an exterior
+#'      watershed basin in number of grid cells. If \code{NULL} (default) only the
+#'      given drainage points are used for subbasin delineation.
 #' @param snap_dist Integer defining maximum distance for snapping of \code{drain_points}
 #'      to stream segments in units of your GRASS location.
-#' @param keep_temp \code{logical}. Set to \code{TRUE} if, in case of an runtime error,
-#'      temporary files should be kept in the GRASS location, i.e. for debugging.
-#'      Default: \code{FALSE}.
-#' @param override \code{logical}. Shall output of previous calls of this function be
+#' @param keep_temp \code{logical}. Set to \code{TRUE} if temporary files shall be kept
+#'      in the GRASS location, e.g. for debugging or further analyses. Default: \code{FALSE}.
+#' @param overwrite \code{logical}. Shall output of previous calls of this function be
 #'      deleted? If \code{FALSE} the function returns an error if output already exists.
 #'      Default: \code{FALSE}.
 #' @param silent \code{logical}. Shall the function be silent (also suppressing warnings
@@ -64,32 +71,58 @@
 #'      Check the results (subbasins and snapped points). In case points have been snapped
 #'      to the wrong stream segment, adjust point locations manually in GRASS and re-run
 #'      the function with the updated locations (use \code{\link[spgrass6]{readVECT6}}
-#'      to import the updated drainage points).
+#'      to import the updated drainage points). Also check that calculated subbasins and
+#'      those delineated based on given \code{drain_points} do not interfere (e.g.
+#'      resulting in very small spurious subbasins).
+#'      
+#'      Generated raster and vector stream maps might slightly deviate from each other
+#'      as the raster map is thinned (GRASS function \emph{r.thin}) prior to conversion
+#'      to a vector map to ensure strictly linear features.
 #' 
 #' @author Tobias Pilz \email{tpilz@@uni-potsdam.de}
 #' 
 #' @export
 calc_subbas <- function(
   ### INPUT ###
-  dem,
-  drain_points,
+  dem=NULL,
+  drain_points=NULL,
   river=NULL,
   
   ### OUTPUT ###
-  basin_out,
+  basin_out=NULL,
   stream=NULL,
-  points_snap,
+  points_processed=NULL,
   
   ### PARAMETER ###
-  outlet,
+  outlet=NULL,
   thresh_stream=NULL,
-  snap_dist,
+  thresh_sub=NULL,
+  snap_dist=NULL,
   keep_temp=F,
-  override=F,
+  overwrite=F,
   silent=F
-  
 ) {
 
+### PREPROCESSING ###
+  
+  # CHECKS #
+  if(is.null(dem))
+    stop("The name of a DEM within the mapset of your initialised GRASS session has to be given!")
+  if(is.null(drain_points) | !grepl("SpatialPoints", class(drain_points)))
+    stop("drain_points has to be given as SpatialPoints object with at least one catchment outlet point!")
+  if(is.null(river) & (is.null(thresh_stream | is.null(stream))))
+    stop("If no river object is given, stream as name prefix for the generated stream maps and the parameter thresh_stream have to be specified for internal calculation of the river network!")
+  if(is.null(basin_out))
+    stop("You have to specify basin_out as name for the subbasin map to be generated!")
+  if(is.null(points_processed))
+    stop("You have to specify points_processed!")
+  if(!is.numeric(snap_dist))
+    stop("You have to specify snap_dist as a number!")
+  if(is.null(outlet) & (nrow(drain_points) > 1))
+    stop("You have to give 'outlet' if the given number of drain_points is greater than one!")
+  
+  
+  # CLEAN UP AND RUNTIME OPTIONS #  
   # suppress annoying GRASS outputs
   tmp_file <- file(tempfile(), open="wt")
   sink(tmp_file, type="output")
@@ -101,7 +134,9 @@ calc_subbas <- function(
     oldw <- getOption("warn")
     options(warn = -1)
   }
-    
+  
+
+### CALCULATIONS ###
   tryCatch({
     
     message("\nInitialise function...\n")
@@ -109,13 +144,13 @@ calc_subbas <- function(
     # remove mask if there is any
     execGRASS("r.mask", flags=c("r"))
     
-    # remove output of previous function calls if override=T
-    if (override) {
-      execGRASS("g.mremove", rast=paste0("*_t,",stream,"_rast,", basin_out), vect=paste0(stream,"_vect,", points_snap), flags=c("f"))
+    # remove output of previous function calls if overwrite=T
+    if (overwrite) {
+      execGRASS("g.mremove", rast=paste0("*_t,",stream,"_rast,", basin_out), vect=paste0(stream,"_vect,*_t,", points_processed, "_snap,", points_processed, "_calc"), flags=c("f"))
+    } else {
+      # remove temporary maps in any case
+      execGRASS("g.mremove", rast="*_t", vect="*_t", flags=c("f"))
     }
-    
-    # remove temporary maps in any case
-    execGRASS("g.mremove", rast="*_t", flags=c("f"))
     
     
   ### calc stream segments or use user defined input
@@ -131,34 +166,77 @@ calc_subbas <- function(
       # convert to vector
       execGRASS("r.to.vect", input=paste0(stream, "_thin_t"), output=paste0(stream, "_vect"), feature="line")
       river <- paste0(stream, "_vect")
+      
     } else {
       message("\nCalculate drainage...\n")
       execGRASS("r.watershed", elevation=dem, drainage="drain_t")
     }
     
     
+    
+  ### Calculate subbasins without given drainage points (optional)
+    if(is.numeric(thresh_sub)) {
+      message("\nCalculate subbasins based on given area threshold...\n")
+      
+      # calculate subbasins
+      execGRASS("r.watershed", elevation=dem, basin="basin_calc_t", threshold=thresh_sub)
+    }
+    
   ### snap given drainage points to streams
     message("\nSnap given drainage points to streams...\n")
+    
     # read stream vector
     streams_vect <- readVECT6(river)
-    
-    # transform lonlat coordinates of drainage points to CRS of streams_vect
-#     coordinates(drain_points) <- c("x", "y")
-#     projection(drain_points) <- CRS(projection(river))
   
     # snap points to streams
     drain_points_snap <- snapPointsToLines(drain_points, streams_vect, maxDist=snap_dist)
     if (length(drain_points_snap) < length(drain_points)) stop("Less points after snaping than in drain_points input!\nComputed stream segmets probably are too coarse. Try different parameter values.")
     
     # export drain_points_snap to GRASS
-    writeVECT6(drain_points_snap, points_snap)
+    writeVECT6(drain_points_snap, paste0(points_processed, "_snap"))
+    
     
   ### calculate catchments for every drainage point
     message("\nCalculate catchments for every drainage point...\n")
+    
     # watershed for the defined outlet
     outlet_coords <- coordinates(drain_points_snap)[outlet,]
     execGRASS("r.water.outlet", drainage="drain_t", basin=paste0("basin_outlet_t"),
           easting=as.character(outlet_coords[["X"]]), northing=as.character(outlet_coords[["Y"]]))
+    
+    
+    # get drainage points of calculated subbasins (optional)
+    if(is.numeric(thresh_sub)) {
+      # set watershed of outlet point as mask
+      execGRASS("r.mask", input="basin_outlet_t")
+      
+      # get for each calculated subbasin the maximum accumulation value
+      cmd_out <- execGRASS("r.univar", map="accum_t", zones="basin_calc_t", fs="comma", flags = c("t"), intern=T)
+      cmd_out <- strsplit(cmd_out, ",")
+      cmd_cols <- grep("zone|max", cmd_out[[1]])
+      sub_maxacc <- do.call(rbind, cmd_out)[-1,cmd_cols]
+
+      # get outlet coordinates for every subbasin based on maximum accumulation value
+      execGRASS("r.mapcalculator", amap="accum_t", bmap="basin_calc_t", outfile="drain_sub_t",
+                formula=paste("( (A * (B == ", sub_maxacc[,1], ")) == ", sub_maxacc[,2], ")", sep="", collapse="||"))
+      execGRASS("r.null", map="drain_sub_t", setnull="0")
+      
+      # convert to vector map
+      execGRASS("r.to.vect", input="drain_sub_t", output=paste0(points_processed, "_calc"), feature="point")
+      
+      # read vector map
+      drain_points_calc <- readVECT6(paste0(points_processed, "_calc"))
+      
+      # properly match projection
+      projection(drain_points_calc) <- getLocationProj()
+      
+      # merge with existing drain points object (snapped points first as there the outlet is identified)
+      drain_points_snap <- rbind(drain_points_snap[,1], drain_points_calc[,1])
+      
+      # remove mask
+      execGRASS("r.mask", flags=c("r"))
+    }
+    
 
     # loop over drainage points
     i <- 0
@@ -179,12 +257,16 @@ calc_subbas <- function(
                 formula=paste0("if(A,",i, ")"))
       
     }
-    no_catch <- i
+    if(is.numeric(thresh_sub))
+      no_catch <- i-1 # outlet is counted two times (once by *_snap and once by *_calc)
+    else
+      no_catch <- i
   
     
   ### merge all sub-catchments
     message("\nMerge calculated catchments...\n")
-    # put sub-catcments together
+    
+    # put sub-catchments together
     subcatch_rasts <- execGRASS("g.mlist", type="rast", pattern=paste0("basin_recl_[0-9]*_t"), intern=T)
     subcatch_rasts <- c(subcatch_rasts, "basin_outlet_t")
 
@@ -230,18 +312,29 @@ calc_subbas <- function(
     execGRASS("r.null", map=basin_out, setnull="0")
     
     no_cross <- length(execGRASS("r.stats", input=basin_out, flags=c("n"), intern=T))
-    if(no_catch != no_cross) warning(paste0("Number of categories in ", basin_out, " not equal to number of drainage points!\nThis might be because there are drainage points outside the catcment of the defined outlet. However, you should check the output!"))
+    if(no_catch != no_cross) warning(paste0("\nNumber of categories in ", basin_out, " not equal to number of drainage points!\nThis might be because there are drainage points outside the catchment of the defined outlet or due to small inconsistencies between calculated and manually defined (and snapped) drainage points. However, you should check the output with the GRASS GUI and consider the help pages of this function!"))
     
     # remove temporary maps
-    execGRASS("g.mremove", rast="*_t", flags=c("f"))
+    if(keep_temp == FALSE)
+      execGRASS("g.mremove", rast="*_t", flags=c("f"))
     
     
-
+    
     message("\nFinished.\n\n", 
             "Check the results for plausibility (e.g. inaccuracies at snapping of drain_points to streams may occur). ",
             "If manual adjustments are necessary re-run the function for re-calculation of subbasins.\n")
+    
+    
+    # stop sinking
+    closeAllConnections()
+    
+    # restore original warning mode
+    if(silent)
+      options(warn = oldw)
 
 
+    
+    
   # exception handling
   }, error = function(e) {
     
@@ -252,17 +345,13 @@ calc_subbas <- function(
     if(silent)
       options(warn = oldw)
     
+    execGRASS("r.mask", flags=c("r"))
+    
     if(keep_temp == FALSE)
-      execGRASS("g.mremove", rast=paste0("*_t,",stream,"_rast,", basin_out), vect=paste0(stream,"_vect,", points_snap), flags=c("f"))
+      execGRASS("g.mremove", rast=paste0("*_t,",stream,"_rast,", basin_out), vect=paste0(stream,"_vect,*_t,", points_processed, "_*"), flags=c("f"))
     
     stop(paste(e))  
   })
   
-  # stop sinking
-  closeAllConnections()
-  
-  # restore original warning mode
-  if(silent)
-    options(warn = oldw)
 
 } # EOF
