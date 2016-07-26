@@ -1,5 +1,5 @@
 # LUMP/lump_grass_prep.R
-# Copyright (C) 2014,2015 Tobias Pilz
+# Copyright (C) 2014,2015,2016 Tobias Pilz
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,26 +17,22 @@
 
 #' Pre-processing for Landscape Unit deviation using GRASS GIS
 #' 
-#' Takes raster data from a GRASS location and calculates further raster data
-#' using GRASS functions needed for Landscape Unit deviation.
+#' Takes raster data from a GRASS location and calculates elementary hillslopes,
+#' soil-vegetation-components, and Horton stream order using GRASS functions
+#' needed for further Landscape Unit deviation.
 #' 
 #' @param mask Mask in GRASS location defining the catchment area. E.g. subbasin raster map.
 #' @param dem Digital elevation model in GRASS location used for delineation of
 #'      environmental hillslope areas. Should be larger than the expected catchment,
 #'      otherwise artefacts close to boundaries may occur.
-#' @param lcov Landcover / vegetation raster map in GRASS location. Must NOT contain
-#'      labels!
-#' @param soil Soil raster map in GRASS location. Must NOT contain labels!
+#' @param lcov Landcover / vegetation raster map in GRASS location.
+#' @param soil Soil raster map in GRASS location.
 #' @param watermask Raster in GRASS location masking water surfaces (value '1') from
 #'      other areas (value '0'). Map is used for \code{svc} creation such that a
 #'      \code{svc} is completely covered with water ('special_area' in \code{svc_ofile}
 #'      equal to 1) or contains no water surface. Default: \code{NULL}.
 #' @param imperviousmask The same as for \code{watermask} but for impervious (e.g. urban
 #'      and/or rocky) areas. 'special_area' flag in \code{svc_ofile} equal to 2.
-#' @param r_stream_distance Character string with path to installation of GRASS
-#'      function \emph{r.stream.distance} if needed (see \code{Note}).
-#' @param r_stream_order Character string with path to installation of GRASS
-#'      function \emph{r.stream.order} if needed (see \code{Note}).
 #' @param eha Output: Name of Environmental Hillslope Areas (EHA) raster map
 #'      exported into GRASS location.
 #' @param flowdir Output: Name of flow direction raster map exported into GRASS
@@ -62,12 +58,23 @@
 #'      'special_area' flag values of 1 for water areas, 2 for impervious areas and
 #'      0 in case it is an ordinary SVC are defined.
 #' @param eha_thres Integer specifying threshold for delineation of \emph{EHA};
-#'      parameter for GRASS function \emph{r.watershed}.
-#' @param sizefilter Integer specifying minimum size of subbasins (in map units)
-#'      not to be removed, smaller basins (artefacts) are removed; parameter for
+#'      parameter for GRASS function \emph{r.watershed}. This is a crucial parameter
+#'      affecting the size of delineated hillslopes and the degree of detail of the
+#'      landscape discretisation!
+#' @param sizefilter Integer specifying minimum size of EHAs (in map units)
+#'      not to be removed, smaller EHAs (artefacts) are removed; parameter for
 #'      GRASS function \emph{r.reclass.area}.
 #' @param growrad Integer specifying growing radius (in raster cells) to remove
-#'      artefacts in raster data; parameter for GRASS function \emph{r.grow}.
+#'      artefacts in EHA data; parameter for GRASS function \emph{r.grow}.
+#' @param keep_temp \code{logical}. Set to \code{TRUE} if temporary files shall be kept
+#'      in the GRASS location, e.g. for debugging or further analyses. Default: \code{FALSE}.
+#' @param overwrite \code{logical}. Shall output of previous calls of this function be
+#'      deleted? If \code{FALSE} the function returns an error if output already exists.
+#'      Default: \code{FALSE}.
+#' @param silent \code{logical}. Shall the function be silent (also suppressing warnings
+#'      of internally used GRASS functions)? Default: \code{FALSE}.
+#' @param addon_path Charactering string giving the path to your locally installed
+#'      GRASS add-ons. Must only be given if necessary, see \code{Note}.
 #' 
 #' @return Function returns nothing. Output raster files as specified in arguments
 #'      (see above) are written into GRASS location.
@@ -76,15 +83,15 @@
 #'      GRASS session in R using \code{\link[spgrass6]{initGRASS}}.
 #' 
 #'      Make sure that the GRASS functions \emph{r.stream.distance} and \emph{r.stream.order}
-#'      are available in your GRASS installation or add them manually and specify
-#'      the installation path (see \url{http://grasswiki.osgeo.org/wiki/AddOns/GRASS_6#r.stream.distance}).
+#'      are available to your GRASS installation. If not, consider \emph{g.extension} to
+#'      install add-ons. If you installed add-ons locally it might occur that from within R
+#'      the path to add-ons is not recognised. In such a case locate the local installation
+#'      path (in a GRASS terminal use, e.g., \code{which r.stream.distance}) and specify the
+#'      absolute path to add-ons via argument \code{addon_path}. For more information, see also
+#'      \url{http://grasswiki.osgeo.org/wiki/AddOns/GRASS_6}.
 #'      
 #'      See GRASS documentation for further information on GRASS functions and
 #'      parameters.
-#'      
-#'      TODO:\cr
-#'        - check arguments
-#'        - make R detect GRASS addons automatically (some environment variable issue?!)
 #'        
 #' @references Source code based on \code{SHELL} and \code{MATLAB} scripts of Till Francke.
 #' 
@@ -101,56 +108,139 @@ lump_grass_prep <- function(
   
   ### INPUT ###
   # GRASS raster #
-  mask,
-  dem,
-  lcov,
-  soil,
+  mask=NULL,
+  dem=NULL,
+  lcov=NULL,
+  soil=NULL,
   watermask=NULL,
   imperviousmask=NULL,
   
-  # GRASS function #
-  r_stream_distance="r.stream.distance",
-  r_stream_order="r.stream.order",
-  
   # OUTPUT #
-  eha,
-  flowdir,
-  flowacc,
-  stream,
-  stream_horton,
-  elevriv,
-  distriv,
-  mask_corr,
-  svc,
-  dir_out,
-  svc_ofile,
+  eha=NULL,
+  flowdir=NULL,
+  flowacc=NULL,
+  stream=NULL,
+  stream_horton=NULL,
+  elevriv=NULL,
+  distriv=NULL,
+  mask_corr=NULL,
+  svc=NULL,
+  dir_out=NULL,
+  svc_ofile=NULL,
   
   # PARAMETERS #
-  eha_thres,
-  sizefilter,
-  growrad
-  
+  eha_thres=NULL,
+  sizefilter=NULL,
+  growrad=NULL,
+  keep_temp=F,
+  overwrite=F,
+  silent=F,
+  addon_path=NULL
 ) {
+  
+  ### PREPROCESSING ###
+  
+  # CLEAN UP AND RUNTIME OPTIONS #  
+  # suppress annoying GRASS outputs
+  tmp_file <- file(tempfile(), open="wt")
+  sink(tmp_file, type="output")
+  
+  # also supress warnings in silent mode
+  if(silent){
+    tmp_file2 <- file(tempfile(), open="wt")
+    sink(tmp_file2, type="message")
+    oldw <- getOption("warn")
+    options(warn = -1)
+  }
+  
+  
+  # CHECKS #
+  if(is.null(mask))
+    stop("The name of a raster within the mapset of your initialised GRASS session to be used as catchment MASK in GRASS has to be given!")
+  if(is.null(dem))
+    stop("The name of a DEM within the mapset of your initialised GRASS session has to be given!")
+  if(is.null(lcov))
+    stop("The name of a landcover / vegetation raster map within the mapset of your initialised GRASS session has to be given!")
+  if(is.null(soil))
+    stop("The name of a soil raster map within the mapset of your initialised GRASS session has to be given!")
+  if(is.null(eha))
+    stop("A name for the calculated EHA raster map within the mapset of your initialised GRASS session has to be given!")
+  if(is.null(flowdir))
+    stop("A name for the calculated flow direction raster map within the mapset of your initialised GRASS session has to be given!")
+  if(is.null(flowacc))
+    stop("A name for the calculated flow accumulation raster map within the mapset of your initialised GRASS session has to be given!")
+  if(is.null(stream))
+    stop("A name for the calculated stream segments raster map within the mapset of your initialised GRASS session has to be given!")
+  if(is.null(stream_horton))
+    stop("A name for the calculated Horton stream order raster map within the mapset of your initialised GRASS session has to be given!")
+  if(is.null(elevriv))
+    stop("A name for the calculated relative elevation raster map within the mapset of your initialised GRASS session has to be given!")
+  if(is.null(distriv))
+    stop("A name for the calculated distance to river raster map within the mapset of your initialised GRASS session has to be given!")
+  if(is.null(mask_corr))
+    stop("A name for the corrected raster MASK within the mapset of your initialised GRASS session has to be given!")
+  if(is.null(svc))
+    stop("A name for the calculated soil-vegetation-components raster map within the mapset of your initialised GRASS session has to be given!")
+  if(is.null(dir_out))
+    stop("An output directory has to be specified!")
+  if(is.null(svc_ofile))
+    stop("A name for the file containing the calculated SVC parameters has to be given!")
+  if(!is.numeric(eha_thres))
+    stop("You have to specify eha_thres as a number!")
+  if(!is.numeric(sizefilter))
+    stop("You have to specify sizefilter as a number!")
+  if(!is.numeric(growrad))
+    stop("You have to specify growrad as a number!")
+  
+  # add slash to end of addon_path if necessary
+  if(!is.null(addon_path))
+    if(substr(addon_path, nchar(addon_path), nchar(addon_path)) != "/")
+      addon_path <- paste0(addon_path, "/")
+  
+  
+  
+  
   
   ### CALCULATIONS ###
   tryCatch({
-    message("START hydrological preprocessing for LUMP using GRASS.")
-    message("")
+    message("\nSTART hydrological preprocessing for LUMP using GRASS...\n")
     
     # create output directory
     dir.create(dir_out, recursive=T)
     
     # check output directory
-    if (file.exists(paste(dir_out,svc_ofile,sep="/"))) 
-      stop(paste0("In output directory '", dir_out, "' the file '", svc_ofile, " already exists!"))
+    if (!overwrite & file.exists(paste(dir_out,svc_ofile,sep="/"))) 
+      stop(paste0("In output directory '", dir_out, "' the file '", svc_ofile, "' already exists!"))
     
     
     # remove mask if any
     execGRASS("r.mask", flags=c("r"))
     
+    # remove output of previous function calls if overwrite=T
+    if (overwrite) {
+      execGRASS("g.mremove", rast=paste("*_t,*_t1,*_t2", eha, flowdir, flowacc, stream, stream_horton, elevriv, distriv, mask_corr, svc, sep=","), flags=c("f"))
+    } else {
+      # remove temporary maps in any case
+      execGRASS("g.mremove", rast="*_t,*_t1,*_t2", flags=c("f"))
+    }
+    
     
     
     # EHA #
+    message("\nCalculate and process EHAs...\n")
+    
+    # check of lcov or soil contains labels and create temporary map without labels if necessary
+    lens <- sapply(unlist(execGRASS("r.category", map=soil, fs=",", intern=T)), function(x) length(unlist(strsplit(x,","))))
+    if(any(lens>1)) {
+      execGRASS("r.mapcalculator", amap=soil, outfile=paste0(unlist(strsplit(soil, "@"))[1], "_t"), formula="A*1")
+      soil <- paste0(unlist(strsplit(soil, "@"))[1], "_t")
+    }
+    lens <- sapply(unlist(execGRASS("r.category", map=lcov, fs=",", intern=T)), function(x) length(unlist(strsplit(x,","))))
+    if(any(lens>1)) {
+      execGRASS("r.mapcalculator", amap=lcov, outfile=paste0(unlist(strsplit(lcov, "@"))[1], "_t"), formula="A*1")
+      lcov <- paste0(unlist(strsplit(lcov, "@"))[1], "_t")
+    }
+    
     # calculate EHA etc.
     execGRASS("r.watershed", elevation=dem, threshold=eha_thres, half.basin="eha_t1", stream=stream,
               accumulation="flow_accum_t", drainage=flowdir)
@@ -183,25 +273,18 @@ lump_grass_prep <- function(
       stop("There are still gaps in the subbasin and/or EHA raster maps after growing. Try to increase growrad and run again.")
     }
 
-    # calculate Horton stream order (works only for non-thinned stream segments!)
-    execGRASS("g.region", rast=flowdir) # complains about defiation in resolution of flowdir although it is the same as for the region?!
-    execGRASS(r_stream_order, stream=stream, dir=flowdir, horton=stream_horton)
-    
         
     
+    
     # RIVER calculations #
-    # update: commented out as only calculated river network should be used for further calculations
-    #         this ensures compatibility of outputs
-    #if river is not specified calculate river network
-#     if (is.null(river)) {
-#       execGRASS("r.mapcalculator", amap=flowacc, outfile="river_rast", formula=paste("if(A>", river_thres, ",1,0)", sep=""))
-#       river <- "river_rast"
-#       message(paste("River network computed as ", river, ". Control the output and adjust river_thres if necessary.", sep=""))
-#       message("")
-#     } 
+    message("\nCalculate river network and morphological parameters...\n")
+    
+    # calculate Horton stream order (works only for non-thinned stream segments!)
+    execGRASS("g.region", rast=flowdir) # complains about defiation in resolution of flowdir although it is the same as for the region?!
+    execGRASS(paste0(addon_path, "r.stream.order"), stream=stream, dir=flowdir, horton=stream_horton)
     
     # calculate distance to river and relative elevation for each cell
-    execGRASS(r_stream_distance, stream=stream, dir=flowdir, dem=dem, method="downstream", 
+    execGRASS(paste0(addon_path, "r.stream.distance"), stream=stream, dir=flowdir, dem=dem, method="downstream", 
               distance="dist_riv_t", elevation=elevriv)
     
     # get resolution (mean between x and y resolution)
@@ -216,11 +299,12 @@ lump_grass_prep <- function(
     # set new mask as area is slightly smaller afer r.stream.distance
     execGRASS("r.mask", input=mask_corr, flags=c("o"))
     
-    warning(paste("Use output raster '", mask_corr, "' based on '", elevriv, "' as new mask as the catchment usually is slightly smaller after running r.stream.distance.", sep=""))
-    message("")
+
     
     
     # SOIL VEGETATION COMPONENTS #
+    message("\nCalculate soil vegetation components...\n")
+    
     # create soil vegetation components from soil and landcover/vegetation data
     if (!is.null(watermask) & !is.null(imperviousmask)) {
       execGRASS("r.cross", input=paste(soil,lcov,watermask,imperviousmask,sep=","), output=svc)
@@ -270,23 +354,6 @@ lump_grass_prep <- function(
     
     # merge data with output mat
     svc_out[,colnames(svc_cats_mat)] <- svc_cats_mat
-    
-    
-#     # consider water and/or urban masks
-#     if(!is.null(urbanmask)){
-#       # compute statistics
-#       cmd_out <- execGRASS("r.univar", map=urbanmask, zones=svc, fs=",", flags=c("t"), intern=T)
-#       cmd_out <- strsplit(cmd_out, ",")
-#       cmd_out <- matrix(unlist(cmd_out[-1]), ncol=length(cmd_out[[1]]), byrow=T,
-#                         dimnames=list(NULL, cmd_out[[1]]))
-#       # select mean (= fraction of mask values = 1 for each svc)
-#       urban_frac <- matrix(c(as.integer(cmd_out[,"zone"]), as.numeric(cmd_out[,"mean"])), 
-#                            ncol=2, dimnames=list(NULL, c("pid", "urban_frac")))
-#       # merge with output mat
-#       svc_out <- svc_out[,-which(colnames(svc_out) == "urban_frac")]
-#       svc_out <- merge(svc_out, urban_frac, by.x="pid", by.y="pid")
-#     }
-
 
     # write output
     write.table(svc_out, paste(dir_out, svc_ofile, sep="/"), quote=F, sep="\t", row.names=F)
@@ -295,14 +362,39 @@ lump_grass_prep <- function(
 
 
     # remove temp files
-    execGRASS("g.mremove", rast="*_t,*_t1,*_t2", flags=c("f"))
+    if(keep_temp == FALSE)
+      execGRASS("g.mremove", rast="*_t,*_t1,*_t2", flags=c("f"))
     
-    message("DONE!")
+    message("\nDONE!\n")
+    
+    
+    # stop sinking
+    closeAllConnections()
+    
+    # restore original warning mode
+    if(silent)
+      options(warn = oldw)
+    
+    
+    
+    
     
     
     # if an error occurs delete all temporary output
   }, error = function(e) {
-    execGRASS("g.mremove", rast="*_t,*_t1,*_t2", flags=c("f"))
+    
+    # stop sinking
+    closeAllConnections()
+    
+    # restore original warning mode
+    if(silent)
+      options(warn = oldw)
+    
+    execGRASS("r.mask", flags=c("r"))
+    
+    if(keep_temp == FALSE)
+      execGRASS("g.mremove", rast=paste("*_t,*_t1,*_t2", eha, flowdir, flowacc, stream, stream_horton, elevriv, distriv, mask_corr, svc, sep=","), flags=c("f"))
+    
     stop(paste(e))  
   })
   

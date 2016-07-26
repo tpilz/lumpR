@@ -4,11 +4,12 @@
 \alias{lump_grass_prep}
 \title{Pre-processing for Landscape Unit deviation using GRASS GIS}
 \usage{
-lump_grass_prep(mask, dem, lcov, soil, watermask = NULL,
-  imperviousmask = NULL, r_stream_distance = "r.stream.distance",
-  r_stream_order = "r.stream.order", eha, flowdir, flowacc, stream,
-  stream_horton, elevriv, distriv, mask_corr, svc, dir_out, svc_ofile,
-  eha_thres, sizefilter, growrad)
+lump_grass_prep(mask = NULL, dem = NULL, lcov = NULL, soil = NULL,
+  watermask = NULL, imperviousmask = NULL, eha = NULL, flowdir = NULL,
+  flowacc = NULL, stream = NULL, stream_horton = NULL, elevriv = NULL,
+  distriv = NULL, mask_corr = NULL, svc = NULL, dir_out = NULL,
+  svc_ofile = NULL, eha_thres = NULL, sizefilter = NULL, growrad = NULL,
+  keep_temp = F, overwrite = F, silent = F, addon_path = NULL)
 }
 \arguments{
 \item{mask}{Mask in GRASS location defining the catchment area. E.g. subbasin raster map.}
@@ -17,10 +18,9 @@ lump_grass_prep(mask, dem, lcov, soil, watermask = NULL,
 environmental hillslope areas. Should be larger than the expected catchment,
 otherwise artefacts close to boundaries may occur.}
 
-\item{lcov}{Landcover / vegetation raster map in GRASS location. Must NOT contain
-labels!}
+\item{lcov}{Landcover / vegetation raster map in GRASS location.}
 
-\item{soil}{Soil raster map in GRASS location. Must NOT contain labels!}
+\item{soil}{Soil raster map in GRASS location.}
 
 \item{watermask}{Raster in GRASS location masking water surfaces (value '1') from
 other areas (value '0'). Map is used for \code{svc} creation such that a
@@ -29,12 +29,6 @@ equal to 1) or contains no water surface. Default: \code{NULL}.}
 
 \item{imperviousmask}{The same as for \code{watermask} but for impervious (e.g. urban
 and/or rocky) areas. 'special_area' flag in \code{svc_ofile} equal to 2.}
-
-\item{r_stream_distance}{Character string with path to installation of GRASS
-function \emph{r.stream.distance} if needed (see \code{Note}).}
-
-\item{r_stream_order}{Character string with path to installation of GRASS
-function \emph{r.stream.order} if needed (see \code{Note}).}
 
 \item{eha}{Output: Name of Environmental Hillslope Areas (EHA) raster map
 exported into GRASS location.}
@@ -72,37 +66,53 @@ nothing will be overwritten).}
 0 in case it is an ordinary SVC are defined.}
 
 \item{eha_thres}{Integer specifying threshold for delineation of \emph{EHA};
-parameter for GRASS function \emph{r.watershed}.}
+parameter for GRASS function \emph{r.watershed}. This is a crucial parameter
+affecting the size of delineated hillslopes and the degree of detail of the
+landscape discretisation!}
 
-\item{sizefilter}{Integer specifying minimum size of subbasins (in map units)
-not to be removed, smaller basins (artefacts) are removed; parameter for
+\item{sizefilter}{Integer specifying minimum size of EHAs (in map units)
+not to be removed, smaller EHAs (artefacts) are removed; parameter for
 GRASS function \emph{r.reclass.area}.}
 
 \item{growrad}{Integer specifying growing radius (in raster cells) to remove
-     artefacts in raster data; parameter for GRASS function \emph{r.grow}.}
+artefacts in EHA data; parameter for GRASS function \emph{r.grow}.}
+
+\item{keep_temp}{\code{logical}. Set to \code{TRUE} if temporary files shall be kept
+in the GRASS location, e.g. for debugging or further analyses. Default: \code{FALSE}.}
+
+\item{overwrite}{\code{logical}. Shall output of previous calls of this function be
+deleted? If \code{FALSE} the function returns an error if output already exists.
+Default: \code{FALSE}.}
+
+\item{silent}{\code{logical}. Shall the function be silent (also suppressing warnings
+of internally used GRASS functions)? Default: \code{FALSE}.}
+
+\item{addon_path}{Charactering string giving the path to your locally installed
+     GRASS add-ons. Must only be given if necessary, see \code{Note}.}
 }
 \value{
 Function returns nothing. Output raster files as specified in arguments
      (see above) are written into GRASS location.
 }
 \description{
-Takes raster data from a GRASS location and calculates further raster data
-using GRASS functions needed for Landscape Unit deviation.
+Takes raster data from a GRASS location and calculates elementary hillslopes,
+soil-vegetation-components, and Horton stream order using GRASS functions
+needed for further Landscape Unit deviation.
 }
 \note{
 Prepare GRASS location and necessary raster files in advance and start
      GRASS session in R using \code{\link[spgrass6]{initGRASS}}.
 
      Make sure that the GRASS functions \emph{r.stream.distance} and \emph{r.stream.order}
-     are available in your GRASS installation or add them manually and specify
-     the installation path (see \url{http://grasswiki.osgeo.org/wiki/AddOns/GRASS_6#r.stream.distance}).
+     are available to your GRASS installation. If not, consider \emph{g.extension} to
+     install add-ons. If you installed add-ons locally it might occur that from within R
+     the path to add-ons is not recognised. In such a case locate the local installation
+     path (in a GRASS terminal use, e.g., \code{which r.stream.distance}) and specify the
+     absolute path to add-ons via argument \code{addon_path}. For more information, see also
+     \url{http://grasswiki.osgeo.org/wiki/AddOns/GRASS_6}.
 
      See GRASS documentation for further information on GRASS functions and
      parameters.
-
-     TODO:\cr
-       - check arguments
-       - make R detect GRASS addons automatically (some environment variable issue?!)
 }
 \author{
 Tobias Pilz \email{tpilz@uni-potsdam.de}
