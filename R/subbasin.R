@@ -109,7 +109,7 @@ calc_subbas <- function(
   if(is.null(dem))
     stop("The name of a DEM within the mapset of your initialised GRASS session has to be given!")
   if(is.null(drain_points) | !grepl("SpatialPoints", class(drain_points)))
-    stop("drain_points has to be given as SpatialPoints object with at least one catchment outlet point!")
+    stop("drain_points has to be given as SpatialPoints* object with at least one catchment outlet point!")
   if(is.null(river) & (is.null(thresh_stream | is.null(stream))))
     stop("If no river object is given, stream as name prefix for the generated stream maps and the parameter thresh_stream have to be specified for internal calculation of the river network!")
   if(is.null(basin_out))
@@ -118,7 +118,7 @@ calc_subbas <- function(
     stop("You have to specify points_processed!")
   if(!is.numeric(snap_dist))
     stop("You have to specify snap_dist as a number!")
-  if(is.null(outlet) & (nrow(drain_points) > 1))
+  if(is.null(outlet) & (nrow(drain_points@coords) > 1))
     stop("You have to give 'outlet' if the given number of drain_points is greater than one!")
   
   
@@ -146,10 +146,10 @@ calc_subbas <- function(
     
     # remove output of previous function calls if overwrite=T
     if (overwrite) {
-      execGRASS("g.mremove", rast=paste0("*_t,",stream,"_rast,", basin_out), vect=paste0(stream,"_vect,*_t,", points_processed, "_snap,", points_processed, "_calc"), flags=c("f"))
+      execGRASS("g.mremove", rast=paste0("*_t,",stream,"_rast,", basin_out), vect=paste0(stream,"_vect,*_t,", points_processed, "_snap,", points_processed, "_calc"), flags=c("f", "b"))
     } else {
       # remove temporary maps in any case
-      execGRASS("g.mremove", rast="*_t", vect="*_t", flags=c("f"))
+      execGRASS("g.mremove", rast="*_t", vect="*_t", flags=c("f", "b"))
     }
     
     
@@ -192,6 +192,9 @@ calc_subbas <- function(
     drain_points_snap <- snapPointsToLines(drain_points, streams_vect, maxDist=snap_dist)
     if (length(drain_points_snap) < length(drain_points)) stop("Less points after snaping than in drain_points input!\nComputed stream segmets probably are too coarse. Try different parameter values.")
     
+    # df should only contain a cat column
+    drain_points_snap@data <- data.frame(cat=1:nrow(drain_points_snap@data))
+    
     # export drain_points_snap to GRASS
     writeVECT6(drain_points_snap, paste0(points_processed, "_snap"))
     
@@ -230,8 +233,11 @@ calc_subbas <- function(
       # properly match projection
       projection(drain_points_calc) <- getLocationProj()
       
+      # df should only contain a cat column
+      drain_points_calc@data <- data.frame(cat=1:nrow(drain_points_calc@data))
+      
       # merge with existing drain points object (snapped points first as there the outlet is identified)
-      drain_points_snap <- rbind(drain_points_snap[,1], drain_points_calc[,1])
+      drain_points_snap <- rbind(drain_points_snap, drain_points_calc)
       
       # remove mask
       execGRASS("r.mask", flags=c("r"))
@@ -240,13 +246,13 @@ calc_subbas <- function(
 
     # loop over drainage points
     i <- 0
-    for (p in row.names(drain_points_snap)) {
+    for (p in 1:length(drain_points_snap)) {
       i <- i+1
       
       if (i == outlet) next
       
       # outlet coordinates
-      outlet_coords <- coordinates(drain_points_snap)[as.numeric(p),]
+      outlet_coords <- coordinates(drain_points_snap)[p,]
       
       # basin
       execGRASS("r.water.outlet", drainage="drain_t", basin=paste0("basin_", i, "_t"),
@@ -348,7 +354,7 @@ calc_subbas <- function(
     execGRASS("r.mask", flags=c("r"))
     
     if(keep_temp == FALSE)
-      execGRASS("g.mremove", rast=paste0("*_t,",stream,"_rast,", basin_out), vect=paste0(stream,"_vect,*_t,", points_processed, "_*"), flags=c("f"))
+      execGRASS("g.mremove", rast=paste0("*_t,",stream,"_rast,", basin_out), vect=paste0(stream,"_vect,*_t,", points_processed, "_*"), flags=c("f", "b"))
     
     stop(paste(e))  
   })

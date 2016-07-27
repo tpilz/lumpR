@@ -218,10 +218,10 @@ lump_grass_prep <- function(
     
     # remove output of previous function calls if overwrite=T
     if (overwrite) {
-      execGRASS("g.mremove", rast=paste("*_t,*_t1,*_t2", eha, flowdir, flowacc, stream, stream_horton, elevriv, distriv, mask_corr, svc, sep=","), flags=c("f"))
+      execGRASS("g.mremove", rast=paste("*_t,*_t1,*_t2", eha, flowdir, flowacc, stream, stream_horton, elevriv, distriv, mask_corr, svc, sep=","), flags=c("f", "b"))
     } else {
       # remove temporary maps in any case
-      execGRASS("g.mremove", rast="*_t,*_t1,*_t2", flags=c("f"))
+      execGRASS("g.mremove", rast="*_t,*_t1,*_t2", flags=c("f", "b"))
     }
     
     
@@ -363,7 +363,7 @@ lump_grass_prep <- function(
 
     # remove temp files
     if(keep_temp == FALSE)
-      execGRASS("g.mremove", rast="*_t,*_t1,*_t2", flags=c("f"))
+      execGRASS("g.mremove", rast="*_t,*_t1,*_t2", flags=c("f", "b"))
     
     message("\nDONE!\n")
     
@@ -393,7 +393,7 @@ lump_grass_prep <- function(
     execGRASS("r.mask", flags=c("r"))
     
     if(keep_temp == FALSE)
-      execGRASS("g.mremove", rast=paste("*_t,*_t1,*_t2", eha, flowdir, flowacc, stream, stream_horton, elevriv, distriv, mask_corr, svc, sep=","), flags=c("f"))
+      execGRASS("g.mremove", rast=paste("*_t,*_t1,*_t2", eha, flowdir, flowacc, stream, stream_horton, elevriv, distriv, mask_corr, svc, sep=","), flags=c("f", "b"))
     
     stop(paste(e))  
   })
