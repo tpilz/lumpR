@@ -1,5 +1,5 @@
 # LUMP/area2catena.R
-# Copyright (C) 2014,2015 Tobias Pilz, Till Francke
+# Copyright (C) 2014,2015,2016 Tobias Pilz, Till Francke
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -55,6 +55,11 @@
 #' @param ncores Ineger specifying number of cores that should be used for computation.
 #' @param eha_subset NULL or integer vector with subset of EHA ids that shall
 #'      be processed (for debugging and testing).
+#' @param overwrite \code{logical}. Shall output of previous calls of this function be
+#'      deleted? If \code{FALSE} the function returns an error if output already exists.
+#'      Default: \code{FALSE}.
+#' @param silent \code{logical}. Shall the function be silent (also suppressing summary
+#'      after function execution)? Default: \code{FALSE}.
 #'      
 #' @return Function returns nothing. Output files are written into output directory
 #'      as specified in arguments.
@@ -65,12 +70,6 @@
 #'      
 #'      GUIs such as RStudio may not produce some runtime messages (within parallel
 #'      foreach loop).
-#'      
-#'      TODO:\cr
-#'        - check arguments (tests for spatial data already included)\cr
-#'        - in case of problems within the foreach-loop set foreach
-#'          argument \emph{.errorhandling="pass"} and execute \code{str(logdata)} after
-#'          the loop to show error messages
 #'          
 #' @references Source code based on \code{SHELL} and \code{MATLAB} scripts of Till Francke.
 #' 
@@ -87,279 +86,328 @@ area2catena <- function(
   
   ### INPUT ###
   # GRASS raster #
-  flowacc,
-  eha,
-  distriv,
-  elevriv,
+  flowacc=NULL,
+  eha=NULL,
+  distriv=NULL,
+  elevriv=NULL,
   supp_quant=NULL,
   supp_qual=NULL,
   
   # OUTPUT #
   dir_out="./",
-  catena_out,
-  catena_head_out,
+  catena_out=NULL,
+  catena_head_out=NULL,
   
   # PARAMETERS #
   ridge_thresh=1,
-  min_cell_in_slope,
-  min_catena_length,
-  max_riv_dist,
+  min_cell_in_slope=30,
+  min_catena_length=3,
+  max_riv_dist=10,
   plot_catena=F,
   grass_files=F,
   ncores=1,
-  eha_subset=NULL
-  
+  eha_subset=NULL,
+  overwrite=F,
+  silent=F
 ) {
-  ### CALCULATIONS ###
   
-  message("START 'area2catena'.")
-  message("")
+  ### PREPROCESSING ###
+  
+  # CLEAN UP AND RUNTIME OPTIONS #  
+  # suppress annoying GRASS outputs
+  tmp_file <- file(tempfile(), open="wt")
+  sink(tmp_file, type="output")
+  
+  # supress warnings in silent mode
+  if(silent){
+    tmp_file2 <- file(tempfile(), open="wt")
+    sink(tmp_file2, type="message")
+    oldw <- getOption("warn")
+    options(warn = -1)
+  }
   
   
-  # LOAD FILES FROM GRASS #
-  # create output directory
-  dir.create(dir_out, recursive=T)
   
+  # CHECKS #
   # check output directory
-  if (file.exists(paste(dir_out,catena_out,sep="/")) | file.exists(paste(dir_out,catena_head_out,sep="/"))) 
+  if (!overwrite & ( file.exists(paste(dir_out,catena_out,sep="/")) | file.exists(paste(dir_out,catena_head_out,sep="/")) ) ) 
     stop(paste0("In output directory '", dir_out, "' the files '", catena_out, "' and/or '", catena_head_out, "' already exist!"))
   
   if (plot_catena) {
     if(length(dir(paste(dir_out, "plots_area2catena", sep="/"))) != 0)
     {
-      print(paste0("Output directory for plots '", dir_out, "/plots_area2catena/' is not empty, type 'o' to overwrite, all else to abort."))
-      flush.console()
-      ch=readline()
-      if (ch!='o') stop('area2catena aborted.')
+      if (overwrite)
+        file.remove(dir(paste(dir_out, "plots_area2catena", sep="/"), full.names = T))
+      else
+        stop(paste0("Output directory for plots '", dir_out, "/plots_area2catena/' is not empty!"))
     }
     
     dir.create(paste(dir_out, "plots_area2catena", sep="/"), recursive=T)
   }
   
-  # load flow accumulation
-  flowaccum <- readRAST6(flowacc)
-  flowaccum_rast <- raster(flowaccum)
+  # create output directory
+  dir.create(dir_out, recursive=T)
   
-  # load relative elevation
-  relelev <- readRAST6(elevriv)
-  relelev_rast <- raster(relelev)
+  # argument checks
+  if(is.null(flowacc))
+    stop("The name of a flow accumulation raster map within the mapset of your initialised GRASS session has to be given!")
+  if(is.null(eha))
+    stop("The name of a elementary hillslope area raster map within the mapset of your initialised GRASS session has to be given!")
+  if(is.null(distriv))
+    stop("The name of a distance to river raster map within the mapset of your initialised GRASS session has to be given!")
+  if(is.null(elevriv))
+    stop("The name of a relative elevation raster map within the mapset of your initialised GRASS session has to be given!")
+  if(is.null(catena_out))
+    stop("A name for the file containing mean catena information has to be given!")
+  if(is.null(catena_head_out))
+    stop("A name for the meta-information file has to be given!")
   
-  # load distance to river
-  dist2river <- readRAST6(distriv)
-  dist2river_rast <- raster(dist2river)
   
-  # load EHAs
-  eha_in <- readRAST6(eha)
-  eha_rast <- raster(eha_in)
   
-  # load qualitative supplemental data
-  qual_rast <- NULL # initialise object containing all qualitative raster layers
-  supp_data_classnames <- NULL # initialise object containing different classnames per attribute
-  n_supp_data_qual_classes <- NULL # initialise object containing number of classes per attribute
-  if (!is.null(supp_qual)) 
-    supp_qual=supp_qual[supp_qual!=""]
   
-  if (length(supp_qual)==0) supp_qual=NULL
-  if (!is.null(supp_qual)) 
-  {  
+  ### CALCULATIONS ###
+  tryCatch({
+    message("\nSTART 'area2catena'...\n")
     
     
-    for (i in supp_qual) {
+    # LOAD FILES FROM GRASS #
+    message("\nLoad data from GRASS...\n")
+    # load flow accumulation
+    flowaccum <- readRAST6(flowacc)
+    flowaccum_rast <- raster(flowaccum)
+    
+    # load relative elevation
+    relelev <- readRAST6(elevriv)
+    relelev_rast <- raster(relelev)
+    
+    # load distance to river
+    dist2river <- readRAST6(distriv)
+    dist2river_rast <- raster(dist2river)
+    
+    # load EHAs
+    eha_in <- readRAST6(eha)
+    eha_rast <- raster(eha_in)
+    
+    # load qualitative supplemental data
+    qual_rast <- NULL # initialise object containing all qualitative raster layers
+    supp_data_classnames <- NULL # initialise object containing different classnames per attribute
+    n_supp_data_qual_classes <- NULL # initialise object containing number of classes per attribute
+    if (!is.null(supp_qual)) 
+      supp_qual=supp_qual[supp_qual!=""]
+    
+    if (length(supp_qual)==0) supp_qual=NULL
+    if (!is.null(supp_qual)) 
+    {  
+      
+      
+      for (i in supp_qual) {
+        tmp <- readRAST6(i)
+        tmp2 <- raster(tmp)
+        qual_rast <- stack(tmp2, qual_rast)
+        supp_data_classnames[[i]] <- raster::unique(tmp2)
+        n_supp_data_qual_classes <- c(n_supp_data_qual_classes, length(raster::unique(tmp2)))
+      }
+      
+      # convert (at) symbol to point (in case input comes from another GRASS mapset; readRAST6() converts it to point implicitly which causes errors during later processing)
+      supp_qual <- gsub("@", ".", supp_qual)
+      
+      names(n_supp_data_qual_classes) <- supp_qual
+    }  
+    
+    
+    # load quantitative supplemental data
+    quant_rast <- NULL # initialise object containing all quantitative raster layers
+    for (i in rev(supp_quant)) {
       tmp <- readRAST6(i)
       tmp2 <- raster(tmp)
-      qual_rast <- stack(tmp2, qual_rast)
-      supp_data_classnames[[i]] <- raster::unique(tmp2)
-      n_supp_data_qual_classes <- c(n_supp_data_qual_classes, length(raster::unique(tmp2)))
+      quant_rast <- stack(tmp2, quant_rast)
     }
     
     # convert (at) symbol to point (in case input comes from another GRASS mapset; readRAST6() converts it to point implicitly which causes errors during later processing)
-    supp_qual <- gsub("@", ".", supp_qual)
+    supp_quant <- gsub("@", ".", supp_quant)
     
-    names(n_supp_data_qual_classes) <- supp_qual
-  }  
-  
-  
-  # load quantitative supplemental data
-  quant_rast <- NULL # initialise object containing all quantitative raster layers
-  for (i in rev(supp_quant)) {
-    tmp <- readRAST6(i)
-    tmp2 <- raster(tmp)
-    quant_rast <- stack(tmp2, quant_rast)
-  }
-  
-  # convert (at) symbol to point (in case input comes from another GRASS mapset; readRAST6() converts it to point implicitly which causes errors during later processing)
-  supp_quant <- gsub("@", ".", supp_quant)
-  
-  if(exists("tmp"))
-    rm(list=c("tmp","tmp2"))
-  
-  
-  # compare Rasters for extent, no. of rows and cols, CRS, resolution and origin
-  if (!is.null(qual_rast) & !is.null(quant_rast)) {
-    comp_val <- compareRaster(flowaccum_rast, relelev_rast, dist2river_rast, eha_rast, 
-                              qual_rast, quant_rast, res=T, orig=T)
-  } else if(is.null(qual_rast) & !is.null(quant_rast)) {
-    comp_val <- compareRaster(flowaccum_rast, relelev_rast, dist2river_rast, eha_rast, 
-                              quant_rast, res=T, orig=T)
-  } else if(!is.null(qual_rast) & is.null(quant_rast)) {
-    comp_val <- compareRaster(flowaccum_rast, relelev_rast, dist2river_rast, eha_rast, 
-                              qual_rast, res=T, orig=T)
-  } else if(is.null(qual_rast) & is.null(quant_rast)) {
-    comp_val <- compareRaster(flowaccum_rast, relelev_rast, dist2river_rast, eha_rast, 
-                              res=T, orig=T)
-  }
-  
-  
-  if (comp_val) {
-    message("All input data loaded and checked for extent, CRS and resolution successfully.")
-    message("")
-    if(plot_catena) {
-      message(paste0("Plots will be produced and written to '", dir_out, "/plots_area2catena/'."))
-      message("")
+    if(exists("tmp"))
+      rm(list=c("tmp","tmp2"))
+    
+    
+    # compare Rasters for extent, no. of rows and cols, CRS, resolution and origin
+    if (!is.null(qual_rast) & !is.null(quant_rast)) {
+      comp_val <- compareRaster(flowaccum_rast, relelev_rast, dist2river_rast, eha_rast, 
+                                qual_rast, quant_rast, res=T, orig=T)
+    } else if(is.null(qual_rast) & !is.null(quant_rast)) {
+      comp_val <- compareRaster(flowaccum_rast, relelev_rast, dist2river_rast, eha_rast, 
+                                quant_rast, res=T, orig=T)
+    } else if(!is.null(qual_rast) & is.null(quant_rast)) {
+      comp_val <- compareRaster(flowaccum_rast, relelev_rast, dist2river_rast, eha_rast, 
+                                qual_rast, res=T, orig=T)
+    } else if(is.null(qual_rast) & is.null(quant_rast)) {
+      comp_val <- compareRaster(flowaccum_rast, relelev_rast, dist2river_rast, eha_rast, 
+                                res=T, orig=T)
     }
-  } else {
-    stop("ERROR: Loaded input rasters are not of the same extent, no. of rows/cols, CRS, resolution and/or origin!")
-  }
+    
+    
+    if (comp_val) {
+      message("All input data loaded and checked for extent, CRS and resolution successfully.")
+      if(plot_catena) {
+        message(paste0("Plots will be produced and written to '", dir_out, "/plots_area2catena/'."))
+      }
+    } else {
+      stop("ERROR: Loaded input rasters are not of the same extent, no. of rows/cols, CRS, resolution and/or origin!")
+    }
+    
+    
+    
+    
+    
+    # PROCESS EHAs #
+    # get resolution of spatial data
+    xres <- xres(eha_rast)
+    yres <- yres(eha_rast)
+    
+    # identify EHAs
+    eha_ids <- raster::unique(eha_rast)
+    if (!is.null(eha_subset)) eha_ids <- eha_subset
+    
+    # LOOP over EHAs
+    message(paste("\nProcessing ", length(eha_ids), " EHAs. This might take a while depending on catchment size and number of cpu cores.\n", sep=""))
+    if (!is.null(eha_subset)) message("Note that this is just a subset as specified in the argument 'eha_subset'.\n")
+    
+    id <- NULL # to remove "R CMD CHECK ..." Note of "no visible binding for global variable 'id'"
   
+    
+    ##initialize parallelism
+    if (ncores>1)
+    {  
+      if(require(doMC))
+        # register cores
+        registerDoMC(cores=ncores) else
+          if (require(doParallel))
+          {
+            cl <- makePSOCKcluster(ncores) #make cluster, so we can explicitly close it later
+            registerDoParallel(cl)
+          } else
+          {
+            warning("No package for parallel backend (doMC, doParallel) found, reverting to single-core mode")
+            ncores=1
+          }
+    }
+    
+    if (ncores==1) registerDoSEQ() # specify that %dopar% should run sequentially
+    
+    #parallel call using dopar (if no parallel backend is registered, this falls back to serial execution) 
+    # NOTE: in case of problems within the foreach-loop set foreach argument .errorhandling="pass" and execute str(logdata) after the loop to show error messages
+    logdata <- foreach (id = 1:length(eha_ids), .combine=rbind, .errorhandling='remove', .options.multicore=list(silent=FALSE),
+                        .inorder=FALSE, .export="eha_calc") %dopar% {
+      eha_calc(id, eha_ids, eha_rast, flowaccum_rast, dist2river_rast, relelev_rast, supp_quant, supp_qual,
+               n_supp_data_qual_classes, quant_rast, qual_rast, supp_data_classnames,
+               min_cell_in_slope, max_riv_dist, plot_catena, ridge_thresh, min_catena_length,
+               xres,dir_out)
+    }
+    
+    message("Looping over EHAs completed.\n")
+    
+    if (exists("cl")) #close cluster, if existing
+      stopCluster(cl)
+    
+    # check if anything was produced (if NULL an unexpected error might have occured)
+    if(is.null(logdata))
+      stop("Error: No valid EHAs remaining after processing. Something's fishy, check the warnings, eha_subset and coverage of the layers.")
+    
+    logdata = logdata[order(logdata[,1],logdata[,2]),] #sort by ID and distance (ensures consistent ordering even with .inorder=FALSE)
+    
+    # sort out erroneous values and store for diagnostics
+    warn_ehas  <- unique(logdata[logdata$error == 5 | logdata$error == 6 | logdata$error == 7, c(1,ncol(logdata))])
+     
+    erroneous <- (logdata$error > 0 & logdata$error < 5)
+    error_ehas <- logdata[erroneous, c(1,ncol(logdata))]
+    
+    logdata <- logdata[(logdata$error == 0 | logdata$error == 5 | logdata$error == 6 | logdata$error == 7), -ncol(logdata)] #keep only valid rows
+    
+    # check for NAs
+    if(any(is.na(logdata))) {
+      warning(paste("NA values in the output which may crash function 'prof_class'! 
+           This might be caused by NAs in the input rasters. Check file", catena_out))
+    }
+    
+    # write output
+    #out_pre <- mapply(logdata[,c(3:length(logdata))], FUN=function(x) formatC(x, format="f", digits=3))
+    #out_fmt <- cbind(logdata[,c(1,2)], out_pre)
+    #format output to reasonable number of digits
+    logdata <- round(logdata,3)
   
-  
-  # PROCESS EHAs #
-  # get resolution of spatial data
-  xres <- xres(eha_rast)
-  yres <- yres(eha_rast)
-  
-  
-  # identify EHAs
-  eha_ids <- raster::unique(eha_rast)
-  if (!is.null(eha_subset)) eha_ids <- eha_subset
-  
-  # LOOP over EHAs
-  message(paste("Processing ", length(eha_ids), " EHAs. This might take a while depending on catchment size and number of cpu cores.", sep=""))
-  if (!is.null(eha_subset)) message("Note that this is just a subset as specified in the argument 'eha_subset'.")
-  message("")
-  
-  id <- NULL # to remove "R CMD CHECK ..." Note of "no visible binding for global variable 'id'"
-  #   for (curr_id in eha_ids) {
-
-  ##initialize parallelism
-  if (ncores>1)
-  {  
-    if(require(doMC))
-      # register cores
-      registerDoMC(cores=ncores) else
-        if (require(doParallel))
-        {
-          cl <- makePSOCKcluster(ncores) #make cluster, so we can explicitly close it later
-          registerDoParallel(cl)
-        } else
-        {
-          warning("No package for parallel backend (doMC, doParallel) found, reverting to single-core mode")
-          ncores=1
+    write.table(logdata, paste(dir_out,catena_out, sep="/"), col.names=F, row.names=F, quote=F, sep="\t")
+    
+    
+    # WRITE OUTPUT #
+    # write header file
+    write("#This file works as a header to the output of area2catena. Don't add additional headerlines.",
+          file=paste(dir_out,catena_head_out, sep="/"), append=F)
+    write('#1. line after header: description/field names of the data columns contained in the file',
+          file=paste(dir_out,catena_head_out, sep="/"), append=T)
+    write('#2. line after header: specifies, how many columns of data belong to the respective data-field given in line 1',
+          file=paste(dir_out,catena_head_out, sep="/"), append=T)
+    write('#3. line after header: number of classes/ weighting factors in classification process (see LUMPuserman*.rtf for details)',
+          file=paste(dir_out,catena_head_out, sep="/"), append=T)
+    write('#4. line after header: factors used for weighting in partition process (column: 1: number of TC to create; 2.: partition method (not yet used); 3.: not used; 4-nn: weighting of supplemental data in TC-partitioning)',
+          file=paste(dir_out,catena_head_out, sep="/"), append=T)
+    # write attribute names
+    att_names <- c("id", "p_no", "elevation", supp_quant, supp_qual, "slope_width")
+    write(att_names,
+          file=paste(dir_out,catena_head_out, sep="/"), ncolumns=length(att_names), append=T, sep="\t")
+    #write number of columns occupied by each attribute
+    col_no <- c(rep(1,3), rep(1,length(supp_quant)), n_supp_data_qual_classes, 1)
+    write(col_no,
+          file=paste(dir_out,catena_head_out, sep="/"), ncolumns=length(col_no), append=T, sep="\t")
+    #write dummy weighting factors
+    w_no <- rep(0, 3+length(supp_quant)+length(n_supp_data_qual_classes)+1)
+    write(c(w_no, "[adjust weighting factors here and remove this comment]"),
+          file=paste(dir_out,catena_head_out, sep="/"), ncolumns=length(w_no)+1, append=T, sep="\t")
+    write(c(w_no, "[adjust weighting factors here and remove this comment]"),
+          file=paste(dir_out,catena_head_out, sep="/"), ncolumns=length(w_no)+1, append=T, sep="\t")
+    
+    #generate qualitative-data reclassification file
+    #Generate output files for reclassification (input class-IDs vs. internally used IDs)
+    if (grass_files) {
+      for (i in supp_qual) {
+        write(c("new_id", "original_id"),
+              file=paste(dir_out, "/reclass_", i, ".txt", sep=""), ncolumns=2, append=F, sep="\t")
+        for (n in 1:n_supp_data_qual_classes[i]) {
+          write(c(n, supp_data_classnames[[i]][n]),
+                file=paste(dir_out, "/reclass_", i, ".txt", sep=""), ncolumns=2, append=T, sep="\t")
         }
-  }  else
-  ncores=1  
-  
-  if (ncores==1) registerDoSEQ() # specify that %dopar% should run sequentially
-  #parallel call using dopar (if no parallel backend is registered, this falls back to serial execution) 
-  logdata <- foreach (id = 1:length(eha_ids), .combine=rbind, .errorhandling='remove', .options.multicore=list(silent=FALSE),
-                      .inorder=FALSE, .export="eha_calc") %dopar% {
-    eha_calc(id, eha_ids, eha_rast, flowaccum_rast, dist2river_rast, relelev_rast, supp_quant, supp_qual,
-             n_supp_data_qual_classes, quant_rast, qual_rast, supp_data_classnames,
-             min_cell_in_slope, max_riv_dist, plot_catena, ridge_thresh, min_catena_length,
-             xres,dir_out)
-  }
-  
-  message("")
-  message("Looping over EHAs completed.")
-  message("")
-  
-  if (exists("cl")) #close cluster, if existing
-    stopCluster(cl)
-  
-  # check if anything was produced (if NULL an unexpected error might have occured)
-  if(is.null(logdata))
-    stop("Error: No valid EHAs remaining after processing. Something's fishy, check the warnings, eha_subset and coverage of the layers.")
-  
-  logdata = logdata[order(logdata[,1],logdata[,2]),] #sort by ID and distance (ensures consistent ordering even with .inorder=FALSE)
-  
-  # sort out erroneous values and store for diagnostics
-  warn_ehas  <- unique(logdata[logdata$error == 5 | logdata$error == 6 | logdata$error == 7, c(1,ncol(logdata))])
-   
-  erroneous <- (logdata$error > 0 & logdata$error < 5)
-  error_ehas <- logdata[erroneous, c(1,ncol(logdata))]
-  
-  logdata <- logdata[(logdata$error == 0 | logdata$error == 5 | logdata$error == 6 | logdata$error == 7), -ncol(logdata)] #keep only valid rows
-  
-  # check for NAs
-  if(any(is.na(logdata))) {
-    warning(paste("NA values in the output which may crash function 'prof_class'! 
-         This might be caused by NAs in the input rasters. Check file", catena_out))
-  }
-  
-  # write output
-  #out_pre <- mapply(logdata[,c(3:length(logdata))], FUN=function(x) formatC(x, format="f", digits=3))
-  #out_fmt <- cbind(logdata[,c(1,2)], out_pre)
-  #format output to reasonable number of digits
-  logdata <- round(logdata,3)
-
-  write.table(logdata, paste(dir_out,catena_out, sep="/"), col.names=F, row.names=F, quote=F, sep="\t")
-  
-  
-  # WRITE OUTPUT #
-  # write header file
-  write("#This file works as a header to the output of area2catena. Don't add additional headerlines.",
-        file=paste(dir_out,catena_head_out, sep="/"), append=F)
-  write('#1. line after header: description/field names of the data columns contained in the file',
-        file=paste(dir_out,catena_head_out, sep="/"), append=T)
-  write('#2. line after header: specifies, how many columns of data belong to the respective data-field given in line 1',
-        file=paste(dir_out,catena_head_out, sep="/"), append=T)
-  write('#3. line after header: number of classes/ weighting factors in classification process (see LUMPuserman*.rtf for details)',
-        file=paste(dir_out,catena_head_out, sep="/"), append=T)
-  write('#4. line after header: factors used for weighting in partition process (column: 1: number of TC to create; 2.: partition method (not yet used); 3.: not used; 4-nn: weighting of supplemental data in TC-partitioning)',
-        file=paste(dir_out,catena_head_out, sep="/"), append=T)
-  # write attribute names
-  att_names <- c("id", "p_no", "elevation", supp_quant, supp_qual, "slope_width")
-  write(att_names,
-        file=paste(dir_out,catena_head_out, sep="/"), ncolumns=length(att_names), append=T, sep="\t")
-  #write number of columns occupied by each attribute
-  col_no <- c(rep(1,3), rep(1,length(supp_quant)), n_supp_data_qual_classes, 1)
-  write(col_no,
-        file=paste(dir_out,catena_head_out, sep="/"), ncolumns=length(col_no), append=T, sep="\t")
-  #write dummy weighting factors
-  w_no <- rep(0, 3+length(supp_quant)+length(n_supp_data_qual_classes)+1)
-  write(c(w_no, "[adjust weighting factors here and remove this comment]"),
-        file=paste(dir_out,catena_head_out, sep="/"), ncolumns=length(w_no)+1, append=T, sep="\t")
-  write(c(w_no, "[adjust weighting factors here and remove this comment]"),
-        file=paste(dir_out,catena_head_out, sep="/"), ncolumns=length(w_no)+1, append=T, sep="\t")
-  
-  #generate qualitative-data reclassification file
-  #Generate output files for reclassification (input class-IDs vs. internally used IDs)
-  if (grass_files) {
-    for (i in supp_qual) {
-      write(c("new_id", "original_id"),
-            file=paste(dir_out, "/reclass_", i, ".txt", sep=""), ncolumns=2, append=F, sep="\t")
-      for (n in 1:n_supp_data_qual_classes[i]) {
-        write(c(n, supp_data_classnames[[i]][n]),
-              file=paste(dir_out, "/reclass_", i, ".txt", sep=""), ncolumns=2, append=T, sep="\t")
       }
     }
-  }
+    
+    
+    # FINAL REPORT #
+    message('')
+    message('All outputs produced.')
+    message('')
+    message(paste(length(eha_ids)-length(which(logdata$error == 2))-length(which(logdata$error == 1)), ' slopes treated', sep=""))
+    message(paste(sum(error_ehas$error == 1), ' slopes skipped that have less than ', min_cell_in_slope, ' cells', sep=""))
+    message(paste(sum(error_ehas$error == 2), ' slopes skipped that are not adjacent to river', sep=""))
+    message(paste(sum(error_ehas$error == 4), ' slopes skipped that have a mean length shorter than ', min_catena_length, sep=""))
+    message(paste(sum(error_ehas$error == 3), ' slopes skipped that have only cells with dist2river=0.', sep=""))
+    message(paste(sum(warn_ehas$error  == 5), ' warnings due to slopes with no flow_accum less than ', ridge_thresh, sep=""))
+    message(paste(sum(warn_ehas$error  == 6), ' warnings due to slopes with NAs in topographics grids', sep=""))
+    message(paste(sum(warn_ehas$error  == 7), ' warnings due to slopes with NAs in auxiliary grids', sep=""))
+    message('')
+    message("DONE!")
+    
+    
   
-  
-  # FINAL REPORT #
-  message('')
-  message('All outputs produced.')
-  message('')
-  message(paste(length(eha_ids)-length(which(logdata$error == 2))-length(which(logdata$error == 1)), ' slopes treated', sep=""))
-  message(paste(sum(error_ehas$error == 1), ' slopes skipped that have less than ', min_cell_in_slope, ' cells', sep=""))
-  message(paste(sum(error_ehas$error == 2), ' slopes skipped that are not adjacent to river', sep=""))
-  message(paste(sum(error_ehas$error == 4), ' slopes skipped that have a mean length shorter than ', min_catena_length, sep=""))
-  message(paste(sum(error_ehas$error == 3), ' slopes skipped that have only cells with dist2river=0.', sep=""))
-  message(paste(sum(warn_ehas$error  == 5), ' warnings due to slopes with no flow_accum less than ', ridge_thresh, sep=""))
-  message(paste(sum(warn_ehas$error  == 6), ' warnings due to slopes with NAs in topographics grids', sep=""))
-  message(paste(sum(warn_ehas$error  == 7), ' warnings due to slopes with NAs in auxiliary grids', sep=""))
-  message('')
-  message("DONE!")
+  # if an error occurs delete all temporary output
+  }, error = function(e) {
+    
+    # stop sinking
+    closeAllConnections()
+    
+    # restore original warning mode
+    if(silent)
+      options(warn = oldw)
+    
+    stop(paste(e))  
+  })
   
 } # EOF
 

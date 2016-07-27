@@ -4,10 +4,12 @@
 \alias{area2catena}
 \title{Calculates mean catena from spatial data}
 \usage{
-area2catena(flowacc, eha, distriv, elevriv, supp_quant = NULL,
-  supp_qual = NULL, dir_out = "./", catena_out, catena_head_out,
-  ridge_thresh = 1, min_cell_in_slope, min_catena_length, max_riv_dist,
-  plot_catena = F, grass_files = F, ncores = 1, eha_subset = NULL)
+area2catena(flowacc = NULL, eha = NULL, distriv = NULL, elevriv = NULL,
+  supp_quant = NULL, supp_qual = NULL, dir_out = "./",
+  catena_out = NULL, catena_head_out = NULL, ridge_thresh = 1,
+  min_cell_in_slope = 30, min_catena_length = 3, max_riv_dist = 10,
+  plot_catena = F, grass_files = F, ncores = 1, eha_subset = NULL,
+  overwrite = F, silent = F)
 }
 \arguments{
 \item{flowacc}{Name of flow accumulation raster map in GRASS location. Can
@@ -61,7 +63,14 @@ raster data.}
 \item{ncores}{Ineger specifying number of cores that should be used for computation.}
 
 \item{eha_subset}{NULL or integer vector with subset of EHA ids that shall
-     be processed (for debugging and testing).}
+be processed (for debugging and testing).}
+
+\item{overwrite}{\code{logical}. Shall output of previous calls of this function be
+deleted? If \code{FALSE} the function returns an error if output already exists.
+Default: \code{FALSE}.}
+
+\item{silent}{\code{logical}. Shall the function be silent (also suppressing summary
+     after function execution)? Default: \code{FALSE}.}
 }
 \value{
 Function returns nothing. Output files are written into output directory
@@ -77,12 +86,6 @@ Prepare GRASS location and necessary raster files in advance (e.g. using
 
      GUIs such as RStudio may not produce some runtime messages (within parallel
      foreach loop).
-
-     TODO:\cr
-       - check arguments (tests for spatial data already included)\cr
-       - in case of problems within the foreach-loop set foreach
-         argument \emph{.errorhandling="pass"} and execute \code{str(logdata)} after
-         the loop to show error messages
 }
 \author{
 Tobias Pilz \email{tpilz@uni-potsdam.de}, Till Francke \email{francke@uni-potsdam.de}
