@@ -142,11 +142,11 @@ area2catena <- function(
         stop(paste0("Output directory for plots '", dir_out, "/plots_area2catena/' is not empty!"))
     }
     
-    dir.create(paste(dir_out, "plots_area2catena", sep="/"), recursive=T)
+    dir.create(paste(dir_out, "plots_area2catena", sep="/"), recursive=T, showWarnings = F)
   }
   
   # create output directory
-  dir.create(dir_out, recursive=T)
+  dir.create(dir_out, recursive=T, showWarnings = F)
   
   # argument checks
   if(is.null(flowacc))
@@ -278,10 +278,10 @@ area2catena <- function(
     ##initialize parallelism
     if (ncores>1)
     {  
-      if(require(doMC))
+      if(suppressPackageStartupMessages(require(doMC)))
         # register cores
         registerDoMC(cores=ncores) else
-          if (require(doParallel))
+          if (suppressPackageStartupMessages(require(doParallel)))
           {
             cl <- makePSOCKcluster(ncores) #make cluster, so we can explicitly close it later
             registerDoParallel(cl)
