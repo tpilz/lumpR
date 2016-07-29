@@ -19,6 +19,8 @@
 #' 
 #' Takes raster data from a GRASS location and calculates catena properties.
 #' 
+#' @param mask Raster file to be used as MASK in the GRASS location defining the
+#'      area of interest. E.g. \code{mask_corr} of \code{\link[LUMP]{lump_grass_prep}}.
 #' @param flowacc Name of flow accumulation raster map in GRASS location. Can
 #'      be created with \code{\link[LUMP]{lump_grass_prep}}.
 #' @param eha Name of elementary hillslope area raster map in GRASS location.
@@ -86,6 +88,7 @@ area2catena <- function(
   
   ### INPUT ###
   # GRASS raster #
+  mask=NULL,
   flowacc=NULL,
   eha=NULL,
   distriv=NULL,
@@ -149,6 +152,8 @@ area2catena <- function(
   dir.create(dir_out, recursive=T, showWarnings = F)
   
   # argument checks
+  if(is.null(mask))
+    stop("The name of a raster used as mask within the GRASS region has to be given to make sure calculations are done in the expected area!")
   if(is.null(flowacc))
     stop("The name of a flow accumulation raster map within the mapset of your initialised GRASS session has to be given!")
   if(is.null(eha))
@@ -173,6 +178,9 @@ area2catena <- function(
     # LOAD FILES FROM GRASS #
     message("\nLoad data from GRASS...\n")
 
+    # set mask to make sure calculations are done exactly within expected area
+    execGRASS("r.mask", input=mask, flags=c("o"))
+    
     # load flow accumulation
     flowaccum <- readRAST6(flowacc)
     flowaccum_rast <- raster(flowaccum)

@@ -4,14 +4,17 @@
 \alias{area2catena}
 \title{Calculates mean catena from spatial data}
 \usage{
-area2catena(flowacc = NULL, eha = NULL, distriv = NULL, elevriv = NULL,
-  supp_quant = NULL, supp_qual = NULL, dir_out = "./",
+area2catena(mask = NULL, flowacc = NULL, eha = NULL, distriv = NULL,
+  elevriv = NULL, supp_quant = NULL, supp_qual = NULL, dir_out = "./",
   catena_out = NULL, catena_head_out = NULL, ridge_thresh = 1,
   min_cell_in_slope = 30, min_catena_length = 3, max_riv_dist = 10,
   plot_catena = F, grass_files = F, ncores = 1, eha_subset = NULL,
   overwrite = F, silent = F)
 }
 \arguments{
+\item{mask}{Raster file to be used as MASK in the GRASS location defining the
+area of interest. E.g. \code{mask_corr} of \code{\link[LUMP]{lump_grass_prep}}.}
+
 \item{flowacc}{Name of flow accumulation raster map in GRASS location. Can
 be created with \code{\link[LUMP]{lump_grass_prep}}.}
 
