@@ -140,20 +140,6 @@ lump_grass_prep <- function(
   
   ### PREPROCESSING ###
   
-  # CLEAN UP AND RUNTIME OPTIONS #  
-  # suppress annoying GRASS outputs
-  tmp_file <- file(tempfile(), open="wt")
-  sink(tmp_file, type="output")
-  
-  # also supress warnings in silent mode
-  if(silent){
-    tmp_file2 <- file(tempfile(), open="wt")
-    sink(tmp_file2, type="message")
-    oldw <- getOption("warn")
-    options(warn = -1)
-  }
-  
-  
   # CHECKS #
   if(is.null(mask))
     stop("The name of a raster within the mapset of your initialised GRASS session to be used as catchment MASK in GRASS has to be given!")
@@ -196,6 +182,21 @@ lump_grass_prep <- function(
   if(!is.null(addon_path))
     if(substr(addon_path, nchar(addon_path), nchar(addon_path)) != "/")
       addon_path <- paste0(addon_path, "/")
+    
+    
+  # CLEAN UP AND RUNTIME OPTIONS #  
+  # suppress annoying GRASS outputs
+  tmp_file <- file(tempfile(), open="wt")
+  sink(tmp_file, type="output")
+  
+  # also supress warnings in silent mode
+  if(silent){
+    tmp_file2 <- file(tempfile(), open="wt")
+    sink(tmp_file2, type="message")
+    oldw <- getOption("warn")
+    options(warn = -1)
+  }
+  
   
   
   
