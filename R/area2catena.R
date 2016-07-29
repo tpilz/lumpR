@@ -172,6 +172,7 @@ area2catena <- function(
     
     # LOAD FILES FROM GRASS #
     message("\nLoad data from GRASS...\n")
+
     # load flow accumulation
     flowaccum <- readRAST6(flowacc)
     flowaccum_rast <- raster(flowaccum)
@@ -201,11 +202,10 @@ area2catena <- function(
       
       
       for (i in supp_qual) {
-        tmp <- readRAST6(i)
-        tmp2 <- raster(tmp)
-        qual_rast <- stack(tmp2, qual_rast)
-        supp_data_classnames[[i]] <- raster::unique(tmp2)
-        n_supp_data_qual_classes <- c(n_supp_data_qual_classes, length(raster::unique(tmp2)))
+        tmp <- raster(readRAST6(i))
+        qual_rast <- stack(tmp, qual_rast)
+        supp_data_classnames[[i]] <- raster::unique(tmp)
+        n_supp_data_qual_classes <- c(n_supp_data_qual_classes, length(raster::unique(tmp)))
       }
       
       # convert (at) symbol to point (in case input comes from another GRASS mapset; readRAST6() converts it to point implicitly which causes errors during later processing)
@@ -218,16 +218,15 @@ area2catena <- function(
     # load quantitative supplemental data
     quant_rast <- NULL # initialise object containing all quantitative raster layers
     for (i in rev(supp_quant)) {
-      tmp <- readRAST6(i)
-      tmp2 <- raster(tmp)
-      quant_rast <- stack(tmp2, quant_rast)
+      tmp <- raster(readRAST6(i))
+      quant_rast <- stack(tmp, quant_rast)
     }
     
     # convert (at) symbol to point (in case input comes from another GRASS mapset; readRAST6() converts it to point implicitly which causes errors during later processing)
     supp_quant <- gsub("@", ".", supp_quant)
     
     if(exists("tmp"))
-      rm(list=c("tmp","tmp2"))
+      rm(list=c("tmp"))
     
     
     # compare Rasters for extent, no. of rows and cols, CRS, resolution and origin
@@ -262,7 +261,6 @@ area2catena <- function(
     # PROCESS EHAs #
     # get resolution of spatial data
     xres <- xres(eha_rast)
-    yres <- yres(eha_rast)
     
     # identify EHAs
     eha_ids <- raster::unique(eha_rast)
@@ -441,6 +439,8 @@ eha_calc <- function(id, eha_ids, eha_rast, flowaccum_rast, dist2river_rast, rel
   flowaccum_vals  <- flowaccum_rast [curr_cells] #?Till: in parallel mode, this requires all the large rasters to be available to each thread. I wonder is this consumes too much replicates and overhead. Passing just the area of the current curr_cells may save ressources
   dist2river_vals <- dist2river_rast[curr_cells]
   relelev_vals    <- relelev_rast   [curr_cells]
+  if(!is.null(quant_rast)) quant_vals <- extract(quant_rast, curr_cells)
+  if(!is.null(qual_rast)) qual_vals <- extract(qual_rast, curr_cells)
   
   na_vals = is.na(flowaccum_vals) | is.na(dist2river_vals) | is.na(relelev_vals) #detect NA values
   if (any(na_vals)) {  # cells found with NAs in the mandatory grids
@@ -454,9 +454,9 @@ eha_calc <- function(id, eha_ids, eha_rast, flowaccum_rast, dist2river_rast, rel
   
   na_vals <- NULL
   if(!is.null(quant_rast))
-    na_vals <- c(na_vals, apply(!is.finite(extract(quant_rast, curr_cells)), MARGIN=2, any))
+    na_vals <- c(na_vals, apply(!is.finite(quant_vals), MARGIN=2, any))
   if(!is.null(qual_rast))
-    na_vals <- c(na_vals, apply(!is.finite(extract(qual_rast,  curr_cells)), MARGIN=2, any))
+    na_vals <- c(na_vals, apply(!is.finite(qual_vals), MARGIN=2, any))
   
   if (any(na_vals)) {  # cells found with NAs in auxiliary grids
     warning(paste('EHA ', curr_id, ': NAs in the grid(s) ', paste(names(na_vals[na_vals]), collapse=', ') ,'.', sep=""))
@@ -491,13 +491,10 @@ eha_calc <- function(id, eha_ids, eha_rast, flowaccum_rast, dist2river_rast, rel
     curr_entries <- which(flowaccum_vals <= min(flowaccum_vals))
     errcode <- 5
   }
-  
-  # convert indices from "relative to curr_cells" to "relative to dist2river"
-  curr_entries <- curr_cells[curr_entries]
-  
+
   # compute mean catena length (calclength-method, Chochrane & Flanagan, 2003) #
-  mean_length <- sum(dist2river_rast[curr_entries]^2)/sum(dist2river_rast[curr_entries])
-  
+  mean_length <- sum(dist2river_vals[curr_entries]^2)/sum(dist2river_vals[curr_entries])
+ 
   # skip very short catenas
   # ERROR CODE 4
   if (mean_length < min_catena_length) {
@@ -544,10 +541,7 @@ eha_calc <- function(id, eha_ids, eha_rast, flowaccum_rast, dist2river_rast, rel
     # seek all entries within the "spacing" range that are averaged to one point in the output catena
     while (1) {
       curr_entries <- which(dist2river_vals>=(j-search_range) & dist2river_vals<(j+search_range))
-      
-      # convert indices from "relative to curr_cells" to "relative to dist2river"
-      curr_entries <- curr_cells[curr_entries]
-      
+
       # check, if enough cells have been found to be used for averageing this point of the catena
       if (j==0 || length(curr_entries)>=min_no_cells || search_range==100) {     
         break
@@ -562,17 +556,16 @@ eha_calc <- function(id, eha_ids, eha_rast, flowaccum_rast, dist2river_rast, rel
       density[j+1] <- length(curr_entries) / length(curr_cells)
       
       # square root of flowaccumulation (~flow path density)
-      flowaccum_sqrt <- sqrt(flowaccum_rast[curr_entries])
+      flowaccum_sqrt <- sqrt(flowaccum_vals[curr_entries])
       
       # averaging of elevations of all points
       # mean weighted with square root of flowaccumulation (~flow path density)
-      out_y[j+1] <- sum(relelev_rast[curr_entries]*flowaccum_sqrt)/sum(flowaccum_sqrt)
+      out_y[j+1] <- sum(relelev_vals[curr_entries]*flowaccum_sqrt)/sum(flowaccum_sqrt)
       
       # compute average quantitative supplemental data
       if (!is.null(quant_rast)) {
         for (k in 1:length(supp_quant)) {
-          #supp_attrib_mean[k,j+1] <- sum(quant_rast[curr_entries][,k]*flowaccum_sqrt)/sum(flowaccum_sqrt) 
-          supp_attrib_mean[k,j+1] <- weighted.mean(x=quant_rast[curr_entries][,k], w=flowaccum_sqrt, na.rm=TRUE)  #weighted mean, weighted with sqrt(flow_accum) and NAs removed
+          supp_attrib_mean[k,j+1] <- weighted.mean(x=quant_vals[curr_entries,k], w=flowaccum_sqrt, na.rm=TRUE)  #weighted mean, weighted with sqrt(flow_accum) and NAs removed
         }
         
       }
@@ -586,7 +579,7 @@ eha_calc <- function(id, eha_ids, eha_rast, flowaccum_rast, dist2river_rast, rel
       if (!is.null(qual_rast)) {
         for (k in supp_qual) {
           # select attribute values
-          curr_att_val <- qual_rast[curr_entries][,k]
+          curr_att_val <- qual_vals[curr_entries,k]
           # do averaging for each class of each attribute separately
           for (kk in 1:n_supp_data_qual_classes[k]) {
             supp_attrib_mean[quant_columns+kk+col_counter,j+1] <- sum((curr_att_val==supp_data_classnames[[k]][kk])*flowaccum_sqrt)/sum(flowaccum_sqrt) 
