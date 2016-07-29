@@ -117,20 +117,7 @@ area2catena <- function(
   ### PREPROCESSING ###
   
   # CLEAN UP AND RUNTIME OPTIONS #  
-  # suppress annoying GRASS outputs
-  tmp_file <- file(tempfile(), open="wt")
-  sink(tmp_file, type="output")
-  
-  # supress warnings in silent mode
-  if(silent){
-    tmp_file2 <- file(tempfile(), open="wt")
-    sink(tmp_file2, type="message")
-    oldw <- getOption("warn")
-    options(warn = -1)
-  }
-  
-  
-  
+
   # CHECKS #
   # check output directory
   if (!overwrite & ( file.exists(paste(dir_out,catena_out,sep="/")) | file.exists(paste(dir_out,catena_head_out,sep="/")) ) ) 
@@ -166,6 +153,19 @@ area2catena <- function(
     stop("A name for the file containing mean catena information has to be given!")
   if(is.null(catena_head_out))
     stop("A name for the meta-information file has to be given!")
+  
+  
+  # suppress annoying GRASS outputs
+  tmp_file <- file(tempfile(), open="wt")
+  sink(tmp_file, type="output")
+  
+  # supress warnings in silent mode
+  if(silent){
+    tmp_file2 <- file(tempfile(), open="wt")
+    sink(tmp_file2, type="message")
+    oldw <- getOption("warn")
+    options(warn = -1)
+  }
   
   
   
