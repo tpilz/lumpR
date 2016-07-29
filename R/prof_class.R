@@ -50,11 +50,14 @@
 #' @param seed Integer specifying seed for random processes in cluster analysis.
 #' @param resolution Integer specifying resolution of profiles/spacing of samples.
 #'      Typically the resolution of your GRASS location used for \code{\link[LUMP]{area2catena}}.
-#' @param max_com_length Integer maximum common length (given as number of support points)
-#'      of profiles. Too large values consume more memory and computational effort.
-#' @param com_length Integer set common length (given as number of support points)
-#'      of profiles. Too large values consume more memory and computation effort.
-#'      Overwrites max_com_length.
+#' @param max_com_length Integer defining the maximum common length of profiles,
+#'      i.e. the maximum number of support points representing each catena during the
+#'      classification procedure. Too large values consume more memory and computational
+#'      effort.
+#' @param com_length Integer giving common length of profiles, i.e. the number of
+#'      support points representing each catena during the classification procedure.
+#'      Too large values consume more memory and computational effort. Overwrites
+#'      max_com_length.
 #' @param make_plots logical; visualisation of classification results written into
 #'      sub-directory \emph{plots_prof_class}.
 #' @param eha_subset NULL or integer vector with subset of EHA ids that shall
@@ -74,10 +77,17 @@
 #'      After applying \code{recl_lu} the resulting landscape units raster map in your GRASS
 #'      location might show gaps depending on the number of generated landscape units
 #'      as each landscape unit refers to the representative EHA. The gaps can be filled
-#'      with GRASS function \code{r.grow}. 
+#'      with GRASS function \code{r.grow}.
 #'      
-#'      TODO:\cr
-#'        - \code{classify_type} 'load'\cr
+#'  @details This function first resamples the catenas derived from \code{\link[LUMP]{area2catena}}
+#'      to a common length (\code{com_length} or the median number of support points
+#'      of all catenas but not more than \code{max_com_length}). Second, k-means clustering
+#'      is employed to group the catenas into representative \emph{Landscape Units}
+#'      according to parameters given via \code{catena_head_file} taking into account
+#'      hillslope length, shape, and supplemental properties. Third, each group is further
+#'      partitioned into a given number of \emph{Terrain Components} in a way that the
+#'      variance within each TC is minimized considering slope gradient and supplemental
+#'      information.
 #'
 #' @references Source code based on \code{SHELL} and \code{MATLAB} scripts of Till Francke.
 #' 

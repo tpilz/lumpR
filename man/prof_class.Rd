@@ -59,12 +59,15 @@ Typically the resolution of your GRASS location used for \code{\link[LUMP]{area2
 'load': load cluster centers from existing file and classify according
         to these clusters (e.g. supervised classification). CURRENTLY NOT SUPPORTED!}
 
-\item{max_com_length}{Integer maximum common length (given as number of support points)
-of profiles. Too large values consume more memory and computational effort.}
+\item{max_com_length}{Integer defining the maximum common length of profiles,
+i.e. the maximum number of support points representing each catena during the
+classification procedure. Too large values consume more memory and computational
+effort.}
 
-\item{com_length}{Integer set common length (given as number of support points)
-of profiles. Too large values consume more memory and computation effort.
-Overwrites max_com_length.}
+\item{com_length}{Integer giving common length of profiles, i.e. the number of
+support points representing each catena during the classification procedure.
+Too large values consume more memory and computational effort. Overwrites
+max_com_length.}
 
 \item{make_plots}{logical; visualisation of classification results written into
 sub-directory \emph{plots_prof_class}.}
@@ -87,6 +90,17 @@ Function returns nothing. Output files are written into output directory
 Classifies mean catenas derived from \code{\link[LUMP]{area2catena}} into \emph{Landscape
 Units} and \emph{Terrain Components}.
 }
+\details{
+This function first resamples the catenas derived from \code{\link[LUMP]{area2catena}}
+     to a common length (\code{com_length} or the median number of support points
+     of all catenas but not more than \code{max_com_length}). Second, k-means clustering
+     is employed to group the catenas into representative \emph{Landscape Units}
+     according to parameters given via \code{catena_head_file} taking into account
+     hillslope length, shape, and supplemental properties. Third, each group is further
+     partitioned into a given number of \emph{Terrain Components} in a way that the
+     variance within each TC is minimized considering slope gradient and supplemental
+     information.
+}
 \note{
 Function uses output of \code{\link[LUMP]{area2catena}}. However, no GRASS
      session needs to be started in this case.
@@ -95,9 +109,6 @@ Function uses output of \code{\link[LUMP]{area2catena}}. However, no GRASS
      location might show gaps depending on the number of generated landscape units
      as each landscape unit refers to the representative EHA. The gaps can be filled
      with GRASS function \code{r.grow}.
-
-     TODO:\cr
-       - \code{classify_type} 'load'\cr
 }
 \author{
 Tobias Pilz \email{tpilz@uni-potsdam.de}, Till Francke \email{francke@uni-potsdam.de}
