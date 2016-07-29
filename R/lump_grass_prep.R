@@ -36,18 +36,22 @@
 #' @param eha Output: Name of Environmental Hillslope Areas (EHA) raster map
 #'      exported into GRASS location.
 #' @param flowdir Output: Name of flow direction raster map exported into GRASS
-#'      location.
+#'      location. Provides the "aspect" for each cell measured counterclockwise
+#'      from East. Multiplying positive values by 45 will give the direction in
+#'      degrees that the surface runoff will travel from that cell; zero indicates
+#'      a depression; negative values that surface runoff is leaving the defined region.
 #' @param flowacc Output: Name of flow accumulation raster map exported into GRASS
-#'      location.
+#'      location. Gives the number of upslope cells plus one. Negative values indicate
+#'      surface runoff from outside the defined region.
 #' @param stream Output: Name of stream segments raster map exported into GRASS
 #'      location. If you want to convert it into a vector map apply GRASS function
 #'      \emph{r.thin} beforehand!
 #' @param stream_horton Output: Name of stream segments raster map in Horton stream
 #'      order exported into GRASS location.
 #' @param elevriv Output: Name of relative elevation raster map exported into GRASS
-#'      location.
+#'      location. Provides the elevations above stream node in units of \code{dem}.
 #' @param distriv Output: Name of distance to river raster map exported into GRASS
-#'      location.
+#'      location. Provides distances to stream node in meters.
 #' @param mask_corr Output: Name of corrected mask (catchment area is slightly
 #'      smaller afer applying \emph{r.stream.distance}).
 #' @param svc Output: Name of Soil Vegetation Components raster map exported into
@@ -57,7 +61,7 @@
 #' @param svc_ofile Output: Name of file containing properties of \code{svc}s. For
 #'      'special_area' flag values of 1 for water areas, 2 for impervious areas and
 #'      0 in case it is an ordinary SVC are defined.
-#' @param eha_thres Integer specifying threshold for delineation of \emph{EHA};
+#' @param eha_thres Integer specifying threshold for delineation of \emph{EHA} in cells;
 #'      parameter for GRASS function \emph{r.watershed}. This is a crucial parameter
 #'      affecting the size of delineated hillslopes and the degree of detail of the
 #'      landscape discretisation!

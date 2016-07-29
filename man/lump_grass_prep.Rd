@@ -34,10 +34,14 @@ and/or rocky) areas. 'special_area' flag in \code{svc_ofile} equal to 2.}
 exported into GRASS location.}
 
 \item{flowdir}{Output: Name of flow direction raster map exported into GRASS
-location.}
+location. Provides the "aspect" for each cell measured counterclockwise
+from East. Multiplying positive values by 45 will give the direction in
+degrees that the surface runoff will travel from that cell; zero indicates
+a depression; negative values that surface runoff is leaving the defined region.}
 
 \item{flowacc}{Output: Name of flow accumulation raster map exported into GRASS
-location.}
+location. Gives the number of upslope cells plus one. Negative values indicate
+surface runoff from outside the defined region.}
 
 \item{stream}{Output: Name of stream segments raster map exported into GRASS
 location. If you want to convert it into a vector map apply GRASS function
@@ -47,10 +51,10 @@ location. If you want to convert it into a vector map apply GRASS function
 order exported into GRASS location.}
 
 \item{elevriv}{Output: Name of relative elevation raster map exported into GRASS
-location.}
+location. Provides the elevations above stream node in units of \code{dem}.}
 
 \item{distriv}{Output: Name of distance to river raster map exported into GRASS
-location.}
+location. Provides distances to stream node in meters.}
 
 \item{mask_corr}{Output: Name of corrected mask (catchment area is slightly
 smaller afer applying \emph{r.stream.distance}).}
@@ -65,7 +69,7 @@ nothing will be overwritten).}
 'special_area' flag values of 1 for water areas, 2 for impervious areas and
 0 in case it is an ordinary SVC are defined.}
 
-\item{eha_thres}{Integer specifying threshold for delineation of \emph{EHA};
+\item{eha_thres}{Integer specifying threshold for delineation of \emph{EHA} in cells;
 parameter for GRASS function \emph{r.watershed}. This is a crucial parameter
 affecting the size of delineated hillslopes and the degree of detail of the
 landscape discretisation!}
