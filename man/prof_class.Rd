@@ -4,11 +4,15 @@
 \alias{prof_class}
 \title{Classification of mean catenas}
 \usage{
-prof_class(catena_file, catena_head_file, svc_column = "svc",
-  dir_out = "./", luoutfile, tcoutfile, lucontainstcoutfile,
-  tccontainssvcoutfile, terraincomponentsoutfile, recl_lu, saved_clusters, seed,
-  resolution, classify_type = " ", max_com_length, com_length = NULL,
-  make_plots = F, eha_subset = NULL)
+prof_class(catena_file = NULL, catena_head_file = NULL,
+  svc_column = "svc", dir_out = "./", luoutfile = "lu.dat",
+  tcoutfile = "tc.dat", lucontainstcoutfile = "lucontainstc.dat",
+  tccontainssvcoutfile = "tc_contains_svc.dat",
+  terraincomponentsoutfile = "terraincomponents.dat",
+  recl_lu = "reclass_lu.txt", saved_clusters = NULL, seed = 1312,
+  resolution = NULL, classify_type = " ", max_com_length = NULL,
+  com_length = NULL, make_plots = F, eha_subset = NULL, overwrite = F,
+  silent = F)
 }
 \arguments{
 \item{catena_file}{Name of file containing mean catena information derived from
@@ -17,7 +21,8 @@ prof_class(catena_file, catena_head_file, svc_column = "svc",
 \item{catena_head_file}{Name of file containing meta-information for classification
 derived from \code{\link[LUMP]{area2catena}} and adjusted manually (see \code{Notes}).}
 
-\item{svc_column}{name of attribute that holds the information of SVCs for generating tc_contains_svc.dat. Default: 'svc'.}
+\item{svc_column}{Field name in \code{catena_head_file} that holds the information
+of SVCs for generating \code{tccontainssvcoutfile}. Default: 'svc'.}
 
 \item{dir_out}{Character string specifying output directory (will be created;
 nothing will be overwritten).}
@@ -40,7 +45,7 @@ properties of TCs.}
 \item{recl_lu}{Output: Name of GRASS reclassification file: EHA -> LU.}
 
 \item{saved_clusters}{Output: Name of R file that can be used to store LU
-characteristics for later re-use; set to NULL to omit output.}
+characteristics for later re-use; set to NULL to omit output (default).}
 
 \item{seed}{Integer specifying seed for random processes in cluster analysis.}
 
@@ -52,19 +57,27 @@ Typically the resolution of your GRASS location used for \code{\link[LUMP]{area2
 'save': do unsupervised classification and save cluster centers to \code{saved_clusters}
         for future supervised classification\cr
 'load': load cluster centers from existing file and classify according
-        to these clusters (e.g. supervised classification)}
+        to these clusters (e.g. supervised classification). CURRENTLY NOT SUPPORTED!}
 
-\item{max_com_length}{Integer maximum common length (-> support points)
-of profiles (too high values consume more memory and computation effort).}
+\item{max_com_length}{Integer maximum common length (given as number of support points)
+of profiles. Too large values consume more memory and computational effort.}
 
-\item{com_length}{Integer set common length (-> support points)
-of profiles (too high values consume more memory and computation effort). Overrides max_com_length.}
+\item{com_length}{Integer set common length (given as number of support points)
+of profiles. Too large values consume more memory and computation effort.
+Overwrites max_com_length.}
 
 \item{make_plots}{logical; visualisation of classification results written into
 sub-directory \emph{plots_prof_class}.}
 
 \item{eha_subset}{NULL or integer vector with subset of EHA ids that shall
-     be processed (for debugging and testing).}
+be processed (for debugging and testing).}
+
+\item{overwrite}{\code{logical}. Shall output of previous calls of this function be
+deleted? If \code{FALSE} the function returns an error if output already exists.
+Default: \code{FALSE}.}
+
+\item{silent}{\code{logical}. Shall the function be silent (also suppressing warnings)?
+     Default: \code{FALSE}.}
 }
 \value{
 Function returns nothing. Output files are written into output directory
