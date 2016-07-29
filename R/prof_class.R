@@ -1062,9 +1062,12 @@ prof_class <- function(
         
         # plot legend
         if (make_plots) { 
-          legend("topleft", c("orig. toposequence", "filled profile", "approx. (min var)", "TC boundary (var)",
-                              "approx. (cluster anal.)", "TC boundary (cluster anal.)"), lty=c(1,NA,1,2,1,2),
-                 pch=c(NA,1,NA,NA,NA,NA), col=c("black", "black", "red","red","green","green"))
+#           legend("topleft", c("orig. toposequence", "filled profile", "approx. (min var)", "TC boundary (var)",
+#                               "approx. (cluster anal.)", "TC boundary (cluster anal.)"), lty=c(1,NA,1,2,1,2),
+#                  pch=c(NA,1,NA,NA,NA,NA), col=c("black", "black", "red","red","green","green"))
+          # cluster analysis currently not supported and does not need to appear in plots
+          legend("topleft", c("orig. toposequence", "filled profile", "approx. (min var)", "TC boundary (var)"), 
+                 lty=c(1,NA,1,2), pch=c(NA,1,NA,NA), col=c("black", "black", "red","red"))
         }
         
         
