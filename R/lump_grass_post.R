@@ -48,11 +48,13 @@
 #' @param dir_out Character string specifying output directory (will be created;
 #'      any overwriting will be prompted).
 #' @param sub_ofile Output: Name of subbasin statistics file containing subbasin
-#'      parameters. See \code{Details} below.
+#'      parameters. See \code{Details} below. If \code{NULL} (default) this file
+#'      will not be generated.
 #' @param lu_ofile Output: Name of file containing subbasins and the corresponding
-#'      LUs with their fraction of area in the subbasin.
+#'      LUs with their fraction of area in the subbasin. If \code{NULL} (default)
+#'      this file will not be generated.
 #' @param lupar_ofile Output: Name of file containing LUs and related parameters.
-#'      See \code{Details} below.
+#'      See \code{Details} below. If \code{NULL} (default) this file will not be generated.
 #' @param keep_temp \code{logical}. Set to \code{TRUE} if temporary files shall be kept
 #'      in the GRASS location, e.g. for debugging or further analyses. Default: \code{FALSE}.
 #' @param overwrite \code{logical}. Shall output of previous calls of this function be
@@ -61,16 +63,15 @@
 #' @param silent \code{logical}. Shall the function be silent (also suppressing warnings
 #'      of internally used GRASS functions)? Default: \code{FALSE}.
 #' 
-#' @return Function returns nothing. Output files (\code{sub_ofile, lupar_ofile}) are written into output directory
-#'      and raster maps (\code{lu}, temporary rasters stream_main_t, cell_len_t, flowacc_minmax_t, MASK_t)
-#'      exported into GRASS location as specified in arguments.
+#' @return Function returns nothing. Output files (\code{sub_ofile, lupar_ofile, lu_ofile})
+#'      are written into output directory and raster map (\code{lu}) exported into GRASS
+#'      location as specified in arguments.
 #'      
 #' @note Prepare GRASS location and necessary raster files in advance (e.g. using
 #'      \code{\link[LUMP]{lump_grass_prep}}) and start GRASS session in R using 
 #'      \code{\link[spgrass6]{initGRASS}}.
 #'      
 #'      TODO:\cr
-#'        - check arguments\cr
 #'        - check empirical formulas for channel width and channel depth\cr
 #'        - LU parameter estimation\cr
 #'        - include options to add parameters manually in case data are available
@@ -116,6 +117,20 @@
 #'      length) for bankfull (= high flow condition), 2/3 (= average conditions) and
 #'      1/10 (= low flow conditions) water levels to derive lag time (travel time for
 #'      average conditions) and retention time (max - min travel time).
+#'      
+#'      
+#'      \bold{Landscape Units in Subbasins}\cr
+#'      \code{lu_ofile} contains:
+#'            
+#'      \emph{subbas_id}\cr
+#'      Subbasin identifier.
+#'      
+#'      \emph{lu_id}\cr
+#'      Landscape Unit identifier.
+#'      
+#'      \emph{fraction}\cr
+#'      Areal fraction of Landscape Unit within corresponding Subbasin.
+#'      
 #'      
 #'      \bold{Landscape Unit parameters}\cr
 #'      Landscape Unit parameter estimation given in \code{lupar_ofile} contains:
@@ -168,26 +183,26 @@
 #' @export 
 lump_grass_post <- function(
   ### INPUT ###
-  mask,
-  dem,
+  mask=NULL,
+  dem=NULL,
   recl_lu=NULL,
-  lu,
-  subbasin,
-  eha,
-  flowacc,
-  flowdir,
-  stream_horton,
-  soil_depth,
-  sdr,
+  lu=NULL,
+  subbasin=NULL,
+  eha=NULL,
+  flowacc=NULL,
+  flowdir=NULL,
+  stream_horton=NULL,
+  soil_depth=NULL,
+  sdr=NULL,
   
   ### OUTPUT ###
   dir_out="./",
-  sub_ofile="",
-  lu_ofile="",
-  lupar_ofile="",
+  sub_ofile=NULL,
+  lu_ofile=NULL,
+  lupar_ofile=NULL,
   
   ### OPTIONS ###
-  fill_holes,
+  fill_holes=T,
   keep_temp=F,
   overwrite=F,
   silent=F
@@ -196,6 +211,22 @@ lump_grass_post <- function(
   
   
   ### PREPROCESSING ###
+  
+  # CHECKS #
+  if(is.null(mask))
+    stop("The name of a raster within the mapset of your initialised GRASS session to be used as catchment MASK in GRASS has to be given!")
+  if(is.null(dem))
+    stop("The name of a DEM within the mapset of your initialised GRASS session has to be given!")
+  if(is.null(subbasin))
+    stop("A name for needed subbasin raster map within the mapset of your initialised GRASS session has to be given!")
+  if(is.null(eha))
+    stop("A name for needed EHA raster map within the mapset of your initialised GRASS session has to be given!")
+  if(is.null(flowdir))
+    stop("A name for needed flow direction raster map within the mapset of your initialised GRASS session has to be given!")
+  if(is.null(flowacc))
+    stop("A name for needed flow accumulation raster map within the mapset of your initialised GRASS session has to be given!")
+  if(is.null(lu))
+    stop("A name for the landscape units raster map to be generated (recl_lu = NULL) or already within the mapset of your initialised GRASS session has to be given")
   
   
   # suppress annoying GRASS outputs
@@ -275,9 +306,6 @@ lump_grass_post <- function(
     if (is.null(recl_lu)) #use existing LU-map
     {
       message(paste0("\nUse existing raster map '", lu, "'\n"))
-      x=execGRASS("r.info", map=lu, flags="r")
-      if (x!=0)    
-        stop(paste0("Raster map ", lu, " not found. Specify recl_lu to generate one."))
       
     } else {
       

@@ -4,10 +4,11 @@
 \alias{lump_grass_post}
 \title{Post-processing of Landscape Unit deviation using GRASS GIS}
 \usage{
-lump_grass_post(mask, dem, recl_lu = NULL, lu, subbasin, eha, flowacc,
-  flowdir, stream_horton, soil_depth, sdr, dir_out = "./", sub_ofile = "",
-  lu_ofile = "", lupar_ofile = "", fill_holes, keep_temp = F,
-  overwrite = F, silent = F)
+lump_grass_post(mask = NULL, dem = NULL, recl_lu = NULL, lu = NULL,
+  subbasin = NULL, eha = NULL, flowacc = NULL, flowdir = NULL,
+  stream_horton = NULL, soil_depth = NULL, sdr = NULL, dir_out = "./",
+  sub_ofile = NULL, lu_ofile = NULL, lupar_ofile = NULL, fill_holes = T,
+  keep_temp = F, overwrite = F, silent = F)
 }
 \arguments{
 \item{mask}{Name of mask raster map masking the study area. E.g. output \code{mask_corr}
@@ -47,13 +48,15 @@ this optional column is omitted.}
 any overwriting will be prompted).}
 
 \item{sub_ofile}{Output: Name of subbasin statistics file containing subbasin
-parameters. See \code{Details} below.}
+parameters. See \code{Details} below. If \code{NULL} (default) this file
+will not be generated.}
 
 \item{lu_ofile}{Output: Name of file containing subbasins and the corresponding
-LUs with their fraction of area in the subbasin.}
+LUs with their fraction of area in the subbasin. If \code{NULL} (default)
+this file will not be generated.}
 
 \item{lupar_ofile}{Output: Name of file containing LUs and related parameters.
-See \code{Details} below.}
+See \code{Details} below. If \code{NULL} (default) this file will not be generated.}
 
 \item{fill_holes}{TRUE: fill any holes in map \code{eha} (e.g. as result of skipped/non-classified
 EHAs) by growing}
@@ -69,9 +72,9 @@ Default: \code{FALSE}.}
      of internally used GRASS functions)? Default: \code{FALSE}.}
 }
 \value{
-Function returns nothing. Output files (\code{sub_ofile, lupar_ofile}) are written into output directory
-     and raster maps (\code{lu}, temporary rasters stream_main_t, cell_len_t, flowacc_minmax_t, MASK_t)
-     exported into GRASS location as specified in arguments.
+Function returns nothing. Output files (\code{sub_ofile, lupar_ofile, lu_ofile})
+     are written into output directory and raster map (\code{lu}) exported into GRASS
+     location as specified in arguments.
 }
 \description{
 Creates raster map of Landscape Units and files containing information of
@@ -119,6 +122,20 @@ using outputs of \code{\link[LUMP]{lump_grass_prep}} and \code{\link[LUMP]{prof_
      1/10 (= low flow conditions) water levels to derive lag time (travel time for
      average conditions) and retention time (max - min travel time).
 
+
+     \bold{Landscape Units in Subbasins}\cr
+     \code{lu_ofile} contains:
+
+     \emph{subbas_id}\cr
+     Subbasin identifier.
+
+     \emph{lu_id}\cr
+     Landscape Unit identifier.
+
+     \emph{fraction}\cr
+     Areal fraction of Landscape Unit within corresponding Subbasin.
+
+
      \bold{Landscape Unit parameters}\cr
      Landscape Unit parameter estimation given in \code{lupar_ofile} contains:
 
@@ -149,7 +166,6 @@ Prepare GRASS location and necessary raster files in advance (e.g. using
      \code{\link[spgrass6]{initGRASS}}.
 
      TODO:\cr
-       - check arguments\cr
        - check empirical formulas for channel width and channel depth\cr
        - LU parameter estimation\cr
        - include options to add parameters manually in case data are available
