@@ -4,26 +4,28 @@
 \alias{lump_grass_post}
 \title{Post-processing of Landscape Unit deviation using GRASS GIS}
 \usage{
-lump_grass_post(dem, recl_lu = NULL, eha, fill_holes, subbasin, mask, flowacc,
-  flowdir, stream_horton, soil_depth, sdr, lu, dir_out = "./",
-  sub_ofile = "", lu_ofile = "", lupar_ofile = "")
+lump_grass_post(mask, dem, recl_lu = NULL, lu, subbasin, eha, flowacc,
+  flowdir, stream_horton, soil_depth, sdr, dir_out = "./", sub_ofile = "",
+  lu_ofile = "", lupar_ofile = "", fill_holes, keep_temp = F,
+  overwrite = F, silent = F)
 }
 \arguments{
+\item{mask}{Name of mask raster map masking the study area. E.g. output \code{mask_corr}
+of \code{\link[LUMP]{lump_grass_prep}}.}
+
 \item{dem}{DEM raster map in GRASS location as used in \code{\link[LUMP]{lump_grass_prep}}.}
 
 \item{recl_lu}{Name of GRASS reclassification file: EHA -> LU. Output of
-\code{\link[LUMP]{prof_class}}. If omitted, the existing raster layer \code{eha} is used.}
+\code{\link[LUMP]{prof_class}}. If omitted, the existing raster layer \code{lu} is used.}
 
-\item{eha}{Name of Elementary Hillslope Areas (EHA) raster map in GRASS
-location. Output of \code{\link[LUMP]{lump_grass_prep}}.}
-
-\item{fill_holes}{TRUE: fill any holes in map \code{eha} (e.g. as result of skipped/non-classified EHAs) by growing}
+\item{lu}{Input or Output: Name of Landscape Units (LU) raster map already existing in
+GRASS location or to be generated using \code{recl_lu}.}
 
 \item{subbasin}{Subbasin raster map in GRASS location as used in \code{\link[LUMP]{lump_grass_prep}}
 and/or created by \code{\link[LUMP]{calc_subbas}}.}
 
-\item{mask}{Name of mask raster map masking the study area. Use output \code{mask_corr}
-of \code{\link[LUMP]{lump_grass_prep}}.}
+\item{eha}{Name of Elementary Hillslope Areas (EHA) raster map in GRASS
+location. Output of \code{\link[LUMP]{lump_grass_prep}}.}
 
 \item{flowacc}{Name of flow accumulation raster map in GRASS location. Can
 be created with \code{\link[LUMP]{lump_grass_prep}}.}
@@ -32,14 +34,14 @@ be created with \code{\link[LUMP]{lump_grass_prep}}.}
 be created with \code{\link[LUMP]{lump_grass_prep}}.}
 
 \item{stream_horton}{Name of Horton stream order raster map in GRASS location. Can
-be created with \code{\link[LUMP]{lump_grass_prep}}. If left empty, the channel length, slope and retention times are set to NA.}
+be created with \code{\link[LUMP]{lump_grass_prep}}. If left empty, the channel length,
+slope and retention times are set to NA.}
 
-\item{soil_depth}{Name of soil depth [cm] raster map in GRASS location. If empty, NA is used.}
+\item{soil_depth}{Name of soil depth [cm] raster map in GRASS location. If \code{NULL}
+(default), NA is used.}
 
-\item{sdr}{Name of sediment delivery ratio [-] raster map in GRASS location. If empty, this optional column is omitted.}
-
-\item{lu}{Output: Name of Landscape Units (LU) raster map exported into
-GRASS location.}
+\item{sdr}{Name of sediment delivery ratio [-] raster map in GRASS location. If empty,
+this optional column is omitted.}
 
 \item{dir_out}{Character string specifying output directory (will be created;
 any overwriting will be prompted).}
@@ -51,11 +53,25 @@ parameters. See \code{Details} below.}
 LUs with their fraction of area in the subbasin.}
 
 \item{lupar_ofile}{Output: Name of file containing LUs and related parameters.
-     See \code{Details} below.}
+See \code{Details} below.}
+
+\item{fill_holes}{TRUE: fill any holes in map \code{eha} (e.g. as result of skipped/non-classified
+EHAs) by growing}
+
+\item{keep_temp}{\code{logical}. Set to \code{TRUE} if temporary files shall be kept
+in the GRASS location, e.g. for debugging or further analyses. Default: \code{FALSE}.}
+
+\item{overwrite}{\code{logical}. Shall output of previous calls of this function be
+deleted? If \code{FALSE} the function returns an error if output already exists.
+Default: \code{FALSE}.}
+
+\item{silent}{\code{logical}. Shall the function be silent (also suppressing warnings
+     of internally used GRASS functions)? Default: \code{FALSE}.}
 }
 \value{
 Function returns nothing. Output files (\code{sub_ofile, lupar_ofile}) are written into output directory
-     and raster maps (\code{lu}, temporary rasters stream_main_t, cell_len_t, flowacc_minmax_t, MASK_t) exported into GRASS location as specified in arguments.
+     and raster maps (\code{lu}, temporary rasters stream_main_t, cell_len_t, flowacc_minmax_t, MASK_t)
+     exported into GRASS location as specified in arguments.
 }
 \description{
 Creates raster map of Landscape Units and files containing information of
