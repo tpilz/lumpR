@@ -91,6 +91,12 @@ using outputs of \code{\link[LUMP]{lump_grass_prep}} and \code{\link[LUMP]{prof_
      \emph{area}\cr
      Subbasin area in \emph{km^2}.
 
+     \emph{x}\cr
+     X-coordinate of subbasin centroid in units of GRASS location.
+
+     \emph{y}\cr
+     Y-coordinate of subbasin centroid in units of GRASS location.
+
      \emph{drains_to}\cr
      Pid of subbasin the current subbasin drains to. It is determined by identifying
      the cell with the highest flow accumulation value (= subbasin outlet). By
