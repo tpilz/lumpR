@@ -1,5 +1,5 @@
 # LUMP/lump_grass_post.R
-# Copyright (C) 2014,2015 Tobias Pilz, Till Francke
+# Copyright (C) 2014,2015,2016 Tobias Pilz, Till Francke
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -703,8 +703,9 @@ channel_length <- function(sub_no, stream, flowdir, flowacc) {
   # if there is no main channel (e.g. in very small reservoir subbasins) assume one cell of main stream
   if (length(main_chan) == 0) {
     chan_len <- mean(resol)
+    accmax <- max(as.numeric(execGRASS("r.stats", input=flowacc, flags=c("n", "1"), intern=T))) # max flowacc
     execGRASS("r.mapcalculator", amap=flowacc, outfile="stream_main_t", 
-              formula="if(A == max(A), 1, null())") # TODO: This does not work!
+              formula=paste0("if(A == ", accmax, ", 1, null())"))
     warning(paste("Subbasin ", sub_no, " has no main channel. Assume at least one raster cell.", sep=""))
 
   } else {
