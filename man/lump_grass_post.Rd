@@ -38,7 +38,7 @@ be created with \code{\link[LUMP]{lump_grass_prep}}.}
 be created with \code{\link[LUMP]{lump_grass_prep}}. If left empty, the channel length,
 slope and retention times are set to NA.}
 
-\item{soil_depth}{Name of soil depth [cm] raster map in GRASS location. If \code{NULL}
+\item{soil_depth}{Name of soil depth [mm] raster map in GRASS location. If \code{NULL}
 (default), NA is used.}
 
 \item{sdr}{Name of sediment delivery ratio [-] raster map in GRASS location. If empty,

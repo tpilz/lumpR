@@ -41,7 +41,7 @@
 #' @param stream_horton Name of Horton stream order raster map in GRASS location. Can
 #'      be created with \code{\link[LUMP]{lump_grass_prep}}. If left empty, the channel length,
 #'      slope and retention times are set to NA.
-#' @param soil_depth Name of soil depth [cm] raster map in GRASS location. If \code{NULL}
+#' @param soil_depth Name of soil depth [mm] raster map in GRASS location. If \code{NULL}
 #'      (default), NA is used.
 #' @param sdr Name of sediment delivery ratio [-] raster map in GRASS location. If empty,
 #'      this optional column is omitted.
@@ -537,10 +537,16 @@ lump_grass_post <- function(
           cmd_out <- strsplit(cmd_out, ",")
           cmd_out <- matrix(unlist(cmd_out[-1]), ncol=length(cmd_out[[1]]), byrow=T,
                             dimnames=list(NULL, cmd_out[[1]]))
-          lu_depth <- as.numeric(cmd_out[,"mean"]) * 10
+          lu_depth <- as.numeric(cmd_out[,"mean"])
           lu_ids = as.numeric(cmd_out[,"zone"])
         } else lu_depth=NA
-    
+      
+      # quick check of soil depths
+      if(any(lu_depth > 10000))
+        warning("There are average LU soil depths of more than 10 m which is a large (but not impossible) value. Check your input data and units ('soil_depth' in [mm])!")
+      if(any(lu_depth < 100))
+        warning("There are average LU soil depths of less than 10 cm which is a small (but not impossible) value. Check your input data and units ('soil_depth' in [mm])!")
+      
       lu_par[,"pid"] <- lu_ids
       lu_par[,"soil_depth"] <- lu_depth
     
