@@ -14,4 +14,4 @@ export(db_fill)
 export(db_update)
 export(db_check)
 export(db_wasa_input)
-#useDynLib(LUMP) #temporary fix to allow installation under Windows
+useDynLib(LUMP)
