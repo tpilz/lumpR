@@ -1,5 +1,5 @@
 # LUMP/rainy_season.R
-# Copyright (C) 2015 Tobias Pilz
+# Copyright (C) 2015,2016 Tobias Pilz
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -72,10 +72,16 @@
 
 rainy_season <- function(
   ### INPUT ###
-  prec_ts,
-  dry_season,
+  prec_ts=NULL,
+  dry_season=NULL,
   nodata=NA
 ) {
+  
+  # check arguments
+  if(!any(grepl("xts", class(prec_ts))))
+    stop("'prec_ts' needs to be of class 'xts'!")
+  if(!is.numeric(dry_season))
+    stop("'dry_season' has to be given!")
   
   # check if time series is continuous
   if (length(seq(min(index(prec_ts)), max(index(prec_ts)), by="day")) != nrow(prec_ts))

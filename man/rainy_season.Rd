@@ -4,7 +4,7 @@
 \alias{rainy_season}
 \title{Determine start and end date of the rainy season}
 \usage{
-rainy_season(prec_ts, dry_season, nodata = NA)
+rainy_season(prec_ts = NULL, dry_season = NULL, nodata = NA)
 }
 \arguments{
 \item{prec_ts}{Daily precipitation time series object of class \code{\link[xts]{xts}}.
