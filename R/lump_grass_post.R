@@ -42,7 +42,7 @@
 #'      be created with \code{\link[LUMP]{lump_grass_prep}}. If left empty, the channel length,
 #'      slope and retention times are set to NA.
 #' @param soil_depth Name of soil depth [mm] raster map in GRASS location. If \code{NULL}
-#'      (default), NA is used.
+#'      (default), \code{na_val} is used.
 #' @param sdr Name of sediment delivery ratio [-] raster map in GRASS location. If empty,
 #'      this optional column is omitted.
 #' @param dir_out Character string specifying output directory (will be created;
@@ -55,6 +55,9 @@
 #'      this file will not be generated.
 #' @param lupar_ofile Output: Name of file containing LUs and related parameters.
 #'      See \code{Details} below. If \code{NULL} (default) this file will not be generated.
+#' @param groundwater Flag: 1: respect groundwater and infer parameters. 0 (default):
+#'      Ignore groundwater and associated parameters.
+#' @param na_val Value used to indicate \code{NA} values in output files. Default: \code{NA}.
 #' @param keep_temp \code{logical}. Set to \code{TRUE} if temporary files shall be kept
 #'      in the GRASS location, e.g. for debugging or further analyses. Default: \code{FALSE}.
 #' @param overwrite \code{logical}. Shall output of previous calls of this function be
@@ -144,20 +147,47 @@
 #'      \emph{pid}\cr
 #'      Landscape Unit identifier.
 #'      
+#'      \emph{description}\cr
+#'      Description for this Landscape Unit. Can be adjusted manually if you want.
+#'      Generally set to \code{na_val}.
+#'      
+#'      \emph{kf_bedrock}\cr
+#'      Hydraulic conductivity of bedrock. Fill in values manually. Generally set
+#'      to \code{na_val}. Use in WASA model is optional (see WASA documentation
+#'      -> 'kfsu' and notes on 'bedrock').
+#'      
+#'      \emph{slopelength}\cr
+#'      Slope length of Landscape Unit [m]. Value can be obtained from output of
+#'      \code{\link[LUMP]{prof_class}}. Herein set to \code{na_val}.
+#'      
 #'      \emph{soil_depth}\cr
-#'      Soil depth in \emph{mm} averaged over respective landscape unit.
+#'      Soil depth in \emph{mm} averaged over respective landscape unit. Use in
+#'      WASA model is optional (see WASA documentation -> 'meandep' and notes on
+#'      'bedrock'). Herein set to \code{na_val}.
+#'      
+#'      \emph{allu_depth}\cr
+#'      Depth of alluvial soils in \emph{mm}. Use in WASA model is optional (see
+#'      WASA documentation -> 'maxdep' and notes on 'bedrock'). Herein set to \code{na_val}.
+#'      
+#'      \emph{riverbed_depth}\cr
+#'      Depth of river bed below Terrain Component in \emph{mm}. Use in WASA model
+#'      is optional (see WASA documentation -> 'riverbed' and notes on 'bedrock').
+#'      Herein set to \code{na_val}.
 #'      
 #'      \emph{gw_flag}\cr
 #'      Groundwater flag: 0: no groundwater in this LU. 1: LU contains groundwater.
-#'      At the moment set to 1 by default for every LU.
+#'      At the moment set to 0 by default for every LU. Use in WASA model is optional
+#'      (see WASA documentation -> 'gw_flag' and notes on groundwater).
 #'      
 #'      \emph{gw_dist}\cr
 #'      Initial depth of groundwater below surface in \emph{mm}. At the moment set to
-#'      1000 by default for every LU.
+#'      1000 by default for every LU if \code{groundwater = 1}. Use in WASA model is optional
+#'      (see WASA documentation -> 'gw_dist' and notes on groundwater).
 #'      
 #'      \emph{frgw_delay}\cr
 #'      Storage coefficient for groundwater outflow in \emph{days}. At the moment set to
-#'      200 by default for every LU.
+#'      200 by default for every LU if \code{groundwater = 1}. Use in WASA model is optional
+#'      (see WASA documentation -> 'frgw_delay' and notes on groundwater).
 #'      
 #'      \emph{sdr_lu} (optional)\cr
 #'      sediment delivery ratio from raster map \code{sdr}, if specified
@@ -209,6 +239,8 @@ lump_grass_post <- function(
   
   ### OPTIONS ###
   fill_holes=T,
+  groundwater=0,
+  na_val=NA,
   keep_temp=F,
   overwrite=F,
   silent=F
@@ -392,7 +424,7 @@ lump_grass_post <- function(
       sub_stats[,"area"] <- sub_stats[,"area"]/1e6 #convert m? to km?
         
       # calculate stats of LUs in each subbasin and subbasin drainage ("drains_to")
-      sub_stats <- cbind(sub_stats, NA, NA, NA, NA, NA, NA, NA)
+      sub_stats <- cbind(sub_stats, na_val, na_val, na_val, na_val, na_val, na_val, na_val)
       colnames(sub_stats)[c(3:9)] <- c("x", "y", "drains_to", "lag_time", "retention", "description", "a_stream_order")
       sub_lu_stats <- NULL
       for (SUB in sub_stats[,1]) {
@@ -540,7 +572,7 @@ lump_grass_post <- function(
         lu_ids <- as.numeric(lu_ids[-length(lu_ids)]) #last line contains progress indicator, remove
       
       # initialise LU parameter output object
-      lu_par <- matrix(NA, ncol=11, nrow=length(lu_ids), 
+      lu_par <- matrix(na_val, ncol=11, nrow=length(lu_ids), 
                        dimnames=list(NULL, c("pid", "description", "kf_bedrock", "slopelength",
                                              "soil_depth", "allu_depth", "riverbed_depth",
                                              "gw_flag", "gw_dist", "frgw_delay", "sdr_lu")))
@@ -556,7 +588,7 @@ lump_grass_post <- function(
                             dimnames=list(NULL, cmd_out[[1]]))
           lu_depth <- as.numeric(cmd_out[,"mean"])
           lu_ids = as.numeric(cmd_out[,"zone"])
-        } else lu_depth=NA
+        } else lu_depth=na_val
       
       # quick check of soil depths
       if(any(lu_depth > 10000))
@@ -586,12 +618,20 @@ lump_grass_post <- function(
       # groundwater parameters (so far only default values)
       # TODO: alternative approaches?
       # groundwater for every LU
-      lu_par[,"gw_flag"] <- rep(1, length(lu_depth))
-      # initial depth of groundwater below surface: 1000 mm
-      lu_par[,"gw_dist"] <- rep(1000, length(lu_depth))
-      # storage coefficient for groundwater outflow [days]; TODO: estimate from baseflow analysis?!
-      lu_par[,"frgw_delay"] <- rep(200, length(lu_depth))
-  
+      if(groundwater) {
+        lu_par[,"gw_flag"] <- rep(1, length(lu_depth))
+        # initial depth of groundwater below surface: 1000 mm
+        lu_par[,"gw_dist"] <- rep(1000, length(lu_depth))
+        # storage coefficient for groundwater outflow [days]; TODO: estimate from baseflow analysis?!
+        lu_par[,"frgw_delay"] <- rep(200, length(lu_depth))
+      } else {
+        lu_par[,"gw_flag"] <- rep(0, length(lu_depth))
+        # initial depth of groundwater below surface: 1000 mm
+        lu_par[,"gw_dist"] <- rep(na_val, length(lu_depth))
+        # storage coefficient for groundwater outflow [days]; TODO: estimate from baseflow analysis?!
+        lu_par[,"frgw_delay"] <- rep(na_val, length(lu_depth))
+      }
+    
     
       # write output
       write.table(lu_par, paste(dir_out, lupar_ofile, sep="/"), quote=F, row.names=F, sep="\t")

@@ -8,7 +8,8 @@ lump_grass_post(mask = NULL, dem = NULL, recl_lu = NULL, lu = NULL,
   subbasin = NULL, eha = NULL, flowacc = NULL, flowdir = NULL,
   stream_horton = NULL, soil_depth = NULL, sdr = NULL, dir_out = "./",
   sub_ofile = NULL, lu_ofile = NULL, lupar_ofile = NULL, fill_holes = T,
-  keep_temp = F, overwrite = F, silent = F)
+  groundwater = 0, na_val = NA, keep_temp = F, overwrite = F,
+  silent = F)
 }
 \arguments{
 \item{mask}{Name of mask raster map masking the study area. E.g. output \code{mask_corr}
@@ -39,7 +40,7 @@ be created with \code{\link[LUMP]{lump_grass_prep}}. If left empty, the channel 
 slope and retention times are set to NA.}
 
 \item{soil_depth}{Name of soil depth [mm] raster map in GRASS location. If \code{NULL}
-(default), NA is used.}
+(default), \code{na_val} is used.}
 
 \item{sdr}{Name of sediment delivery ratio [-] raster map in GRASS location. If empty,
 this optional column is omitted.}
@@ -60,6 +61,11 @@ See \code{Details} below. If \code{NULL} (default) this file will not be generat
 
 \item{fill_holes}{TRUE: fill any holes in map \code{eha} (e.g. as result of skipped/non-classified
 EHAs) by growing}
+
+\item{groundwater}{Flag: 1: respect groundwater and infer parameters. 0 (default):
+Ignore groundwater and associated parameters.}
+
+\item{na_val}{Value used to indicate \code{NA} values in output files. Default: \code{NA}.}
 
 \item{keep_temp}{\code{logical}. Set to \code{TRUE} if temporary files shall be kept
 in the GRASS location, e.g. for debugging or further analyses. Default: \code{FALSE}.}
@@ -148,20 +154,47 @@ using outputs of \code{\link[LUMP]{lump_grass_prep}} and \code{\link[LUMP]{prof_
      \emph{pid}\cr
      Landscape Unit identifier.
 
+     \emph{description}\cr
+     Description for this Landscape Unit. Can be adjusted manually if you want.
+     Generally set to \code{na_val}.
+
+     \emph{kf_bedrock}\cr
+     Hydraulic conductivity of bedrock. Fill in values manually. Generally set
+     to \code{na_val}. Use in WASA model is optional (see WASA documentation
+     -> 'kfsu' and notes on 'bedrock').
+
+     \emph{slopelength}\cr
+     Slope length of Landscape Unit [m]. Value can be obtained from output of
+     \code{\link[LUMP]{prof_class}}. Herein set to \code{na_val}.
+
      \emph{soil_depth}\cr
-     Soil depth in \emph{mm} averaged over respective landscape unit.
+     Soil depth in \emph{mm} averaged over respective landscape unit. Use in
+     WASA model is optional (see WASA documentation -> 'meandep' and notes on
+     'bedrock'). Herein set to \code{na_val}.
+
+     \emph{allu_depth}\cr
+     Depth of alluvial soils in \emph{mm}. Use in WASA model is optional (see
+     WASA documentation -> 'maxdep' and notes on 'bedrock'). Herein set to \code{na_val}.
+
+     \emph{riverbed_depth}\cr
+     Depth of river bed below Terrain Component in \emph{mm}. Use in WASA model
+     is optional (see WASA documentation -> 'riverbed' and notes on 'bedrock').
+     Herein set to \code{na_val}.
 
      \emph{gw_flag}\cr
      Groundwater flag: 0: no groundwater in this LU. 1: LU contains groundwater.
-     At the moment set to 1 by default for every LU.
+     At the moment set to 0 by default for every LU. Use in WASA model is optional
+     (see WASA documentation -> 'gw_flag' and notes on groundwater).
 
      \emph{gw_dist}\cr
      Initial depth of groundwater below surface in \emph{mm}. At the moment set to
-     1000 by default for every LU.
+     1000 by default for every LU if \code{groundwater = 1}. Use in WASA model is optional
+     (see WASA documentation -> 'gw_dist' and notes on groundwater).
 
      \emph{frgw_delay}\cr
      Storage coefficient for groundwater outflow in \emph{days}. At the moment set to
-     200 by default for every LU.
+     200 by default for every LU if \code{groundwater = 1}. Use in WASA model is optional
+     (see WASA documentation -> 'frgw_delay' and notes on groundwater).
 
      \emph{sdr_lu} (optional)\cr
      sediment delivery ratio from raster map \code{sdr}, if specified
