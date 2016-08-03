@@ -42,8 +42,8 @@ The following checks are currently included and can be specified via argument \c
  application will be removed and the areal fractions updated accordingly. The model
  will run faster by removing unnecessary computational burden. Namely, this affects LUs
  within subbasins, TCs within LUs and SVCs within TCs.
- If the fraction to be removed is greater than 10% of the total area of a next higher
- spatial level's class datasets will be kept. In this case you might try a smaller value for area_thresh'.\cr
+ If the fraction to be removed is greater than 10 \% of the total area of the next higher
+ spatial level's class, datasets will be kept. In this case you might try a smaller value for area_thresh'.\cr
  \emph{Option: 'area_thresh'}\cr
  A threshold defining the minimum areal fraction of a certain spatial disaggregation
  unit within the next higher spatial level (e.g. LUs within subbasins). Default: 0.01.

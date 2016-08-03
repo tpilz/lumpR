@@ -1,5 +1,5 @@
 # LUMP/db_check.R
-# Copyright (C) 2015 Tobias Pilz, Till Francke
+# Copyright (C) 2015,2016 Tobias Pilz, Till Francke
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -47,8 +47,8 @@
 #'  application will be removed and the areal fractions updated accordingly. The model
 #'  will run faster by removing unnecessary computational burden. Namely, this affects LUs 
 #'  within subbasins, TCs within LUs and SVCs within TCs.
-#'  If the fraction to be removed is greater than 10% of the total area of a next higher 
-#'  spatial level's class datasets will be kept. In this case you might try a smaller value for area_thresh'.\cr
+#'  If the fraction to be removed is greater than 10 \% of the total area of the next higher 
+#'  spatial level's class, datasets will be kept. In this case you might try a smaller value for area_thresh'.\cr
 #'  \emph{Option: 'area_thresh'}\cr
 #'  A threshold defining the minimum areal fraction of a certain spatial disaggregation
 #'  unit within the next higher spatial level (e.g. LUs within subbasins). Default: 0.01.
@@ -65,7 +65,7 @@
 #'  2: Where slope is 0, change it to small positive value specified as second
 #'  value of the vector (interpreted as slope in \%).\cr
 #'  3: A combination of the two former choices whereas option 1 is applied before
-#'  option 2 and the second value of the vector defining the areal threshold and the
+#'  option 2, the second value of the vector defining the areal threshold and the
 #'  third giving the slope replacement value. This is the default setting with
 #'  threshold = 0.01 and slope = 0.1 \%.
 #'  
