@@ -588,13 +588,12 @@ lump_grass_post <- function(
                             dimnames=list(NULL, cmd_out[[1]]))
           lu_depth <- as.numeric(cmd_out[,"mean"])
           lu_ids = as.numeric(cmd_out[,"zone"])
+          # quick check of soil depths
+          if(any(lu_depth > 10000))
+            warning("There are average LU soil depths of more than 10 m which is a large (but not impossible) value. Check your input data and units ('soil_depth' in [mm])!")
+          if(any(lu_depth < 100))
+            warning("There are average LU soil depths of less than 10 cm which is a small (but not impossible) value. Check your input data and units ('soil_depth' in [mm])!")
         } else lu_depth=na_val
-      
-      # quick check of soil depths
-      if(any(lu_depth > 10000))
-        warning("There are average LU soil depths of more than 10 m which is a large (but not impossible) value. Check your input data and units ('soil_depth' in [mm])!")
-      if(any(lu_depth < 100))
-        warning("There are average LU soil depths of less than 10 cm which is a small (but not impossible) value. Check your input data and units ('soil_depth' in [mm])!")
       
       lu_par[,"pid"] <- lu_ids
       lu_par[,"soil_depth"] <- lu_depth
