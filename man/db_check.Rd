@@ -60,7 +60,7 @@ The following checks are currently included and can be specified via argument \c
  2: Where slope is 0, change it to small positive value specified as second
  value of the vector (interpreted as slope in \%).\cr
  3: A combination of the two former choices whereas option 1 is applied before
- option 2 and the second value of the vector defining the areal threshold and the
+ option 2, the second value of the vector defining the areal threshold and the
  third giving the slope replacement value. This is the default setting with
  threshold = 0.01 and slope = 0.1 \%.
 
