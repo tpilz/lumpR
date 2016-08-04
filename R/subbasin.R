@@ -217,7 +217,7 @@ calc_subbas <- function(
       cmd_out <- execGRASS("r.univar", map="accum_t", zones="basin_calc_t", fs="comma", flags = c("t"), intern=T)
       cmd_out <- strsplit(cmd_out, ",")
       cmd_cols <- grep("zone|max", cmd_out[[1]])
-      sub_maxacc <- do.call(rbind, cmd_out)[-1,cmd_cols]
+      sub_maxacc <- do.call(rbind, cmd_out)[-1,cmd_cols, drop=F]
 
       # get outlet coordinates for every subbasin based on maximum accumulation value
       execGRASS("r.mapcalculator", amap="accum_t", bmap="basin_calc_t", outfile="drain_sub_t",
