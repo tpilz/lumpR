@@ -1031,11 +1031,17 @@ db_check <- function(
         print("-> The following datasets will be removed from 'landscape_units':")
         print(dat_lu[r_del,])
         
-        print("... affecting the following datasets in 'r_lu_contains_tc' that will be deleted as well:")
+        print("... affecting the following datasets in 'r_lu_contains_tc' that will be deleted as well (fractions will be updated):")
         print(dat_lu_contains[r_del_contains,])
         
         dat_lu <- dat_lu[-r_del,]
         dat_lu_contains <- dat_lu_contains[-r_del_contains,]
+        
+        # update fractions
+        frac_sum <- tapply(dat_lu_contains$fraction, list(parent=dat_lu_contains$lu_id), sum)
+        for (s in 1:nrow(dat_lu_contains))
+          dat_lu_contains$fraction[s] <- dat_lu_contains$fraction[s] / frac_sum[paste0(dat_lu_contains$lu_id[s])]
+        
         
         # update database
         tryCatch(
@@ -1103,11 +1109,17 @@ db_check <- function(
         print("-> The following datasets will be removed from 'terrain_components':")
         print(dat_tc[r_del,])
         
-        print("... affecting the following datasets in 'r_tc_contains_svc' that will be deleted as well:")
+        print("... affecting the following datasets in 'r_tc_contains_svc' that will be deleted as well (fractions will be updated):")
         print(dat_tc_contains[r_del_contains,])
         
         dat_tc <- dat_tc[-r_del,]
         dat_tc_contains <- dat_tc_contains[-r_del_contains,]
+        
+        # update fractions
+        frac_sum <- tapply(dat_tc_contains$fraction, list(parent=dat_tc_contains$tc_id), sum)
+        for (s in 1:nrow(dat_tc_contains))
+          dat_tc_contains$fraction[s] <- dat_tc_contains$fraction[s] / frac_sum[paste0(dat_tc_contains$tc_id[s])]
+        
         
         # update database
         tryCatch(
