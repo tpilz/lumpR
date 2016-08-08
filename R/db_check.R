@@ -1013,15 +1013,27 @@ db_check <- function(
     
     if(any(r_del)) {
       
+      # get lu_contains_tc data
+      dat_lu_contains <- sqlFetch(con, "r_lu_contains_tc")
+      
+      # identify datasets with LUs that will be deleted
+      r_del_contains <- which(dat_lu_contains$lu_id %in% dat_lu$pid[r_del])
+      
       if(!fix) {
         print("-> The following datasets in 'landscape_units' are obsolete:")
         print(dat_lu[r_del,])
+        print("... affecting the following datasets in 'r_lu_contains_tc':")
+        print(dat_lu_contains[r_del_contains,])
       } else {
           
         print("-> The following datasets will be removed from 'landscape_units':")
         print(dat_lu[r_del,])
         
+        print("... affecting the following datasets in 'r_lu_contains_tc' that will be deleted as well:")
+        print(dat_lu_contains[r_del_contains,])
+        
         dat_lu <- dat_lu[-r_del,]
+        dat_lu_contains <- dat_lu_contains[-r_del_contains,]
         
         # update database
         tryCatch(
@@ -1029,7 +1041,10 @@ db_check <- function(
           sqlQuery(con, "delete from landscape_units")
           sqlSave(channel=con, tablename = "landscape_units", dat=dat_lu, verbose=F, 
                   append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
-          tbl_changed <- c(tbl_changed, "landscape_units")
+          sqlQuery(con, "delete from r_lu_contains_tc")
+          sqlSave(channel=con, tablename = "r_lu_contains_tc", dat=dat_lu_contains, verbose=F, 
+                  append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
+          tbl_changed <- c(tbl_changed, "landscape_units, r_lu_contains_tc")
         }, error = function(e) {
           # update table meta_info
           meta_dat <- sqlFetch(con, "meta_info")
@@ -1046,7 +1061,7 @@ db_check <- function(
                                  remarks=paste0("ATTENTION: Error while checking database using R package LUMP check delete_obsolete. Nevertheless, affected_tables have already been changed."))
           write_datetabs(con, meta_out, tab="meta_info", verbose)
           odbcClose(con)
-          stop(paste0("An error occured when updating table 'landscape_units'. ",
+          stop(paste0("An error occured when updating tables 'landscape_units' and 'r_lu_contains_tc'. ",
                       "Error message of the writing function: ", e))
         }
         )
@@ -1070,15 +1085,27 @@ db_check <- function(
     
     if(any(r_del)) {
       
+      # get tc_contains_svc data
+      dat_tc_contains <- sqlFetch(con, "r_tc_contains_svc")
+      
+      # identify datasets with LUs that will be deleted
+      r_del_contains <- which(dat_tc_contains$tc_id %in% dat_tc$pid[r_del])
+      
       if(!fix) {
         print("-> The following datasets in 'terrain_components' are obsolete:")
         print(dat_tc[r_del,])
+        print("... affecting the following datasets in 'r_tc_contains_svc':")
+        print(dat_tc_contains[r_del_contains,])
       } else {
         
         print("-> The following datasets will be removed from 'terrain_components':")
         print(dat_tc[r_del,])
         
+        print("... affecting the following datasets in 'r_tc_contains_svc' that will be deleted as well:")
+        print(dat_tc_contains[r_del_contains,])
+        
         dat_tc <- dat_tc[-r_del,]
+        dat_tc_contains <- dat_tc_contains[-r_del_contains,]
         
         # update database
         tryCatch(
@@ -1086,7 +1113,10 @@ db_check <- function(
           sqlQuery(con, "delete from terrain_components")
           sqlSave(channel=con, tablename = "terrain_components", dat=dat_tc, verbose=F, 
                   append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
-          tbl_changed <- c(tbl_changed, "terrain_components")
+          sqlQuery(con, "delete from r_tc_contains_svc")
+          sqlSave(channel=con, tablename = "r_tc_contains_svc", dat=dat_tc_contains, verbose=F, 
+                  append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
+          tbl_changed <- c(tbl_changed, "terrain_components, r_tc_contains_svc")
         }, error = function(e) {
           # update table meta_info
           meta_dat <- sqlFetch(con, "meta_info")
@@ -1103,7 +1133,7 @@ db_check <- function(
                                  remarks=paste0("ATTENTION: Error while checking database using R package LUMP check delete_obsolete. Nevertheless, affected_tables have already been changed."))
           write_datetabs(con, meta_out, tab="meta_info", verbose)
           odbcClose(con)
-          stop(paste0("An error occured when updating table 'terrain_components'. ",
+          stop(paste0("An error occured when updating tables 'terrain_components' and 'r_tc_contains_svc'. ",
                       "Error message of the writing function: ", e))
         }
         )
