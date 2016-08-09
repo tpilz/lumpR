@@ -211,7 +211,7 @@ lump_grass_prep <- function(
     message("\nSTART hydrological preprocessing for LUMP using GRASS...\n")
     
     # create output directory
-    dir.create(dir_out, recursive=T)
+    dir.create(dir_out, recursive=T, showWarnings=F)
     
     # check output directory
     if (!overwrite & file.exists(paste(dir_out,svc_ofile,sep="/"))) 
@@ -219,7 +219,7 @@ lump_grass_prep <- function(
     
     
     # remove mask if any
-    execGRASS("r.mask", flags=c("r"))
+    suppressWarnings(execGRASS("r.mask", flags=c("r")))
     
     # remove output of previous function calls if overwrite=T
     if (overwrite) {
