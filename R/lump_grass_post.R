@@ -761,13 +761,13 @@ channel_length <- function(sub_no, stream, flowdir, flowacc) {
     chan_len <- mean(resol)
     accmax <- max(as.numeric(execGRASS("r.stats", input=flowacc, flags=c("n", "1"), intern=T))) # max flowacc
     execGRASS("r.mapcalculator", amap=flowacc, outfile="stream_main_t", 
-              formula=paste0("if(A == ", accmax, ", 1, null())"))
+              formula=paste0("if(A == ", sprintf(accmax, fmt="%i"), ", 1, null())"))
     warning(paste("Subbasin ", sub_no, " has no main channel. Assume at least one raster cell.", sep=""))
 
   } else {
     
     max_val <- max(main_chan)
-    expr <- paste0("if(A == ", max_val, ", A, null())")
+    expr <- paste0("if(A == ", sprintf(max_val, fmt="%i"), ", A, null())")
     expr <- gsub("\n|\\s","",expr)
     execGRASS("r.mapcalculator", amap=stream, outfile="stream_main_t", formula=expr)
     

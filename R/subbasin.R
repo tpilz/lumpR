@@ -175,7 +175,7 @@ calc_subbas <- function(
         stop(paste0("Parameter 'thresh_stream' (", thresh_stream, ") is larger than the maximum flow accumulation within the study area (", max_acc, "). Choose a smaller parameter value!"))
       # calculate stream segments (don't use output of r.watershed as streams should be finer than generated therein)
       execGRASS("r.mapcalculator", amap="accum_t", outfile=paste0(stream, "_rast"), 
-                formula=paste("if(abs(A)>", thresh_stream, ",1,0)", sep=""))
+                formula=paste("if(abs(A)>", sprintf(thresh_stream, fmt="%i"), ",1,0)", sep=""))
       # thin
       execGRASS("r.thin", input=paste0(stream, "_rast"), output=paste0(stream, "_thin_t"))
       # convert to vector
@@ -240,7 +240,7 @@ calc_subbas <- function(
 
       # get outlet coordinates for every subbasin based on maximum accumulation value
       execGRASS("r.mapcalculator", amap="accum_t", bmap="basin_calc_t", outfile="drain_sub_t",
-                formula=paste("( (A * (B == ", sub_maxacc[,1], ")) == ", sub_maxacc[,2], ")", sep="", collapse="||"))
+                formula=paste("( (A * (B == ", sprintf(sub_maxacc[,1], fmt="%i"), ")) == ", sprintf(sub_maxacc[,2], fmt="%i"), ")", sep="", collapse="||"))
       execGRASS("r.null", map="drain_sub_t", setnull="0")
       
       # convert to vector map
