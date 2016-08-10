@@ -217,7 +217,8 @@ calc_subbas <- function(
     
     
     # get drainage points of calculated subbasins (optional)
-    if(is.numeric(thresh_sub)) {
+    no_catch_calc <- as.numeric(execGRASS("r.stats", input="basin_outlet_t", flags=c("n"), intern=T))
+    if(is.numeric(thresh_sub) & (no_catch_calc > 1)) {
       # set watershed of outlet point as mask
       execGRASS("r.mask", input="basin_outlet_t")
       
