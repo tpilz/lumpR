@@ -166,6 +166,13 @@ calc_subbas <- function(
       message("\nCalculate drainage and river network...\n")
       # GRASS watershed calculation #
       execGRASS("r.watershed", elevation=dem, accumulation="accum_t", drainage="drain_t")
+      # check thresh_stream parameter
+      cmd_out <- execGRASS("r.univar", map="accum_t", fs="comma", flags=c("t"), intern=T)
+      cmd_out <- strsplit(cmd_out, ",")
+      cmd_cols <- grep("^max$", cmd_out[[1]])
+      max_acc <- as.numeric(cmd_out[[2]][cmd_cols])
+      if(thresh_stream > max_acc)
+        stop(paste0("Parameter 'thresh_stream' (", thresh_stream, ") is larger than the maximum flow accumulation within the study area (", max_acc, "). Choose a smaller parameter value!"))
       # calculate stream segments (don't use output of r.watershed as streams should be finer than generated therein)
       execGRASS("r.mapcalculator", amap="accum_t", outfile=paste0(stream, "_rast"), 
                 formula=paste("if(abs(A)>", thresh_stream, ",1,0)", sep=""))
