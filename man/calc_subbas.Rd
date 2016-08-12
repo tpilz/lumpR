@@ -7,7 +7,8 @@
 calc_subbas(dem = NULL, drain_points = NULL, river = NULL,
   basin_out = NULL, stream = NULL, points_processed = NULL,
   outlet = NULL, thresh_stream = NULL, thresh_sub = NULL,
-  snap_dist = NULL, keep_temp = F, overwrite = F, silent = F)
+  snap_dist = NULL, rm_spurious = T, keep_temp = F, overwrite = F,
+  silent = F)
 }
 \arguments{
 \item{dem}{Digital elevation model in GRASS location used for delineation of
@@ -49,6 +50,14 @@ given drainage points are used for subbasin delineation.}
 
 \item{snap_dist}{Integer defining maximum distance for snapping of \code{drain_points}
 to stream segments in units of your GRASS location.}
+
+\item{rm_spurious}{\code{logical}. If \code{TRUE} (default) spurious subbasins will
+be removed, i.e. those subbasins being smaller than 0.25 times \code{thresh_sub}.
+Spurious subbasins are 'interior' watersheds created by GRASS function
+\emph{r.watershed} around stream segments below multiple tributaries. If they
+are very small they induce unnecessary computational burden when used within a
+hydrological model. If removed, these areas will be related to the next upstream
+subbasins, respectively.}
 
 \item{keep_temp}{\code{logical}. Set to \code{TRUE} if temporary files shall be kept
 in the GRASS location, e.g. for debugging or further analyses. Default: \code{FALSE}.}

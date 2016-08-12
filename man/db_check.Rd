@@ -126,6 +126,8 @@ The following checks are currently included and can be specified via argument \c
  exist within the repective referenced tables. Furthermore, check if all vegetation
  types and soils exist as referenced within 'soil_veg_components', and if all
  soils exist as referenced within 'horizons'.
+ If the check fails, function returns an error. If \code{fix=T}, additionally a warning
+ message will be writting into table 'meta_info' of the databse.
 
  \bold{subbasin_order}\cr
  Compute subbasin order for WASA's routing input file routing.dat. Order will

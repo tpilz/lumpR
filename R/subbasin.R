@@ -50,6 +50,13 @@
 #'      given drainage points are used for subbasin delineation.
 #' @param snap_dist Integer defining maximum distance for snapping of \code{drain_points}
 #'      to stream segments in units of your GRASS location.
+#' @param rm_spurious \code{logical}. If \code{TRUE} (default) spurious subbasins will
+#'      be removed, i.e. those subbasins being smaller than 0.25 times \code{thresh_sub}.
+#'      Spurious subbasins are 'interior' watersheds created by GRASS function
+#'      \emph{r.watershed} around stream segments below multiple tributaries. If they
+#'      are very small they induce unnecessary computational burden when used within a
+#'      hydrological model. If removed, these areas will be related to the next upstream
+#'      subbasins, respectively.
 #' @param keep_temp \code{logical}. Set to \code{TRUE} if temporary files shall be kept
 #'      in the GRASS location, e.g. for debugging or further analyses. Default: \code{FALSE}.
 #' @param overwrite \code{logical}. Shall output of previous calls of this function be
@@ -98,6 +105,7 @@ calc_subbas <- function(
   thresh_stream=NULL,
   thresh_sub=NULL,
   snap_dist=NULL,
+  rm_spurious=T,
   keep_temp=F,
   overwrite=F,
   silent=F
@@ -142,7 +150,7 @@ calc_subbas <- function(
     message("\nInitialise function...\n")
     
     # remove mask if there is any
-    execGRASS("r.mask", flags=c("r"))
+    suppressWarnings(execGRASS("r.mask", flags=c("r")))
     
     # remove output of previous function calls if overwrite=T
     if (overwrite) {
@@ -158,9 +166,16 @@ calc_subbas <- function(
       message("\nCalculate drainage and river network...\n")
       # GRASS watershed calculation #
       execGRASS("r.watershed", elevation=dem, accumulation="accum_t", drainage="drain_t")
+      # check thresh_stream parameter
+      cmd_out <- execGRASS("r.univar", map="accum_t", fs="comma", flags=c("t"), intern=T)
+      cmd_out <- strsplit(cmd_out, ",")
+      cmd_cols <- grep("^max$", cmd_out[[1]])
+      max_acc <- as.numeric(cmd_out[[2]][cmd_cols])
+      if(thresh_stream > max_acc)
+        stop(paste0("Parameter 'thresh_stream' (", thresh_stream, ") is larger than the maximum flow accumulation within the study area (", max_acc, "). Choose a smaller parameter value!"))
       # calculate stream segments (don't use output of r.watershed as streams should be finer than generated therein)
       execGRASS("r.mapcalculator", amap="accum_t", outfile=paste0(stream, "_rast"), 
-                formula=paste("if(abs(A)>", thresh_stream, ",1,0)", sep=""))
+                formula=paste("if(abs(A)>", sprintf(thresh_stream, fmt="%i"), ",1,0)", sep=""))
       # thin
       execGRASS("r.thin", input=paste0(stream, "_rast"), output=paste0(stream, "_thin_t"))
       # convert to vector
@@ -196,7 +211,7 @@ calc_subbas <- function(
     drain_points_snap@data <- data.frame(cat=1:nrow(drain_points_snap@data))
     
     # export drain_points_snap to GRASS
-    writeVECT6(drain_points_snap, paste0(points_processed, "_snap"))
+    suppressWarnings(writeVECT6(drain_points_snap, paste0(points_processed, "_snap")))
     
     
   ### calculate catchments for every drainage point
@@ -209,7 +224,8 @@ calc_subbas <- function(
     
     
     # get drainage points of calculated subbasins (optional)
-    if(is.numeric(thresh_sub)) {
+    no_catch_calc <- as.numeric(execGRASS("r.stats", input="basin_outlet_t", flags=c("n"), intern=T))
+    if(is.numeric(thresh_sub) & (no_catch_calc > 1)) {
       # set watershed of outlet point as mask
       execGRASS("r.mask", input="basin_outlet_t")
       
@@ -217,11 +233,14 @@ calc_subbas <- function(
       cmd_out <- execGRASS("r.univar", map="accum_t", zones="basin_calc_t", fs="comma", flags = c("t"), intern=T)
       cmd_out <- strsplit(cmd_out, ",")
       cmd_cols <- grep("zone|max", cmd_out[[1]])
-      sub_maxacc <- do.call(rbind, cmd_out)[-1,cmd_cols]
+      sub_maxacc <- do.call(rbind, cmd_out)[-1,cmd_cols, drop=F]
+      
+      # remove calculated watershed outlet (point of maximum flow accumulation) as this has been given as input
+      sub_maxacc <- sub_maxacc[-which(as.numeric(sub_maxacc[,2]) == max(as.numeric(sub_maxacc[,2]))),]
 
       # get outlet coordinates for every subbasin based on maximum accumulation value
       execGRASS("r.mapcalculator", amap="accum_t", bmap="basin_calc_t", outfile="drain_sub_t",
-                formula=paste("( (A * (B == ", sub_maxacc[,1], ")) == ", sub_maxacc[,2], ")", sep="", collapse="||"))
+                formula=paste("( (A * (B == ", sprintf(sub_maxacc[,1], fmt="%i"), ")) == ", sprintf(sub_maxacc[,2], fmt="%i"), ")", sep="", collapse="||"))
       execGRASS("r.null", map="drain_sub_t", setnull="0")
       
       # convert to vector map
@@ -245,28 +264,22 @@ calc_subbas <- function(
     
 
     # loop over drainage points
-    i <- 0
     for (p in 1:length(drain_points_snap)) {
-      i <- i+1
-      
-      if (i == outlet) next
-      
+
       # outlet coordinates
       outlet_coords <- coordinates(drain_points_snap)[p,]
       
       # basin
-      execGRASS("r.water.outlet", drainage="drain_t", basin=paste0("basin_", i, "_t"),
+      execGRASS("r.water.outlet", drainage="drain_t", basin=paste0("basin_", p, "_t"),
                 easting=as.character(outlet_coords[["X"]]), northing=as.character(outlet_coords[["Y"]]))
-      
-      # reclass (subbasins gets number of i for r.patch later)
-      execGRASS("r.mapcalculator", amap=paste0("basin_", i, "_t"), outfile=paste0("basin_recl_", i, "_t"),
-                formula=paste0("if(A,",i, ")"))
+
+      # reclass (subbasins gets number of i for crossing later)
+      execGRASS("r.mapcalculator", amap=paste0("basin_", p, "_t"), outfile=paste0("basin_recl_", p, "_t"),
+                formula=paste0("if(A,",p, ")"))
       
     }
-    if(is.numeric(thresh_sub))
-      no_catch <- i-1 # outlet is counted two times (once by *_snap and once by *_calc)
-    else
-      no_catch <- i
+
+    no_catch <- p
   
     
   ### merge all sub-catchments
@@ -274,30 +287,63 @@ calc_subbas <- function(
     
     # put sub-catchments together
     subcatch_rasts <- execGRASS("g.mlist", type="rast", pattern=paste0("basin_recl_[0-9]*_t"), intern=T)
-    subcatch_rasts <- c(subcatch_rasts, "basin_outlet_t")
 
     # if more than one sub-catchment
     if(no_catch > 1) {
-        
-      # max 30 maps at once, create multiple cross products if necessary
-      iterations <- ceiling(length(subcatch_rasts)/30)
-      for (j in 1:iterations){
-        if (j == iterations) {
-          execGRASS("r.cross", input=paste(subcatch_rasts[((j-1)*30+1):length(subcatch_rasts)], collapse=","), output=paste0("basin_cross_", j, "_t"))
-          #print(paste0("Iteration ", j,": ", paste(subcatch_rasts[((j-1)*30+1):length(subcatch_rasts)], collapse=",")))
-        } else {
-          execGRASS("r.cross", input=paste(subcatch_rasts[((j-1)*30+1):(j*30)], collapse=","), output=paste0("basin_cross_", j, "_t"))
-          #print(paste0("Iteration ", j,": ", paste(subcatch_rasts[((j-1)*30+1):(j*30)], collapse=",")))
-        }
-      }
       
-      # merge cross products
-      cross_rasts <- execGRASS("g.mlist", type="rast", pattern=paste0("basin_cross_[0-9]*_t"), intern=T)
-      if(length(cross_rasts) == 1) {
-        execGRASS("g.rename", rast=paste(cross_rasts, "basin_all_t", sep=","))
-      } else {
-        execGRASS("r.cross", input=paste(cross_rasts,collapse=","), output="basin_all_t")
-      }
+      # iterate until configuration without 'spurious' sub-catchments is found (if rm_spurious is TRUE)
+      while (TRUE) {
+      
+        # max 30 maps at once, create multiple cross products if necessary
+        iterations <- ceiling(length(subcatch_rasts)/30)
+        for (j in 1:iterations){
+          if (j == iterations) {
+            x <- execGRASS("r.cross", input=paste(subcatch_rasts[((j-1)*30+1):length(subcatch_rasts)], collapse=","),
+                           output=paste0("basin_cross_", j, "_t"), flags = c("overwrite"), intern=T, ignore.stderr=T)
+          } else {
+            x <- execGRASS("r.cross", input=paste(subcatch_rasts[((j-1)*30+1):(j*30)], collapse=","),
+                           output=paste0("basin_cross_", j, "_t"), flags = c("overwrite"), intern=T, ignore.stderr=T)
+          }
+        }
+        
+        # merge cross products
+        cross_rasts <- execGRASS("g.mlist", type="rast", pattern=paste0("basin_cross_[0-9]*_t"), intern=T)
+        if(length(cross_rasts) == 1) {
+          x <- execGRASS("g.rename", rast=paste(cross_rasts, "basin_all_t", sep=","), intern=T, ignore.stderr=T)
+        } else {
+          execGRASS("r.cross", input=paste(cross_rasts,collapse=","), output="basin_all_t",
+                    flags = c("overwrite"), intern=T, ignore.stderr=T)
+        }
+        
+        # check size of sub-catcments and identify and remove 'spurious' sub-catchments
+        if(rm_spurious) {
+          # get sub-catcments and sizes (cell counts) and identify spurious ones
+          cmd_out <- execGRASS("r.stats", input="basin_all_t", flags=c("n", "c"), intern=T)
+          sub_sizes <- matrix(as.numeric(unlist(strsplit(cmd_out, " "))), ncol=2, byrow=T)
+          sub_sizes <- sub_sizes[-which(sub_sizes[,1] == 0),]
+          sub_rm <- sub_sizes[which(sub_sizes[,2] < 0.25*thresh_sub),1]
+          if(length(sub_rm)>0) {
+            # get number of basin_recl_* to be romved (not identical with raster values of basin_all_t!)
+            suppressWarnings(writeVECT6(drain_points_snap, paste0(points_processed, "_all_t")))
+            x <- execGRASS("v.to.rast", input=paste0(points_processed, "_all_t"), output=paste0(points_processed, "_all_t"), use="cat", intern=T)
+            cmd_out <- execGRASS("r.univar", map=paste0(points_processed, "_all_t"), zones="basin_all_t", fs="comma", flags=c("t"), intern=T)
+            cmd_out <- strsplit(cmd_out, ",")
+            cmd_cols <- grep("zone|^mean$", cmd_out[[1]])
+            basins_points <- do.call(rbind, cmd_out)[-1,cmd_cols, drop=F]
+            sub_rm_f <- as.numeric(basins_points[which(as.numeric(basins_points[,1]) %in% sub_rm),2])
+            # remove this temporary map from processing and try again (back to start of while loop)
+            subcatch_rasts <- grep(paste0("basin_recl_", sub_rm_f, "_t"), subcatch_rasts, invert = T, value = T)
+            x <- execGRASS("g.remove", rast="basin_all_t", intern=T)
+            # update no_catch
+            no_catch <- no_catch - length(sub_rm_f)
+          } else {
+            break
+          }
+        } else {
+          break # exit while loop
+        }
+      
+      } # end while-loop
       
       # constrain to catchment of outlet point
       execGRASS("r.mapcalculator", amap="basin_outlet_t", bmap="basin_all_t", outfile=basin_out,
@@ -322,7 +368,7 @@ calc_subbas <- function(
     
     # remove temporary maps
     if(keep_temp == FALSE)
-      execGRASS("g.mremove", rast="*_t", flags=c("f"))
+      execGRASS("g.mremove", rast="*_t", vect="*_t", flags=c("f"))
     
     
     

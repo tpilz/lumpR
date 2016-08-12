@@ -131,6 +131,8 @@
 #'  exist within the repective referenced tables. Furthermore, check if all vegetation
 #'  types and soils exist as referenced within 'soil_veg_components', and if all
 #'  soils exist as referenced within 'horizons'.
+#'  If the check fails, function returns an error. If \code{fix=T}, additionally a warning
+#'  message will be writting into table 'meta_info' of the databse.
 #'  
 #'  \bold{subbasin_order}\cr
 #'  Compute subbasin order for WASA's routing input file routing.dat. Order will
@@ -270,7 +272,8 @@ db_check <- function(
       r_tc_zero <- which(dat_tc$slope <= 0)
       tc_zero <- dat_tc$pid[r_tc_zero]
       lutc_zero <- dat_lutc[which(dat_lutc$tc_id %in% tc_zero),]
-      dat_out <- dat_lutc[-which(dat_lutc$tc_id %in% tc_zero),]
+      dat_out_lutc <- NULL # will only be touched if dat_lutc needs to be fixed
+      dat_out_tc <- NULL # will only be touched if dat_tc needs to be fixed
       
     
       # option 1: remove TC if areal fraction within LU is below threshold
@@ -313,12 +316,13 @@ db_check <- function(
             lutc_zero <- lutc_zero[-rows_lutc_rm,]
             
             # merge unchanged datasets with adjusted datasets where slope of TC <= 0
-            dat_out <- rbind(dat_out, lutc_zero)
+            dat_out_lutc <- dat_lutc[-which(dat_lutc$tc_id %in% tc_zero),]
+            dat_out_lutc <- rbind(dat_out_lutc, lutc_zero)
             
             # re-calculate fractions
-            frac_sum <- tapply(dat_out$fraction, list(parent=dat_out[[1]]), sum)
-            for (s in 1:nrow(dat_out))
-              dat_out$fraction[s] <- dat_out$fraction[s] / frac_sum[paste0(dat_out[[1]][s])]
+            frac_sum <- tapply(dat_out_lutc$fraction, list(parent=dat_out_lutc[[1]]), sum)
+            for (s in 1:nrow(dat_out_lutc))
+              dat_out_lutc$fraction[s] <- dat_out_lutc$fraction[s] / frac_sum[paste0(dat_out_lutc[[1]][s])]
             
           } # still datasets left to remove?
         } # TCs wih fraction below threshold?
@@ -341,13 +345,13 @@ db_check <- function(
         
         if(fix) {
           print(paste("-> For the following datasets slopes in 'terrain_components' will be replaced by ", repl_slope, ":"))
+          dat_out_tc <- dat_tc
+          dat_out_tc[r_tc_zero,"slope"] <- repl_slope
         } else {
           print("-> The following datasets in 'terrain_components' contains slopes <= 0:")
         }
           print(dat_tc[r_tc_zero,])
           
-        # replace slope value
-        dat_tc[r_tc_zero,"slope"] <- repl_slope
       } # end of option 2
       
       
@@ -355,63 +359,67 @@ db_check <- function(
       # update database
       if(fix) {
         
-        if(verbose)
-          print("-> Updating table 'r_lu_contains_tc'...")
-        tryCatch(
-        {
-          sqlQuery(con, "delete from r_lu_contains_tc")
-          sqlSave(channel=con, tablename = "r_lu_contains_tc", dat=dat_out, verbose=F, 
-                  append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
-          tbl_changed <- c(tbl_changed, "r_lu_contains_tc")
-        }, error = function(e) {
-          # update table meta_info
-          meta_dat <- sqlFetch(con, "meta_info")
-          if(any(meta_dat$pid)) {
-            pid_new <- max(meta_dat$pid) +1
-          } else {
-            pid_new <- 1
+        if(!is.null(dat_out_lutc)) {
+          if(verbose)
+            print("-> Updating table 'r_lu_contains_tc'...")
+          tryCatch(
+          {
+            sqlQuery(con, "delete from r_lu_contains_tc")
+            sqlSave(channel=con, tablename = "r_lu_contains_tc", dat=dat_out_lutc, verbose=F, 
+                    append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
+            tbl_changed <- c(tbl_changed, "r_lu_contains_tc")
+          }, error = function(e) {
+            # update table meta_info
+            meta_dat <- sqlFetch(con, "meta_info")
+            if(any(meta_dat$pid)) {
+              pid_new <- max(meta_dat$pid) +1
+            } else {
+              pid_new <- 1
+            }
+            meta_out <- data.frame(pid=pid_new,
+                                   mod_date=as.POSIXct(Sys.time()),
+                                   mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                                   affected_tables=paste(unique(tbl_changed), collapse=", "),
+                                   affected_columns="various",
+                                   remarks=paste0("ATTENTION: Error while checking database using R package LUMP check tc_slope. Nevertheless, affected_tables have already been changed."))
+            write_datetabs(con, meta_out, tab="meta_info", verbose)
+            odbcClose(con)
+            stop(paste0("An error occured when updating table 'r_lu_contains_tc'. ",
+                        "Error message of the writing function: ", e))
           }
-          meta_out <- data.frame(pid=pid_new,
-                                 mod_date=as.POSIXct(Sys.time()),
-                                 mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
-                                 affected_tables=paste(unique(tbl_changed), collapse=", "),
-                                 affected_columns="various",
-                                 remarks=paste0("ATTENTION: Error while checking database using R package LUMP check tc_slope. Nevertheless, affected_tables have already been changed."))
-          write_datetabs(con, meta_out, tab="meta_info", verbose)
-          odbcClose(con)
-          stop(paste0("An error occured when updating table 'r_lu_contains_tc'. ",
-                      "Error message of the writing function: ", e))
-        }
-        )
+          )
+        } # dat_out_lutc exists?
         
-        if(verbose)
-          print("-> Updating table 'terrain_components'...")
-        tryCatch(
-        {
-          sqlQuery(con, "delete from terrain_components")
-          sqlSave(channel=con, tablename = "terrain_components", dat=dat_tc, verbose=F, 
-                  append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
-          tbl_changed <- c(tbl_changed, "terrain_components")
-        }, error = function(e) {
-          # update table meta_info
-          meta_dat <- sqlFetch(con, "meta_info")
-          if(any(meta_dat$pid)) {
-            pid_new <- max(meta_dat$pid) +1
-          } else {
-            pid_new <- 1
+        if(!is.null(dat_out_tc)) {
+          if(verbose)
+            print("-> Updating table 'terrain_components'...")
+          tryCatch(
+          {
+            sqlQuery(con, "delete from terrain_components")
+            sqlSave(channel=con, tablename = "terrain_components", dat=dat_out_tc, verbose=F, 
+                    append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
+            tbl_changed <- c(tbl_changed, "terrain_components")
+          }, error = function(e) {
+            # update table meta_info
+            meta_dat <- sqlFetch(con, "meta_info")
+            if(any(meta_dat$pid)) {
+              pid_new <- max(meta_dat$pid) +1
+            } else {
+              pid_new <- 1
+            }
+            meta_out <- data.frame(pid=pid_new,
+                                   mod_date=as.POSIXct(Sys.time()),
+                                   mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                                   affected_tables=paste(unique(tbl_changed), collapse=", "),
+                                   affected_columns="various",
+                                   remarks=paste0("ATTENTION: Error while checking database using R package LUMP check tc_slope. Nevertheless, affected_tables have already been changed."))
+            write_datetabs(con, meta_out, tab="meta_info", verbose)
+            odbcClose(con)
+            stop(paste0("An error occured when updating table 'terrain_components'. ",
+                        "Error message of the writing function: ", e))
           }
-          meta_out <- data.frame(pid=pid_new,
-                                 mod_date=as.POSIXct(Sys.time()),
-                                 mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
-                                 affected_tables=paste(unique(tbl_changed), collapse=", "),
-                                 affected_columns="various",
-                                 remarks=paste0("ATTENTION: Error while checking database using R package LUMP check tc_slope. Nevertheless, affected_tables have already been changed."))
-          write_datetabs(con, meta_out, tab="meta_info", verbose)
-          odbcClose(con)
-          stop(paste0("An error occured when updating table 'terrain_components'. ",
-                      "Error message of the writing function: ", e))
-        }
-        )
+          )
+        } # dat_out_tc exists?
         
       } # if fix
     
@@ -1013,15 +1021,33 @@ db_check <- function(
     
     if(any(r_del)) {
       
+      # get lu_contains_tc data
+      dat_lu_contains <- sqlFetch(con, "r_lu_contains_tc")
+      
+      # identify datasets with LUs that will be deleted
+      r_del_contains <- which(dat_lu_contains$lu_id %in% dat_lu$pid[r_del])
+      
       if(!fix) {
         print("-> The following datasets in 'landscape_units' are obsolete:")
         print(dat_lu[r_del,])
+        print("... affecting the following datasets in 'r_lu_contains_tc':")
+        print(dat_lu_contains[r_del_contains,])
       } else {
           
         print("-> The following datasets will be removed from 'landscape_units':")
         print(dat_lu[r_del,])
         
+        print("... affecting the following datasets in 'r_lu_contains_tc' that will be deleted as well (fractions will be updated):")
+        print(dat_lu_contains[r_del_contains,])
+        
         dat_lu <- dat_lu[-r_del,]
+        dat_lu_contains <- dat_lu_contains[-r_del_contains,]
+        
+        # update fractions
+        frac_sum <- tapply(dat_lu_contains$fraction, list(parent=dat_lu_contains$lu_id), sum)
+        for (s in 1:nrow(dat_lu_contains))
+          dat_lu_contains$fraction[s] <- dat_lu_contains$fraction[s] / frac_sum[paste0(dat_lu_contains$lu_id[s])]
+        
         
         # update database
         tryCatch(
@@ -1029,7 +1055,10 @@ db_check <- function(
           sqlQuery(con, "delete from landscape_units")
           sqlSave(channel=con, tablename = "landscape_units", dat=dat_lu, verbose=F, 
                   append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
-          tbl_changed <- c(tbl_changed, "landscape_units")
+          sqlQuery(con, "delete from r_lu_contains_tc")
+          sqlSave(channel=con, tablename = "r_lu_contains_tc", dat=dat_lu_contains, verbose=F, 
+                  append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
+          tbl_changed <- c(tbl_changed, "landscape_units, r_lu_contains_tc")
         }, error = function(e) {
           # update table meta_info
           meta_dat <- sqlFetch(con, "meta_info")
@@ -1046,7 +1075,7 @@ db_check <- function(
                                  remarks=paste0("ATTENTION: Error while checking database using R package LUMP check delete_obsolete. Nevertheless, affected_tables have already been changed."))
           write_datetabs(con, meta_out, tab="meta_info", verbose)
           odbcClose(con)
-          stop(paste0("An error occured when updating table 'landscape_units'. ",
+          stop(paste0("An error occured when updating tables 'landscape_units' and 'r_lu_contains_tc'. ",
                       "Error message of the writing function: ", e))
         }
         )
@@ -1070,15 +1099,33 @@ db_check <- function(
     
     if(any(r_del)) {
       
+      # get tc_contains_svc data
+      dat_tc_contains <- sqlFetch(con, "r_tc_contains_svc")
+      
+      # identify datasets with LUs that will be deleted
+      r_del_contains <- which(dat_tc_contains$tc_id %in% dat_tc$pid[r_del])
+      
       if(!fix) {
         print("-> The following datasets in 'terrain_components' are obsolete:")
         print(dat_tc[r_del,])
+        print("... affecting the following datasets in 'r_tc_contains_svc':")
+        print(dat_tc_contains[r_del_contains,])
       } else {
         
         print("-> The following datasets will be removed from 'terrain_components':")
         print(dat_tc[r_del,])
         
+        print("... affecting the following datasets in 'r_tc_contains_svc' that will be deleted as well (fractions will be updated):")
+        print(dat_tc_contains[r_del_contains,])
+        
         dat_tc <- dat_tc[-r_del,]
+        dat_tc_contains <- dat_tc_contains[-r_del_contains,]
+        
+        # update fractions
+        frac_sum <- tapply(dat_tc_contains$fraction, list(parent=dat_tc_contains$tc_id), sum)
+        for (s in 1:nrow(dat_tc_contains))
+          dat_tc_contains$fraction[s] <- dat_tc_contains$fraction[s] / frac_sum[paste0(dat_tc_contains$tc_id[s])]
+        
         
         # update database
         tryCatch(
@@ -1086,7 +1133,10 @@ db_check <- function(
           sqlQuery(con, "delete from terrain_components")
           sqlSave(channel=con, tablename = "terrain_components", dat=dat_tc, verbose=F, 
                   append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
-          tbl_changed <- c(tbl_changed, "terrain_components")
+          sqlQuery(con, "delete from r_tc_contains_svc")
+          sqlSave(channel=con, tablename = "r_tc_contains_svc", dat=dat_tc_contains, verbose=F, 
+                  append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
+          tbl_changed <- c(tbl_changed, "terrain_components, r_tc_contains_svc")
         }, error = function(e) {
           # update table meta_info
           meta_dat <- sqlFetch(con, "meta_info")
@@ -1103,7 +1153,7 @@ db_check <- function(
                                  remarks=paste0("ATTENTION: Error while checking database using R package LUMP check delete_obsolete. Nevertheless, affected_tables have already been changed."))
           write_datetabs(con, meta_out, tab="meta_info", verbose)
           odbcClose(con)
-          stop(paste0("An error occured when updating table 'terrain_components'. ",
+          stop(paste0("An error occured when updating tables 'terrain_components' and 'r_tc_contains_svc'. ",
                       "Error message of the writing function: ", e))
         }
         )

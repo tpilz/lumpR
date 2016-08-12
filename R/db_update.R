@@ -1,5 +1,5 @@
 # LUMP/db_update.R
-# Copyright (C) 2015 Tobias Pilz, Till Francke
+# Copyright (C) 2015,2016 Tobias Pilz, Till Francke
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -69,13 +69,13 @@ db_update <- function(
     stop(paste0("Requested update (", to_ver, ") is greater than newest available database version (", db_ver_max, ")!"))
   
   if(db_ver == db_ver_max)
-    stop(paste0("Database is up to date (version ", db_ver_max, "). Nothing to do."))
+    return(message(paste0("Database is up to date (version ", db_ver_max, "). Nothing to do.")))
   
   if(db_ver > to_ver)
     stop(paste0("Database (", db_ver, ") is newer than the requested update (", to_ver, "). Nothing to do."))
   
   if(db_ver < 18)
-    stop("Database needs to be at least version 18 for updating. Do manual updates first (see db_version.txt in LUMP's source directory 'src/make_wasa_input/').")
+    stop("Database needs to be at least version 18 for updating. Do manual updates first (see db_version.txt in LUMP's source directory 'example/make_wasa_input/').")
   
   
   if(db_ver == 18) #ver 18 -> 19

@@ -1,5 +1,5 @@
 # LUMP/db_wasa_input.R
-# Copyright (C) 2015 Tobias Pilz
+# Copyright (C) 2015,2016 Tobias Pilz
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -247,26 +247,21 @@ db_wasa_input <- function(
     print("OK.")
 
   # create and/or check output directory
-  if(!file_test("-d", dest_dir)) {
-    if(verbose)
-      print(paste("Output directory ", dest_dir, " with all sub-directories will be created."))
-    dir.create(dest_dir, recursive=T)
-    dir.create(paste(dest_dir, "River", sep="/"), recursive=T)
-    dir.create(paste(dest_dir, "Hillslope", sep="/"), recursive=T)
-  } else {
-    if(verbose)
-      print(paste("Output will be written to ", dest_dir))
-    
-    pathfiles <- paste0(dest_dir, files)
-    if(any(file.exists(pathfiles)))
-      if(overwrite) {
-        if(verbose)
-          print(paste0("The following files in specified path '", dest_dir, "' will be overwritten: ", paste(files[file.exists(pathfiles)], collapse=", ")))
-      } else {
-        stop(paste0("There are still files at '", dest_dir, "' that shall not be overwritten: ", paste(files[file.exists(pathfiles)], collapse=", ")))
-      }
+  dir.create(dest_dir, recursive=T, showWarnings = F)
+  dir.create(paste(dest_dir, "River", sep="/"), recursive=T, showWarnings = F)
+  dir.create(paste(dest_dir, "Hillslope", sep="/"), recursive=T, showWarnings = F)
 
-  }
+  if(verbose)
+    print(paste("Output will be written to ", dest_dir))
+    
+  pathfiles <- paste(dest_dir, files, sep="/")
+  if(any(file.exists(pathfiles)))
+    if(overwrite) {
+      if(verbose)
+        print(paste0("The following files in specified path '", dest_dir, "' will be overwritten: ", paste(files[file.exists(pathfiles)], collapse=", ")))
+    } else {
+      stop(paste0("There are still files at '", dest_dir, "' that shall not be overwritten: ", paste(files[file.exists(pathfiles)], collapse=", ")))
+    }
 
 
   
