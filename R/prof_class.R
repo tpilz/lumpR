@@ -838,8 +838,12 @@ prof_class <- function(
     message('start decomposition of TCs')
     if (attr_weights_partition[1]==1) {
       message('')
-      message('only one TC per LU will be produced; not much to do, no partition plots will be produced')
+      message('only one TC per LU will be produced!')
     }
+    
+    # save original mean_prof (for later plotting only)
+    mean_prof_orig_t <- mean_prof
+    
     # decompose / partition the mean profile of each class
     for (i in 1:nclasses) {
       message('')
@@ -907,23 +911,10 @@ prof_class <- function(
         #    [lim_var,lim_clu] = tc_decomp(mean_prof(i,1:com_length), mean_supp_data, datacolumns, attr_weights_partition, xvec,monocrome,plot_approx_ts);
         #    tc_decomp(prof, supp_data, datacolumns, attr_weights_partition, xvec, monocrome, plot_approx_ts)
         
-        
-        # plot orig
-        if (make_plots) {
-          plot(xvec, mean_prof[i,1:com_length], type="l", xlab='horizontal length', ylab='relative elevation gain',
-               main=paste("partitioning class ", i, sep=""))
-        }
-        
         # fill hollows/sinks
         for (ii in 2:com_length) {
           mean_prof[i,1:com_length][ii] <- max(mean_prof[i,1:com_length][ii-1], mean_prof[i,1:com_length][ii])
         }
-        
-        # plot filled
-        if (make_plots) {
-          points(xvec, mean_prof[i,1:com_length], pch=1)
-        }
-        
         
         # compute local slopes of profile
         prof_slopes <- vector("numeric", length=com_length-1)
@@ -969,23 +960,6 @@ prof_class <- function(
         message('')
         message(paste('partition by min variance: ', paste(best_limits, collapse=" "), 
                       '; fitting index_v = ', qual, sep=""))
-        
-        
-        
-        # plot parameterized slope
-        # only for drawing - from beginning till end
-        best_limits_t <- c(1, best_limits, length(mean_prof[i,1:com_length]))
-        
-        if (make_plots) {   
-          lines(xvec[best_limits_t], mean_prof[i,1:com_length][best_limits_t], col="red")
-          
-          # plot limits using vertical lines
-          for (ii in 1:length(best_limits)) {       
-            lines(c((best_limits[ii]-1)*dx, (best_limits[ii]-1)*dx), c(0, mean_prof[i,1:com_length][best_limits[ii]]), lty=2, col="red")
-          }
-        }
-        
-        
         
         
         #decomposition using cluster analysis - deactivated
@@ -1070,23 +1044,52 @@ prof_class <- function(
         }
         
         
-        # plot legend
-        if (make_plots) { 
-#           legend("topleft", c("orig. toposequence", "filled profile", "approx. (min var)", "TC boundary (var)",
-#                               "approx. (cluster anal.)", "TC boundary (cluster anal.)"), lty=c(1,NA,1,2,1,2),
-#                  pch=c(NA,1,NA,NA,NA,NA), col=c("black", "black", "red","red","green","green"))
-          # cluster analysis currently not supported and does not need to appear in plots
-          legend("topleft", c("orig. toposequence", "filled profile", "approx. (min var)", "TC boundary (var)"), 
-                 lty=c(1,NA,1,2), pch=c(NA,1,NA,NA), col=c("black", "black", "red","red"))
-        }
-        
-        
         # save values
         lim_var <- best_limits
         lim_clu <- best_limits_c
         
       } # end else attr_weights_partition[1]==1
       
+      
+      # plot orig
+      if (make_plots) {
+        plot(xvec, mean_prof_orig_t[i,1:com_length], type="l", xlab='horizontal length', ylab='relative elevation gain',
+             main=paste("partitioning class ", i, sep=""))
+      }
+      
+      # plot filled
+      if (make_plots) {
+        points(xvec, mean_prof[i,1:com_length], pch=1)
+      }
+      
+      
+      # plot parameterized slope
+      if (make_plots) {  
+        
+        if(attr_weights_partition[1]==1) {
+          lines(c(min(xvec), max(xvec)), mean_prof[i,c(1,com_length)], col="red")
+        } else {
+          # only for drawing - from beginning till end
+          best_limits_t <- c(1, best_limits, length(mean_prof[i,1:com_length]))
+          
+          lines(xvec[best_limits_t], mean_prof[i,1:com_length][best_limits_t], col="red")
+          
+          # plot limits using vertical lines
+          for (ii in 1:length(best_limits)) {       
+            lines(c((best_limits[ii]-1)*dx, (best_limits[ii]-1)*dx), c(0, mean_prof[i,1:com_length][best_limits[ii]]), lty=2, col="red")
+          }
+        }
+      }
+      
+      # plot legend
+      if (make_plots) { 
+        #           legend("topleft", c("orig. toposequence", "filled profile", "approx. (min var)", "TC boundary (var)",
+        #                               "approx. (cluster anal.)", "TC boundary (cluster anal.)"), lty=c(1,NA,1,2,1,2),
+        #                  pch=c(NA,1,NA,NA,NA,NA), col=c("black", "black", "red","red","green","green"))
+        # cluster analysis currently not supported and does not need to appear in plots
+        legend("topleft", c("orig. toposequence", "filled profile", "approx. (min var)", "TC boundary (var)"), 
+               lty=c(1,NA,1,2), pch=c(NA,1,NA,NA), col=c("black", "black", "red","red"))
+      }
       
       
       #----------file output lu.dat
