@@ -175,7 +175,7 @@ calc_subbas <- function(
         stop(paste0("Parameter 'thresh_stream' (", thresh_stream, ") is larger than the maximum flow accumulation within the study area (", max_acc, "). Choose a smaller parameter value!"))
       # calculate stream segments (don't use output of r.watershed as streams should be finer than generated therein)
       execGRASS("r.mapcalculator", amap="accum_t", outfile=paste0(stream, "_rast"), 
-                formula=paste("if(abs(A)>", sprintf(thresh_stream, fmt="%i"), ",1,0)", sep=""))
+                formula=paste("if(abs(A)>", format(thresh_stream, scientific = F), ",1,0)", sep=""))
       # thin
       execGRASS("r.thin", input=paste0(stream, "_rast"), output=paste0(stream, "_thin_t"))
       # convert to vector
@@ -224,42 +224,47 @@ calc_subbas <- function(
     
     
     # get drainage points of calculated subbasins (optional)
-    no_catch_calc <- as.numeric(execGRASS("r.stats", input="basin_outlet_t", flags=c("n"), intern=T))
-    if(is.numeric(thresh_sub) & (no_catch_calc > 1)) {
-      # set watershed of outlet point as mask
-      execGRASS("r.mask", input="basin_outlet_t")
+    if(is.numeric(thresh_sub)) {
       
-      # get for each calculated subbasin the maximum accumulation value
-      cmd_out <- execGRASS("r.univar", map="accum_t", zones="basin_calc_t", fs="comma", flags = c("t"), intern=T)
-      cmd_out <- strsplit(cmd_out, ",")
-      cmd_cols <- grep("zone|max", cmd_out[[1]])
-      sub_maxacc <- do.call(rbind, cmd_out)[-1,cmd_cols, drop=F]
-      
-      # remove calculated watershed outlet (point of maximum flow accumulation) as this has been given as input
-      sub_maxacc <- sub_maxacc[-which(as.numeric(sub_maxacc[,2]) == max(as.numeric(sub_maxacc[,2]))),]
-
-      # get outlet coordinates for every subbasin based on maximum accumulation value
-      execGRASS("r.mapcalculator", amap="accum_t", bmap="basin_calc_t", outfile="drain_sub_t",
-                formula=paste("( (A * (B == ", sprintf(sub_maxacc[,1], fmt="%i"), ")) == ", sprintf(sub_maxacc[,2], fmt="%i"), ")", sep="", collapse="||"))
-      execGRASS("r.null", map="drain_sub_t", setnull="0")
-      
-      # convert to vector map
-      execGRASS("r.to.vect", input="drain_sub_t", output=paste0(points_processed, "_calc"), feature="point")
-      
-      # read vector map
-      drain_points_calc <- readVECT6(paste0(points_processed, "_calc"))
-      
-      # properly match projection
-      projection(drain_points_calc) <- getLocationProj()
-      
-      # df should only contain a cat column
-      drain_points_calc@data <- data.frame(cat=1:nrow(drain_points_calc@data))
-      
-      # merge with existing drain points object (snapped points first as there the outlet is identified)
-      drain_points_snap <- rbind(drain_points_snap, drain_points_calc)
-      
-      # remove mask
-      execGRASS("r.mask", flags=c("r"))
+      # the following calculations only make sense if thresh_sub is large enough to produce more than more subbasin
+      no_catch_calc <- length(as.numeric(execGRASS("r.stats", input="basin_calc_t", flags=c("n"), intern=T)))
+      if(no_catch_calc > 1) {
+        
+        # set watershed of outlet point as mask
+        execGRASS("r.mask", input="basin_outlet_t")
+        
+        # get for each calculated subbasin the maximum accumulation value
+        cmd_out <- execGRASS("r.univar", map="accum_t", zones="basin_calc_t", fs="comma", flags = c("t"), intern=T)
+        cmd_out <- strsplit(cmd_out, ",")
+        cmd_cols <- grep("zone|max", cmd_out[[1]])
+        sub_maxacc <- do.call(rbind, cmd_out)[-1,cmd_cols, drop=F]
+        
+        # remove calculated watershed outlet (point of maximum flow accumulation) as this has been given as input
+        sub_maxacc <- sub_maxacc[-which(as.numeric(sub_maxacc[,2]) == max(as.numeric(sub_maxacc[,2]))),]
+  
+        # get outlet coordinates for every subbasin based on maximum accumulation value
+        execGRASS("r.mapcalculator", amap="accum_t", bmap="basin_calc_t", outfile="drain_sub_t",
+                  formula=paste("( (A * (B == ", format(sub_maxacc[,1], scientific = F), ")) == ", format(sub_maxacc[,2], scientific = F), ")", sep="", collapse="||"))
+        execGRASS("r.null", map="drain_sub_t", setnull="0")
+        
+        # convert to vector map
+        execGRASS("r.to.vect", input="drain_sub_t", output=paste0(points_processed, "_calc"), feature="point")
+        
+        # read vector map
+        drain_points_calc <- readVECT6(paste0(points_processed, "_calc"))
+        
+        # properly match projection
+        projection(drain_points_calc) <- getLocationProj()
+        
+        # df should only contain a cat column
+        drain_points_calc@data <- data.frame(cat=1:nrow(drain_points_calc@data))
+        
+        # merge with existing drain points object (snapped points first as there the outlet is identified)
+        drain_points_snap <- rbind(drain_points_snap, drain_points_calc)
+        
+        # remove mask
+        execGRASS("r.mask", flags=c("r"))
+      }
     }
     
 
