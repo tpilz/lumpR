@@ -337,7 +337,7 @@ calc_subbas <- function(
             basins_points <- do.call(rbind, cmd_out)[-1,cmd_cols, drop=F]
             sub_rm_f <- as.numeric(basins_points[which(as.numeric(basins_points[,1]) %in% sub_rm),2])
             # remove this temporary map from processing and try again (back to start of while loop)
-            subcatch_rasts <- grep(paste0("basin_recl_", sub_rm_f, "_t"), subcatch_rasts, invert = T, value = T)
+            subcatch_rasts <- grep(paste0("basin_recl_", sub_rm_f, "_t", collapse="|"), subcatch_rasts, invert = T, value = T)
             x <- execGRASS("g.remove", rast="basin_all_t", intern=T)
             # update no_catch
             no_catch <- no_catch - length(sub_rm_f)
