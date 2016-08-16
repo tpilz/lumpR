@@ -110,6 +110,12 @@ For each reservoir that should be modelled explicitly within WASA the
 In output file \code{reservoir_file} order of subbasin IDs needs to be compliant
      with order in hymo.dat, i.e. some manual post-processing might be necessary!
      Otherwise WASA will terminate with an error.
+
+     If you applied \code{\link[LUMP]{reservoir_outlet}} using the outlet locations
+     of strategic reservoirs as drainage points it might be necessary to use
+     locations of the function's output \code{points_processed} instead of the
+     true reservoir outlet locations as otherwise the reservoirs might assigned to
+     the wrong subbasins!
 }
 \author{
 Tobias Pilz \email{tpilz@uni-potsdam.de}

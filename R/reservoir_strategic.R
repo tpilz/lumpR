@@ -112,6 +112,12 @@
 #'      with order in hymo.dat, i.e. some manual post-processing might be necessary!
 #'      Otherwise WASA will terminate with an error.
 #'      
+#'      If you applied \code{\link[LUMP]{reservoir_outlet}} using the outlet locations
+#'      of strategic reservoirs as drainage points it might be necessary to use
+#'      locations of the function's output \code{points_processed} instead of the
+#'      true reservoir outlet locations as otherwise the reservoirs might assigned to
+#'      the wrong subbasins!
+#'      
 #' @references 
 #'      WASA model in general:\cr
 #'      Guentner, A. (2002): Large-scale hydrological modelling in the semi-arid 
