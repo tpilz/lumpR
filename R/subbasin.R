@@ -303,8 +303,13 @@ calc_subbas <- function(
         iterations <- ceiling(length(subcatch_rasts)/30)
         for (j in 1:iterations){
           if (j == iterations) {
-            x <- execGRASS("r.cross", input=paste(subcatch_rasts[((j-1)*30+1):length(subcatch_rasts)], collapse=","),
-                           output=paste0("basin_cross_", j, "_t"), flags = c("overwrite"), intern=T, ignore.stderr=T)
+            if(length(subcatch_rasts) %% 30 == 1) {
+              x <- execGRASS("g.copy", rast=paste(subcatch_rasts[((j-1)*30+1):length(subcatch_rasts)], paste0("basin_cross_", j, "_t"), sep=","), 
+                             intern=T, ignore.stderr=T)
+            } else {
+              x <- execGRASS("r.cross", input=paste(subcatch_rasts[((j-1)*30+1):length(subcatch_rasts)], collapse=","),
+                             output=paste0("basin_cross_", j, "_t"), flags = c("overwrite"), intern=T, ignore.stderr=T)
+            }
           } else {
             x <- execGRASS("r.cross", input=paste(subcatch_rasts[((j-1)*30+1):(j*30)], collapse=","),
                            output=paste0("basin_cross_", j, "_t"), flags = c("overwrite"), intern=T, ignore.stderr=T)
