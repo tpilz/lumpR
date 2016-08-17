@@ -72,8 +72,6 @@ reservoir_outlet <- function(
     if (is.null(flowacc) & !is.null(dem)) {
       flowacc <- "accum_t"
       execGRASS("r.watershed", elevation=dem, accumulation=flowacc)
-    } else {
-      stop("Both 'flowacc' and 'dem' are specified (non-NULL). Use only one of them!")
     }
     
     
