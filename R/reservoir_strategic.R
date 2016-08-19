@@ -186,11 +186,14 @@ reservoir_strategic <- function(
     # get reservoir data
     res <- readVECT6(res_vect)
     
+    # make sure column names are in in lowercase only
+    colnames(res@data) <- tolower(colnames(res@data))
+    
     # check existence of necessary columns in attribute table
     cols_mandatory <- c("name", "minlevel", "maxlevel", "vol0", "storecap", "damflow", "damq_frac", 
                         "withdrawal", "damyear", "maxdamarea", "damdead", "damalert", "dama", "damb", 
                         "q_outlet", "fvol_botm", "fvol_over", "damc", "damd", "elevbottom")
-    chk_cols <- grepl(paste(colnames(res@data), collapse="|^"), cols_mandatory, ignore.case = T)
+    chk_cols <- grepl(paste(colnames(res@data), collapse="|^"), cols_mandatory)
     if(any(!chk_cols))
       stop(paste0("Check attribute table of 'res_vect', column(s) ", paste(cols_mandatory[!chk_cols], collapse=", "), " could not be found!"))
     
