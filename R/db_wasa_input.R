@@ -187,12 +187,18 @@
 #'   \bold{Hillslope/soil_particles.dat}\cr
 #'   File contains particle size distributions of topmost soil horizons.
 #'   
-#'   \bold{rainy_season}\cr
+#'   \bold{Hillslope/rainy_season.dat}\cr
 #'   \emph{Optional} file defining days of year (i.e. nodes, cf. vegetation parameters)
 #'   of the rainy/growing season for each year, subbasin and vegetation type. See
 #'   doc of \code{\link[LUMP]{db_fill}} and \code{\link[LUMP]{rainy_season}} for
 #'   more information. If this file is not supplied only the first node value of 
 #'   seasonal vegetation parameters is used.
+#'   
+#'   \bold{Hillslope/svc.dat}\cr
+#'   \emph{Optional} file defining soil vegetation components and giving some erosion
+#'   parameters. Mandatory for WASA's sediment module and/or saving/loading of model
+#'   states. See doc of \code{\link[LUMP]{db_fill}} (-> 'soil_veg_components') for
+#'   description of header.
 #'  
 #'  
 #'  @author 
@@ -207,7 +213,7 @@ db_wasa_input <- function(
           "Hillslope/soter.dat", "Hillslope/terrain.dat", "Hillslope/soil_vegetation.dat",
           "Hillslope/soil.dat", "Hillslope/vegetation.dat", "Hillslope/svc_in_tc.dat",
           "do.dat", "maxdim.dat", "part_class.dat", "Hillslope/soil_particles.dat",
-          "Hillslope/rainy_season.dat"),
+          "Hillslope/rainy_season.dat", "Hillslope/svc.dat"),
   overwrite=F,
   verbose = TRUE
 ) {
@@ -696,6 +702,46 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
 
 
 
+###############################################################################
+### Hillslope/svc.dat
+  if("Hillslope/svc.dat" %in% files) {
+    if(verbose)
+      print("Create Hillslope/svc.dat ...")
+    
+    # create file
+    if(!file.exists(paste(dest_dir, "Hillslope/svc.dat", sep="/")) | overwrite){
+      file.create(paste(dest_dir, "Hillslope/svc.dat", sep="/"))
+    } else {
+      stop("File 'Hillslope/svc.dat' exists!")
+    }
+    
+    # write header
+    writeLines(con=paste(dest_dir, "Hillslope/svc.dat", sep="/"),
+               text=c("Specifications of soil vegetation components and erosion parameters",
+                      "id\tsoil_id\tveg_id\tmusle_k[(ton acre hr)/(acre ft-ton inch)]\tmusle_c[-]\tmusle_p[-]\tcoarse_fraction[%]\tmanning_n"))
+    
+    # get data
+    dat_svc <- sqlFetch(con, "soil_veg_components")
+    
+    # only relevant data
+    dat_out <- data.frame(dat_svc$pid, dat_svc$soil_id, dat_svc$veg_id, dat_svc$musle_k, dat_svc$musle_c1,
+                          dat_svc$musle_p, dat_svc$coarse_frac, dat_svc$manning_n)
+    
+    # set NA values to -9999 (related to sediment which is not yet supported; file in present form only useful for saving WASA storages)
+    dat_out[is.na(dat_out)] <- -9999
+    
+    # write output
+    write.table(dat_out, paste(dest_dir, "Hillslope/svc.dat", sep="/"), sep="\t", row.names=F, col.names=F, append=T, quote=F)
+    
+  
+    if(verbose)
+      print("OK.")
+    
+  } # Hillslope/svc.dat
+  
+  
+  
+  
 ###############################################################################
 ### Hillslope/soil.dat
   if("Hillslope/soil.dat" %in% files) {

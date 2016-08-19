@@ -10,7 +10,8 @@ db_wasa_input(dbname, dest_dir = "./", files = c("info.dat",
   "Hillslope/soil_vegetation.dat", "Hillslope/soil.dat",
   "Hillslope/vegetation.dat", "Hillslope/svc_in_tc.dat", "do.dat", "maxdim.dat",
   "part_class.dat", "Hillslope/soil_particles.dat",
-  "Hillslope/rainy_season.dat"), overwrite = F, verbose = TRUE)
+  "Hillslope/rainy_season.dat", "Hillslope/svc.dat"), overwrite = F,
+  verbose = TRUE)
 }
 \arguments{
 \item{dbname}{Name of the data source (DSN) registered at ODBC.}
@@ -183,12 +184,18 @@ Consider function db_check() before running this function to ensure consistency 
   \bold{Hillslope/soil_particles.dat}\cr
   File contains particle size distributions of topmost soil horizons.
 
-  \bold{rainy_season}\cr
+  \bold{Hillslope/rainy_season.dat}\cr
   \emph{Optional} file defining days of year (i.e. nodes, cf. vegetation parameters)
   of the rainy/growing season for each year, subbasin and vegetation type. See
   doc of \code{\link[LUMP]{db_fill}} and \code{\link[LUMP]{rainy_season}} for
   more information. If this file is not supplied only the first node value of
   seasonal vegetation parameters is used.
+
+  \bold{Hillslope/svc.dat}\cr
+  \emph{Optional} file defining soil vegetation components and giving some erosion
+  parameters. Mandatory for WASA's sediment module and/or saving/loading of model
+  states. See doc of \code{\link[LUMP]{db_fill}} (-> 'soil_veg_components') for
+  description of header.
 }
 \author{
 Tobias Pilz \email{tpilz@uni-potsdam.de}, Till Francke \email{francke@uni-potsdam.de}
