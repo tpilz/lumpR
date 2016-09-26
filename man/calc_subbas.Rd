@@ -57,7 +57,8 @@ Spurious subbasins are 'interior' watersheds created by GRASS function
 \emph{r.watershed} around stream segments below multiple tributaries. If they
 are very small they induce unnecessary computational burden when used within a
 hydrological model. If removed, these areas will be related to the next upstream
-subbasins, respectively.}
+subbasins, respectively. If \code{thresh_sub = NULL} (default) \code{rm_spurious}
+will be automatically set to \code{FALSE}.}
 
 \item{keep_temp}{\code{logical}. Set to \code{TRUE} if temporary files shall be kept
 in the GRASS location, e.g. for debugging or further analyses. Default: \code{FALSE}.}

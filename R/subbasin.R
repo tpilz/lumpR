@@ -56,7 +56,8 @@
 #'      \emph{r.watershed} around stream segments below multiple tributaries. If they
 #'      are very small they induce unnecessary computational burden when used within a
 #'      hydrological model. If removed, these areas will be related to the next upstream
-#'      subbasins, respectively.
+#'      subbasins, respectively. If \code{thresh_sub = NULL} (default) \code{rm_spurious}
+#'      will be automatically set to \code{FALSE}.
 #' @param keep_temp \code{logical}. Set to \code{TRUE} if temporary files shall be kept
 #'      in the GRASS location, e.g. for debugging or further analyses. Default: \code{FALSE}.
 #' @param overwrite \code{logical}. Shall output of previous calls of this function be
@@ -128,6 +129,8 @@ calc_subbas <- function(
     stop("You have to specify snap_dist as a number!")
   if(is.null(outlet) & (nrow(drain_points@coords) > 1))
     stop("You have to give 'outlet' if the given number of drain_points is greater than one!")
+  if(is.null(thresh_sub))
+    rm_spurious <- FALSE
   
   
   # CLEAN UP AND RUNTIME OPTIONS #  
