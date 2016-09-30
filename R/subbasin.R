@@ -229,12 +229,12 @@ calc_subbas <- function(
     # get drainage points of calculated subbasins (optional)
     if(is.numeric(thresh_sub)) {
       
-      # the following calculations only make sense if thresh_sub is large enough to produce more than more subbasin
+      # set watershed of outlet point as mask
+      execGRASS("r.mask", input="basin_outlet_t")
+      
+      # the following calculations only make sense if thresh_sub is small enough to produce more than more subbasin
       no_catch_calc <- length(as.numeric(execGRASS("r.stats", input="basin_calc_t", flags=c("n"), intern=T)))
       if(no_catch_calc > 1) {
-        
-        # set watershed of outlet point as mask
-        execGRASS("r.mask", input="basin_outlet_t")
         
         # get for each calculated subbasin the maximum accumulation value
         cmd_out <- execGRASS("r.univar", map="accum_t", zones="basin_calc_t", fs="comma", flags = c("t"), intern=T)
