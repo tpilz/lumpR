@@ -19,7 +19,9 @@ Depends:
     maptools,
     xts,
     foreach,
-    RODBC
+    RODBC,
+    rgdal,
+    rgeos
 Suggests:
     doMC,
     doParallel
