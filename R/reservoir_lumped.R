@@ -241,7 +241,7 @@ reservoir_lumped <- function(
       res_param_order <- order(res_param_t$vol_max)
       expr <- NULL
       for(s in 1:nrow(res_param)) {
-        expr_t <- paste0("if( A > ", sprintf(res_param_t$vol_max[res_param_order[s]], fmt="%i"), " && A < ", sprintf(res_param_t$vol_max[res_param_order[s+1]], fmt="%i"), ", ", res_param_t$class[res_param_order[s+1]], ", ")
+        expr_t <- paste0("if( A > ", sprintf(res_param_t$vol_max[res_param_order[s]], fmt="%f"), " && A < ", sprintf(res_param_t$vol_max[res_param_order[s+1]], fmt="%f"), ", ", res_param_t$class[res_param_order[s+1]], ", ")
         expr <- paste0(expr, expr_t)
       }
       expr <- paste0(expr, "0", paste0(rep(")", nrow(res_param)), collapse = ""))
@@ -263,7 +263,7 @@ reservoir_lumped <- function(
       res_param_order <- order(res_param_t$area)
       expr <- NULL
       for(s in 1:nrow(res_param)) {
-        expr_t <- paste0("if( A > ", sprintf(res_param_t$area[res_param_order[s]], fmt="%i"), " && A < ", sprintf(res_param_t$area[res_param_order[s+1]], fmt="%i"), ", ", res_param_t$class[res_param_order[s+1]], ", ")
+        expr_t <- paste0("if( A > ", sprintf(res_param_t$area[res_param_order[s]], fmt="%f"), " && A < ", sprintf(res_param_t$area[res_param_order[s+1]], fmt="%f"), ", ", res_param_t$class[res_param_order[s+1]], ", ")
         expr <- paste0(expr, expr_t)
       }
       expr <- paste0(expr, "0", paste0(rep(")", nrow(res_param)), collapse = ""))
