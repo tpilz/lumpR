@@ -421,6 +421,15 @@ area2catena <- function(
     message('')
     message("DONE!")
     
+    # stop sinking
+    closeAllConnections()
+    
+    # restore original warning mode
+    if(silent)
+      options(warn = oldw)
+    
+    
+    
     
   
   # if an error occurs delete all temporary output
