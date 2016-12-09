@@ -261,7 +261,7 @@ prof_class <- function(
     if (length(datacolumns) > 3) {
       n_supp_data_columns <- sum(datacolumns[4:length(datacolumns)])
       supp_data <- stats[,4:(n_supp_data_columns+3)]
-      n_suppl_attributes <- length(supp_data[1,])      # get number of supplemental attributes
+      n_suppl_attributes <- length(supp_data[1,])      # get number of supplemental attribute classes
     } else {
       n_supp_data_columns <- 0
       supp_data <- NULL
@@ -328,14 +328,15 @@ prof_class <- function(
     # use the median of sampling points as the desired common length of profiles
     if (classify_type != 'load') {  
       if (is.null(com_length)) #set com_length, if not specified from outside
-      {  
-        com_length <- max(attr_weights_partition[1], round(median(profpoints))) #use at least as many sampling points as requested TCs
+      { 
+        # common number of points for re-sampled hillslopes
+        com_length <- max(ntc, round(median(profpoints))) #use at least as many sampling points as requested TCs
         com_length <- min(com_length, max_com_length)     
       }  
     }     # otherwise, the resolution from the saved clusters is used
     
-    # allocate new matrix for storing resampled profiles
-    # for each profile com_length elevation points, the profile length, the
+    # allocate new matrix for storing resampled profiles (hillslopes)
+    # for each profile (rows) com_length elevation points, the profile length, the
     # profile height, and supplemental data is stored in one long vector
     profs_resampled_stored <- matrix(NA, nrow=length(profs), ncol=com_length+2+com_length*n_supp_data_columns)
     
@@ -421,8 +422,8 @@ prof_class <- function(
     
     
     
-    # classification loop through all attributes
-    cidx_save <- list(NULL) # initialise list to store classification results
+    # CLASSIFICATION loop through all attributes
+    cidx_save <- list(NULL) # initialise list to store classification results; i.e. a vector assinging each EHA to a cluster class for each attribute
     hc <- 0
     while (iw <= iw_max) {
       
@@ -456,7 +457,7 @@ prof_class <- function(
         # in case of erroneous input zero or only 1 class don't do classification, just append the result of classifying into 1 class
         if (nclasses==0 || nclasses==1) {
           
-          cidx_save[[iw]] <- 1
+          cidx_save[[iw]] <- rep(1, length(profs))
           
           message('')
           message(paste("skipped '", attr_names[iw], "' (", iw-(iw>2), "/", length(attr_names)-1, ") because number of classes=1", sep=""))
@@ -491,7 +492,7 @@ prof_class <- function(
         dest_column <- 1      # destination coulumn where an attribute is placed
         
         # ii proflengths, profheights eliminieren
-        # weigh shape and the dimension components, weighted with specified weights attr_weights_class(2), attr_weights_class(3) multiplied by com_length to make the weighting independent of any com_length that was computed
+        # weigh shape and the dimension components, weighted with specified weights attr_weights_class(2), attr_weights_class(3) multiplied by com_length to make the weighting independent of any com_length that was computed; TODO: don't understand this
         # put into data matrix only if the weighting factors are not zero
         if (attr_weights_class[1]) {
           profs_resampled[i,dest_column:(dest_column+com_length-1)] <- profs_resampled_stored[i,1:com_length]*attr_weights_class[1]
@@ -676,7 +677,6 @@ prof_class <- function(
       nclasses <- length(unique_classes)
     }
     
-    mean_intc <- rep(0,nclasses) # mean intercept, TODO: always zero?!
     mean_prof <- matrix(NA, nrow=nclasses, ncol=ncol(profs_resampled_stored)) # mean shape of every class
     class_repr <- matrix(NA, nrow=nclasses, ncol=2) # min. distance of class i to centroid and resp. ID
     lu_labels=NULL #labels for LUs consisting of appended class memberships for each attribute  
@@ -692,17 +692,8 @@ prof_class <- function(
         next
       }
       
-      
-      # calculate mean shape, dimension
-      mean_prof[i,] <- apply(matrix(profs_resampled_stored[class_i,], ncol=ncol(profs_resampled_stored)),2,mean)
-      
-      
-      # calculate mean intercept (based on unreduced profiles), TODO: isn't this always zero by definition?
-      for (j in 1:length(class_i)) {
-        mean_intc[i] <- mean_intc[i] + profs[[class_i[j]]][1]
-      }
-      mean_intc[i] <- mean_intc[i]/length(class_i)
-      
+      # calculate mean catena (average attributes over all profiles belonging to the current class)
+      mean_prof[i,] <- apply(profs_resampled_stored[class_i,, drop=F],2,mean)
       
       # find closest catena (=most representative) to each class centre
       dists_class_i <- dists[class_i,i]        # retrieve distances of catenas of class i to centroid of class i
@@ -844,7 +835,10 @@ prof_class <- function(
     # save original mean_prof (for later plotting only)
     mean_prof_orig_t <- mean_prof
     
-    # decompose / partition the mean profile of each class
+    
+    
+    
+    # PARTITIONING OF MEAN PROFILE FOR EACH LU #
     for (i in 1:nclasses) {
       message('')
       message(paste('partitioning class ', i, ' of ', nclasses, sep=""))
@@ -859,12 +853,13 @@ prof_class <- function(
       }
       
       # get the ID of the currently treated LU
-      curr_lu_key <- cidx[class_i[1]]
-      
+      curr_lu_key <- unique(cidx[class_i])
+      if(length(curr_lu_key) > 1)
+        stop("Unexpected error during partitioning of the mean profile for each LU: more than one LU identified in partitioning loop. Contact the package developer!")
       
       # if supplemental data exists, calculate average
       if (n_suppl_attributes) {
-        mean_supp_data_t <- apply(matrix(profs_resampled_stored[class_i,(com_length+3):ncol(profs_resampled_stored)], nrow=length(class_i)),2, mean)
+        mean_supp_data_t <- apply(profs_resampled_stored[class_i,(com_length+3):ncol(profs_resampled_stored), drop=F],2, mean)
         mean_supp_data <- matrix(mean_supp_data_t, ncol=com_length, nrow=n_supp_data_columns, byrow=T)
       } else {
         mean_supp_data <- 0      # no supplemental data present
@@ -1094,7 +1089,7 @@ prof_class <- function(
       
       #----------file output lu.dat
       lu_labels=c(lu_labels, curr_lu_key)
-      # write LU-ID, closest catena and its distance
+      # write LU-ID, closest catena and its distance, catena length and relative elevation
       lu_out_dat <- c(i, p_id_unique[class_repr[i,1]], class_repr[i,2], round(mean_prof[i,(com_length+1):(com_length+2)],1))
       # write limits of TC-decomposition
       lu_out_dat <- c(lu_out_dat, lim_var, lim_clu)
@@ -1289,7 +1284,7 @@ get_part_quality <- function(data_mat, lim) {
 
 
 
-
+# partitioning of a hillslope into Terrain Components
 best_partition <- function(data_mat, no_part) {
   
   n_points_in_data_mat<- length(data_mat)
