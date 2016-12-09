@@ -72,6 +72,17 @@
 #'      
 #'      GUIs such as RStudio may not produce some runtime messages (within parallel
 #'      foreach loop).
+#'      
+#'      File \code{catena_out} contains information about the representative catena
+#'      for each hillslope (EHA). For meaning of columns see file \code{catena_head_out}.
+#'      It usually contains the catena ID, the catena's profile point IDs, relative
+#'      vertical elevation above hillside toe, and supplemental information averaged
+#'      over all raster cells associated with a specific catena profile point. For
+#'      qualitative data the latter means the areal fraction of a specific attribute
+#'      class (sum over all classes of an attribute should be equal to one for a profile
+#'      point), for quantitative data it is a numerical value. Averages over raster
+#'      cells are weighted by relative flow path densities of the raster cells. For
+#'      more details on the algorithm see the reference below.
 #'          
 #' @references Source code based on \code{SHELL} and \code{MATLAB} scripts of Till Francke.
 #' 
@@ -220,6 +231,7 @@ area2catena <- function(
       supp_qual <- gsub("@", ".", supp_qual)
       
       names(n_supp_data_qual_classes) <- supp_qual
+      names(supp_data_classnames) <- supp_qual
     }  
     
     
@@ -302,9 +314,9 @@ area2catena <- function(
     
     #parallel call using dopar (if no parallel backend is registered, this falls back to serial execution) 
     # NOTE: in case of problems within the foreach-loop set foreach argument .errorhandling="pass" and execute str(logdata) after the loop to show error messages
-    logdata <- foreach (id = 1:length(eha_ids), .combine=rbind, .errorhandling='remove', .options.multicore=list(silent=FALSE),
+    logdata <- foreach (id = eha_ids, .combine=rbind, .errorhandling='remove', .options.multicore=list(silent=FALSE),
                         .inorder=FALSE, .export="eha_calc") %dopar% {
-      eha_calc(id, eha_ids, eha_rast, flowaccum_rast, dist2river_rast, relelev_rast, supp_quant, supp_qual,
+      eha_calc(id, eha_rast, flowaccum_rast, dist2river_rast, relelev_rast, supp_quant, supp_qual,
                n_supp_data_qual_classes, quant_rast, qual_rast, supp_data_classnames,
                min_cell_in_slope, max_riv_dist, plot_catena, ridge_thresh, min_catena_length,
                xres,dir_out)
@@ -318,6 +330,12 @@ area2catena <- function(
     # check if anything was produced (if NULL an unexpected error might have occured)
     if(is.null(logdata))
       stop("Error: No valid EHAs remaining after processing. Something's fishy, check the warnings, eha_subset and coverage of the layers.")
+    
+    # check for severe errors
+    if(any(logdata$error == 666))
+      stop("Error: A problem occurred when averaging qualitative supplemental information. Check your data and contact the package author(s) if the problem remains.")
+    
+    
     
     logdata = logdata[order(logdata[,1],logdata[,2]),] #sort by ID and distance (ensures consistent ordering even with .inorder=FALSE)
     
@@ -335,6 +353,9 @@ area2catena <- function(
            This might be caused by NAs in the input rasters. Check file", catena_out))
     }
     
+    
+    
+    
     # write output
     #out_pre <- mapply(logdata[,c(3:length(logdata))], FUN=function(x) formatC(x, format="f", digits=3))
     #out_fmt <- cbind(logdata[,c(1,2)], out_pre)
@@ -348,11 +369,11 @@ area2catena <- function(
     # write header file
     write("#This file works as a header to the output of area2catena. Don't add additional headerlines.",
           file=paste(dir_out,catena_head_out, sep="/"), append=F)
-    write('#1. line after header: description/field names of the data columns contained in the file',
+    write('#1. line after header: description/field names of the data columns contained in file catena_out',
           file=paste(dir_out,catena_head_out, sep="/"), append=T)
     write('#2. line after header: specifies, how many columns of data belong to the respective data-field given in line 1',
           file=paste(dir_out,catena_head_out, sep="/"), append=T)
-    write('#3. line after header: number of classes/ weighting factors in classification process (see LUMPuserman*.rtf for details)',
+    write('#3. line after header: number of classes/ weighting factors for classification process',
           file=paste(dir_out,catena_head_out, sep="/"), append=T)
     write('#4. line after header: factors used for weighting in partition process (column: 1: number of TC to create; 2.: partition method (not yet used); 3.: not used; 4-nn: weighting of supplemental data in TC-partitioning)',
           file=paste(dir_out,catena_head_out, sep="/"), append=T)
@@ -422,14 +443,14 @@ area2catena <- function(
 
 ### Internal Function processing EHA ###
 
-
-eha_calc <- function(id, eha_ids, eha_rast, flowaccum_rast, dist2river_rast, relelev_rast, supp_quant, supp_qual,
+# this function contains the algorithm for the derivation of a representative catena for each EHA
+# as described in Francke et al. (2008)
+eha_calc <- function(curr_id, eha_rast, flowaccum_rast, dist2river_rast, relelev_rast, supp_quant, supp_qual,
                      n_supp_data_qual_classes, quant_rast, qual_rast, supp_data_classnames,
                      min_cell_in_slope, max_riv_dist, plot_catena, ridge_thresh, min_catena_length,
                      xres,dir_out, supp_quant_maxflow=NULL) {
   
   errcode <- 0
-  curr_id <- eha_ids[id] #?Till: do we need to pass the entire "eha_ids"? Wouldn't "eha_ids[id]" suffice?
   
   # EHA: CHECKS and PREPARATIONS #    
   # determine cell indices of curr_id
@@ -440,7 +461,6 @@ eha_calc <- function(id, eha_ids, eha_rast, flowaccum_rast, dist2river_rast, rel
   if (length(curr_cells) < min_cell_in_slope) {
     message(paste('EHA ', curr_id, ' skipped because of low number of cells (', length(curr_cells), ')', sep=""))
     return(data.frame(output=t(c(curr_id, rep(NA, sum(n_supp_data_qual_classes) + length(supp_quant) + 4 - 1))), error=1))
-    #stop() # use stop instead of next in foreach loop and define '.errorhandling' #? is this necessary?
   }
   
   # extract values out of raster objects into ordinary vectors to save time (internal calls to raster objects take time)
@@ -476,7 +496,6 @@ eha_calc <- function(id, eha_ids, eha_rast, flowaccum_rast, dist2river_rast, rel
   if(min(dist2river_vals) > max_riv_dist) {
     message(paste(curr_id, ' skipped, not adjacent to channel / farther than ', max_riv_dist, ' cells (',min(dist2river_vals),')', sep=""))
     return(data.frame(output=t(c(curr_id, rep(NA, sum(n_supp_data_qual_classes) + length(supp_quant) + 4 - 1))), error=2))
-    #stop() # use stop istead of next in foreach loop and define '.errorhandling'
   } else {
     dist2river_vals <- dist2river_vals - min(dist2river_vals)
   }
@@ -486,7 +505,6 @@ eha_calc <- function(id, eha_ids, eha_rast, flowaccum_rast, dist2river_rast, rel
   if(max(dist2river_vals) == 0) {
     message(paste(curr_id, ' skipped because for all cells dist2river=0.', sep=""))
     return(data.frame(output=t(c(curr_id, rep(NA, sum(n_supp_data_qual_classes) + length(supp_quant) + 4 - 1))), error=3))
-    #stop() # use stop istead of next in foreach loop and define '.errorhandling'
   }
   
   
@@ -500,7 +518,7 @@ eha_calc <- function(id, eha_ids, eha_rast, flowaccum_rast, dist2river_rast, rel
     errcode <- 5
   }
 
-  # compute mean catena length (calclength-method, Chochrane & Flanagan, 2003) #
+  # compute mean of flowpaths as average catena length (calclength-method, Chochrane & Flanagan, 2003) #
   mean_length <- sum(dist2river_vals[curr_entries]^2)/sum(dist2river_vals[curr_entries])
  
   # skip very short catenas
@@ -508,7 +526,6 @@ eha_calc <- function(id, eha_ids, eha_rast, flowaccum_rast, dist2river_rast, rel
   if (mean_length < min_catena_length) {
     message(paste(curr_id, ' skipped because of low length (', mean_length, ')', sep=""))
     return(data.frame(output=t(c(curr_id, rep(NA, sum(n_supp_data_qual_classes) + length(supp_quant) + 4 - 1))), error=4))
-    #stop() # use stop istead of next in foreach loop and define '.errorhandling'
   }
   
   # PLOT #
@@ -539,6 +556,7 @@ eha_calc <- function(id, eha_ids, eha_rast, flowaccum_rast, dist2river_rast, rel
   entry_missing <- 0 # flag indicating that the value for the previous point in the mean catena could not be computed
   out_combined <- NULL # combined output of one catena    
   
+  # loop over data points of mean catena
   for (j in 0:res) {
     # point number in catena output
     out_x[j+1] <- j
@@ -573,7 +591,7 @@ eha_calc <- function(id, eha_ids, eha_rast, flowaccum_rast, dist2river_rast, rel
       # compute average quantitative supplemental data
       if (!is.null(quant_rast)) {
         for (k in 1:length(supp_quant)) {
-          supp_attrib_mean[k,j+1] <- weighted.mean(x=quant_vals[curr_entries,k], w=flowaccum_sqrt, na.rm=TRUE)  #weighted mean, weighted with sqrt(flow_accum) and NAs removed
+          supp_attrib_mean[k,j+1] <- weighted.mean(x=quant_vals[curr_entries,k], w=flowaccum_sqrt/sum(flowaccum_sqrt), na.rm=TRUE)  #weighted mean, weighted with sqrt(flow_accum) and NAs removed
         }
         
       }
@@ -585,13 +603,21 @@ eha_calc <- function(id, eha_ids, eha_rast, flowaccum_rast, dist2river_rast, rel
       
       # compute average qualitative supplemental data
       if (!is.null(qual_rast)) {
-        for (k in supp_qual) {
+        for (k in supp_qual) { # loop over attributes
           # select attribute values
           curr_att_val <- qual_vals[curr_entries,k]
           # do averaging for each class of each attribute separately
-          for (kk in 1:n_supp_data_qual_classes[k]) {
+          for (kk in 1:n_supp_data_qual_classes[k]) { # loop over attribute's classes
             supp_attrib_mean[quant_columns+kk+col_counter,j+1] <- sum((curr_att_val==supp_data_classnames[[k]][kk])*flowaccum_sqrt)/sum(flowaccum_sqrt) 
           }
+          
+          # check averages (should sum up to one for each attribute), SEVERE ERROR CODE 666
+          if(sum(supp_attrib_mean[(quant_columns+col_counter+1):(quant_columns+col_counter+n_supp_data_qual_classes[k]),j+1]) < 0.999) {
+            message(paste('For EHA ', curr_id, ' areal fractions of qualitative supplemental attribute ', k, ' does not sum to one for profile point ', j+1, sep=""))
+            return(data.frame(output=t(c(curr_id, rep(NA, sum(n_supp_data_qual_classes) + length(supp_quant) + 4 - 1))), error=666))
+          }
+          
+          # update counter
           col_counter <- col_counter+n_supp_data_qual_classes[k]
         } 
         
