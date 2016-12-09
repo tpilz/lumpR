@@ -8,10 +8,12 @@ Authors@R: c(person("Tobias", "Pilz", email="tpilz@uni-potsdam.de",
 							person("Till", "Francke", email="francke@uni-potsdam.de",
 																		role=c("aut", "cph")))
 Description: The package provides functions for a semi-automated approach of
-    the delineation and description of landscape units and partition into
-    terrain components. It can be used for the pre-processing of
-    semi-distributed large-scale hydrological and erosion models using catena-representation (WASA-SED, CATFLOW). It is closely
-    connected to and uses functionalities of GRASS GIS. Additional pre-processing tools beyond the scope of the original LUMP are included.
+    the delineation and description of landscape units and partition into terrain
+    components. It can be used for the pre-processing of semi-distributed large-
+    scale hydrological and erosion models using catena-representation (WASA-SED,
+    CATFLOW). It is closely connected to and uses functionalities of GRASS GIS.
+    Additional pre-processing tools beyond the scope of the original LUMP are
+    included.
 Depends:
     spgrass6,
     raster,
@@ -29,3 +31,4 @@ License: GPL-3
 URL: https://github.com/tpilz/LUMP
 BugReports: https://github.com/tpilz/LUMP/issues
 NeedsCompilation: yes
+RoxygenNote: 5.0.1
