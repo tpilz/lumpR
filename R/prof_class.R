@@ -156,7 +156,7 @@ prof_class <- function(
   # argument checks
   if(is.null(catena_file) | !file.exists(catena_file))
     stop("'catena_file' has not been specified or does not exist!")
-  if(is.null(catena_head_out) | !file.exists(catena_head_file))
+  if(is.null(catena_head_file) | !file.exists(catena_head_file))
     stop("'catena_head_file' has not been specified or does not exist!")
   if(!is.numeric(resolution))
     stop("Resolution of the raster used to produce 'catena_file' and 'catena_head_out' needs to be given (as numeric)!")
