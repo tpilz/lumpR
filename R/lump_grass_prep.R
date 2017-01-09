@@ -1,5 +1,5 @@
-# LUMP/lump_grass_prep.R
-# Copyright (C) 2014,2015,2016 Tobias Pilz
+# lumpR/lump_grass_prep.R
+# Copyright (C) 2014-2017 Tobias Pilz
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -208,7 +208,7 @@ lump_grass_prep <- function(
   
   ### CALCULATIONS ###
   tryCatch({
-    message("\nSTART hydrological preprocessing for LUMP using GRASS...\n")
+    message("\nSTART hydrological preprocessing for lumpR using GRASS...\n")
     
     # create output directory
     dir.create(dir_out, recursive=T, showWarnings=F)

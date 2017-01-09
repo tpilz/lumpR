@@ -1,5 +1,5 @@
-# LUMP/wasa_reservoir_lumped.R
-# Copyright (C) 2016 Tobias Pilz
+# lumpR/reservoir_lumped.R
+# Copyright (C) 2016-2017 Tobias Pilz
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -22,11 +22,11 @@
 #' 
 #' @param res_vect Name of reservoir vector map in GRASS location. Should be point
 #'      instead of polygon feature (i.e. reservoir outlet locations; consider function
-#'      \code{\link[LUMP]{reservoir_outlet}})! Needs at least
+#'      \code{\link[lumpR]{reservoir_outlet}})! Needs at least
 #'      either column 'volume' with information on volume in [m^3] or column 'area'
 #'      with information on lake area in [m^2] in the attribute table.
 #' @param sub_rast Name of subbasin raster map in GRASS location. Can be created with
-#'      \code{\link[LUMP]{calc_subbas}}.
+#'      \code{\link[lumpR]{calc_subbas}}.
 #' @param res_vect_class Output: Name for the vector reservoir map created in GRASS
 #'      location containing information on reservoir size classes in the attribute
 #'      table. If \code{NULL} (default) it will not be created.

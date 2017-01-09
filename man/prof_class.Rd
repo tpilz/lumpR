@@ -16,10 +16,10 @@ prof_class(catena_file = NULL, catena_head_file = NULL,
 }
 \arguments{
 \item{catena_file}{Name of file containing mean catena information derived from
-\code{\link[LUMP]{area2catena}}.}
+\code{\link[lumpR]{area2catena}}.}
 
 \item{catena_head_file}{Name of file containing meta-information for classification
-derived from \code{\link[LUMP]{area2catena}} and adjusted manually (see \code{Notes}).}
+derived from \code{\link[lumpR]{area2catena}} and adjusted manually (see \code{Notes}).}
 
 \item{svc_column}{Field name in \code{catena_head_file} that holds the information
 of SVCs for generating \code{tccontainssvcoutfile}. Default: 'svc'.}
@@ -50,7 +50,7 @@ characteristics for later re-use; set to NULL to omit output (default).}
 \item{seed}{Integer specifying seed for random processes in cluster analysis.}
 
 \item{resolution}{Integer specifying resolution of profiles/spacing of samples.
-Typically the resolution of your GRASS location used for \code{\link[LUMP]{area2catena}}.}
+Typically the resolution of your GRASS location used for \code{\link[lumpR]{area2catena}}.}
 
 \item{classify_type}{Type of classification:\cr
 ' ': (default) unsupervised classification, no \code{saved_clusters} will be produced\cr
@@ -87,11 +87,11 @@ Function returns nothing. Output files are written into output directory
      as specified in arguments.
 }
 \description{
-Classifies mean catenas derived from \code{\link[LUMP]{area2catena}} into \emph{Landscape
+Classifies mean catenas derived from \code{\link[lumpR]{area2catena}} into \emph{Landscape
 Units} and \emph{Terrain Components}.
 }
 \note{
-Function uses output of \code{\link[LUMP]{area2catena}}. However, no GRASS
+Function uses output of \code{\link[lumpR]{area2catena}}. However, no GRASS
      session needs to be started in this case.
      
      After applying \code{recl_lu} the resulting landscape units raster map in your GRASS
@@ -99,7 +99,7 @@ Function uses output of \code{\link[LUMP]{area2catena}}. However, no GRASS
      as each landscape unit refers to the representative EHA. The gaps can be filled
      with GRASS function \code{r.grow}.
      
- @details This function first resamples the catenas derived from \code{\link[LUMP]{area2catena}}
+ @details This function first resamples the catenas derived from \code{\link[lumpR]{area2catena}}
      to a common length (\code{com_length} or the median number of support points
      of all catenas but not more than \code{max_com_length}). Second, k-means clustering
      is employed to group the catenas into representative \emph{Landscape Units}

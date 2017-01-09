@@ -14,12 +14,12 @@ reservoir_lumped(res_vect = NULL, sub_rast = NULL, res_vect_class = NULL,
 \arguments{
 \item{res_vect}{Name of reservoir vector map in GRASS location. Should be point
 instead of polygon feature (i.e. reservoir outlet locations; consider function
-\code{\link[LUMP]{reservoir_outlet}})! Needs at least
+\code{\link[lumpR]{reservoir_outlet}})! Needs at least
 either column 'volume' with information on volume in [m^3] or column 'area'
 with information on lake area in [m^2] in the attribute table.}
 
 \item{sub_rast}{Name of subbasin raster map in GRASS location. Can be created with
-\code{\link[LUMP]{calc_subbas}}.}
+\code{\link[lumpR]{calc_subbas}}.}
 
 \item{res_vect_class}{Output: Name for the vector reservoir map created in GRASS
 location containing information on reservoir size classes in the attribute

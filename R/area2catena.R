@@ -1,5 +1,5 @@
-# LUMP/area2catena.R
-# Copyright (C) 2014,2015,2016 Tobias Pilz, Till Francke
+# lumpR/area2catena.R
+# Copyright (C) 2014-2017 Tobias Pilz, Till Francke
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -20,15 +20,15 @@
 #' Takes raster data from a GRASS location and calculates catena properties.
 #' 
 #' @param mask Raster file to be used as MASK in the GRASS location defining the
-#'      area of interest. E.g. \code{mask_corr} of \code{\link[LUMP]{lump_grass_prep}}.
+#'      area of interest. E.g. \code{mask_corr} of \code{\link[lumpR]{lump_grass_prep}}.
 #' @param flowacc Name of flow accumulation raster map in GRASS location. Can
-#'      be created with \code{\link[LUMP]{lump_grass_prep}}.
+#'      be created with \code{\link[lumpR]{lump_grass_prep}}.
 #' @param eha Name of elementary hillslope area raster map in GRASS location.
-#'      Can be created with \code{\link[LUMP]{lump_grass_prep}}.
+#'      Can be created with \code{\link[lumpR]{lump_grass_prep}}.
 #' @param distriv Name of distance to river raster map in GRASS location. Can
-#'      be created with \code{\link[LUMP]{lump_grass_prep}}.
+#'      be created with \code{\link[lumpR]{lump_grass_prep}}.
 #' @param elevriv Name of relative elevation raster map in GRASS location. Can
-#'      be created with \code{\link[LUMP]{lump_grass_prep}}.
+#'      be created with \code{\link[lumpR]{lump_grass_prep}}.
 #' @param supp_quant Character vector containing names of quantitative
 #'      supplemental raster maps in GRASS location; leave empty if you have none.
 #' @param supp_qual Character vector containing names of qualitative
@@ -36,9 +36,9 @@
 #' @param dir_out Character string specifying output directory (will be created;
 #'      nothing will be overwritten).
 #' @param catena_out Output: Name of output file containing mean catena information
-#'      as input for \code{\link[LUMP]{prof_class}}.
+#'      as input for \code{\link[lumpR]{prof_class}}.
 #' @param catena_head_out Output: Name of output header file containing meta-information
-#'      as input for \code{\link[LUMP]{prof_class}}; manual adjustment necessary.
+#'      as input for \code{\link[lumpR]{prof_class}}; manual adjustment necessary.
 #' @param ridge_thresh Integer specifying threshold of flow accumulation, below
 #'      which a cell is considered a start of a flowpath (usually 1 for D8
 #'      flowaccumulation grids).
@@ -67,7 +67,7 @@
 #'      as specified in arguments.
 #'  
 #' @note Prepare GRASS location and necessary raster files in advance (e.g. using
-#'      \code{\link[LUMP]{lump_grass_prep}}) and start GRASS session in R using 
+#'      \code{\link[lumpR]{lump_grass_prep}}) and start GRASS session in R using 
 #'      \code{\link[spgrass6]{initGRASS}}.
 #'      
 #'      GUIs such as RStudio may not produce some runtime messages (within parallel

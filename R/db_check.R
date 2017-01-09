@@ -1,5 +1,5 @@
-# LUMP/db_check.R
-# Copyright (C) 2015,2016 Tobias Pilz, Till Francke
+# lumpR/db_check.R
+# Copyright (C) 2015-2017 Tobias Pilz, Till Francke
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -190,7 +190,7 @@ db_check <- function(
     print("Check database version ...")
 
   # get most recent db version from update sql files in source directory
-  db_dir <- system.file("database/", package="LUMP")
+  db_dir <- system.file("database/", package="lumpR")
   db_up_files <- dir(db_dir, pattern="update_[a-zA-Z0-9_]*.sql")
   db_ver_max <- max(as.integer(sub(".sql", "", sub("update_db_v", "", db_up_files))))
 
@@ -255,10 +255,10 @@ db_check <- function(
           }
           meta_out <- data.frame(pid=pid_new,
                                  mod_date=as.POSIXct(Sys.time()),
-                                 mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                                 mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
                                  affected_tables=paste(unique(tbl_changed), collapse=", "),
                                  affected_columns="various",
-                                 remarks=paste0("ATTENTION: Error while checking database using R package LUMP check tc_slope. Nevertheless, affected_tables have already been changed."))
+                                 remarks=paste0("ATTENTION: Error while checking database using R package lumpR check tc_slope. Nevertheless, affected_tables have already been changed."))
           write_datetabs(con, meta_out, tab="meta_info", verbose)
         }
         odbcClose(con)
@@ -378,10 +378,10 @@ db_check <- function(
             }
             meta_out <- data.frame(pid=pid_new,
                                    mod_date=as.POSIXct(Sys.time()),
-                                   mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                                   mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
                                    affected_tables=paste(unique(tbl_changed), collapse=", "),
                                    affected_columns="various",
-                                   remarks=paste0("ATTENTION: Error while checking database using R package LUMP check tc_slope. Nevertheless, affected_tables have already been changed."))
+                                   remarks=paste0("ATTENTION: Error while checking database using R package lumpR check tc_slope. Nevertheless, affected_tables have already been changed."))
             write_datetabs(con, meta_out, tab="meta_info", verbose)
             odbcClose(con)
             stop(paste0("An error occured when updating table 'r_lu_contains_tc'. ",
@@ -409,10 +409,10 @@ db_check <- function(
             }
             meta_out <- data.frame(pid=pid_new,
                                    mod_date=as.POSIXct(Sys.time()),
-                                   mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                                   mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
                                    affected_tables=paste(unique(tbl_changed), collapse=", "),
                                    affected_columns="various",
-                                   remarks=paste0("ATTENTION: Error while checking database using R package LUMP check tc_slope. Nevertheless, affected_tables have already been changed."))
+                                   remarks=paste0("ATTENTION: Error while checking database using R package lumpR check tc_slope. Nevertheless, affected_tables have already been changed."))
             write_datetabs(con, meta_out, tab="meta_info", verbose)
             odbcClose(con)
             stop(paste0("An error occured when updating table 'terrain_components'. ",
@@ -449,10 +449,10 @@ db_check <- function(
         }
         meta_out <- data.frame(pid=pid_new,
                                mod_date=as.POSIXct(Sys.time()),
-                               mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                               mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
                                affected_tables=paste(unique(tbl_changed), collapse=", "),
                                affected_columns="various",
-                               remarks=paste0("ATTENTION: Error while checking database using R package LUMP check special_areas. Nevertheless, affected_tables have already been changed."))
+                               remarks=paste0("ATTENTION: Error while checking database using R package lumpR check special_areas. Nevertheless, affected_tables have already been changed."))
         write_datetabs(con, meta_out, tab="meta_info", verbose)
       }
       odbcClose(con)
@@ -470,10 +470,10 @@ db_check <- function(
         }
         meta_out <- data.frame(pid=pid_new,
                                mod_date=as.POSIXct(Sys.time()),
-                               mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                               mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
                                affected_tables=paste(unique(tbl_changed), collapse=", "),
                                affected_columns="various",
-                               remarks=paste0("ATTENTION: Error while checking database using R package LUMP check special_areas. Nevertheless, affected_tables have already been changed."))
+                               remarks=paste0("ATTENTION: Error while checking database using R package lumpR check special_areas. Nevertheless, affected_tables have already been changed."))
         write_datetabs(con, meta_out, tab="meta_info", verbose)
       }
       odbcClose(con)
@@ -491,10 +491,10 @@ db_check <- function(
         }
         meta_out <- data.frame(pid=pid_new,
                                mod_date=as.POSIXct(Sys.time()),
-                               mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                               mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
                                affected_tables=paste(unique(tbl_changed), collapse=", "),
                                affected_columns="various",
-                               remarks=paste0("ATTENTION: Error while checking database using R package LUMP check special_areas. Nevertheless, affected_tables have already been changed."))
+                               remarks=paste0("ATTENTION: Error while checking database using R package lumpR check special_areas. Nevertheless, affected_tables have already been changed."))
         write_datetabs(con, meta_out, tab="meta_info", verbose)
       }
       odbcClose(con)
@@ -512,10 +512,10 @@ db_check <- function(
         }
         meta_out <- data.frame(pid=pid_new,
                                mod_date=as.POSIXct(Sys.time()),
-                               mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                               mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
                                affected_tables=paste(unique(tbl_changed), collapse=", "),
                                affected_columns="various",
-                               remarks=paste0("ATTENTION: Error while checking database using R package LUMP check special_areas. Nevertheless, affected_tables have already been changed."))
+                               remarks=paste0("ATTENTION: Error while checking database using R package lumpR check special_areas. Nevertheless, affected_tables have already been changed."))
         write_datetabs(con, meta_out, tab="meta_info", verbose)
       }
       odbcClose(con)
@@ -533,10 +533,10 @@ db_check <- function(
         }
         meta_out <- data.frame(pid=pid_new,
                                mod_date=as.POSIXct(Sys.time()),
-                               mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                               mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
                                affected_tables=paste(unique(tbl_changed), collapse=", "),
                                affected_columns="various",
-                               remarks=paste0("ATTENTION: Error while checking database using R package LUMP check special_areas. Nevertheless, affected_tables have already been changed."))
+                               remarks=paste0("ATTENTION: Error while checking database using R package lumpR check special_areas. Nevertheless, affected_tables have already been changed."))
         write_datetabs(con, meta_out, tab="meta_info", verbose)
       }
       odbcClose(con)
@@ -622,10 +622,10 @@ db_check <- function(
         }
         meta_out <- data.frame(pid=pid_new,
                                mod_date=as.POSIXct(Sys.time()),
-                               mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                               mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
                                affected_tables=paste(unique(tbl_changed), collapse=", "),
                                affected_columns="various",
-                               remarks=paste0("ATTENTION: Error while checking database using R package LUMP check special_areas. Nevertheless, affected_tables have already been changed."))
+                               remarks=paste0("ATTENTION: Error while checking database using R package lumpR check special_areas. Nevertheless, affected_tables have already been changed."))
         write_datetabs(con, meta_out, tab="meta_info", verbose)
         odbcClose(con)
         stop(paste0("An error occured when updating table 'soil_veg_components'. ",
@@ -703,10 +703,10 @@ db_check <- function(
           }
           meta_out <- data.frame(pid=pid_new,
                                  mod_date=as.POSIXct(Sys.time()),
-                                 mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                                 mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
                                  affected_tables=paste(unique(tbl_changed), collapse=", "),
                                  affected_columns="various",
-                                 remarks=paste0("ATTENTION: Error while checking database using R package LUMP check remove_water_svc. Nevertheless, affected_tables have already been changed."))
+                                 remarks=paste0("ATTENTION: Error while checking database using R package lumpR check remove_water_svc. Nevertheless, affected_tables have already been changed."))
           write_datetabs(con, meta_out, tab="meta_info", verbose)
           odbcClose(con)
           stop(paste0("An error occured when updating table 'r_tc_contains_svc'. ",
@@ -797,10 +797,10 @@ db_check <- function(
         }
         meta_out <- data.frame(pid=pid_new,
                                mod_date=as.POSIXct(Sys.time()),
-                               mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                               mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
                                affected_tables=paste(unique(tbl_changed), collapse=", "),
                                affected_columns="various",
-                               remarks=paste0("ATTENTION: Error while checking database using R package LUMP check compute_rocky_frac. Nevertheless, affected_tables have already been changed."))
+                               remarks=paste0("ATTENTION: Error while checking database using R package lumpR check compute_rocky_frac. Nevertheless, affected_tables have already been changed."))
         write_datetabs(con, meta_out, tab="meta_info", verbose)
         odbcClose(con)
         stop(paste0("An error occured when updating table 'terrain_components'. ",
@@ -877,10 +877,10 @@ db_check <- function(
           }
           meta_out <- data.frame(pid=pid_new,
                                  mod_date=as.POSIXct(Sys.time()),
-                                 mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                                 mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
                                  affected_tables=paste(unique(tbl_changed), collapse=", "),
                                  affected_columns="various",
-                                 remarks=paste0("ATTENTION: Error while checking database using R package LUMP check remove_impervious_svc. Nevertheless, affected_tables have already been changed."))
+                                 remarks=paste0("ATTENTION: Error while checking database using R package lumpR check remove_impervious_svc. Nevertheless, affected_tables have already been changed."))
           write_datetabs(con, meta_out, tab="meta_info", verbose)
           odbcClose(con)
           stop(paste0("An error occured when updating table 'r_tc_contains_svc'. ",
@@ -920,10 +920,10 @@ db_check <- function(
         }
         meta_out <- data.frame(pid=pid_new,
                                mod_date=as.POSIXct(Sys.time()),
-                               mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                               mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
                                affected_tables=paste(unique(tbl_changed), collapse=", "),
                                affected_columns="various",
-                               remarks=paste0("ATTENTION: Error while checking database using R package LUMP check proxy_frgw_delay. Nevertheless, affected_tables have already been changed."))
+                               remarks=paste0("ATTENTION: Error while checking database using R package lumpR check proxy_frgw_delay. Nevertheless, affected_tables have already been changed."))
         write_datetabs(con, meta_out, tab="meta_info", verbose)
       }
       odbcClose(con)
@@ -978,10 +978,10 @@ db_check <- function(
         }
         meta_out <- data.frame(pid=pid_new,
                                mod_date=as.POSIXct(Sys.time()),
-                               mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                               mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
                                affected_tables=paste(unique(tbl_changed), collapse=", "),
                                affected_columns="various",
-                               remarks=paste0("ATTENTION: Error while checking database using R package LUMP check proxy_frgw_delay. Nevertheless, affected_tables have already been changed."))
+                               remarks=paste0("ATTENTION: Error while checking database using R package lumpR check proxy_frgw_delay. Nevertheless, affected_tables have already been changed."))
         write_datetabs(con, meta_out, tab="meta_info", verbose)
         odbcClose(con)
         stop(paste0("An error occured when updating table 'landscape_units'. ",
@@ -1069,10 +1069,10 @@ db_check <- function(
           }
           meta_out <- data.frame(pid=pid_new,
                                  mod_date=as.POSIXct(Sys.time()),
-                                 mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                                 mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
                                  affected_tables=paste(unique(tbl_changed), collapse=", "),
                                  affected_columns="various",
-                                 remarks=paste0("ATTENTION: Error while checking database using R package LUMP check delete_obsolete. Nevertheless, affected_tables have already been changed."))
+                                 remarks=paste0("ATTENTION: Error while checking database using R package lumpR check delete_obsolete. Nevertheless, affected_tables have already been changed."))
           write_datetabs(con, meta_out, tab="meta_info", verbose)
           odbcClose(con)
           stop(paste0("An error occured when updating tables 'landscape_units' and 'r_lu_contains_tc'. ",
@@ -1147,10 +1147,10 @@ db_check <- function(
           }
           meta_out <- data.frame(pid=pid_new,
                                  mod_date=as.POSIXct(Sys.time()),
-                                 mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                                 mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
                                  affected_tables=paste(unique(tbl_changed), collapse=", "),
                                  affected_columns="various",
-                                 remarks=paste0("ATTENTION: Error while checking database using R package LUMP check delete_obsolete. Nevertheless, affected_tables have already been changed."))
+                                 remarks=paste0("ATTENTION: Error while checking database using R package lumpR check delete_obsolete. Nevertheless, affected_tables have already been changed."))
           write_datetabs(con, meta_out, tab="meta_info", verbose)
           odbcClose(con)
           stop(paste0("An error occured when updating tables 'terrain_components' and 'r_tc_contains_svc'. ",
@@ -1204,10 +1204,10 @@ db_check <- function(
           }
           meta_out <- data.frame(pid=pid_new,
                                  mod_date=as.POSIXct(Sys.time()),
-                                 mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                                 mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
                                  affected_tables=paste(unique(tbl_changed), collapse=", "),
                                  affected_columns="various",
-                                 remarks=paste0("ATTENTION: Error while checking database using R package LUMP check delete_obsolete. Nevertheless, affected_tables have already been changed."))
+                                 remarks=paste0("ATTENTION: Error while checking database using R package lumpR check delete_obsolete. Nevertheless, affected_tables have already been changed."))
           write_datetabs(con, meta_out, tab="meta_info", verbose)
           odbcClose(con)
           stop(paste0("An error occured when updating table 'soil_veg_components'. ",
@@ -1385,10 +1385,10 @@ db_check <- function(
         }
         meta_out <- data.frame(pid=pid_new,
                                mod_date=as.POSIXct(Sys.time()),
-                               mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                               mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
                                affected_tables=paste(unique(tbl_changed), collapse=", "),
                                affected_columns="various",
-                               remarks=paste0("ATTENTION: Error while checking database using R package LUMP check completeness. Nevertheless, affected_tables have already been changed."))
+                               remarks=paste0("ATTENTION: Error while checking database using R package lumpR check completeness. Nevertheless, affected_tables have already been changed."))
         write_datetabs(con, meta_out, tab="meta_info", verbose)
       }
       odbcClose(con)
@@ -1426,10 +1426,10 @@ db_check <- function(
         }
         meta_out <- data.frame(pid=pid_new,
                                mod_date=as.POSIXct(Sys.time()),
-                               mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                               mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
                                affected_tables=paste(unique(tbl_changed), collapse=", "),
                                affected_columns="various",
-                               remarks=paste0("ATTENTION: Error while checking database using R package LUMP check subbasin_order. Nevertheless, affected_tables have already been changed."))
+                               remarks=paste0("ATTENTION: Error while checking database using R package lumpR check subbasin_order. Nevertheless, affected_tables have already been changed."))
         write_datetabs(con, meta_out, tab="meta_info", verbose)
         odbcClose(con)
         stop("There are already values in column 'a_stream_order' of table 'subbasins'. Set them all to 'NULL' if you want to compute subbasin order!")
@@ -1450,10 +1450,10 @@ db_check <- function(
         }
         meta_out <- data.frame(pid=pid_new,
                                mod_date=as.POSIXct(Sys.time()),
-                               mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                               mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
                                affected_tables=paste(unique(tbl_changed), collapse=", "),
                                affected_columns="various",
-                               remarks=paste0("ATTENTION: Error while checking database using R package LUMP check subbasin_order. Nevertheless, affected_tables have already been changed."))
+                               remarks=paste0("ATTENTION: Error while checking database using R package lumpR check subbasin_order. Nevertheless, affected_tables have already been changed."))
         write_datetabs(con, meta_out, tab="meta_info", verbose)
         odbcClose(con)
         stop("Could not identify outlet subbasin from column 'drains_to' in table 'subbasins'. Must be one of values c(9999,-9999,999,-999).")
@@ -1468,10 +1468,10 @@ db_check <- function(
         }
         meta_out <- data.frame(pid=pid_new,
                                mod_date=as.POSIXct(Sys.time()),
-                               mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                               mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
                                affected_tables=paste(unique(tbl_changed), collapse=", "),
                                affected_columns="various",
-                               remarks=paste0("ATTENTION: Error while checking database using R package LUMP check subbasin_order. Nevertheless, affected_tables have already been changed."))
+                               remarks=paste0("ATTENTION: Error while checking database using R package lumpR check subbasin_order. Nevertheless, affected_tables have already been changed."))
         write_datetabs(con, meta_out, tab="meta_info", verbose)
         odbcClose(con)
         stop("More than one subbasin has been identified as outlet. Check column 'drains_to' in table 'subbasins'!")
@@ -1512,10 +1512,10 @@ db_check <- function(
           }
           meta_out <- data.frame(pid=pid_new,
                                  mod_date=as.POSIXct(Sys.time()),
-                                 mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                                 mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
                                  affected_tables=paste(unique(tbl_changed), collapse=", "),
                                  affected_columns="various",
-                                 remarks=paste0("ATTENTION: Error while checking database using R package LUMP check subbasin_order. Nevertheless, affected_tables have already been changed."))
+                                 remarks=paste0("ATTENTION: Error while checking database using R package lumpR check subbasin_order. Nevertheless, affected_tables have already been changed."))
           write_datetabs(con, meta_out, tab="meta_info", verbose)
           odbcClose(con)
           stop("Cannot successfully determine subbasin order (column 'a_stream_order' of table 'subbasins'). Check the table for errors!")
@@ -1542,10 +1542,10 @@ db_check <- function(
         }
         meta_out <- data.frame(pid=pid_new,
                                mod_date=as.POSIXct(Sys.time()),
-                               mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                               mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
                                affected_tables=paste(unique(tbl_changed), collapse=", "),
                                affected_columns="various",
-                               remarks=paste0("ATTENTION: Error while checking database using R package LUMP check subbasin_order. Nevertheless, affected_tables have already been changed."))
+                               remarks=paste0("ATTENTION: Error while checking database using R package lumpR check subbasin_order. Nevertheless, affected_tables have already been changed."))
         write_datetabs(con, meta_out, tab="meta_info", verbose)
         odbcClose(con)
         stop(paste0("An error occured when updating table 'subbasins'. ",
@@ -1577,10 +1577,10 @@ db_check <- function(
     }
     meta_out <- data.frame(pid=pid_new,
                            mod_date=as.POSIXct(Sys.time()),
-                           mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                           mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
                            affected_tables=paste(unique(tbl_changed), collapse=", "),
                            affected_columns="various",
-                           remarks=paste0("Database checked and adjusted using R package LUMP. Applied checks: ", paste(check, collapse=", "), ". Options: ", paste(names(option), option, sep=" = ", collapse=", ")))
+                           remarks=paste0("Database checked and adjusted using R package lumpR. Applied checks: ", paste(check, collapse=", "), ". Options: ", paste(names(option), option, sep=" = ", collapse=", ")))
     write_datetabs(con, meta_out, tab="meta_info", verbose)
   
   } # fix

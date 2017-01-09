@@ -13,19 +13,19 @@ area2catena(mask = NULL, flowacc = NULL, eha = NULL, distriv = NULL,
 }
 \arguments{
 \item{mask}{Raster file to be used as MASK in the GRASS location defining the
-area of interest. E.g. \code{mask_corr} of \code{\link[LUMP]{lump_grass_prep}}.}
+area of interest. E.g. \code{mask_corr} of \code{\link[lumpR]{lump_grass_prep}}.}
 
 \item{flowacc}{Name of flow accumulation raster map in GRASS location. Can
-be created with \code{\link[LUMP]{lump_grass_prep}}.}
+be created with \code{\link[lumpR]{lump_grass_prep}}.}
 
 \item{eha}{Name of elementary hillslope area raster map in GRASS location.
-Can be created with \code{\link[LUMP]{lump_grass_prep}}.}
+Can be created with \code{\link[lumpR]{lump_grass_prep}}.}
 
 \item{distriv}{Name of distance to river raster map in GRASS location. Can
-be created with \code{\link[LUMP]{lump_grass_prep}}.}
+be created with \code{\link[lumpR]{lump_grass_prep}}.}
 
 \item{elevriv}{Name of relative elevation raster map in GRASS location. Can
-be created with \code{\link[LUMP]{lump_grass_prep}}.}
+be created with \code{\link[lumpR]{lump_grass_prep}}.}
 
 \item{supp_quant}{Character vector containing names of quantitative
 supplemental raster maps in GRASS location; leave empty if you have none.}
@@ -37,10 +37,10 @@ supplemental raster maps in GRASS location; leave empty if you have none.}
 nothing will be overwritten).}
 
 \item{catena_out}{Output: Name of output file containing mean catena information
-as input for \code{\link[LUMP]{prof_class}}.}
+as input for \code{\link[lumpR]{prof_class}}.}
 
 \item{catena_head_out}{Output: Name of output header file containing meta-information
-as input for \code{\link[LUMP]{prof_class}}; manual adjustment necessary.}
+as input for \code{\link[lumpR]{prof_class}}; manual adjustment necessary.}
 
 \item{ridge_thresh}{Integer specifying threshold of flow accumulation, below
 which a cell is considered a start of a flowpath (usually 1 for D8
@@ -84,7 +84,7 @@ Takes raster data from a GRASS location and calculates catena properties.
 }
 \note{
 Prepare GRASS location and necessary raster files in advance (e.g. using
-     \code{\link[LUMP]{lump_grass_prep}}) and start GRASS session in R using 
+     \code{\link[lumpR]{lump_grass_prep}}) and start GRASS session in R using 
      \code{\link[spgrass6]{initGRASS}}.
      
      GUIs such as RStudio may not produce some runtime messages (within parallel

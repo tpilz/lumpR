@@ -1,5 +1,5 @@
-# LUMP/db_create.R
-# Copyright (C) 2015 Tobias Pilz
+# lumpR/db_create.R
+# Copyright (C) 2015, 2017 Tobias Pilz
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -35,10 +35,10 @@
 #'    \item{Install and load the \code{\link[RODBC]{RODBC}} package as interface to R.}
 #'    \item{Call this function to create the tables in the database.}
 #'    \item{Processing of the database using external software (or R packages)
-#'          and/or use functions coming with LUMP.}
+#'          and/or use functions coming with lumpR.}
 #'  }
 #'  
-#'  More information can be found at the LUMP package wiki: \url{https://github.com/tpilz/LUMP/wiki}
+#'  More information can be found at the lumpR package wiki: \url{https://github.com/tpilz/lumpR/wiki}
 #' 
 #' @author 
 #'  Tobias Pilz \email{tpilz@@uni-potsdam.de}, Till Francke \email{francke@@uni-potsdam.de}
@@ -61,7 +61,7 @@ db_create <- function(
     sqlQuery(con, "SET sql_mode='ANSI';")
   
   # read file with sql statements to create tables of the database
-  sql_file <- system.file("database/create_db.sql", package="LUMP")
+  sql_file <- system.file("database/create_db.sql", package="lumpR")
   script  <- readLines(sql_file)
   
   # identify individual queries of the script
@@ -103,10 +103,10 @@ db_create <- function(
   }
   meta_out <- data.frame(pid=pid_new,
                          mod_date=as.POSIXct(Sys.time()),
-                         mod_user=paste0("db_create(), v. ", installed.packages()["LUMP","Version"]),
+                         mod_user=paste0("db_create(), v. ", installed.packages()["lumpR","Version"]),
                          affected_tables="all",
                          affected_columns="all",
-                         remarks=paste0("Created database version ", max(sqlFetch(con, "db_version")$version), " using R package LUMP."))
+                         remarks=paste0("Created database version ", max(sqlFetch(con, "db_version")$version), " using R package lumpR."))
   write_datetabs(con, meta_out, tab="meta_info", verbose=F)
   
   # close connection

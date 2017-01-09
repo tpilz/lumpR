@@ -1,5 +1,5 @@
-# LUMP/db_fill.R
-# Copyright (C) 2015 Tobias Pilz
+# lumpR/db_fill.R
+# Copyright (C) 2015, 2017 Tobias Pilz
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -19,10 +19,10 @@
 #' 
 #' Function to write parameter values relevant for modelling application with the
 #' WASA hydrological model into an existing database, preferably created with
-#' \code{\link[LUMP]{db_create}}.
+#' \code{\link[lumpR]{db_create}}.
 #' 
 #' @param dbname Name of the data source (DSN) registered at ODBC. See \code{Details} of
-#' \code{\link[LUMP]{db_create}}.
+#' \code{\link[lumpR]{db_create}}.
 #' 
 #' @param tables \code{vector} with name(s) of the table(s) in the database that should
 #'  be filled with data. Order must correspond to the order of \code{dat_files}. By
@@ -43,7 +43,7 @@
 #'  
 #' @details 
 #'  For each table a single file has to be prepared manually and/or using functions of
-#'  \code{LUMP}. All files have to be tabulator-separated textfiles, the top-line
+#'  \code{lumpR}. All files have to be tabulator-separated textfiles, the top-line
 #'  being the header. Column names have to be identical to column names of the 
 #'  respective tables in the database. All columns of a table have to exist in the 
 #'  respective data file. If a certain column is not needed for your purpose or
@@ -56,7 +56,7 @@
 #'  
 #'  \bold{r_subbas_contains_lu}\cr
 #'  Table referncing subbasins and corresponding landscape units inclunding their
-#'  areal fraction. \code{lu_ofile} produced by \code{\link[LUMP]{lump_grass_post}} 
+#'  areal fraction. \code{lu_ofile} produced by \code{\link[lumpR]{lump_grass_post}} 
 #'  can be used. Columns:
 #'  
 #'    \emph{subbas_id}\cr
@@ -70,7 +70,7 @@
 #'  
 #'  
 #'  \bold{subbasins}\cr
-#'  Subbasin parameters. \code{sub_ofile} produced by \code{\link[LUMP]{lump_grass_post}} 
+#'  Subbasin parameters. \code{sub_ofile} produced by \code{\link[lumpR]{lump_grass_post}} 
 #'  can be used. Columns:
 #'  
 #'    \emph{pid}\cr
@@ -101,8 +101,8 @@
 #'    
 #'  \bold{landscape_units}\cr
 #'  Landscape Unit parameters. Information can be obtained from \code{luoutfile}
-#'  created by \code{\link[LUMP]{prof_class}} (column 'x_length' which is identical
-#'  to 'slopelength') and \code{lupar_ofile} created by \code{\link[LUMP]{lump_grass_post}}
+#'  created by \code{\link[lumpR]{prof_class}} (column 'x_length' which is identical
+#'  to 'slopelength') and \code{lupar_ofile} created by \code{\link[lumpR]{lump_grass_post}}
 #'  (all other information). Merge information by hand. Columns:
 #'  
 #'    \emph{pid}\cr
@@ -143,7 +143,7 @@
 #'  \bold{r_lu_contains_tc}\cr
 #'  Table referncing landscape units and corresponding terrain components inclunding their
 #'  areal fraction and hillslope position. \code{lucontainstcoutfile} created by
-#'  \code{\link[LUMP]{prof_class}} can be used directly. Columns:
+#'  \code{\link[lumpR]{prof_class}} can be used directly. Columns:
 #'  
 #'    \emph{lu_id}\cr
 #'    \code{integer}. Landscape unit ID.
@@ -160,7 +160,7 @@
 #'    
 #'  \bold{terrain_components}\cr
 #'  Terrain component specific parameters. Information from \code{terraincomponentsoutfile}
-#'  created by \code{\link[LUMP]{prof_class}} can be used. Columns:
+#'  created by \code{\link[lumpR]{prof_class}} can be used. Columns:
 #'  
 #'    \emph{pid}\cr
 #'    \code{integer}. Terrain component ID.
@@ -185,7 +185,7 @@
 #'  \bold{r_tc_contains_svc}\cr
 #'  Table referncing terrain components and corresponding soil-vegetation components
 #'  inclunding their areal fraction. \code{tccontainssvcoutfile} created by
-#'  \code{\link[LUMP]{prof_class}} can be used directly. Columns:
+#'  \code{\link[lumpR]{prof_class}} can be used directly. Columns:
 #'    
 #'    \emph{tc_id}\cr
 #'    \code{integer}. Terrain component ID.
@@ -381,7 +381,7 @@
 #'    
 #'  \bold{soil_veg_components}\cr
 #'  Parameters specific for soil-vegetation components. \code{svc_ofile} created by
-#'  \code{\link[LUMP]{lump_grass_prep}} can be used directly. Columns:
+#'  \code{\link[lumpR]{lump_grass_prep}} can be used directly. Columns:
 #'  
 #'    \emph{pid}\cr
 #'    \code{integer}. Soil-vegetation component ID.
@@ -452,11 +452,11 @@
 #'    
 #'  \bold{rainy_season}\cr
 #'  Fill in values \bold{manually} (i.e. this is not supported by this function) 
-#'  using output of \code{\link[LUMP]{rainy_season}}. You can define separate
+#'  using output of \code{\link[lumpR]{rainy_season}}. You can define separate
 #'  seasonalities for different vegetation types if you want (i.e. 'growing season'
 #'  instead of 'rainy season'). In this case the rainy/growing season starts and ends
 #'  differently for the respective vegetation types. This, however, is not
-#'  respected by function \code{\link[LUMP]{rainy_season}} which determines seasonalities
+#'  respected by function \code{\link[lumpR]{rainy_season}} which determines seasonalities
 #'  based on precipitation only. You can use the wildcard value '-1' for all
 #'  (remaining) vegetation types. After manual fill don't forget to update 'meta_info'.
 #'  Columns:
@@ -489,7 +489,7 @@
 #'          
 #' 
 #' @references
-#'      \bold{Theory of LUMP}\cr
+#'      \bold{Theory of lumpR}\cr
 #'      Francke, T.; Guentner, A.; Mamede, G.; Mueller, E. N. and Bronstert, A (2008):
 #'      Automated catena-based discretization of landscapes for the derivation of
 #'      hydrological modelling units. \emph{International Journal of Geographical
@@ -558,10 +558,10 @@ db_fill <- function(
   }
   meta_out <- data.frame(pid=pid_new,
                          mod_date=as.POSIXct(Sys.time()),
-                         mod_user=paste0("db_fill(), v. ", installed.packages()["LUMP","Version"]),
+                         mod_user=paste0("db_fill(), v. ", installed.packages()["lumpR","Version"]),
                          affected_tables=paste(tables, collapse=", "),
                          affected_columns="all",
-                         remarks=paste0("Automated filling of tables with R package LUMP using files from location ", dat_dir, "."))
+                         remarks=paste0("Automated filling of tables with R package lumpR using files from location ", dat_dir, "."))
   write_datetabs(con, meta_out, tab="meta_info", verbose)
   
   

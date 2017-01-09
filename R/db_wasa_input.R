@@ -1,5 +1,5 @@
-# LUMP/db_wasa_input.R
-# Copyright (C) 2015,2016 Tobias Pilz
+# lumpR/db_wasa_input.R
+# Copyright (C) 2015-2017 Tobias Pilz
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -157,12 +157,12 @@
 #'  
 #'  
 #'  \bold{Hillslope/soil.dat}\cr
-#'  Horizon specific soil parameters. See file header and \code{\link[LUMP]{db_fill}}
+#'  Horizon specific soil parameters. See file header and \code{\link[lumpR]{db_fill}}
 #'  for more information. Only soil types occurring in tables 'soil_veg_components'
 #'  and 'r_tc_contains_svc' will be considered.
 #'  
 #'  \bold{Hillslope/vegetation.dat}\cr
-#'  Vegetation parameters. See file header and \code{\link[LUMP]{db_fill}}
+#'  Vegetation parameters. See file header and \code{\link[lumpR]{db_fill}}
 #'  for more information. Only vegetation types occurring in table 'soil_veg_components'
 #'  and 'r_tc_contains_svc' will be considered.
 #'  
@@ -190,14 +190,14 @@
 #'   \bold{Hillslope/rainy_season.dat}\cr
 #'   \emph{Optional} file defining days of year (i.e. nodes, cf. vegetation parameters)
 #'   of the rainy/growing season for each year, subbasin and vegetation type. See
-#'   doc of \code{\link[LUMP]{db_fill}} and \code{\link[LUMP]{rainy_season}} for
+#'   doc of \code{\link[lumpR]{db_fill}} and \code{\link[lumpR]{rainy_season}} for
 #'   more information. If this file is not supplied only the first node value of 
 #'   seasonal vegetation parameters is used.
 #'   
 #'   \bold{Hillslope/svc.dat}\cr
 #'   \emph{Optional} file defining soil vegetation components and giving some erosion
 #'   parameters. Mandatory for WASA's sediment module and/or saving/loading of model
-#'   states. See doc of \code{\link[LUMP]{db_fill}} (-> 'soil_veg_components') for
+#'   states. See doc of \code{\link[lumpR]{db_fill}} (-> 'soil_veg_components') for
 #'   description of header.
 #'  
 #'  
@@ -237,7 +237,7 @@ db_wasa_input <- function(
   
   
   # get most recent db version from update sql files in source directory
-  db_dir <- system.file("database/", package="LUMP")
+  db_dir <- system.file("database/", package="lumpR")
   db_up_files <- dir(db_dir, pattern="update_[a-zA-Z0-9_]*.sql")
   db_ver_max <- max(as.integer(sub(".sql", "", sub("update_db_v", "", db_up_files))))
   
@@ -291,8 +291,8 @@ db_wasa_input <- function(
     
     # write data into file
     writeLines(con=paste(dest_dir, "info.dat", sep="/"),
-               text=paste0("generated on ", Sys.time(), " with R-Package LUMP function db_wasa_input() version ",
-                      installed.packages()["LUMP","Version"], " from database version ",
+               text=paste0("generated on ", Sys.time(), " with R-Package lumpR function db_wasa_input() version ",
+                      installed.packages()["lumpR","Version"], " from database version ",
                       db_ver, " revision ", meta_rev,"."))
     
     if(verbose)
@@ -931,7 +931,7 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
     
     ### write output
     writeLines(con=paste(dest_dir, "do.dat", sep="/"),
-               text=c(paste0("v1.33 Parameter specification for the WASA Model (SESAM-Project), generated with R-Package LUMP function db_wasa_input() version ", installed.packages()["LUMP","Version"]),
+               text=c(paste0("v1.33 Parameter specification for the WASA Model (SESAM-Project), generated with R-Package lumpR function db_wasa_input() version ", installed.packages()["lumpR","Version"]),
                       "path/to/inut_dir/",
                       "path/to/output_dir/",
                       "//tstart (start year of simulation)",
@@ -1209,10 +1209,10 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
   }
   meta_out <- data.frame(pid=pid_new,
                          mod_date=as.POSIXct(Sys.time()),
-                         mod_user=paste0("db_wasa_input(), v. ", installed.packages()["LUMP","Version"]),
+                         mod_user=paste0("db_wasa_input(), v. ", installed.packages()["lumpR","Version"]),
                          affected_tables=paste0("WASA files: ", paste(files, collapse=", ")),
                          affected_columns="none",
-                         remarks=paste0("WASA input files written using R package LUMP to ", dest_dir, " ."))
+                         remarks=paste0("WASA input files written using R package lumpR to ", dest_dir, " ."))
   write_datetabs(con, meta_out, tab="meta_info", verbose)
 
 

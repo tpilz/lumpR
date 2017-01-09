@@ -1,5 +1,5 @@
-# LUMP/rainy_season.R
-# Copyright (C) 2015,2016 Tobias Pilz
+# lumpR/rainy_season.R
+# Copyright (C) 2015-2017 Tobias Pilz
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -67,7 +67,7 @@
 #'
 #' @export
 #' 
-#' @useDynLib LUMP
+#' @useDynLib lumpR
 #' 
 
 rainy_season <- function(
@@ -123,7 +123,7 @@ rainy_season <- function(
                     outyear=as.integer(rep(-999, no_years)), 
                     outbegin=as.integer(rep(-999, no_years)), 
                     outend=as.integer(rep(-999, no_years)),
-                    PACKAGE="LUMP")
+                    PACKAGE="lumpR")
     
     # remove missing year if present
     na_t <- which(season$outyear==-999)

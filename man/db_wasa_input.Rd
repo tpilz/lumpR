@@ -144,12 +144,12 @@
  
  
  \bold{Hillslope/soil.dat}\cr
- Horizon specific soil parameters. See file header and \code{\link[LUMP]{db_fill}}
+ Horizon specific soil parameters. See file header and \code{\link[lumpR]{db_fill}}
  for more information. Only soil types occurring in tables 'soil_veg_components'
  and 'r_tc_contains_svc' will be considered.
  
  \bold{Hillslope/vegetation.dat}\cr
- Vegetation parameters. See file header and \code{\link[LUMP]{db_fill}}
+ Vegetation parameters. See file header and \code{\link[lumpR]{db_fill}}
  for more information. Only vegetation types occurring in table 'soil_veg_components'
  and 'r_tc_contains_svc' will be considered.
  
@@ -177,14 +177,14 @@
   \bold{Hillslope/rainy_season.dat}\cr
   \emph{Optional} file defining days of year (i.e. nodes, cf. vegetation parameters)
   of the rainy/growing season for each year, subbasin and vegetation type. See
-  doc of \code{\link[LUMP]{db_fill}} and \code{\link[LUMP]{rainy_season}} for
+  doc of \code{\link[lumpR]{db_fill}} and \code{\link[lumpR]{rainy_season}} for
   more information. If this file is not supplied only the first node value of 
   seasonal vegetation parameters is used.
   
   \bold{Hillslope/svc.dat}\cr
   \emph{Optional} file defining soil vegetation components and giving some erosion
   parameters. Mandatory for WASA's sediment module and/or saving/loading of model
-  states. See doc of \code{\link[LUMP]{db_fill}} (-> 'soil_veg_components') for
+  states. See doc of \code{\link[lumpR]{db_fill}} (-> 'soil_veg_components') for
   description of header.
  
  
@@ -345,12 +345,12 @@ Create WASA input files
  
  
  \bold{Hillslope/soil.dat}\cr
- Horizon specific soil parameters. See file header and \code{\link[LUMP]{db_fill}}
+ Horizon specific soil parameters. See file header and \code{\link[lumpR]{db_fill}}
  for more information. Only soil types occurring in tables 'soil_veg_components'
  and 'r_tc_contains_svc' will be considered.
  
  \bold{Hillslope/vegetation.dat}\cr
- Vegetation parameters. See file header and \code{\link[LUMP]{db_fill}}
+ Vegetation parameters. See file header and \code{\link[lumpR]{db_fill}}
  for more information. Only vegetation types occurring in table 'soil_veg_components'
  and 'r_tc_contains_svc' will be considered.
  
@@ -378,14 +378,14 @@ Create WASA input files
   \bold{Hillslope/rainy_season.dat}\cr
   \emph{Optional} file defining days of year (i.e. nodes, cf. vegetation parameters)
   of the rainy/growing season for each year, subbasin and vegetation type. See
-  doc of \code{\link[LUMP]{db_fill}} and \code{\link[LUMP]{rainy_season}} for
+  doc of \code{\link[lumpR]{db_fill}} and \code{\link[lumpR]{rainy_season}} for
   more information. If this file is not supplied only the first node value of 
   seasonal vegetation parameters is used.
   
   \bold{Hillslope/svc.dat}\cr
   \emph{Optional} file defining soil vegetation components and giving some erosion
   parameters. Mandatory for WASA's sediment module and/or saving/loading of model
-  states. See doc of \code{\link[LUMP]{db_fill}} (-> 'soil_veg_components') for
+  states. See doc of \code{\link[lumpR]{db_fill}} (-> 'soil_veg_components') for
   description of header.
  
  

@@ -8,7 +8,7 @@ calc_seasonality(rainy_season, seasonality, timezone = "")
 }
 \arguments{
 \item{rainy_season}{\code{data.frame} giving start and end dates of the rainy season.
-Output of function \code{\link[LUMP]{rainy_season}}. See doc for information on
+Output of function \code{\link[lumpR]{rainy_season}}. See doc for information on
 data structure.}
 
 \item{seasonality}{\code{data.frame} or \code{matrix} giving id value (corresponding

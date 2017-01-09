@@ -10,11 +10,11 @@ reservoir_strategic(res_vect = NULL, subbasin = NULL, dir_out = "./",
 \arguments{
 \item{res_vect}{Name of reservoir vector map in GRASS location. Should be point
 instead of polygon feature (i.e. reservoir outlet locations; consider function
-\code{\link[LUMP]{reservoir_outlet}})! For mandatory columns in attribute table
+\code{\link[lumpR]{reservoir_outlet}})! For mandatory columns in attribute table
 see \code{Details}.}
 
 \item{subbasin}{Subbasin raster map in GRASS location. Can be created with
-\code{\link[LUMP]{calc_subbas}}.}
+\code{\link[lumpR]{calc_subbas}}.}
 
 \item{dir_out}{Character string specifying output directory (will be created if it
 does not yet exist).}
@@ -111,7 +111,7 @@ In output file \code{reservoir_file} order of subbasin IDs needs to be compliant
      with order in hymo.dat, i.e. some manual post-processing might be necessary!
      Otherwise WASA will terminate with an error.
      
-     If you applied \code{\link[LUMP]{reservoir_outlet}} using the outlet locations
+     If you applied \code{\link[lumpR]{reservoir_outlet}} using the outlet locations
      of strategic reservoirs as drainage points it might be necessary to use
      locations of the function's output \code{points_processed} instead of the
      true reservoir outlet locations as otherwise the reservoirs might assigned to

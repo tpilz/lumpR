@@ -1,5 +1,5 @@
-# LUMP/lump_grass_post.R
-# Copyright (C) 2014,2015,2016 Tobias Pilz, Till Francke
+# lumpR/lump_grass_post.R
+# Copyright (C) 2014-2017 Tobias Pilz, Till Francke
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -19,27 +19,27 @@
 #' 
 #' Creates raster map of Landscape Units and files containing information of
 #' and parameter estimation for Subbasins and Landscape Units in the catchment
-#' using outputs of \code{\link[LUMP]{lump_grass_prep}} and \code{\link[LUMP]{prof_class}}.
+#' using outputs of \code{\link[lumpR]{lump_grass_prep}} and \code{\link[lumpR]{prof_class}}.
 #' 
 #' @param mask Name of mask raster map masking the study area. E.g. output \code{mask_corr}
-#'      of \code{\link[LUMP]{lump_grass_prep}}.
-#' @param dem DEM raster map in GRASS location as used in \code{\link[LUMP]{lump_grass_prep}}.
-#' @param subbasin Subbasin raster map in GRASS location as used in \code{\link[LUMP]{lump_grass_prep}}
-#'      and/or created by \code{\link[LUMP]{calc_subbas}}.
+#'      of \code{\link[lumpR]{lump_grass_prep}}.
+#' @param dem DEM raster map in GRASS location as used in \code{\link[lumpR]{lump_grass_prep}}.
+#' @param subbasin Subbasin raster map in GRASS location as used in \code{\link[lumpR]{lump_grass_prep}}
+#'      and/or created by \code{\link[lumpR]{calc_subbas}}.
 #' @param recl_lu Name of GRASS reclassification file: EHA -> LU. Output of
-#'      \code{\link[LUMP]{prof_class}}. If omitted, the existing raster layer \code{lu} is used.
+#'      \code{\link[lumpR]{prof_class}}. If omitted, the existing raster layer \code{lu} is used.
 #' @param lu Input or Output: Name of Landscape Units (LU) raster map already existing in
 #'      GRASS location or to be generated using \code{recl_lu}.
 #' @param eha Name of Elementary Hillslope Areas (EHA) raster map in GRASS
-#'      location. Output of \code{\link[LUMP]{lump_grass_prep}}.
+#'      location. Output of \code{\link[lumpR]{lump_grass_prep}}.
 #' @param fill_holes TRUE: fill any holes in map \code{eha} (e.g. as result of skipped/non-classified
 #'      EHAs) by growing
 #' @param flowacc Name of flow accumulation raster map in GRASS location. Can
-#'      be created with \code{\link[LUMP]{lump_grass_prep}}.
+#'      be created with \code{\link[lumpR]{lump_grass_prep}}.
 #' @param flowdir Name of flow direction raster map in GRASS location. Can
-#'      be created with \code{\link[LUMP]{lump_grass_prep}}.
+#'      be created with \code{\link[lumpR]{lump_grass_prep}}.
 #' @param stream_horton Name of Horton stream order raster map in GRASS location. Can
-#'      be created with \code{\link[LUMP]{lump_grass_prep}}. If left empty, the channel length,
+#'      be created with \code{\link[lumpR]{lump_grass_prep}}. If left empty, the channel length,
 #'      slope and retention times are set to NA.
 #' @param soil_depth Name of soil depth [mm] raster map in GRASS location. If \code{NULL}
 #'      (default), \code{na_val} is used.
@@ -71,7 +71,7 @@
 #'      location as specified in arguments.
 #'      
 #' @note Prepare GRASS location and necessary raster files in advance (e.g. using
-#'      \code{\link[LUMP]{lump_grass_prep}}) and start GRASS session in R using 
+#'      \code{\link[lumpR]{lump_grass_prep}}) and start GRASS session in R using 
 #'      \code{\link[spgrass6]{initGRASS}}.
 #'      
 #'      TODO:\cr
@@ -158,7 +158,7 @@
 #'      
 #'      \emph{slopelength}\cr
 #'      Slope length of Landscape Unit [m]. Value can be obtained from output of
-#'      \code{\link[LUMP]{prof_class}}. Herein set to \code{na_val}.
+#'      \code{\link[lumpR]{prof_class}}. Herein set to \code{na_val}.
 #'      
 #'      \emph{soil_depth}\cr
 #'      Soil depth in \emph{mm} averaged over respective landscape unit. Use in
@@ -284,7 +284,7 @@ lump_grass_post <- function(
   
   
   ### CALCULATIONS ###
-  message("\nSTART LUMP postprocessing using GRASS...\n")
+  message("\nSTART lumpR postprocessing using GRASS...\n")
   
   
   # prepare output directory, GRASS location, etc. #

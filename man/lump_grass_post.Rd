@@ -13,30 +13,30 @@ lump_grass_post(mask = NULL, dem = NULL, recl_lu = NULL, lu = NULL,
 }
 \arguments{
 \item{mask}{Name of mask raster map masking the study area. E.g. output \code{mask_corr}
-of \code{\link[LUMP]{lump_grass_prep}}.}
+of \code{\link[lumpR]{lump_grass_prep}}.}
 
-\item{dem}{DEM raster map in GRASS location as used in \code{\link[LUMP]{lump_grass_prep}}.}
+\item{dem}{DEM raster map in GRASS location as used in \code{\link[lumpR]{lump_grass_prep}}.}
 
 \item{recl_lu}{Name of GRASS reclassification file: EHA -> LU. Output of
-\code{\link[LUMP]{prof_class}}. If omitted, the existing raster layer \code{lu} is used.}
+\code{\link[lumpR]{prof_class}}. If omitted, the existing raster layer \code{lu} is used.}
 
 \item{lu}{Input or Output: Name of Landscape Units (LU) raster map already existing in
 GRASS location or to be generated using \code{recl_lu}.}
 
-\item{subbasin}{Subbasin raster map in GRASS location as used in \code{\link[LUMP]{lump_grass_prep}}
-and/or created by \code{\link[LUMP]{calc_subbas}}.}
+\item{subbasin}{Subbasin raster map in GRASS location as used in \code{\link[lumpR]{lump_grass_prep}}
+and/or created by \code{\link[lumpR]{calc_subbas}}.}
 
 \item{eha}{Name of Elementary Hillslope Areas (EHA) raster map in GRASS
-location. Output of \code{\link[LUMP]{lump_grass_prep}}.}
+location. Output of \code{\link[lumpR]{lump_grass_prep}}.}
 
 \item{flowacc}{Name of flow accumulation raster map in GRASS location. Can
-be created with \code{\link[LUMP]{lump_grass_prep}}.}
+be created with \code{\link[lumpR]{lump_grass_prep}}.}
 
 \item{flowdir}{Name of flow direction raster map in GRASS location. Can
-be created with \code{\link[LUMP]{lump_grass_prep}}.}
+be created with \code{\link[lumpR]{lump_grass_prep}}.}
 
 \item{stream_horton}{Name of Horton stream order raster map in GRASS location. Can
-be created with \code{\link[LUMP]{lump_grass_prep}}. If left empty, the channel length,
+be created with \code{\link[lumpR]{lump_grass_prep}}. If left empty, the channel length,
 slope and retention times are set to NA.}
 
 \item{soil_depth}{Name of soil depth [mm] raster map in GRASS location. If \code{NULL}
@@ -85,7 +85,7 @@ Function returns nothing. Output files (\code{sub_ofile, lupar_ofile, lu_ofile})
 \description{
 Creates raster map of Landscape Units and files containing information of
 and parameter estimation for Subbasins and Landscape Units in the catchment
-using outputs of \code{\link[LUMP]{lump_grass_prep}} and \code{\link[LUMP]{prof_class}}.
+using outputs of \code{\link[lumpR]{lump_grass_prep}} and \code{\link[lumpR]{prof_class}}.
 }
 \details{
 \bold{Subbasin parameters}\cr
@@ -165,7 +165,7 @@ using outputs of \code{\link[LUMP]{lump_grass_prep}} and \code{\link[LUMP]{prof_
      
      \emph{slopelength}\cr
      Slope length of Landscape Unit [m]. Value can be obtained from output of
-     \code{\link[LUMP]{prof_class}}. Herein set to \code{na_val}.
+     \code{\link[lumpR]{prof_class}}. Herein set to \code{na_val}.
      
      \emph{soil_depth}\cr
      Soil depth in \emph{mm} averaged over respective landscape unit. Use in
@@ -201,7 +201,7 @@ using outputs of \code{\link[LUMP]{lump_grass_prep}} and \code{\link[LUMP]{prof_
 }
 \note{
 Prepare GRASS location and necessary raster files in advance (e.g. using
-     \code{\link[LUMP]{lump_grass_prep}}) and start GRASS session in R using 
+     \code{\link[lumpR]{lump_grass_prep}}) and start GRASS session in R using 
      \code{\link[spgrass6]{initGRASS}}.
      
      TODO:\cr

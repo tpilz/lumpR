@@ -1,5 +1,5 @@
-# LUMP/prof_class.R
-# Copyright (C) 2014,2015 Tobias Pilz, Till Francke
+# lumpR/prof_class.R
+# Copyright (C) 2014-2017 Tobias Pilz, Till Francke
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,13 +17,13 @@
 
 #' Classification of mean catenas
 #' 
-#' Classifies mean catenas derived from \code{\link[LUMP]{area2catena}} into \emph{Landscape
+#' Classifies mean catenas derived from \code{\link[lumpR]{area2catena}} into \emph{Landscape
 #' Units} and \emph{Terrain Components}.
 #' 
 #' @param catena_file Name of file containing mean catena information derived from
-#'      \code{\link[LUMP]{area2catena}}.
+#'      \code{\link[lumpR]{area2catena}}.
 #' @param catena_head_file Name of file containing meta-information for classification
-#'      derived from \code{\link[LUMP]{area2catena}} and adjusted manually (see \code{Notes}).
+#'      derived from \code{\link[lumpR]{area2catena}} and adjusted manually (see \code{Notes}).
 #' @param svc_column Field name in \code{catena_head_file} that holds the information
 #'      of SVCs for generating \code{tccontainssvcoutfile}. Default: 'svc'.
 #' @param dir_out Character string specifying output directory (will be created;
@@ -49,7 +49,7 @@
 #'              to these clusters (e.g. supervised classification). CURRENTLY NOT SUPPORTED!
 #' @param seed Integer specifying seed for random processes in cluster analysis.
 #' @param resolution Integer specifying resolution of profiles/spacing of samples.
-#'      Typically the resolution of your GRASS location used for \code{\link[LUMP]{area2catena}}.
+#'      Typically the resolution of your GRASS location used for \code{\link[lumpR]{area2catena}}.
 #' @param max_com_length Integer defining the maximum common length of profiles,
 #'      i.e. the maximum number of support points representing each catena during the
 #'      classification procedure. Too large values consume more memory and computational
@@ -71,7 +71,7 @@
 #' @return Function returns nothing. Output files are written into output directory
 #'      as specified in arguments.
 #' 
-#' @note Function uses output of \code{\link[LUMP]{area2catena}}. However, no GRASS
+#' @note Function uses output of \code{\link[lumpR]{area2catena}}. However, no GRASS
 #'      session needs to be started in this case.
 #'      
 #'      After applying \code{recl_lu} the resulting landscape units raster map in your GRASS
@@ -79,7 +79,7 @@
 #'      as each landscape unit refers to the representative EHA. The gaps can be filled
 #'      with GRASS function \code{r.grow}.
 #'      
-#'  @details This function first resamples the catenas derived from \code{\link[LUMP]{area2catena}}
+#'  @details This function first resamples the catenas derived from \code{\link[lumpR]{area2catena}}
 #'      to a common length (\code{com_length} or the median number of support points
 #'      of all catenas but not more than \code{max_com_length}). Second, k-means clustering
 #'      is employed to group the catenas into representative \emph{Landscape Units}

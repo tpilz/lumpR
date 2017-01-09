@@ -1,5 +1,5 @@
-# LUMP/db_update.R
-# Copyright (C) 2015,2016 Tobias Pilz, Till Francke
+# lumpR/db_update.R
+# Copyright (C) 2015-2017 Tobias Pilz, Till Francke
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -53,7 +53,7 @@ db_update <- function(
     sqlQuery(con, "SET sql_mode='ANSI';")
   
   # get most recent db version from update sql files in source directory
-  db_dir <- system.file("database/", package="LUMP")
+  db_dir <- system.file("database/", package="lumpR")
   db_up_files <- dir(db_dir, pattern="update_[a-zA-Z0-9_]*.sql")
   db_ver_max <- max(as.integer(sub(".sql", "", sub("update_db_v", "", db_up_files))))
   
@@ -75,7 +75,7 @@ db_update <- function(
     stop(paste0("Database (", db_ver, ") is newer than the requested update (", to_ver, "). Nothing to do."))
   
   if(db_ver < 18)
-    stop("Database needs to be at least version 18 for updating. Do manual updates first (see db_version.txt in LUMP's source directory 'example/make_wasa_input/').")
+    stop("Database needs to be at least version 18 for updating. Do manual updates first (see db_version.txt in lumpR's source directory 'example/make_wasa_input/').")
   
   
   if(db_ver == 18) #ver 18 -> 19
@@ -107,7 +107,7 @@ db_update <- function(
        }
        statement = paste0("INSERT INTO db_version VALUES (
        19,  19, 
-      'First version within LUMP R-package', 
+      'First version within lumpR R-package', 
     	'none', 
     	'horizons, landscape_units, particle_classes, soils, soil_veg_components, subbasins, terrain_components, vegetation, db_version', 
     	'adjusted data type in db_version and column names for the other tables', 
@@ -117,7 +117,7 @@ db_update <- function(
     }  else
     {
       # read file with sql statements
-      sql_file <- system.file("database/update_db_v19.sql", package="LUMP")
+      sql_file <- system.file("database/update_db_v19.sql", package="lumpR")
       script  <- readLines(sql_file)
       
       # identify individual queries of the script
@@ -169,7 +169,7 @@ db_update <- function(
   { 
     #fill in update steps
     # read file with sql statements
-    sql_file <- system.file(paste0("database/update_db_v", db_ver+1, ".sql"), package="LUMP")
+    sql_file <- system.file(paste0("database/update_db_v", db_ver+1, ".sql"), package="lumpR")
     script  <- readLines(sql_file)
     
     # identify individual queries of the script
@@ -214,9 +214,9 @@ db_update <- function(
   }
   meta_out <- data.frame(pid=pid_new,
                          mod_date=as.POSIXct(Sys.time()),
-                         mod_user=paste0("db_update(), v. ", installed.packages()["LUMP","Version"]),
-                         affected_tables="See LUMPs source database/update_db_v*.sql.",
-                         affected_columns="See LUMPs source database/update_db_v*.sql.",
+                         mod_user=paste0("db_update(), v. ", installed.packages()["lumpR","Version"]),
+                         affected_tables="See lumpRs source database/update_db_v*.sql.",
+                         affected_columns="See lumpRs source database/update_db_v*.sql.",
                          remarks=paste0("Database updated from version ", db_ver_init, " to version ", db_ver, "."))
   write_datetabs(con, meta_out, tab="meta_info", verbose=F)
   

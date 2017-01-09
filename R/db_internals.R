@@ -1,5 +1,5 @@
-# LUMP/db_internals.R
-# Copyright (C) 2015 Tobias Pilz, Till Francke
+# lumpR/db_internals.R
+# Copyright (C) 2015, 2017 Tobias Pilz, Till Francke
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -226,10 +226,10 @@ filter_small_areas <- function(con, table, thres, fix, verbose, tbl_changed) {
       }
       meta_out <- data.frame(pid=pid_new,
                              mod_date=as.POSIXct(Sys.time()),
-                             mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                             mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
                              affected_tables=paste(unique(tbl_changed), collapse=", "),
                              affected_columns="various",
-                             remarks=paste0("ATTENTION: Error while checking database using R package LUMP check filter_small_areas. Nevertheless, affected_tables have already been changed."))
+                             remarks=paste0("ATTENTION: Error while checking database using R package lumpR check filter_small_areas. Nevertheless, affected_tables have already been changed."))
       write_datetabs(con, meta_out, tab="meta_info", verbose)
       stop(paste0("Before removal of tiny areas: sum of fractions per higher level unit not always equal to one. Check table '", table, ifelse(table=="r_tc_contains_svc", " and terrain_components (column frac_rocky)",""),"'!"))
     } else {
@@ -308,10 +308,10 @@ filter_small_areas <- function(con, table, thres, fix, verbose, tbl_changed) {
             }
             meta_out <- data.frame(pid=pid_new,
                                    mod_date=as.POSIXct(Sys.time()),
-                                   mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                                   mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
                                    affected_tables=paste(unique(tbl_changed), collapse=", "),
                                    affected_columns="various",
-                                   remarks=paste0("ATTENTION: Error while checking database using R package LUMP check filter_small_areas. Nevertheless, affected_tables have already been changed."))
+                                   remarks=paste0("ATTENTION: Error while checking database using R package lumpR check filter_small_areas. Nevertheless, affected_tables have already been changed."))
             write_datetabs(con, meta_out, tab="meta_info", verbose)
             odbcClose(con)
             stop(paste0("An error occured when updating table terrain_components. ",
@@ -337,10 +337,10 @@ filter_small_areas <- function(con, table, thres, fix, verbose, tbl_changed) {
         }
         meta_out <- data.frame(pid=pid_new,
                                mod_date=as.POSIXct(Sys.time()),
-                               mod_user=paste0("db_check(), v. ", installed.packages()["LUMP","Version"]),
+                               mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
                                affected_tables=paste(unique(tbl_changed), collapse=", "),
                                affected_columns="various",
-                               remarks=paste0("ATTENTION: Error while checking database using R package LUMP check filter_small_areas. Nevertheless, affected_tables have already been changed."))
+                               remarks=paste0("ATTENTION: Error while checking database using R package lumpR check filter_small_areas. Nevertheless, affected_tables have already been changed."))
         write_datetabs(con, meta_out, tab="meta_info", verbose)
         odbcClose(con)
         stop(paste0("An error occured when updating table '", table, "'. ",

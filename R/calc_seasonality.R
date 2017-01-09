@@ -1,5 +1,5 @@
-# LUMP/calc_seasonality.R
-# Copyright (C) 2015 Tobias Pilz
+# lumpR/calc_seasonality.R
+# Copyright (C) 2015, 2017 Tobias Pilz
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -21,7 +21,7 @@
 #' information about the seasonality of that variable.
 #' 
 #' @param rainy_season \code{data.frame} giving start and end dates of the rainy season.
-#'      Output of function \code{\link[LUMP]{rainy_season}}. See doc for information on
+#'      Output of function \code{\link[lumpR]{rainy_season}}. See doc for information on
 #'      data structure.
 #'      
 #' @param seasonality \code{data.frame} or \code{matrix} giving id value (corresponding
@@ -49,7 +49,7 @@
 #'
 #' @export
 #' 
-#' @useDynLib LUMP
+#' @useDynLib lumpR
 #' 
 
 calc_seasonality <- function(
@@ -107,7 +107,7 @@ for (s in 1:nrow(seasonality)) {
                            support_values=as.double(sn),
                            # OUTPUT #
                            seasonality_out=out,
-                           PACKAGE="LUMP")$seasonality_out
+                           PACKAGE="lumpR")$seasonality_out
     })
     
     # merge with output object
