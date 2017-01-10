@@ -260,7 +260,7 @@ prof_class <- function(
     # load supplemental data if present
     if (length(datacolumns) > 3) {
       n_supp_data_columns <- sum(datacolumns[4:length(datacolumns)])
-      supp_data <- stats[,4:(n_supp_data_columns+3)]
+      supp_data <- stats[,4:(n_supp_data_columns+3), drop=F]
       n_suppl_attributes <- length(supp_data[1,])      # get number of supplemental attribute classes
     } else {
       n_supp_data_columns <- 0
@@ -383,7 +383,7 @@ prof_class <- function(
       # treat supp_data if present (resample, weigh and add to profile vector to be included in cluster analysis)
       if (n_suppl_attributes) {
         #retrieve all supplemental data for this profile
-        p_supp <- supp_data[which(p_id==p_id_unique[i]),]
+        p_supp <- supp_data[which(p_id==p_id_unique[i]),, drop=F]
         all_na <- apply(p_supp,2,function(x) all(is.na(x)))
         if (any(all_na))
         {  
