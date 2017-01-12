@@ -1,4 +1,4 @@
-C LUMP/RainySeason.f
+C lumpR/RainySeason.f
 C Copyright (C) 1999 Friedrich-Wilhelm Gerstengarbe, Peter C. Werner
 C Copyright (C) 2000-2004 Andreas Güntner
 C Copyright (C) 2015 Tobias Pilz

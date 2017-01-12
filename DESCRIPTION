@@ -28,7 +28,7 @@ Suggests:
     doMC,
     doParallel
 License: GPL-3
-URL: https://github.com/tpilz/LUMP
-BugReports: https://github.com/tpilz/LUMP/issues
+URL: https://github.com/tpilz/lumpR
+BugReports: https://github.com/tpilz/lumpR/issues
 NeedsCompilation: yes
 RoxygenNote: 5.0.1

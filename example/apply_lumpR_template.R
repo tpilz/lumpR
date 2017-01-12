@@ -475,7 +475,7 @@ file.copy(paste(soil_path, "horizons.dat", sep="/"), "horizons.dat", overwrite=T
 file.copy(paste(soil_path, "particle_classes.dat", sep="/"), "particle_classes.dat", overwrite=T)
 file.copy(paste(soil_path, "r_soil_contains_particles.dat", sep="/"), "r_soil_contains_particles.dat", overwrite=T)
 
-# LUMP output and manually prepared information (e.g. soil parameters) to database
+# lumpR output and manually prepared information (e.g. soil parameters) to database
 ?db_fill
 db_fill(dbname=dbname,
         tables = c("r_subbas_contains_lu", "subbasins",

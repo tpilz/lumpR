@@ -1,4 +1,4 @@
-! LUMP/calc_seasonality.f90
+! lumpR/calc_seasonality.f90
 ! Copyright (C) 2014 Till Francke
 ! Copyright (C) 2015 Tobias Pilz
 ! 
