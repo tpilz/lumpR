@@ -207,7 +207,7 @@ calc_subbas <- function(
     streams_vect <- readVECT6(river)
   
     # snap points to streams
-    drain_points_snap <- snapPointsToLines(drain_points, streams_vect, maxDist=snap_dist)
+    drain_points_snap <- suppressWarnings(snapPointsToLines(drain_points, streams_vect, maxDist=snap_dist))
     if (length(drain_points_snap) < length(drain_points)) stop("Less points after snaping than in drain_points input!\nComputed stream segmets probably are too coarse. Try different parameter values.")
     
     # df should only contain a cat column
@@ -245,7 +245,7 @@ calc_subbas <- function(
         # remove calculated watershed outlet (point of maximum flow accumulation) as this has been given as input
         sub_maxacc <- sub_maxacc[-which(as.numeric(sub_maxacc[,2]) == max(as.numeric(sub_maxacc[,2]))),]
   
-        # get outlet coordinates for every subbasin based on maximum accumulation value
+        # get outlet coordinates for every subbasin based on maximum accumulation value TODO: This step is slow!
         execGRASS("r.mapcalculator", amap="accum_t", bmap="basin_calc_t", outfile="drain_sub_t",
                   formula=paste("( (A * (B == ", format(sub_maxacc[,1], scientific = F), ")) == ", format(sub_maxacc[,2], scientific = F), ")", sep="", collapse="||"))
         execGRASS("r.null", map="drain_sub_t", setnull="0")
@@ -254,7 +254,7 @@ calc_subbas <- function(
         execGRASS("r.to.vect", input="drain_sub_t", output=paste0(points_processed, "_calc"), feature="point")
         
         # read vector map
-        drain_points_calc <- readVECT6(paste0(points_processed, "_calc"))
+        drain_points_calc <- suppressMessages(readVECT6(paste0(points_processed, "_calc")))
         
         # properly match projection
         projection(drain_points_calc) <- getLocationProj()
@@ -271,7 +271,7 @@ calc_subbas <- function(
     }
     
 
-    # loop over drainage points
+    # loop over drainage points TODO: This step is slow!
     for (p in 1:length(drain_points_snap)) {
 
       # outlet coordinates
@@ -299,10 +299,15 @@ calc_subbas <- function(
     # if more than one sub-catchment
     if(no_catch > 1) {
       
-      # iterate until configuration without 'spurious' sub-catchments is found (if rm_spurious is TRUE)
+      # drain points needed as raster
+      suppressWarnings(writeVECT6(drain_points_snap, paste0(points_processed, "_all_t"), v.in.ogr_flags = "overwrite"))
+      x <- execGRASS("v.to.rast", input=paste0(points_processed, "_all_t"), output=paste0(points_processed, "_all_t"), use="cat", flags="overwrite", intern=T)
+      
+      # iterate until configuration without 'spurious' sub-catchments is found (if rm_spurious is TRUE) TODO: This step is slow in case many iterations are needed!
       while (TRUE) {
       
         # max 30 maps at once, create multiple cross products if necessary
+        x <- execGRASS("g.mremove", rast="basin_cross_*", flags="f", intern=T) # remove old basin_cross_*
         iterations <- ceiling(length(subcatch_rasts)/30)
         for (j in 1:iterations){
           if (j == iterations) {
@@ -324,7 +329,7 @@ calc_subbas <- function(
         if(length(cross_rasts) == 1) {
           x <- execGRASS("g.rename", rast=paste(cross_rasts, "basin_all_t", sep=","), intern=T, ignore.stderr=T)
         } else {
-          execGRASS("r.cross", input=paste(cross_rasts,collapse=","), output="basin_all_t",
+          x <- execGRASS("r.cross", input=paste(cross_rasts,collapse=","), output="basin_all_t",
                     flags = c("overwrite"), intern=T, ignore.stderr=T)
         }
         
@@ -337,8 +342,6 @@ calc_subbas <- function(
           sub_rm <- sub_sizes[which(sub_sizes[,2] < 0.25*thresh_sub),1]
           if(length(sub_rm)>0) {
             # get number of basin_recl_* to be romved (not identical with raster values of basin_all_t!)
-            suppressWarnings(writeVECT6(drain_points_snap, paste0(points_processed, "_all_t")))
-            x <- execGRASS("v.to.rast", input=paste0(points_processed, "_all_t"), output=paste0(points_processed, "_all_t"), use="cat", intern=T)
             cmd_out <- execGRASS("r.univar", map=paste0(points_processed, "_all_t"), zones="basin_all_t", fs="comma", flags=c("t"), intern=T)
             cmd_out <- strsplit(cmd_out, ",")
             cmd_cols <- grep("zone|^mean$", cmd_out[[1]])
