@@ -15,35 +15,35 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-#'  Create WASA input files
-#'  
-#'  Function takes parameters from a parameter database and generates ASCII files
-#'  as input to the WASA hydrological model.
-#'  
-#'  @param dbname Name of the data source (DSN) registered at ODBC.
-#'  
-#'  @param dest_dir The directory in which the output files (= WASA input files) are
-#'  created. Will be created if it does not exist. Default: \code{./}. Includes the
-#'  sub-directories 'Hillslope' and 'River'.
-#'  
-#'  @param files Character vector specifying WASA input files that should be created. 
-#'  See \code{Details}. By default all files will be created.
-#'  
-#'  @param overwrite \code{logical}. Should existing files in \code{dest_dir} be
-#'  overwriten? Default: \code{FALSE}.
-#'  
-#'  @param verbose \code{logical}. Should detailed information during execution be
-#'  printed? Default: \code{TRUE}.
-#'  
-#'  
-#'  @details
-#'  Consider function db_check() before running this function to ensure consistency in
-#'  and completeness of data in the database. Otherwise the input files might contain
-#'  errors which might lead to errors or unexpected results during model application.
-#'  
-#'  Note differences in variable notations between parameter database and WASA's
-#'  input files!
-#'  
+#' Create WASA input files
+#' 
+#' Function takes parameters from a parameter database and generates ASCII files
+#' as input to the WASA hydrological model.
+#' 
+#' @param dbname Name of the data source (DSN) registered at ODBC.
+#' 
+#' @param dest_dir The directory in which the output files (= WASA input files) are
+#' created. Will be created if it does not exist. Default: \code{./}. Includes the
+#' sub-directories 'Hillslope' and 'River'.
+#' 
+#' @param files Character vector specifying WASA input files that should be created. 
+#' See \code{Details}. By default all files will be created.
+#' 
+#' @param overwrite \code{logical}. Should existing files in \code{dest_dir} be
+#' overwriten? Default: \code{FALSE}.
+#' 
+#' @param verbose \code{logical}. Should detailed information during execution be
+#' printed? Default: \code{TRUE}.
+#' 
+#' 
+#' @details
+#' Consider function db_check() before running this function to ensure consistency in
+#' and completeness of data in the database. Otherwise the input files might contain
+#' errors which might lead to errors or unexpected results during model application.
+#' 
+#' Note differences in variable notations between parameter database and WASA's
+#' input files!
+#' 
 #'  Sediment transport specific variables are not yet included.
 #'  
 #'  The following files will be created:
@@ -201,10 +201,10 @@
 #'   description of header.
 #'  
 #'  
-#'  @author 
+#' @author 
 #'  Tobias Pilz \email{tpilz@@uni-potsdam.de}, Till Francke \email{francke@@uni-potsdam.de}
 #'  
-#'  @export
+#' @export
 
 db_wasa_input <- function(
   dbname,

@@ -2,134 +2,7 @@
 % Please edit documentation in R/db_check.R
 \name{db_check}
 \alias{db_check}
-\title{Check parameter database for consistency
- 
- Function includes several options to check and correct the parameter database for completeness
- and consistency.
- 
- @param dbname Name of the data source (DSN) registered at ODBC.
- 
- @param check Character vector specifying what shall be checked. See \code{Details}.
- 
- @param option A list of options for certain checks. See \code{Details}
- for the different options and their meaning.
- 
- @param fix \code{logical}. If \code{FALSE} (the \code{default}) a report of the
- selected checks will be created. The database will not be touched. If \code{TRUE}
- canges to the database according to the selected checks will be made.
- 
- @param verbose \code{logical}. Should detailed information during execution be
- printed? When \code{TRUE} (the \code{default}) output of writing updated values
- into database can be rather long so you might want to direct output into an
- external log file. Always set to \code{TRUE} if \code{fix = FALSE}.
- 
- @details
- The following checks are currently included and can be specified via argument \code{checks}.
- Execute checks in pre-defined order as some checks build upon each other and
- lead to erroneous results when interchanged. However, some checks might be
- unnecessary for your purpose and can be left out.
- 
- \bold{filter_small_areas}\cr
- Tiny areas as result of landscape disaggregation considered irrelevant during model
- application will be removed and the areal fractions updated accordingly. The model
- will run faster by removing unnecessary computational burden. Namely, this affects LUs 
- within subbasins, TCs within LUs and SVCs within TCs.
- If the fraction to be removed is greater than 10 \% of the total area of the next higher 
- spatial level's class, datasets will be kept. In this case you might try a smaller value for area_thresh'.\cr
- \emph{Option: 'area_thresh'}\cr
- A threshold defining the minimum areal fraction of a certain spatial disaggregation
- unit within the next higher spatial level (e.g. LUs within subbasins). Default: 0.01.
- 
- \bold{tc_slope}\cr
- In WASA (and other models probably as well) slopes equal to or less than zero are
- not allowed. This check helps to identify such TCs and provides the following option
- to solve the issue:\cr
- \emph{Option: 'treat_slope'}\cr
- A numeric vector with two or three elements:\cr
- The first being one of \{1,2,3\}:\cr
- 1: Remove TCs with slope <= 0 from 'r_lu_contains_tc' whereas areal fraction within
- the LU must be smaller than a defined threshold (second value of the vector).\cr
- 2: Where slope is 0, change it to small positive value specified as second
- value of the vector (interpreted as slope in \%).\cr
- 3: A combination of the two former choices whereas option 1 is applied before
- option 2, the second value of the vector defining the areal threshold and the
- third giving the slope replacement value. This is the default setting with
- threshold = 0.01 and slope = 0.1 \%.
- 
- \bold{special_areas}\cr
- Define certain Soil-Vegetation Components as special areas via column 'special_area'
- in table 'soil_veg_components' inferred from table 'vegetation' and/or 'soils'. 
- Currently values '0' for an ordinary SVC, '1' for water areas, and '2' for
- impervious surfaces are supported.\cr
- \emph{Option: 'special_area'}\cr
- A \code{data.frame} with 3 named vectors:\cr
- 'reference_tbl': \code{character} giving the name(s) of the database table(s)
- containing the special area(s) to be mapped to SVCs. Tables 'vegetation' and
- 'soils' are supported.\cr
- 'ref_id': \code{integer} giving the 'pid' of the special area within the specified
- reference table.\cr
- 'special_id': \code{integer} giving the flag of column 'special_area' in table
- 'soil_veg_components'. Currently recognised in further processing are '0' for
- ordinary SVCs, '1' for water areas, and '2' for impervious surfaces.\cr
- For instance, if within table 'vegetation' you have classes with pid 3 and 4 
- indicating water surfaces and in 'soils' pid 10 is an impervious surface
- specify the following: \code{special_area = data.frame(reference_tbl=
- c("vegetation", "vegetation", "soils"), ref_id=c(3,4,10), special_id=c(1,1,2))}.
- 
- \bold{remove_water_svc}\cr
- Remove SVCs marked as water from table 'r_tc_contains_svc', i.e. those SVCs where
- in table 'soil_veg_components' column 'special_area' is equal to 1. Areal fractions
- will be updated (normalized to 1). Requires column 'special_area' to be set correctly
- (e.g. by running option 'special_area' before)
- 
- \bold{compute_rocky_frac}\cr
- Compute rocky fractions, i.e. fractions of impervious surfaces, for TCs (table
- 'terrain_components', column 'frac_rocky') from impervious SVCs (column 'special_area'
- in 'soil_veg_components' equal to 2) and topmost soil horizons (in table horizons'
- column 'position' equal to 1 and 'coarse_frag' equal to 1). These undergo special
- treatment in the WASA model. SVCs with soil profile containing 100\% coarse
- fragments in topmost horizon will be marked as impervious.
- If the column 'frac_rocky' already contains values, the computed values are added to these.
- In any case, this step should be followed by 'remove_impervious_svc'.
- 
- \bold{remove_impervious_svc}\cr
- Remove SVCs marked as impervious from table 'r_tc_contains_svc', i.e. those SVCs where
- in table 'soil_veg_components' column 'special_area' is equal to 2. Areal fractions
- will be updated.
- 
- \bold{proxy_frgw_delay}\cr
- Estimate storage coefficient for groundwater delay ('frgw_delay') in \emph{days}
- for each LU based on a proxy and manually specified total mean groundwater delay
- in \emph{days}. The proxy is estimated from average slope length, slope and rocky
- fraction according to empirical formula: \code{proxy = slopelength * (1 - frac_rocky)
- / slope}. And finally: \code{frgw_delay = proxy * total_mean_delay / mean(proxy)}.
- Existing values of 'frgw_delay' will be overwritten.\cr
- \emph{Option: 'total_mean_delay'}\cr
- Total mean groundwater delay in \emph{days} estimated a priori for the whole
- catchment (e.g. from baseflow analysis). All proxy values are scaled, so their 
- mean matches this value (see formula above).
- 
- \bold{delete_obsolete}\cr
- Delete obsolete datasets. I.e. special area SVCs, LUs not in any subbasin, TCs
- not in any LU, and SVCs not in any TC.
- 
- \bold{completeness}\cr
- Check database for completeness. I.e. check if all IDs in the \emph{contains}-tables
- exist within the repective referenced tables. Furthermore, check if all vegetation
- types and soils exist as referenced within 'soil_veg_components', and if all
- soils exist as referenced within 'horizons'.
- If the check fails, function returns an error. If \code{fix=T}, additionally a warning
- message will be writting into table 'meta_info' of the databse.
- 
- \bold{subbasin_order}\cr
- Compute subbasin order for WASA's routing input file routing.dat. Order will
- be defined in column 'a_stream_order' of table 'subbasins'.
- 
- 
- @author 
- Tobias Pilz \email{tpilz@uni-potsdam.de}, Till Francke \email{francke@uni-potsdam.de}
- 
- @export}
+\title{Check parameter database for consistency}
 \usage{
 db_check(dbname, check = c("filter_small_areas", "tc_slope", "special_areas",
   "remove_water_svc", "compute_rocky_frac", "remove_impervious_svc",
@@ -137,30 +10,29 @@ db_check(dbname, check = c("filter_small_areas", "tc_slope", "special_areas",
   option = list(area_thresh = 0.01, treat_slope = c(3, 0.01, 0.1)), fix = F,
   verbose = TRUE)
 }
+\arguments{
+\item{dbname}{Name of the data source (DSN) registered at ODBC.}
+
+\item{check}{Character vector specifying what shall be checked. See \code{Details}.}
+
+\item{option}{A list of options for certain checks. See \code{Details}
+for the different options and their meaning.}
+
+\item{fix}{\code{logical}. If \code{FALSE} (the \code{default}) a report of the
+selected checks will be created. The database will not be touched. If \code{TRUE}
+canges to the database according to the selected checks will be made.}
+
+\item{verbose}{\code{logical}. Should detailed information during execution be
+printed? When \code{TRUE} (the \code{default}) output of writing updated values
+into database can be rather long so you might want to direct output into an
+external log file. Always set to \code{TRUE} if \code{fix = FALSE}.}
+}
 \description{
-Check parameter database for consistency
- 
- Function includes several options to check and correct the parameter database for completeness
- and consistency.
- 
- @param dbname Name of the data source (DSN) registered at ODBC.
- 
- @param check Character vector specifying what shall be checked. See \code{Details}.
- 
- @param option A list of options for certain checks. See \code{Details}
- for the different options and their meaning.
- 
- @param fix \code{logical}. If \code{FALSE} (the \code{default}) a report of the
- selected checks will be created. The database will not be touched. If \code{TRUE}
- canges to the database according to the selected checks will be made.
- 
- @param verbose \code{logical}. Should detailed information during execution be
- printed? When \code{TRUE} (the \code{default}) output of writing updated values
- into database can be rather long so you might want to direct output into an
- external log file. Always set to \code{TRUE} if \code{fix = FALSE}.
- 
- @details
- The following checks are currently included and can be specified via argument \code{checks}.
+Function includes several options to check and correct the parameter database for completeness
+and consistency.
+}
+\details{
+The following checks are currently included and can be specified via argument \code{checks}.
  Execute checks in pre-defined order as some checks build upon each other and
  lead to erroneous results when interchanged. However, some checks might be
  unnecessary for your purpose and can be left out.
@@ -260,11 +132,8 @@ Check parameter database for consistency
  \bold{subbasin_order}\cr
  Compute subbasin order for WASA's routing input file routing.dat. Order will
  be defined in column 'a_stream_order' of table 'subbasins'.
- 
- 
- @author 
- Tobias Pilz \email{tpilz@uni-potsdam.de}, Till Francke \email{francke@uni-potsdam.de}
- 
- @export
+}
+\author{
+Tobias Pilz \email{tpilz@uni-potsdam.de}, Till Francke \email{francke@uni-potsdam.de}
 }
 

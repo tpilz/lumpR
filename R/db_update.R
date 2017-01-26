@@ -15,27 +15,27 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-#'  Update parameter database
-#'  
-#'  Function updates the parameter database to the specified (or latest version).
-#'  
-#'  @param dbname Name of the data source (DSN) registered at ODBC.
-#'  @param to_ver Version number to update to (default: newest version available).
-#'  
-#'  @details
-#'    This function currently is only relevant to users who already have a parameter
-#'    database from times before LUMP was an R package. In this case make sure you have
-#'    version 18 of the database (Do manual updates first, see db_version.txt).
-#'    Apply this function to update it to the desired version.
-#'    
-#'    It is planned to add further functionality to this function when the database
-#'    structure is being further developed.
-#'    
+#' Update parameter database
+#' 
+#' Function updates the parameter database to the specified (or latest version).
+#' 
+#' @param dbname Name of the data source (DSN) registered at ODBC.
+#' @param to_ver Version number to update to (default: newest version available).
+#' 
+#' @details
+#'  This function currently is only relevant to users who already have a parameter
+#'   database from times before LUMP was an R package. In this case make sure you have
+#'   version 18 of the database (Do manual updates first, see db_version.txt).
+#'   Apply this function to update it to the desired version.
+#'   
+#'   It is planned to add further functionality to this function when the database
+#'   structure is being further developed.
+#'   
 #' @author 
-#'  Tobias Pilz \email{tpilz@@uni-potsdam.de}, Till Francke \email{francke@@uni-potsdam.de}
-#'  
+#' Tobias Pilz \email{tpilz@@uni-potsdam.de}, Till Francke \email{francke@@uni-potsdam.de}
+#' 
 #' @export
-#'    
+#'   
 
 db_update <- function(
   dbname, to_ver=Inf  

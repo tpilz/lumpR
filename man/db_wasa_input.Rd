@@ -2,196 +2,7 @@
 % Please edit documentation in R/db_wasa_input.R
 \name{db_wasa_input}
 \alias{db_wasa_input}
-\title{Create WASA input files
- 
- Function takes parameters from a parameter database and generates ASCII files
- as input to the WASA hydrological model.
- 
- @param dbname Name of the data source (DSN) registered at ODBC.
- 
- @param dest_dir The directory in which the output files (= WASA input files) are
- created. Will be created if it does not exist. Default: \code{./}. Includes the
- sub-directories 'Hillslope' and 'River'.
- 
- @param files Character vector specifying WASA input files that should be created. 
- See \code{Details}. By default all files will be created.
- 
- @param overwrite \code{logical}. Should existing files in \code{dest_dir} be
- overwriten? Default: \code{FALSE}.
- 
- @param verbose \code{logical}. Should detailed information during execution be
- printed? Default: \code{TRUE}.
- 
- 
- @details
- Consider function db_check() before running this function to ensure consistency in
- and completeness of data in the database. Otherwise the input files might contain
- errors which might lead to errors or unexpected results during model application.
- 
- Note differences in variable notations between parameter database and WASA's
- input files!
- 
- Sediment transport specific variables are not yet included.
- 
- The following files will be created:
- 
- \bold{info.dat}\cr
- General information (actual date, parameter database version etc.).
- 
- \bold{River/routing.dat}\cr
- File contains routing order (i.e. flow direction) at subbasin level.
- 
- \bold{River/response.dat}\cr
- File contains routing parameters (lag time and retention in \emph{days})
- at subbasin level.
- 
- 
- \bold{Hillslope/hymo.dat}\cr
- File contains relations between subbasins and landscape units. Only subbasins
- present in table 'subbasins' AND 'r_subbas_contains_lu' will be considered.
- Columns:
- 
- \emph{Subbasin-ID}\cr
- ID of subbasin.
- 
- \emph{Area}\cr
- Area of each subbasin in \emph{km^2} (including reservoir areas).
- 
- \emph{nbr}\cr
- Number of landscape units in the respective subbasin.
- 
- \emph{LU-IDs}\cr
- IDs of landscape units in the respective subbasin
- 
- \emph{areal_fraction_of_LU}\cr
- Areal fraction of each LU in the respective subbasin.
- 
- 
- \bold{Hillslope/soter.dat}\cr
- File contains landscape unit parameters and associated terrain components. Only LUs
- present in table 'landscape_units' AND 'r_lu_contains_tc' will be considered.
- 
- \emph{LU-ID}\cr
- ID of landscape unit.
- 
- \emph{No._of_TC}\cr
- Number of TCs in the corresponding LU.
- 
- \emph{TC1}\cr
- ID of first terrain component.
- 
- \emph{TC2}\cr
- ID of second terrain component.
- 
- \emph{TC3}\cr
- ID of third terrain component.
- 
- \emph{TCx}\cr
- IDs of the other TCs as specified in field \emph{No._of_TC} (if available).
- 
- \emph{kfsu[mm/d]}\cr
- Hydraulic conductivity of bedrock in \emph{mm/d}.
- 
- \emph{length[m]}\cr
- Mean  slope length in LU in \emph{m}.
- 
- \emph{meandep[mm]}\cr
- Mean maximum depth of soil zone in \emph{mm}.
- 
- \emph{maxdep[mm]}\cr
- Maximum depth of alluvial soil zone in \emph{mm}.
- 
- \emph{Riverbed[mm]}\cr
- Depth of River bed below terrain componen in \emph{mm}.
- 
- \emph{gwflag[0/1]}\cr
- Groundwater flag for LU. 0: no groundwater, 1: with groundwater. 
- 
- \emph{gw_dist[mm]}\cr
- Initial depth of groundwater below surface in \emph{mm}.
- 
- \emph{frgw_delay[day]}\cr
- Storage coefficient for groundwater outflow in \emph{days}.
- 
- 
- \bold{Hillslope/terrain.dat}\cr
- File contains specification of terrain components. Only TCs
- present in table 'terrain_components' AND 'r_lu_contains_tc' will be considered.
- 
- \emph{TC-ID}\cr
- ID of terrain component.
- 
- \emph{fraction}\cr
- Areal fraction of TC in corresponding LU.
- 
- \emph{slope[\%]}\cr
- Slope of TC in \emph{\%}.
- 
- \emph{position}\cr
- Number indicating the relative position of TC along the hillslope. 1: highland,
- 2: middle, ..., [highest]: downslope.
- ATTENTION: Order in WASA input file is reversed in comparison to order within
- database!
- 
- 
- \bold{Hillslope/svc_in_tc.dat}\cr
- SVC relations to TC.
- 
- 
- \bold{Hillslope/soil_vegetation.dat}\cr
- Definition of soil vegetation components. Only SVCs occurring in table 'r_tc_contains_svc'
- will be considered.
- 
- 
- \bold{Hillslope/soil.dat}\cr
- Horizon specific soil parameters. See file header and \code{\link[lumpR]{db_fill}}
- for more information. Only soil types occurring in tables 'soil_veg_components'
- and 'r_tc_contains_svc' will be considered.
- 
- \bold{Hillslope/vegetation.dat}\cr
- Vegetation parameters. See file header and \code{\link[lumpR]{db_fill}}
- for more information. Only vegetation types occurring in table 'soil_veg_components'
- and 'r_tc_contains_svc' will be considered.
- 
- \bold{do.dat}\cr
- File contains general parameters and control flags for WASA. See file's comments for
- more information. Manual investigation and adjustment after creation is necessary
- (e.g. for input/output locations, start/stop year of simulation etc.). Note that,
- depending on your choices, the manual creation of additional input files will
- be necessary. Consult WASA's documentation you should have recieved along with
- the model.
- 
- \bold{maxdim.dat}\cr
- \emph{Optional} file that contains maximum dimensions of spatial units to
- optimise memory management and improve computational performance.
- 
- \bold{part_class.dat}\cr
- \emph{Optional} file for sediment modelling of multiple particle size classes.
-  File defines the number and the properties of the particle sizes that will be
-  modelled. Please note that class numbering has to be continuous, starting with
-  1. The particle size classes must be ordered from fine to coarse.
-  
-  \bold{Hillslope/soil_particles.dat}\cr
-  File contains particle size distributions of topmost soil horizons.
-  
-  \bold{Hillslope/rainy_season.dat}\cr
-  \emph{Optional} file defining days of year (i.e. nodes, cf. vegetation parameters)
-  of the rainy/growing season for each year, subbasin and vegetation type. See
-  doc of \code{\link[lumpR]{db_fill}} and \code{\link[lumpR]{rainy_season}} for
-  more information. If this file is not supplied only the first node value of 
-  seasonal vegetation parameters is used.
-  
-  \bold{Hillslope/svc.dat}\cr
-  \emph{Optional} file defining soil vegetation components and giving some erosion
-  parameters. Mandatory for WASA's sediment module and/or saving/loading of model
-  states. See doc of \code{\link[lumpR]{db_fill}} (-> 'soil_veg_components') for
-  description of header.
- 
- 
- @author 
- Tobias Pilz \email{tpilz@uni-potsdam.de}, Till Francke \email{francke@uni-potsdam.de}
- 
- @export}
+\title{Create WASA input files}
 \usage{
 db_wasa_input(dbname, dest_dir = "./", files = c("info.dat",
   "River/routing.dat", "River/response.dat", "Hillslope/hymo.dat",
@@ -202,36 +13,34 @@ db_wasa_input(dbname, dest_dir = "./", files = c("info.dat",
   "Hillslope/rainy_season.dat", "Hillslope/svc.dat"), overwrite = F,
   verbose = TRUE)
 }
+\arguments{
+\item{dbname}{Name of the data source (DSN) registered at ODBC.}
+
+\item{dest_dir}{The directory in which the output files (= WASA input files) are
+created. Will be created if it does not exist. Default: \code{./}. Includes the
+sub-directories 'Hillslope' and 'River'.}
+
+\item{files}{Character vector specifying WASA input files that should be created. 
+See \code{Details}. By default all files will be created.}
+
+\item{overwrite}{\code{logical}. Should existing files in \code{dest_dir} be
+overwriten? Default: \code{FALSE}.}
+
+\item{verbose}{\code{logical}. Should detailed information during execution be
+printed? Default: \code{TRUE}.}
+}
 \description{
-Create WASA input files
- 
- Function takes parameters from a parameter database and generates ASCII files
- as input to the WASA hydrological model.
- 
- @param dbname Name of the data source (DSN) registered at ODBC.
- 
- @param dest_dir The directory in which the output files (= WASA input files) are
- created. Will be created if it does not exist. Default: \code{./}. Includes the
- sub-directories 'Hillslope' and 'River'.
- 
- @param files Character vector specifying WASA input files that should be created. 
- See \code{Details}. By default all files will be created.
- 
- @param overwrite \code{logical}. Should existing files in \code{dest_dir} be
- overwriten? Default: \code{FALSE}.
- 
- @param verbose \code{logical}. Should detailed information during execution be
- printed? Default: \code{TRUE}.
- 
- 
- @details
- Consider function db_check() before running this function to ensure consistency in
- and completeness of data in the database. Otherwise the input files might contain
- errors which might lead to errors or unexpected results during model application.
- 
- Note differences in variable notations between parameter database and WASA's
- input files!
- 
+Function takes parameters from a parameter database and generates ASCII files
+as input to the WASA hydrological model.
+}
+\details{
+Consider function db_check() before running this function to ensure consistency in
+and completeness of data in the database. Otherwise the input files might contain
+errors which might lead to errors or unexpected results during model application.
+
+Note differences in variable notations between parameter database and WASA's
+input files!
+
  Sediment transport specific variables are not yet included.
  
  The following files will be created:
@@ -387,11 +196,8 @@ Create WASA input files
   parameters. Mandatory for WASA's sediment module and/or saving/loading of model
   states. See doc of \code{\link[lumpR]{db_fill}} (-> 'soil_veg_components') for
   description of header.
- 
- 
- @author 
- Tobias Pilz \email{tpilz@uni-potsdam.de}, Till Francke \email{francke@uni-potsdam.de}
- 
- @export
+}
+\author{
+Tobias Pilz \email{tpilz@uni-potsdam.de}, Till Francke \email{francke@uni-potsdam.de}
 }
 

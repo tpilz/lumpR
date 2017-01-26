@@ -15,28 +15,28 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-#'  Check parameter database for consistency
+#' Check parameter database for consistency
+#' 
+#' Function includes several options to check and correct the parameter database for completeness
+#' and consistency.
+#' 
+#' @param dbname Name of the data source (DSN) registered at ODBC.
 #'  
-#'  Function includes several options to check and correct the parameter database for completeness
-#'  and consistency.
+#' @param check Character vector specifying what shall be checked. See \code{Details}.
 #'  
-#'  @param dbname Name of the data source (DSN) registered at ODBC.
-#'  
-#'  @param check Character vector specifying what shall be checked. See \code{Details}.
-#'  
-#'  @param option A list of options for certain checks. See \code{Details}
+#' @param option A list of options for certain checks. See \code{Details}
 #'  for the different options and their meaning.
 #'  
-#'  @param fix \code{logical}. If \code{FALSE} (the \code{default}) a report of the
+#' @param fix \code{logical}. If \code{FALSE} (the \code{default}) a report of the
 #'  selected checks will be created. The database will not be touched. If \code{TRUE}
 #'  canges to the database according to the selected checks will be made.
 #'  
-#'  @param verbose \code{logical}. Should detailed information during execution be
+#' @param verbose \code{logical}. Should detailed information during execution be
 #'  printed? When \code{TRUE} (the \code{default}) output of writing updated values
 #'  into database can be rather long so you might want to direct output into an
 #'  external log file. Always set to \code{TRUE} if \code{fix = FALSE}.
 #'  
-#'  @details
+#' @details
 #'  The following checks are currently included and can be specified via argument \code{checks}.
 #'  Execute checks in pre-defined order as some checks build upon each other and
 #'  lead to erroneous results when interchanged. However, some checks might be
@@ -139,10 +139,10 @@
 #'  be defined in column 'a_stream_order' of table 'subbasins'.
 #'  
 #'  
-#'  @author 
+#' @author 
 #'  Tobias Pilz \email{tpilz@@uni-potsdam.de}, Till Francke \email{francke@@uni-potsdam.de}
 #'  
-#'  @export
+#' @export
 
 db_check <- function(
   dbname,
