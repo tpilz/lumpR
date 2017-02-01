@@ -980,7 +980,7 @@ db_echse_input <- function(
   for (s in unique(dat_rsub$subbas_id)) {
     
     # SVC
-    svc <- grep(paste0("^svc_", s, "_*"), objDecl_dat$object, value=T)
+    svc <- grep(paste0("^svc_", s, "_"), as.character(objDecl_dat$object), value=T)
     svc_all <- unlist(strsplit(svc, "_"))
     svc_all <- svc_all[seq(5,length(svc_all), by=5)]
     
