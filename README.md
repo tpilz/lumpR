@@ -44,7 +44,9 @@ This package was also known as LUMP and has been renamed by Jan 9th 2017 to dist
 
 ## REFERENCES
 
-A paper describing lumpR along with an example study is in preparation.
+A paper describing lumpR along with an example study is under discussion in GMD: http://www.geosci-model-dev-discuss.net/gmd-2017-17/
+
+See also the accompanying github repository: https://github.com/tpilz/lumpr_paper
 
 
 For the original LUMP algorithm see:
