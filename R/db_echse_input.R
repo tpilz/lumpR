@@ -892,8 +892,8 @@ db_echse_input <- function(
   
   
   # LU 
-  out_dat <- data.frame(parameter=c("choice_runconc"),
-                        value=c(2))
+  out_dat <- data.frame(parameter=c("choice_runconc", "choice_gw"),
+                        value=c(2, 0))
   
   sharedpar_svc <- "sharedParamNum_WASA_lu.dat"
   if(!file.exists(paste(proj_dir, proj_name, "data", "parameter", sharedpar_svc, sep="/")) | overwrite){
