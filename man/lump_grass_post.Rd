@@ -130,6 +130,10 @@ using outputs of \code{\link[lumpR]{lump_grass_prep}} and \code{\link[lumpR]{pro
      Maximum time period in \emph{days} over which a runoff signal is distributed by
      the routing process. Estimated from channel geometry (see below).
      
+     \emph{chan_len}\cr
+     Length of the main channel of the respective subbasin in \emph{m}. Estimated
+     from channel geometry (see below).
+     
      \emph{channel geometry}\cr
      Main channel length: For each subbasin the main channel is determined from Horton
      stream raster map. Its length is then calculated depending on raster resolution

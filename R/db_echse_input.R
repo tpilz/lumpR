@@ -265,6 +265,27 @@ db_echse_input <- function(
     stop(paste0("File ", objpar_sub, " exists!"))
   }
   
+  objpar_rch <- "paramNum_WASA_rch.dat"
+  if(!file.exists(paste(proj_dir, proj_name, "data", "parameter", objpar_rch, sep="/")) | overwrite){
+    file.create(paste(proj_dir, proj_name, "data", "parameter", objpar_rch, sep="/"))
+  } else {
+    stop(paste0("File ", objpar_rch, " exists!"))
+  }
+  
+  parfun_rch <- "paramFun_WASA_rch.dat"
+  if(!file.exists(paste(proj_dir, proj_name, "data", "parameter", parfun_rch, sep="/")) | overwrite){
+    file.create(paste(proj_dir, proj_name, "data", "parameter", parfun_rch, sep="/"))
+  } else {
+    stop(paste0("File ", parfun_rch, " exists!"))
+  }
+  
+  uh_dir <- "parFun_uh"
+  if(!dir.exists(paste(proj_dir, proj_name, "data", "parameter", uh_dir, sep="/")) | overwrite){
+    dir.create(paste(proj_dir, proj_name, "data", "parameter", uh_dir, sep="/"), recursive=T, showWarnings=F)
+  } else {
+    stop(paste0("Subdirectory ", uh_dir, " exists!"))
+  }
+  
   initScal <- "init_scal.dat"
   if(!file.exists(paste(proj_dir, proj_name, "data", "initials", initScal, sep="/")) | overwrite){
     file.create(paste(proj_dir, proj_name, "data", "initials", initScal, sep="/"))
@@ -360,12 +381,76 @@ db_echse_input <- function(
   flag.col.sub <- T
   for (s in unique(dat_rsub$subbas_id)) {
     r_sub <- which(dat_rsub$subbas_id == s)
+    r_s <- which(dat_sub$pid == s)
+    
+    # REACH #
+    # determine number of neighbouring upslope subbasins
+    sub_upper <- dat_sub$pid[which(dat_sub$drains_to == s)]
+    
+    # declare an output node object for every subbasin
+    obj_rch_n <- paste("node_su_out", s, sep="_")
+    if (any(sub_upper)) {
+      decl_str <- paste(obj_rch_n, "WASA_node_n2", sep="\t")
+    } else {
+      decl_str <- paste(obj_rch_n, "WASA_node_n1", sep="\t")
+    }
+    write(file=paste(proj_dir, proj_name, "data", "catchment", objdecl, sep="/"), append = T,
+          x=decl_str)
+    
+    # if this subbasin contains a reach (not for headwater subbasin), define reach and links
+    if (any(sub_upper)) {
+      
+      # input node object for subbasin
+      obj_rch_n <- paste("node_su_in", s, sep="_")
+      
+      if( length(sub_upper) <= 20 ) {
+        node_n <- length(sub_upper)
+      } else if( (length(sub_upper) > 20) && (length(sub_upper) <= 50) ) {
+        node_n <- 50
+      } else if( (length(sub_upper) > 50) && (length(sub_upper) <= 100) ) {
+        node_n <- 100
+      } else if( (length(sub_upper) > 100) && (length(sub_upper) <= 150) ) {
+        node_n <- 150
+      } else if( (length(sub_upper) > 150) && (length(sub_upper) <= 200) ) {
+        node_n <- 200
+      } else if( (length(sub_upper) > 200) && (length(sub_upper) <= 250) ) {
+        node_n <- 250
+      } 
+      decl_str <- paste(obj_rch_n, paste0("WASA_node_n", node_n), sep="\t")
+      write(file=paste(proj_dir, proj_name, "data", "catchment", objdecl, sep="/"), append = T,
+            x=decl_str)
+      
+      
+      # reach object
+      obj_rch <- paste("rch", s, sep="_")
+      
+      write(file=paste(proj_dir, proj_name, "data", "catchment", objdecl, sep="/"), append = T,
+            x=paste(obj_rch, "WASA_rch", sep="\t"))
+      
+      # LINK #
+      # define node to reach relation
+      tar_name <- obj_rch
+      tar_var <- c("q_in", "pet")
+      
+      # source object
+      sour_name <- c(obj_rch_n, paste("sub", s, sep="_"))
+      sour_var <- c("out", "etp")
+      
+      # feedback types
+      feedb <- T
+      
+      # write to link file
+      write(file=paste(proj_dir, proj_name, "data", "catchment", objlink, sep="/"), append = T,
+            x=paste(tar_name, tar_var, sour_name, sour_var, feedb, sep="\t", collapse="\n"))
+    
+    } # subbasin contains a reach?
+    
     
     
     for(l in dat_rsub$lu_id[r_sub]) {
       r_lusub <- which(dat_rsub$lu_id == l & dat_rsub$subbas_id == s)
       r_lu <- which(dat_rlu$lu_id == l)
-      r_lu_order <- order(dat_rlu$position[r_lu], decreasing=T) # order accordinto position (upslope to downslope)
+      r_lu_order <- order(dat_rlu$position[r_lu], decreasing=T) # order according to position (upslope to downslope)
       
       
       r_tclu <- 0
@@ -379,7 +464,6 @@ db_echse_input <- function(
           soil_id <- dat_svc$soil_id[r_svc]
           veg_id <- dat_svc$veg_id[r_svc]
           r_rtcpar <- which(dat_rtc$tc_id == t & dat_rtc$svc_id == svc)
-          r_s <- which(dat_sub$pid == s)
           r_hors <- which(dat_hor_sel$soil_id == soil_id)
           r_soil <- which(dat_soil_sel$pid == soil_id)
           r_lupar <- which(dat_lu$pid == l)
@@ -841,11 +925,140 @@ db_echse_input <- function(
     suppressWarnings(write.table(out_dat, file=paste(proj_dir, proj_name, "data", "parameter", objpar_sub, sep="/"),
                                  col.names=flag.col.sub, row.names=F, append=T, quote=F, sep="\t"))
     
+    
+    # REACH Parameter #
+    if (any(sub_upper)) {
+      
+      # calculate unit hydrograph/runoff response function (cf. WASA, routing.f90) #
+      lag <- dat_sub$lag_time[which(dat_sub$pid == s)] # lag time from database (days)
+      ret <- dat_sub$retention[which(dat_sub$pid == s)] # retention time from database (days)
+      uh <- rep(0, length=ceiling(lag+ret)) #  determine length of hydrograph (next integer in units of lag and ret)
+      # pre-processing: assumption of triangle hydrograph (see Guentner, 2002), daily model time steps (i.e. unit of lag and ret)
+      lag_c <- ceiling(lag) # round to next integer
+      lag_d <- lag_c - lag # difference between lag time and next integer
+      qtemp <- ret - lag_d/2   # time difference between point of interest and end-of-retention triangle
+      temp <- qtemp / ret  # mean non-zero value of response function within first integer interval after lag time
+      if (temp < 0){  #happens when t_ret falls completely into a single interval
+        uh[lag_c] <- 1
+      } else {
+        uh[lag_c] <- temp * lag_d # value of response function for whole interval ("resampled" to integer resolution)
+      }
+      # Calculation of the linear response function for runoff routing in the river network
+      if (lag_c < (ceiling(lag + ret)) ) { # rounded lag time smaller than rounded total response time
+        for (ih in seq(lag_c+1, length(uh)) ) {
+          qtemp <- ret - lag_d - 0.5 - (ih - (lag_c+1))  # time difference between point of interest and end-of-retention triangle
+          temp2 <- qtemp / ret    # mean value of response function center of current interval
+          temp4 <- 0.5 + qtemp   # fraction of current interval that is covered by response function
+          if (temp4 < 1) { # happens when t_ret ends within current interval
+            uh[ih] <- (temp4 / ret ) * temp4
+          } else {
+            uh[ih] <- temp2        # value of response function for whole interval ("resampled" to integer resolution)
+          }
+        } # loop over respnse function interval
+      } # if lag smaller than response time
+      uh <- uh / sum(uh)   # normalize response function
+      
+      # if length of response function is one, append a dummy value as ECHSE needs at least two values pairs for parameter functions
+      if(length(uh) == 1)
+        uh <- c(uh, 0)
+      
+      # collect parameter output
+      obj_name <- paste("rch", s, sep="_")
+      out_dat <- cbind(obj_name, round(dat_sub$chan_len[which(dat_sub$pid == s)],2), length(uh))
+      
+      if(flag.col.sub==T)
+        dimnames(out_dat) <- list(NULL, c("object", "chan_len", "nuh"))
+      
+      suppressWarnings(write.table(out_dat, file=paste(proj_dir, proj_name, "data", "parameter", objpar_rch, sep="/"),
+                                   col.names=flag.col.sub, row.names=F, append=T, quote=F, sep="\t"))
+      
+      
+      # uh paramFun
+      parfun_uh_file <- paste(proj_dir, proj_name, "data", "parameter", uh_dir, paste0("uh_rch",s, ".dat"), sep="/")
+      out_dat <- data.frame(time_step=1:length(uh), uh=uh) # reverse definition of TC "position"
+      write.table(out_dat, file=parfun_uh_file, quote=F, sep="\t", row.names=F)
+      
+      out_dat <- data.frame(object=obj_name, "function"="uh", col_arg="time_step", col_val="uh",
+                            file=parfun_uh_file)
+      names(out_dat)[2] <- "function"
+      
+      suppressWarnings(write.table(out_dat, file=paste(proj_dir, proj_name, "data", "parameter", parfun_rch, sep="/"),
+                                   col.names=flag.col.sub, row.names=F, append=T, quote=F, sep="\t"))
+      
+      # initials
+      out_dat <- data.frame(object=obj_name,
+                            variable=rep("uh_q", each=length(uh)),
+                            index=seq(0,length(uh)-1),
+                            value=rep(0.,length(uh)))
+      suppressWarnings(write.table(out_dat, file=paste(proj_dir, proj_name, "data", "initials", initVect, sep="/"),
+                                   col.names=F, row.names=F, append=T, quote=F, sep="\t"))
+    }
+    
     flag.col.sub <- F
     
     
     
   } # sub loop
+  
+  
+  # LINKS for reaches at the very end (after all runoff contributions have been calculated)
+  for (s in unique(dat_rsub$subbas_id)) {
+    
+    # determine upstream subbasins
+    sub_upper <- dat_sub$pid[which(dat_sub$drains_to == s)]
+    
+    # proceed if there are any
+    if (any(sub_upper)) {
+      
+      # link: subbasins' generated runoff and routed river flow to output node
+      tar_obj <- rep(paste("node_su_out", s, sep="_"), each=2)
+
+      tar_var <- paste0("in", 1:2)
+      
+      sour_obj <- c(paste("rch", s, sep="_"),
+                    paste("sub", s, sep="_"))
+      
+      sour_var <- c("q_out", "r_out_total")
+
+      feedb <- T
+      
+      write(file=paste(proj_dir, proj_name, "data", "catchment", objlink, sep="/"), append = T,
+            x=paste(tar_obj, tar_var, sour_obj, sour_var, feedb, sep="\t", collapse="\n"))
+      
+      
+      # link: upstream subbasin's outflow into current subbasin
+      tar_obj <- rep(paste("node_su_in", s, sep="_"), each=length(sub_upper))
+      
+      tar_var <- paste0("in", 1:length(sub_upper))
+      
+      sour_obj <- paste("node_su_out", sub_upper, sep="_")
+      
+      sour_var <- "out"
+      
+      feedb <- T
+      
+      write(file=paste(proj_dir, proj_name, "data", "catchment", objlink, sep="/"), append = T,
+            x=paste(tar_obj, tar_var, sour_obj, sour_var, feedb, sep="\t", collapse="\n"))
+      
+    } else {
+      
+      # link: generated runoff to subbasin's output node
+      tar_obj <- paste("node_su_out", s, sep="_")
+      
+      tar_var <- "in1"
+      
+      sour_obj <- paste("sub", s, sep="_")
+      
+      sour_var <- "r_out_total"
+      
+      feedb <- T
+      
+      write(file=paste(proj_dir, proj_name, "data", "catchment", objlink, sep="/"), append = T,
+            x=paste(tar_obj, tar_var, sour_obj, sour_var, feedb, sep="\t", collapse="\n"))
+      
+    }
+  }
+  
   
   if(verbose)
     print("OK.")
@@ -904,6 +1117,21 @@ db_echse_input <- function(
   
   suppressWarnings(write.table(out_dat, file=paste(proj_dir, proj_name, "data", "parameter", sharedpar_svc, sep="/"),
               col.names=T, row.names=F, append=T, quote=F, sep="\t"))
+  
+  
+  # RCH
+  out_dat <- data.frame(parameter=c("choice_route", "choice_transloss"),
+                        value=c(1, 1))
+  
+  sharedpar_rch <- "sharedParamNum_WASA_rch.dat"
+  if(!file.exists(paste(proj_dir, proj_name, "data", "parameter", sharedpar_rch, sep="/")) | overwrite){
+    file.create(paste(proj_dir, proj_name, "data", "parameter", sharedpar_rch, sep="/"))
+  } else {
+    stop(paste0("File ", sharedpar_rch, " exists!"))
+  }
+  
+  suppressWarnings(write.table(out_dat, file=paste(proj_dir, proj_name, "data", "parameter", sharedpar_rch, sep="/"),
+                               col.names=T, row.names=F, append=T, quote=F, sep="\t"))
   
   
   

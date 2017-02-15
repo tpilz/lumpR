@@ -103,6 +103,9 @@ For each table a single file has to be prepared manually and/or using functions 
    \code{double}. Maximum time period in \emph{days} over which a runoff signal
    is distributed by the routing process.
    
+   \emph{chan_len}\cr
+   \code{double}. Subbasin's main channel length in \emph{m}.
+   
    
  \bold{landscape_units}\cr
  Landscape Unit parameters. Information can be obtained from \code{luoutfile}

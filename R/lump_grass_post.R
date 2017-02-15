@@ -125,6 +125,10 @@
 #'      Maximum time period in \emph{days} over which a runoff signal is distributed by
 #'      the routing process. Estimated from channel geometry (see below).
 #'      
+#'      \emph{chan_len}\cr
+#'      Length of the main channel of the respective subbasin in \emph{m}. Estimated
+#'      from channel geometry (see below).
+#'      
 #'      \emph{channel geometry}\cr
 #'      Main channel length: For each subbasin the main channel is determined from Horton
 #'      stream raster map. Its length is then calculated depending on raster resolution
@@ -460,8 +464,8 @@ lump_grass_post <- function(
       sub_stats[,"area"] <- round(sub_stats[,"area"]/1e6, 2)
         
       # calculate stats of LUs in each subbasin and subbasin drainage ("drains_to")
-      sub_stats <- cbind(sub_stats, na_val, na_val, na_val, na_val, na_val, na_val, na_val, na_val, na_val, na_val)
-      colnames(sub_stats)[c(3:12)] <- c("x", "y", "lon", "lat", "elev", "drains_to", "lag_time", "retention", "description", "a_stream_order")
+      sub_stats <- cbind(sub_stats, na_val, na_val, na_val, na_val, na_val, na_val, na_val, na_val, na_val, na_val, na_val)
+      colnames(sub_stats)[c(3:13)] <- c("x", "y", "lon", "lat", "elev", "drains_to", "lag_time", "retention", "description", "a_stream_order", "chan_len")
       sub_lu_stats <- NULL
       s_row <- 0
       for (SUB in sub_stats[,1]) {
@@ -553,6 +557,7 @@ lump_grass_post <- function(
         # save
         sub_stats[s_row, "lag_time"] <- round(flowtime_med, 3)
         sub_stats[s_row, "retention"] <- round(retention, 3)
+        sub_stats[s_row, "chan_len"] <- chan_len
       } # subbasin loop
       
       # write output file
