@@ -1079,7 +1079,7 @@ db_echse_input <- function(
                                     "# Vegetation and land-cover parameters",
                                     "ext", "res_b", "drag_coef", "rough_bare", "eddy_decay", "rss_a", "rss_b",
                                     "# Soil water parameters",
-                                    "Phil_cal", "var1", "var2", "var3", "var4", "var5", "frac1", "frac2", "frac3", "frac4", "frac5",
+                                    "scale_ks", "Phil_cal", "var1", "var2", "var3", "var4", "var5", "frac1", "frac2", "frac3", "frac4", "frac5",
                                     "# Choices",
                                     "choice_et", "choice_rcs", "choice_roughLen", "choice_plantDispl", "choice_gloradmax",
                                     "choice_inf", "choice_perc", "choice_soilmod",
@@ -1087,7 +1087,7 @@ db_echse_input <- function(
                                     "na_val", "ode_accuracy", "ode_max_iter", "choice_odesolve"),
                         value=c("", 2, 2, 2, 0.34, -0.14, 1.35, -0.35, 0.25, 0.50, 0.2, 0.7,
                                 "", 0.5, 25, 0.07, 0.01, 2.5, 26, -1,
-                                "", 0.4, 9999, 9999, 9999, 9999, 9999, 0, 0, 0, 0, 0,
+                                "", 15, 0.4, 9999, 9999, 9999, 9999, 9999, 0, 0, 0, 0, 0,
                                 "", 13, 2, 2, 2, 1, 3, 2, 1,
                                 "", -9999., 1e-3, 1e5, 36))
   
