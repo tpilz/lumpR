@@ -170,7 +170,7 @@ calc_subbas <- function(
       # GRASS watershed calculation #
       execGRASS("r.watershed", elevation=dem, accumulation="accum_t", drainage="drain_t")
       # check thresh_stream parameter
-      cmd_out <- execGRASS("r.univar", map="accum_t", fs="comma", flags=c("t"), intern=T)
+      cmd_out <- execGRASS("r.univar", map="accum_t", fs="comma", flags=c("t"), intern=T, ignore.stderr = T)
       cmd_out <- strsplit(cmd_out, ",")
       cmd_cols <- grep("^max$", cmd_out[[1]])
       max_acc <- as.numeric(cmd_out[[2]][cmd_cols])
@@ -205,6 +205,12 @@ calc_subbas <- function(
     
     # read stream vector
     streams_vect <- readVECT6(river)
+    # WINDOWS PROBLEM: delete temporary file otherwise an error occurs when calling writeVECT or readVECT again with the same (or a similar) file name 
+    if(.Platform$OS.type == "windows") {
+      dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
+      files_del <- grep(substr(river, 1, 8), dir(dir_del), value = T)
+      file.remove(paste(dir_del, files_del, sep="/"))
+    }
   
     # snap points to streams
     drain_points_snap <- suppressWarnings(snapPointsToLines(drain_points, streams_vect, maxDist=snap_dist))
@@ -215,6 +221,12 @@ calc_subbas <- function(
     
     # export drain_points_snap to GRASS
     suppressWarnings(writeVECT6(drain_points_snap, paste0(points_processed, "_snap")))
+    # WINDOWS PROBLEM: delete temporary file otherwise an error occurs when calling writeVECT or readVECT again with the same (or a similar) file name 
+    if(.Platform$OS.type == "windows") {
+      dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
+      files_del <- grep(substr(paste0(points_processed, "_snap"), 1, 8), dir(dir_del), value = T)
+      file.remove(paste(dir_del, files_del, sep="/"))
+    }
     
     
   ### calculate catchments for every drainage point
@@ -233,11 +245,12 @@ calc_subbas <- function(
       execGRASS("r.mask", input="basin_outlet_t")
       
       # the following calculations only make sense if thresh_sub is small enough to produce more than more subbasin
-      no_catch_calc <- length(as.numeric(execGRASS("r.stats", input="basin_calc_t", flags=c("n"), intern=T)))
+      no_catch_calc <- length(as.numeric(execGRASS("r.stats", input="basin_calc_t", flags=c("n"), intern=T, ignore.stderr = T)))
       if(no_catch_calc > 1) {
         
         # get for each calculated subbasin the maximum accumulation value
-        cmd_out <- execGRASS("r.univar", map="accum_t", zones="basin_calc_t", fs="comma", flags = c("t"), intern=T)
+        cmd_out <- execGRASS("r.univar", map="accum_t", zones="basin_calc_t", fs="comma", flags = c("t"), intern=T, ignore.stderr = T)
+        cmd_out <- cmd_out
         cmd_out <- strsplit(cmd_out, ",")
         cmd_cols <- grep("zone|max", cmd_out[[1]])
         sub_maxacc <- do.call(rbind, cmd_out)[-1,cmd_cols, drop=F]
@@ -255,6 +268,12 @@ calc_subbas <- function(
         
         # read vector map
         drain_points_calc <- suppressMessages(readVECT6(paste0(points_processed, "_calc")))
+        # WINDOWS PROBLEM: delete temporary file otherwise an error occurs when calling writeVECT or readVECT again with the same (or a similar) file name 
+        if(.Platform$OS.type == "windows") {
+          dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
+          files_del <- grep(substr(paste0(points_processed, "_calc"), 1, 8), dir(dir_del), value = T)
+          file.remove(paste(dir_del, files_del, sep="/"))
+        }
         
         # properly match projection
         projection(drain_points_calc) <- getLocationProj()
@@ -301,6 +320,12 @@ calc_subbas <- function(
       
       # drain points needed as raster
       suppressWarnings(writeVECT6(drain_points_snap, paste0(points_processed, "_all_t"), v.in.ogr_flags = "overwrite"))
+      # WINDOWS PROBLEM: delete temporary file otherwise an error occurs when calling writeVECT or readVECT again with the same (or a similar) file name 
+      if(.Platform$OS.type == "windows") {
+        dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
+        files_del <- grep(substr(paste0(points_processed, "_all_t"), 1, 8), dir(dir_del), value = T)
+        file.remove(paste(dir_del, files_del, sep="/"))
+      }
       x <- execGRASS("v.to.rast", input=paste0(points_processed, "_all_t"), output=paste0(points_processed, "_all_t"), use="cat", flags="overwrite", intern=T)
       
       # iterate until configuration without 'spurious' sub-catchments is found (if rm_spurious is TRUE) TODO: This step is slow in case many iterations are needed!
@@ -336,13 +361,13 @@ calc_subbas <- function(
         # check size of sub-catcments and identify and remove 'spurious' sub-catchments
         if(rm_spurious) {
           # get sub-catcments and sizes (cell counts) and identify spurious ones
-          cmd_out <- execGRASS("r.stats", input="basin_all_t", flags=c("n", "c"), intern=T)
+          cmd_out <- execGRASS("r.stats", input="basin_all_t", flags=c("n", "c"), intern=T, ignore.stderr = T)
           sub_sizes <- matrix(as.numeric(unlist(strsplit(cmd_out, " "))), ncol=2, byrow=T)
           sub_sizes <- sub_sizes[-which(sub_sizes[,1] == 0),]
           sub_rm <- sub_sizes[which(sub_sizes[,2] < 0.25*thresh_sub),1]
           if(length(sub_rm)>0) {
             # get number of basin_recl_* to be romved (not identical with raster values of basin_all_t!)
-            cmd_out <- execGRASS("r.univar", map=paste0(points_processed, "_all_t"), zones="basin_all_t", fs="comma", flags=c("t"), intern=T)
+            cmd_out <- execGRASS("r.univar", map=paste0(points_processed, "_all_t"), zones="basin_all_t", fs="comma", flags=c("t"), intern=T, ignore.stderr = T)
             cmd_out <- strsplit(cmd_out, ",")
             cmd_cols <- grep("zone|^mean$", cmd_out[[1]])
             basins_points <- do.call(rbind, cmd_out)[-1,cmd_cols, drop=F]
@@ -379,7 +404,7 @@ calc_subbas <- function(
     # set values of zero to NULL
     execGRASS("r.null", map=basin_out, setnull="0")
     
-    no_cross <- length(execGRASS("r.stats", input=basin_out, flags=c("n"), intern=T))
+    no_cross <- length(execGRASS("r.stats", input=basin_out, flags=c("n"), intern=T, ignore.stderr = T))
     if(no_catch != no_cross) warning(paste0("\nNumber of categories in ", basin_out, " not equal to number of drainage points!\nThis might be because there are drainage points outside the catchment of the defined outlet or due to small inconsistencies between calculated and manually defined (and snapped) drainage points. However, you should check the output with the GRASS GUI and consider the help pages of this function!"))
     
     # remove temporary maps

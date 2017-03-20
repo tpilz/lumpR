@@ -360,7 +360,7 @@ lump_grass_post <- function(
         # look for empty patches
         x=execGRASS("r.mapcalculator", amap=mask, bmap=lu, outfile="grow_eval_t", formula="A * isnull(B)", flags="overwrite", intern=TRUE)
         
-        na_eval <- execGRASS("r.stats", input="grow_eval_t", flags=c("n","p"), intern=TRUE) ##windows version
+        na_eval <- execGRASS("r.stats", input="grow_eval_t", flags=c("n","p"), intern=TRUE, ignore.stderr = T)
         if (grepl(pattern="[0-9]+.*[\b]+",x=tail(na_eval, n=1)))
           na_eval = na_eval[-length(na_eval)] #last line contains progress indicator, remove
         na_res <- strsplit(x=na_eval, split=" +")  
@@ -413,7 +413,7 @@ lump_grass_post <- function(
     if(!is.null(sub_ofile)) {
       message("\nCalculate subbasin statistics...\n")
       
-      sub_stats <- execGRASS("r.stats", input=subbasin, flags=c("a", "n"), intern=TRUE) ##windows version
+      sub_stats <- execGRASS("r.stats", input=subbasin, flags=c("a", "n"), intern=TRUE, ignore.stderr = T)
       if (grepl(pattern="[0-9]+.*[\b]+",x=tail(sub_stats, n=1)))
         sub_stats <- sub_stats[-length(sub_stats)] #last line contains progress indicator, remove
       
@@ -437,7 +437,7 @@ lump_grass_post <- function(
         s_row <- which(sub_stats[,"pid"] == SUB)
         
     # COORDINATES OF SUBBASIN centroids in GRASS units #
-        sub_centr <- execGRASS("r.volume", data=subbasin, flags=c("f"), intern=TRUE)
+        sub_centr <- execGRASS("r.volume", data=subbasin, flags=c("f"), intern=TRUE, ignore.stderr = T)
         
         sub_centr <- data.frame(x=as.numeric(strsplit(sub_centr, ":")[[1]][5]), y=as.numeric(strsplit(sub_centr, ":")[[1]][6]))
         coordinates(sub_centr) <- c("x","y")
@@ -523,7 +523,7 @@ lump_grass_post <- function(
     if(!is.null(lu_ofile)) {
       message("\nCalculate LU statistics...\n")
       
-      sub_lu_stats_t <- execGRASS("r.stats", input=paste0(subbasin,",",lu), flags=c("n", "c"), intern=TRUE) ##windows version
+      sub_lu_stats_t <- execGRASS("r.stats", input=paste0(subbasin,",",lu), flags=c("n", "c"), intern=TRUE, ignore.stderr = T)
       if (grepl(pattern="[0-9]+.*[\b]+",x=tail(sub_lu_stats_t, n=1))) #check if last line contains progress indicator, remove
       sub_lu_stats_t = sub_lu_stats_t[-length(sub_lu_stats_t)] 
       
@@ -567,7 +567,7 @@ lump_grass_post <- function(
       message("\nCalculate LU parameters...\n")
        
       # identify LUs
-      lu_ids <- execGRASS("r.stats", input=lu, flags=c("n"), intern=TRUE)
+      lu_ids <- execGRASS("r.stats", input=lu, flags=c("n"), intern=TRUE, ignore.stderr = T)
       if (grepl(pattern="[0-9]+.*[\b]+",x=tail(lu_ids, n=1)))
         lu_ids <- as.numeric(lu_ids[-length(lu_ids)]) #last line contains progress indicator, remove
       
@@ -580,7 +580,7 @@ lump_grass_post <- function(
       # calculate mean soil depth for every LU
       if (!is.null(soil_depth) && soil_depth!="")
         {
-          cmd_out <- execGRASS("r.univar", zones=lu, map=soil_depth, fs=",", flags=c("t"),intern=T)
+          cmd_out <- execGRASS("r.univar", zones=lu, map=soil_depth, fs=",", flags=c("t"),intern=T, ignore.stderr = T)
           if (grepl(pattern="[0-9]+.*[\b]+",x=tail(cmd_out, n=1)))
             cmd_out <- cmd_out[-length(cmd_out)] #last line contains progress indicator, remove
           cmd_out <- strsplit(cmd_out, ",")
@@ -601,7 +601,7 @@ lump_grass_post <- function(
       
       if (!is.null(sdr) && sdr!="")
       {
-        cmd_out <- execGRASS("r.univar", zones=lu, map=sdr, fs=",", flags=c("t"),intern=T)
+        cmd_out <- execGRASS("r.univar", zones=lu, map=sdr, fs=",", flags=c("t"),intern=T, ignore.stderr = T)
         if (grepl(pattern="[0-9]+.*[\b]+",x=tail(cmd_out, n=1)))
           cmd_out <- cmd_out[-length(cmd_out)] #last line contains progress indicator, remove
         cmd_out <- strsplit(cmd_out, ",")
@@ -754,20 +754,20 @@ channel_length <- function(sub_no, stream, flowdir, flowacc) {
   names(resol) <- unlist(strsplit(cmd_out, "="))[c(1,3)]
   
   # determine main channel (largest value in Horton stream order)
-  main_chan <- as.numeric(execGRASS("r.stats", input=stream, flags=c("n"), intern=T))
+  main_chan <- as.numeric(execGRASS("r.stats", input=stream, flags=c("n"), intern=T, ignore.stderr = T))
   
   # if there is no main channel (e.g. in very small reservoir subbasins) assume one cell of main stream
   if (length(main_chan) == 0) {
     chan_len <- mean(resol)
-    accmax <- max(as.numeric(execGRASS("r.stats", input=flowacc, flags=c("n", "1"), intern=T))) # max flowacc
+    accmax <- max(as.numeric(execGRASS("r.stats", input=flowacc, flags=c("n", "1"), intern=T, ignore.stderr = T))) # max flowacc
     execGRASS("r.mapcalculator", amap=flowacc, outfile="stream_main_t", 
-              formula=paste0("if(A == ", sprintf(accmax, fmt="%i"), ", 1, null())"))
+              formula=paste0("if(A == ", sprintf(accmax, fmt="%d"), ", 1, null())"))
     warning(paste("Subbasin ", sub_no, " has no main channel. Assume at least one raster cell.", sep=""))
 
   } else {
     
     max_val <- max(main_chan)
-    expr <- paste0("if(A == ", sprintf(max_val, fmt="%i"), ", A, null())")
+    expr <- paste0("if(A == ", sprintf(max_val, fmt="%d"), ", A, null())")
     expr <- gsub("\n|\\s","",expr)
     execGRASS("r.mapcalculator", amap=stream, outfile="stream_main_t", formula=expr)
     
@@ -781,7 +781,7 @@ channel_length <- function(sub_no, stream, flowdir, flowacc) {
     execGRASS("r.mapcalculator", amap="stream_main_t", bmap=flowdir, outfile="cell_len_t", formula=expr)
     
     # calculate total length of main stream channel
-    cmd_out <- execGRASS("r.univar", map="cell_len_t", fs=",", flags=c("t"),intern=T)
+    cmd_out <- execGRASS("r.univar", map="cell_len_t", fs=",", flags=c("t"),intern=T, ignore.stderr = T)
     cmd_out <- strsplit(cmd_out, ",")
     chan_len <- as.numeric(cmd_out[[2]][grep("sum$", cmd_out[[1]])])
   }
@@ -795,7 +795,7 @@ channel_length <- function(sub_no, stream, flowdir, flowacc) {
 channel_slope <- function(stream_main, flowacc, dem, chan_len) {  
   if (is.na(chan_len) ) return(NA)
   # calc min and max flow accumulation of main channel rasters
-  cmd_out <- execGRASS("r.univar", zones=stream_main, map=flowacc, fs=",", flags=c("t"),intern=T)
+  cmd_out <- execGRASS("r.univar", zones=stream_main, map=flowacc, fs=",", flags=c("t"),intern=T, ignore.stderr = T)
   cmd_out <- strsplit(cmd_out, ",")
   accum_vals <- as.numeric(cmd_out[[2]][grep("min$|max$", cmd_out[[1]])])
   
@@ -805,7 +805,7 @@ channel_slope <- function(stream_main, flowacc, dem, chan_len) {
   expr <- gsub("\n|\\s","",expr)
   execGRASS("r.mapcalculator", amap=stream_main, bmap=flowacc, outfile="flowacc_minmax_t",
             formula=expr)
-  cmd_out <- execGRASS("r.univar", zones="flowacc_minmax_t", map=dem, fs=",", flags=c("t"),intern=T)
+  cmd_out <- execGRASS("r.univar", zones="flowacc_minmax_t", map=dem, fs=",", flags=c("t"),intern=T, ignore.stderr = T)
   cmd_out <- strsplit(cmd_out, ",")
   dem_vals <- as.numeric(cmd_out[[2]][grep("min$|max$", cmd_out[[1]])])
   
@@ -824,7 +824,7 @@ channel_slope <- function(stream_main, flowacc, dem, chan_len) {
 # darea = drainage area determined from maximum flow accumulation and resolution
 channel_width <- function(flowacc) {
   # determine maximum flow accumulation
-  cmd_out <- execGRASS("r.univar", map=flowacc, fs=",", flags=c("t"),intern=T)
+  cmd_out <- execGRASS("r.univar", map=flowacc, fs=",", flags=c("t"),intern=T, ignore.stderr = T)
   cmd_out <- strsplit(cmd_out, ",")
   max_acc <- as.numeric(cmd_out[[2]][grep("max$", cmd_out[[1]])])
   
@@ -849,7 +849,7 @@ channel_width <- function(flowacc) {
 # darea = drainage area determined from maximum flow accumulation and resolution
 channel_depth <- function(flowacc) {
   # determine maximum flow accumulation
-  cmd_out <- execGRASS("r.univar", map=flowacc, fs=",", flags=c("t"),intern=T)
+  cmd_out <- execGRASS("r.univar", map=flowacc, fs=",", flags=c("t"),intern=T, ignore.stderr = T)
   cmd_out <- strsplit(cmd_out, ",")
   max_acc <- as.numeric(cmd_out[[2]][grep("max$", cmd_out[[1]])])
   

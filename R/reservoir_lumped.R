@@ -174,7 +174,7 @@ reservoir_lumped <- function(
     stop("'res_param' needs column 'damd_hrr' to be given!")
   
   # check that reservoir vector file has column 'volume' or 'area'
-  cmd_out <- execGRASS("v.info", map=res_vect, flags=c("c"), intern=T)
+  cmd_out <- execGRASS("v.info", map=res_vect, flags=c("c"), intern=T, ignore.stderr = T)
   cmd_out <- unlist(strsplit(cmd_out, "|", fixed=T))
   cols <- grep("area|volume", cmd_out, value=T)
   if(length(cols) == 0)
@@ -274,7 +274,7 @@ reservoir_lumped <- function(
     }
     
     # check result for reservoir being larger than given maximum and give warning if necessary
-    cmd_out <- execGRASS("r.stats", input="reservoirs_classes_t", fs=",", flags=c("n", "c"), intern=T)
+    cmd_out <- execGRASS("r.stats", input="reservoirs_classes_t", fs=",", flags=c("n", "c"), intern=T, ignore.stderr = T)
     cmd_out <- matrix(as.numeric(unlist(strsplit(cmd_out, ","))), ncol=2, byrow = T)
     if(any(cmd_out[,1] == 0))
       warning(paste0("There are ", cmd_out[which(cmd_out[,1]==0),2], " reservoirs larger than largest given reservoir class which will be ignored!\n",
@@ -300,7 +300,7 @@ reservoir_lumped <- function(
     
     # lake_number.dat from classified reservoirs
     # loop over subbasins
-    subbas <- as.numeric(execGRASS("r.stats", input=sub_rast, fs=",", flags=c("n"), intern=T))
+    subbas <- as.numeric(execGRASS("r.stats", input=sub_rast, fs=",", flags=c("n"), intern=T, ignore.stderr = T))
     lake_num_out <- matrix(0, nrow=length(subbas), ncol=nrow(res_param)+1)
     for(s in 1:length(subbas)) {
       
@@ -312,7 +312,7 @@ reservoir_lumped <- function(
       x <- suppressWarnings(execGRASS("r.mask", input="sub_mask_t", flags=c("o"), intern=T))
       
       # statistics of classified reservoirs in mask region
-      cmd_out <- execGRASS("r.stats", input="reservoirs_classes_t", fs=",", flags=c("n", "c"), intern=T)
+      cmd_out <- execGRASS("r.stats", input="reservoirs_classes_t", fs=",", flags=c("n", "c"), intern=T, ignore.stderr = T)
       res_stats <- matrix(as.numeric(unlist(strsplit(cmd_out, ","))), ncol=2, byrow = T)
       
       # output data object
