@@ -121,7 +121,8 @@ reservoir_outlet <- function(
     accums <- as.data.frame(accums)
     
     # get highest accumulation value for every reservoir
-    accum_max <- aggregate(accums, list(accums$cat), max)
+    accum_max <- do.call(rbind,lapply(split(accums,accums$cat),function(chunk) chunk[which.max(chunk$accum),]))
+    
     
     # to SPDF
     coordinates(accum_max) <- c("x", "y")
