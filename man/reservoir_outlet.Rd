@@ -4,7 +4,8 @@
 \alias{reservoir_outlet}
 \title{Determine outlet coordinates of reservoirs}
 \usage{
-reservoir_outlet(flowacc = NULL, dem = NULL, res_vct, outlets_vect)
+reservoir_outlet(flowacc = NULL, dem = NULL, res_vct = NULL,
+  outlets_vect = NULL, keep_temp = FALSE, overwrite = FALSE)
 }
 \arguments{
 \item{flowacc}{Flow accumulation raster in GRASS location used for determination
@@ -19,7 +20,14 @@ of the outlet (cell with highest flow accumulation) are determined. Needs
 at least the column \code{name} as reservoir identifier.}
 
 \item{outlets_vect}{Output: Name of vector file of outlet locations to be exported
-to GRASS location.}
+to GRASS location. If \code{NULL} (default), nothing is exported to GRASS.}
+
+\item{keep_temp}{\code{logical}. Set to \code{TRUE} if temporary files shall be kept
+in the GRASS location, e.g. for debugging or further analyses. Default: \code{FALSE}.}
+
+\item{overwrite}{\code{logical}. Shall output of previous calls of this function be
+deleted? If \code{FALSE} the function returns an error if output already exists.
+Default: \code{FALSE}.}
 }
 \value{
 \code{SpatialPoints} object containing outlet position for each reservoir
@@ -36,10 +44,11 @@ Prepare GRASS location and necessary files in advance and start GRASS
      contain any maps ending on *_t as these will be removed by calling the
      function to remove temporary maps.
      
-     Check the results by investigationg vector file with outlet points written
-     to GRASS location.
+     Check the results by investigating vector file with outlet points written
+     to GRASS location. Due to small projection inaccuracies between the DEM / flow
+     accumulation raster and the reservoir vector file, calculated outlet locations
+     might more or less deviate from true locations!
 }
 \author{
 Tobias Pilz \email{tpilz@uni-potsdam.de}
 }
-
