@@ -50,14 +50,14 @@
 #'      given drainage points are used for subbasin delineation.
 #' @param snap_dist Integer defining maximum distance for snapping of \code{drain_points}
 #'      to stream segments in units of your GRASS location.
-#' @param rm_spurious \code{logical}. If \code{TRUE} (default) spurious subbasins will
-#'      be removed, i.e. those subbasins being smaller than 0.25 times \code{thresh_sub}.
+#' @param rm_spurious \code{numeric}. If greater zero, spurious subbasins will
+#'      be removed, i.e. those subbasins being smaller than \code{rm_spurious} times \code{thresh_sub}.
 #'      Spurious subbasins are 'interior' watersheds created by GRASS function
 #'      \emph{r.watershed} around stream segments below multiple tributaries. If they
 #'      are very small they induce unnecessary computational burden when used within a
 #'      hydrological model. If removed, these areas will be related to the next upstream
 #'      subbasins, respectively. If \code{thresh_sub = NULL} (default) \code{rm_spurious}
-#'      will be automatically set to \code{FALSE}.
+#'      will be automatically set to \code{0}. Default: 0.01.
 #' @param keep_temp \code{logical}. Set to \code{TRUE} if temporary files shall be kept
 #'      in the GRASS location, e.g. for debugging or further analyses. Default: \code{FALSE}.
 #' @param overwrite \code{logical}. Shall output of previous calls of this function be
@@ -106,7 +106,7 @@ calc_subbas <- function(
   thresh_stream=NULL,
   thresh_sub=NULL,
   snap_dist=NULL,
-  rm_spurious=T,
+  rm_spurious=0.01,
   keep_temp=F,
   overwrite=F,
   silent=F
@@ -130,7 +130,7 @@ calc_subbas <- function(
   if(is.null(outlet) & (nrow(drain_points@coords) > 1))
     stop("You have to give 'outlet' if the given number of drain_points is greater than one!")
   if(is.null(thresh_sub))
-    rm_spurious <- FALSE
+    rm_spurious <- 0
   
   
   # CLEAN UP AND RUNTIME OPTIONS #  
@@ -337,7 +337,7 @@ calc_subbas <- function(
       }
       x <- execGRASS("v.to.rast", input=paste0(points_processed, "_all_t"), output=paste0(points_processed, "_all_t"), use="cat", flags="overwrite", intern=T)
       
-      # iterate until configuration without 'spurious' sub-catchments is found (if rm_spurious is TRUE) TODO: This step is slow in case many iterations are needed!
+      # iterate until configuration without 'spurious' sub-catchments is found (if rm_spurious > 0) TODO: This step is slow in case many iterations are needed!
       while (TRUE) {
       
         # max 30 maps at once, create multiple cross products if necessary
@@ -368,12 +368,12 @@ calc_subbas <- function(
         }
         
         # check size of sub-catcments and identify and remove 'spurious' sub-catchments
-        if(rm_spurious) {
+        if(rm_spurious>0) {
           # get sub-catcments and sizes (cell counts) and identify spurious ones
           cmd_out <- execGRASS("r.stats", input="basin_all_t", flags=c("n", "c"), intern=T, ignore.stderr = T)
           sub_sizes <- matrix(as.numeric(unlist(strsplit(cmd_out, " "))), ncol=2, byrow=T)
           sub_sizes <- sub_sizes[-which(sub_sizes[,1] == 0),]
-          sub_rm <- sub_sizes[which(sub_sizes[,2] < 0.25*thresh_sub),1]
+          sub_rm <- sub_sizes[which(sub_sizes[,2] < rm_spurious*thresh_sub),1]
           if(length(sub_rm)>0) {
             # get number of basin_recl_* to be romved (not identical with raster values of basin_all_t!)
             cmd_out <- execGRASS("r.univar", map=paste0(points_processed, "_all_t"), zones="basin_all_t", fs="comma", flags=c("t"), intern=T, ignore.stderr = T)

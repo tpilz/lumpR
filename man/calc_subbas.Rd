@@ -7,7 +7,7 @@
 calc_subbas(dem = NULL, drain_points = NULL, river = NULL,
   basin_out = NULL, stream = NULL, points_processed = NULL,
   outlet = NULL, thresh_stream = NULL, thresh_sub = NULL,
-  snap_dist = NULL, rm_spurious = T, keep_temp = F, overwrite = F,
+  snap_dist = NULL, rm_spurious = 0.01, keep_temp = F, overwrite = F,
   silent = F)
 }
 \arguments{
@@ -51,14 +51,14 @@ given drainage points are used for subbasin delineation.}
 \item{snap_dist}{Integer defining maximum distance for snapping of \code{drain_points}
 to stream segments in units of your GRASS location.}
 
-\item{rm_spurious}{\code{logical}. If \code{TRUE} (default) spurious subbasins will
-be removed, i.e. those subbasins being smaller than 0.25 times \code{thresh_sub}.
+\item{rm_spurious}{\code{numeric}. If greater zero, spurious subbasins will
+be removed, i.e. those subbasins being smaller than \code{rm_spurious} times \code{thresh_sub}.
 Spurious subbasins are 'interior' watersheds created by GRASS function
 \emph{r.watershed} around stream segments below multiple tributaries. If they
 are very small they induce unnecessary computational burden when used within a
 hydrological model. If removed, these areas will be related to the next upstream
 subbasins, respectively. If \code{thresh_sub = NULL} (default) \code{rm_spurious}
-will be automatically set to \code{FALSE}.}
+will be automatically set to \code{0}. Default: 0.01.}
 
 \item{keep_temp}{\code{logical}. Set to \code{TRUE} if temporary files shall be kept
 in the GRASS location, e.g. for debugging or further analyses. Default: \code{FALSE}.}
@@ -98,4 +98,3 @@ Prepare GRASS location and necessary raster files in advance and start
 \author{
 Tobias Pilz \email{tpilz@uni-potsdam.de}
 }
-
