@@ -248,38 +248,47 @@ calc_subbas <- function(
       no_catch_calc <- length(as.numeric(execGRASS("r.stats", input="basin_calc_t", flags=c("n"), intern=T, ignore.stderr = T)))
       if(no_catch_calc > 1) {
         
-        # get for each calculated subbasin the maximum accumulation value
-        cmd_out <- execGRASS("r.univar", map="accum_t", zones="basin_calc_t", fs="comma", flags = c("t"), intern=T, ignore.stderr = T)
-        cmd_out <- cmd_out
-        cmd_out <- strsplit(cmd_out, ",")
-        cmd_cols <- grep("zone|max", cmd_out[[1]])
-        sub_maxacc <- do.call(rbind, cmd_out)[-1,cmd_cols, drop=F]
+        # read raster data from GRASS for processing
+        basins <- raster(readRAST6("basin_calc_t", ignore.stderr = T))
+        accum <- raster(readRAST6("accum_t", ignore.stderr = T))
+        
+        # calculate zonal statistics: Maximum accumulation for every subbasin (=outlet)
+        stats <- zonal(accum, basins, fun="max")
         
         # remove calculated watershed outlet (point of maximum flow accumulation) as this has been given as input
-        sub_maxacc <- sub_maxacc[-which(as.numeric(sub_maxacc[,2]) == max(as.numeric(sub_maxacc[,2]))),]
-  
-        # get outlet coordinates for every subbasin based on maximum accumulation value TODO: This step is slow!
-        execGRASS("r.mapcalculator", amap="accum_t", bmap="basin_calc_t", outfile="drain_sub_t",
-                  formula=paste("( (A * (B == ", format(sub_maxacc[,1], scientific = F), ")) == ", format(sub_maxacc[,2], scientific = F), ")", sep="", collapse="||"))
-        execGRASS("r.null", map="drain_sub_t", setnull="0")
+        stats <- stats[-which(stats[2] == max(stats[2])), ]
         
-        # convert to vector map
-        execGRASS("r.to.vect", input="drain_sub_t", output=paste0(points_processed, "_calc"), feature="point")
+        # get coordinates of outlets
+        outs <- apply(stats, 1, function(x) {
+          cell_no <- Which(accum==x[2], cells=T)
+          
+          # if there is more than one cell, get the one in the right subbasin
+          if(length(cell_no) > 1) {
+            cell_bas <- Which(basins==x[1], cells=T)
+            cell_no <- cell_no[which(cell_no %in% cell_bas)]
+          }
+          
+          # get coordinates of cell_no
+          res <- round(xyFromCell(accum, cell_no),0)
+          res <- cbind(res, x[1])
+          return(res)
+        })
         
-        # read vector map
-        drain_points_calc <- suppressMessages(readVECT6(paste0(points_processed, "_calc")))
-        # WINDOWS PROBLEM: delete temporary file otherwise an error occurs when calling writeVECT or readVECT again with the same (or a similar) file name 
-        if(.Platform$OS.type == "windows") {
-          dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
-          files_del <- grep(substr(paste0(points_processed, "_calc"), 1, 8), dir(dir_del), value = T)
-          file.remove(paste(dir_del, files_del, sep="/"))
-        }
+        # delete raster objects
+        rm(accum, basins)
+        gc(verbose = F); gc(verbose = F)
         
-        # properly match projection
-        projection(drain_points_calc) <- getLocationProj()
+        # re-arrange data
+        outs <- t(outs)
+        colnames(outs) <- c("x", "y", "cat")
+        outs <- as.data.frame(outs)
+        coordinates(outs) <- c("x", "y")
         
-        # df should only contain a cat column
-        drain_points_calc@data <- data.frame(cat=1:nrow(drain_points_calc@data))
+        # as SPDF
+        drain_points_calc <- SpatialPointsDataFrame(coordinates(outs), outs@data, proj4string = CRS(getLocationProj()))
+        
+        # write to GRASS location
+        writeVECT6(drain_points_calc, paste0(points_processed, "_calc"), ignore.stderr = T)
         
         # merge with existing drain points object (snapped points first as there the outlet is identified)
         drain_points_snap <- rbind(drain_points_snap, drain_points_calc)
