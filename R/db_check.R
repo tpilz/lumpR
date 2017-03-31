@@ -128,7 +128,8 @@
 #'  
 #'  \bold{completeness}\cr
 #'  Check database for completeness. I.e. check if all IDs in the \emph{contains}-tables
-#'  exist within the repective referenced tables. Furthermore, check if all vegetation
+#'  exist within the repective referenced tables and also in the lower level
+#'  \emph{contains}-tables. Furthermore, check if all vegetation
 #'  types and soils exist as referenced within 'soil_veg_components', and if all
 #'  soils exist as referenced within 'horizons'.
 #'  If the check fails, function returns an error. If \code{fix=T}, additionally a warning
@@ -1238,6 +1239,7 @@ db_check <- function(
     if(verbose)
       print("Check completeness ...")
     
+    compl_failed <- 0
     
     ### r_subbas_contains_lu
     
@@ -1251,7 +1253,8 @@ db_check <- function(
     
     if(any(r_miss)) {
       print("-> The following subbasins appear in 'r_subbas_contains_lu' but not in 'subbasins':")
-      print(paste("Subbasin IDs:", unique(dat_sub_contains$subbas_id[r_miss])))
+      print(paste(unique(dat_sub_contains$subbas_id[r_miss]), collapse = ", "))
+      compl_failed <- compl_failed + 1
     }
     
     # check LUs
@@ -1259,7 +1262,8 @@ db_check <- function(
     
     if(any(r_miss)) {
       print("-> The following LUs appear in 'r_subbas_contains_lu' but not in 'landscape_units':")
-      print(paste("LU IDs:", unique(dat_sub_contains$lu_id[r_miss])))
+      print(paste(unique(dat_sub_contains$lu_id[r_miss]), collapse = ", "))
+      compl_failed <- compl_failed + 1
     }
     
     
@@ -1275,7 +1279,17 @@ db_check <- function(
     
     if(any(r_miss)) {
       print("-> The following LUs appear in 'r_lu_contains_tc' but not in 'landscape_units':")
-      print(paste("LU IDs:", unique(dat_lu_contains$lu_id[r_miss])))
+      print(paste(unique(dat_lu_contains$lu_id[r_miss]), collapse = ", "))
+      compl_failed <- compl_failed + 1
+    }
+    
+    # check LU contains
+    r_miss <- which(!(unique(dat_sub_contains$lu_id) %in% dat_lu_contains$lu_id))
+    
+    if(any(r_miss)) {
+      print("-> The following LUs appear in 'r_subbas_contains_lu' but not in 'r_lu_contains_tc':")
+      print(paste(unique(dat_sub_contains$lu_id)[r_miss], collapse = ", "))
+      compl_failed <- compl_failed + 1
     }
     
     # check TCs
@@ -1283,7 +1297,8 @@ db_check <- function(
     
     if(any(r_miss)) {
       print("-> The following TCs appear in 'r_lu_contains_tc' but not in 'terrain_components':")
-      print(paste("TC IDs:", unique(dat_lu_contains$tc_id[r_miss])))
+      print(paste(unique(dat_lu_contains$tc_id[r_miss]), collapse = ", "))
+      compl_failed <- compl_failed + 1
     }
     
     
@@ -1299,18 +1314,29 @@ db_check <- function(
     
     if(any(r_miss)) {
       print("-> The following TCs appear in 'r_tc_contains_svc' but not in 'terrain_components':")
-      print(paste("TC IDs:", unique(dat_tc_contains$tc_id[r_miss])))
+      print(paste(unique(dat_tc_contains$tc_id[r_miss]), collapse = ", "))
+      compl_failed <- compl_failed + 1
     }
     
-    # check LUs
+    # check LU contains
+    r_miss <- which(!(unique(dat_lu_contains$tc_id) %in% dat_tc_contains$tc_id))
+    
+    if(any(r_miss)) {
+      print("-> The following TCs appear in 'r_lu_contains_tc' but not in 'r_tc_contains_svc':")
+      print(paste(unique(dat_lu_contains$tc_id)[r_miss], collapse = ", "))
+      compl_failed <- compl_failed + 1
+    }
+    
+    # check SVCs
     r_miss <- which(!(dat_tc_contains$svc_id %in% dat_svc$pid))
     
     if(any(r_miss)) {
       print("-> The following SVCs appear in 'r_tc_contains_svc' but not in 'soil_veg_components':")
-      print(paste("SVC IDs:", unique(dat_tc_contains$svc_id[r_miss])))
+      print(paste(unique(dat_tc_contains$svc_id[r_miss]), collapse = ", "))
+      compl_failed <- compl_failed + 1
     }
     
-    
+
     ### soil and vegetation
     
     # get data
@@ -1323,7 +1349,8 @@ db_check <- function(
     
     if(any(r_miss)) {
       print("-> The following soils appear in 'soil_veg_components' but not in 'soils':")
-      print(paste("Soil IDs:", unique(dat_svc$soil_id[r_miss])))
+      print(paste(unique(dat_svc$soil_id[r_miss]), collapse = ", "))
+      compl_failed <- compl_failed + 1
     }
     
     # check vegetation
@@ -1331,7 +1358,8 @@ db_check <- function(
     
     if(any(r_miss)) {
       print("-> The following vegetation types appear in 'soil_veg_components' but not in 'vegetation':")
-      print(paste("Vegetation IDs:", unique(dat_svc$veg_id[r_miss])))
+      print(paste(unique(dat_svc$veg_id[r_miss]), collapse = ", "))
+      compl_failed <- compl_failed + 1
     }
     
     
@@ -1347,7 +1375,8 @@ db_check <- function(
     
     if(any(r_miss)) {
       print("-> The following soils appear in 'r_soil_contains_particles' but not in 'soils':")
-      print(paste("Soil IDs:", unique(dat_contains$soil_id[r_miss])))
+      print(paste(unique(dat_contains$soil_id[r_miss]), collapse = ", "))
+      compl_failed <- compl_failed + 1
     }
     
     # check particle classes
@@ -1355,7 +1384,8 @@ db_check <- function(
     
     if(any(r_miss)) {
       print("-> The following particle classes appear in 'r_soil_contains_particles' but not in 'particle_classes':")
-      print(paste("Particle class IDs:", unique(dat_contains$class_id[r_miss])))
+      print(paste(unique(dat_contains$class_id[r_miss]), collapse = ", "))
+      compl_failed <- compl_failed + 1
     }
     
     
@@ -1370,11 +1400,12 @@ db_check <- function(
     
     if(any(r_miss)) {
       print("-> The following soils appear in 'horizons' but not in 'soils':")
-      print(paste("Soil IDs:", unique(dat_hor$soil_id[r_miss])))
+      print(paste(unique(dat_hor$soil_id[r_miss]), collapse = ", "))
+      compl_failed <- compl_failed + 1
     }
     
     
-    if(any(r_miss)) {
+    if(compl_failed > 0) {
       # update table meta_info
       if(fix) {
         meta_dat <- sqlFetch(con, "meta_info")
@@ -1388,11 +1419,11 @@ db_check <- function(
                                mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
                                affected_tables=paste(unique(tbl_changed), collapse=", "),
                                affected_columns="various",
-                               remarks=paste0("ATTENTION: Error while checking database using R package lumpR check completeness. Nevertheless, affected_tables have already been changed."))
+                               remarks=paste0("ATTENTION: Error while checking database using R package lumpR::db_check() for completeness (", compl_failed, " problem(s) occurred)."))
         write_datetabs(con, meta_out, tab="meta_info", verbose)
       }
       odbcClose(con)
-      stop("Check for completeness failed. Restore data integrity before any further actions! Notice preceding output messages for more information. Close ODBC connection.")
+      stop(paste0("Check for completeness failed ", compl_failed, " time(s). Restore data integrity before any further actions! Notice preceding output messages for more information."))
     }
     
     if(verbose)
