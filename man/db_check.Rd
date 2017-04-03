@@ -119,11 +119,13 @@ The following checks are currently included and can be specified via argument \c
  
  \bold{delete_obsolete}\cr
  Delete obsolete datasets. I.e. special area SVCs, LUs not in any subbasin, TCs
- not in any LU, and SVCs not in any TC.
+ not in any LU, and SVCs not in any TC from the \emph{contains}- and the parent tables.
+ Dependencies are respected. Areal fractions will be updated.
  
  \bold{completeness}\cr
  Check database for completeness. I.e. check if all IDs in the \emph{contains}-tables
- exist within the repective referenced tables. Furthermore, check if all vegetation
+ exist within the repective referenced tables and also in the lower level
+ \emph{contains}-tables. Furthermore, check if all vegetation
  types and soils exist as referenced within 'soil_veg_components', and if all
  soils exist as referenced within 'horizons'.
  If the check fails, function returns an error. If \code{fix=T}, additionally a warning
@@ -136,4 +138,3 @@ The following checks are currently included and can be specified via argument \c
 \author{
 Tobias Pilz \email{tpilz@uni-potsdam.de}, Till Francke \email{francke@uni-potsdam.de}
 }
-
