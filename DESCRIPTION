@@ -1,8 +1,8 @@
 Package: lumpR
 Type: Package
 Title: Landscape Unit Mapping Program for R
-Version: 2.0.3
-Date: 2017-03-20
+Version: 2.0.4
+Date: 2017-04-03
 Authors@R: c(person("Tobias", "Pilz", email="tpilz@uni-potsdam.de", 
 																		role=c("aut", "cre", "cph")),
 							person("Till", "Francke", email="francke@uni-potsdam.de",
@@ -31,4 +31,4 @@ License: GPL-3
 URL: https://github.com/tpilz/lumpR
 BugReports: https://github.com/tpilz/lumpR/issues
 NeedsCompilation: yes
-RoxygenNote: 5.0.1
+RoxygenNote: 6.0.1
