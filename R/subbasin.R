@@ -131,6 +131,8 @@ calc_subbas <- function(
     stop("You have to give 'outlet' if the given number of drain_points is greater than one!")
   if(is.null(thresh_sub))
     rm_spurious <- 0
+  if(!is.numeric(rm_spurious))
+    stop("Argument 'rm_spurious' has to be numeric (behaviour changed in version 2.0.4)!")
   
   
   # CLEAN UP AND RUNTIME OPTIONS #  
