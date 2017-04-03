@@ -33,7 +33,13 @@
 #'      at least the column \code{name} as reservoir identifier.
 #'      
 #' @param outlets_vect Output: Name of vector file of outlet locations to be exported
-#'      to GRASS location.
+#'      to GRASS location. If \code{NULL} (default), nothing is exported to GRASS.
+#'      
+#' @param keep_temp \code{logical}. Set to \code{TRUE} if temporary files shall be kept
+#'      in the GRASS location, e.g. for debugging or further analyses. Default: \code{FALSE}.
+#' @param overwrite \code{logical}. Shall output of previous calls of this function be
+#'      deleted? If \code{FALSE} the function returns an error if output already exists.
+#'      Default: \code{FALSE}.
 #'      
 #' @return \code{SpatialPoints} object containing outlet position for each reservoir
 #'      polygon and vector file \code{outlets_vect} exported to GRASS location.
@@ -43,8 +49,10 @@
 #'      contain any maps ending on *_t as these will be removed by calling the
 #'      function to remove temporary maps.
 #'      
-#'      Check the results by investigationg vector file with outlet points written
-#'      to GRASS location.
+#'      Check the results by investigating vector file with outlet points written
+#'      to GRASS location. Due to small projection inaccuracies between the DEM / flow
+#'      accumulation raster and the reservoir vector file, calculated outlet locations
+#'      might more or less deviate from true locations!
 #'
 #' @author Tobias Pilz \email{tpilz@@uni-potsdam.de}
 #' 
@@ -53,75 +61,100 @@ reservoir_outlet <- function(
   ### INPUT ###
   flowacc = NULL,
   dem = NULL,
-  res_vct,
+  res_vct = NULL,
   
   ### OUTPUT ###
-  outlets_vect
+  outlets_vect = NULL,
+  
+  ### PARAMETERS ###
+  keep_temp = FALSE,
+  overwrite = FALSE
   
 ) {
   
   tryCatch({
     
-    # remove mask if any
-    execGRASS("r.mask", flags=c("r"))
-    
-    # GRASS calculation of flow accumulation #
+    # Check arguments
     if (is.null(flowacc) & is.null(dem))
       stop("'flowacc' and 'dem' are NULL. One of it must be specified (non-NULL)!")
+    # remove mask if any
+    x <- execGRASS("r.mask", flags=c("r"), intern = T)
     
+    if(is.null(res_vct))
+      stop("You have to specify res_vct, the name of the reservoir vector file in the GRASS location to be used as input!")
+
+    
+    # remove output of previous function calls if overwrite=T
+    if (overwrite) {
+      x <- execGRASS("g.mremove", rast=paste0("*_t,",flowacc), vect=paste0("*_t,", outlets_vect), flags=c("f", "b"), intern=T)
+    } else {
+      # remove temporary maps in any case
+      x <- execGRASS("g.mremove", rast="*_t", vect="*_t", flags=c("f", "b"), intern=T)
+    }
+    
+    
+    
+    # GRASS calculation of flow accumulation
     if (is.null(flowacc) & !is.null(dem)) {
       flowacc <- "accum_t"
-      execGRASS("r.watershed", elevation=dem, accumulation=flowacc)
+      x <- execGRASS("r.watershed", elevation=dem, accumulation=flowacc, intern=T)
     }
     
+    # convert reservoir vector to raster
+    x <- execGRASS("v.to.rast", input=res_vct, type="area", output="res_rast_t", use="cat", intern=T)
+    
+    # calculate accumulation for reservoir zones
+    x <- execGRASS("r.mapcalculator", amap=flowacc, bmap="res_rast_t", outfile="accum_res_t",
+              formula="if(B, A)", intern=T)
+    
+    # crossproduct of accum_res_t and res_rast_t to have both cats as labels in one raster file
+    x <- execGRASS("r.cross", input="res_rast_t,accum_res_t", output="cross_t", intern=T)
+    x <- execGRASS("r.null", map="cross_t", setnull="0")
+    
+    # get statistics into R (accumulation with coordinates of pixels for every reservoir)
+    cmd_out <- execGRASS("r.stats", input="cross_t", flags=c("n", "g", "l"), intern = T, ignore.stderr = T)
+    cmd_out <- gsub("category |;", "", cmd_out, ignore.case = T)
+    cmd_out <- strsplit(cmd_out, " ")
+    accums <- do.call(rbind, cmd_out)[,-3]
+    mode(accums) <- "numeric"
+    colnames(accums) <- c("x", "y", "cat", "accum")
+    accums <- as.data.frame(accums)
+    
+    # get highest accumulation value for every reservoir
+    accum_max <- do.call(rbind,lapply(split(accums,accums$cat),function(chunk) chunk[which.max(chunk$accum),]))
+    
+    
+    # to SPDF
+    coordinates(accum_max) <- c("x", "y")
+    accum_max_spdf <- SpatialPointsDataFrame(coordinates(accum_max), data = data.frame(cat=accum_max@data$cat), proj4string = CRS(getLocationProj()))
     
     # load reservoirs from GRASS
-    res_polygon <- readVECT6(res_vct)
-    # load accumulation values from GRASS
-    accum_rast <- raster(readRAST6(flowacc))
+    res_polygon <- readVECT6(res_vct, ignore.stderr = T)
+    
+    # assign reservoir table to outlet locations table
+    res_out <- sp::merge(accum_max_spdf, res_polygon@data, by="cat")
+    
+    # put into GRASS
+    writeVECT6(res_out, outlets_vect, v.in.ogr_flags = "overwrite", ignore.stderr = T)
     
     
-    # identify reservoir outlets #
-    coords_out <- NULL
-    for (r in unique(res_polygon@data$cat)) {
-      
-      # mask accum_rast by reservoir
-      res_rows <- which(res_polygon@data$cat == r)
-      accum_res <- mask(accum_rast, res_polygon[res_rows,])
-      
-      # get coordinates of point with highest accumulation value = point of reservoir outlet
-      vals <- getValues(accum_res)
-      
-      if (!any(is.finite(vals)))
-        stop(paste0("No finite flow accumulation values within reservoir ('cat') ", r, ". 'flowacc' (or 'dem') and 'res_vct' may not fully overlap?!"))
-      
-      vals <- abs(vals)
-      max_pos <- which(vals == max(vals, na.rm=T))
-      coords_out$name <- c(coords_out$name, as.character(res_polygon@data$name[res_rows]))
-      coord_t <- xyFromCell(accum_res, max_pos)
-      coords_out$x <- c(coords_out$x, coord_t[,"x"])
-      coords_out$y <- c(coords_out$y, coord_t[,"y"])
-    }
-    
-    # output matrix as spatial object
-    coords_out <- data.frame(coords_out)
-    coordinates(coords_out) <- c("x", "y")
-    projection(coords_out) <- getLocationProj()
-    
-    # export points to GRASS
-    writeVECT6(coords_out, outlets_vect)
-    
-    # remove temporary maps
-    execGRASS("g.mremove", rast="*_t", flags=c("f"))
+    # delete temp
+    if(keep_temp == FALSE)
+      x <- execGRASS("g.mremove", rast="*_t", vect="*_t", flags=c("f", "b"), intern=T)
     
     
     # return spatial object
-    return(coords_out)
+    return(res_out)
     
   
   # exception handling
   }, error = function(e) {
-    execGRASS("g.mremove", rast=paste0("*_t,"), flags=c("f"))
+    
+    x <- execGRASS("r.mask", flags=c("r"), intern = T)
+    
+    if(keep_temp == FALSE)
+      x <- execGRASS("g.mremove", rast=paste0("*_t,",flowacc), vect=paste0("*_t,", outlets_vect), flags=c("f", "b"), intern=T)
+    
     stop(paste(e))  
   })
     
