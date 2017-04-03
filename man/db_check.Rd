@@ -119,7 +119,8 @@ The following checks are currently included and can be specified via argument \c
  
  \bold{delete_obsolete}\cr
  Delete obsolete datasets. I.e. special area SVCs, LUs not in any subbasin, TCs
- not in any LU, and SVCs not in any TC.
+ not in any LU, and SVCs not in any TC from the \emph{contains}- and the parent tables.
+ Dependencies are respected. Areal fractions will be updated.
  
  \bold{completeness}\cr
  Check database for completeness. I.e. check if all IDs in the \emph{contains}-tables
