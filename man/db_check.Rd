@@ -7,8 +7,8 @@
 db_check(dbname, check = c("filter_small_areas", "tc_slope", "special_areas",
   "remove_water_svc", "compute_rocky_frac", "remove_impervious_svc",
   "proxy_frgw_delay", "delete_obsolete", "completeness", "subbasin_order"),
-  option = list(area_thresh = 0.01, treat_slope = c(3, 0.01, 0.1)), fix = F,
-  verbose = TRUE)
+  option = list(area_thresh = 0.01, treat_slope = c(3, 0.01, 0.1),
+  update_frac_impervious = F), fix = F, verbose = TRUE)
 }
 \arguments{
 \item{dbname}{Name of the data source (DSN) registered at ODBC.}
@@ -102,8 +102,13 @@ The following checks are currently included and can be specified via argument \c
  
  \bold{remove_impervious_svc}\cr
  Remove SVCs marked as impervious from table 'r_tc_contains_svc', i.e. those SVCs where
- in table 'soil_veg_components' column 'special_area' is equal to 2. Areal fractions
- will be updated.
+ in table 'soil_veg_components' column 'special_area' is equal to 2.\cr
+ \emph{Option: 'update_frac_impervious'}\cr
+ Value of type \code{logical}:\cr
+ F (default): Areal fractions will not be updated. I.e., the sum of 'fraction' for a specific
+ 'tc_id' plus 'frac_rocky' of table 'terrain_components' of that specific TC (calculated by
+ check 'compute_rocky_frac') sums up to unity. This is a requirement of the WASA-SED model.\cr
+ T: Areal fractions will be updated such that 'fraction' for a specific 'tc_id' sums to unity.
  
  \bold{proxy_frgw_delay}\cr
  Estimate storage coefficient for groundwater delay ('frgw_delay') in \emph{days}

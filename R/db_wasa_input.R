@@ -605,7 +605,11 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
     
     frac_sums <- round(tapply(dat_contains$fraction, dat_contains$tc_id, sum),3)
     if(any(frac_sums !=1)) {
-      stop("Check table 'r_tc_contains_svc'! Not all fractions per TC sum up to one.")
+      # calculate sums + rocky fractions (see check 'remove_impervious_svc')
+      dat_tc <- sqlFetch(con, "terrain_components")
+      frac_sums_rocky <- tapply(dat_contains$fraction, dat_contains$tc_id, sum) + dat_tc$frac_rocky
+      if(any(round(frac_sums_rocky,3) !=1))
+        stop("Check table 'r_tc_contains_svc'! Not all fractions per TC sum up to one.")
     }
     
     # write output
@@ -668,8 +672,12 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
           r_svc <- which(dat_svc$pid %in% tc_svc)
           
           # check that fractions sum up to 1
-          if(round(sum(dat_tc_contains$fraction[r_tc_contains]), 3) != 1)
-            stop(paste0("For TC ", tc, " sum of areal fractions of SVCs (table 'r_tc_contains_svc') are not equal to one. Consider function db_check()."))
+          if(round(sum(dat_tc_contains$fraction[r_tc_contains]), 3) != 1) {
+            # calculate sums + rocky fractions (see check 'remove_impervious_svc')
+            sum_rocky <- sum(dat_tc_contains$fraction[r_tc_contains]) + dat_tc$frac_rocky[which(dat_tc$pid == tc)]
+            if(round(sum_rocky, 3) != 1)
+              stop(paste0("For TC ", tc, " sum of areal fractions of SVCs (table 'r_tc_contains_svc') are not equal to one. Consider function db_check()."))
+          }
           
           # string for output file with relevant information
 #           str_out_1 <- paste(s, l, tc, round(dat_tc$frac_rocky[which(dat_tc$pid == tc)],3), length(r_tc_contains),

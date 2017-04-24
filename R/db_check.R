@@ -107,8 +107,13 @@
 #'  
 #'  \bold{remove_impervious_svc}\cr
 #'  Remove SVCs marked as impervious from table 'r_tc_contains_svc', i.e. those SVCs where
-#'  in table 'soil_veg_components' column 'special_area' is equal to 2. Areal fractions
-#'  will be updated.
+#'  in table 'soil_veg_components' column 'special_area' is equal to 2.\cr
+#'  \emph{Option: 'update_frac_impervious'}\cr
+#'  Value of type \code{logical}:\cr
+#'  F (default): Areal fractions will not be updated. I.e., the sum of 'fraction' for a specific
+#'  'tc_id' plus 'frac_rocky' of table 'terrain_components' of that specific TC (calculated by
+#'  check 'compute_rocky_frac') sums up to unity. This is a requirement of the WASA-SED model.\cr
+#'  T: Areal fractions will be updated such that 'fraction' for a specific 'tc_id' sums to unity.
 #'  
 #'  \bold{proxy_frgw_delay}\cr
 #'  Estimate storage coefficient for groundwater delay ('frgw_delay') in \emph{days}
@@ -152,7 +157,8 @@ db_check <- function(
             "compute_rocky_frac", "remove_impervious_svc", "proxy_frgw_delay",
             "delete_obsolete", "completeness", "subbasin_order"),
   option = list(area_thresh=0.01,
-                treat_slope=c(3,0.01,0.1)),
+                treat_slope=c(3,0.01,0.1),
+                update_frac_impervious=F),
   fix=F,
   verbose=TRUE
 ) {
@@ -851,24 +857,29 @@ db_check <- function(
         print("-> The following datasets will be removed from 'r_tc_contains_svc' ('fraction' will be updated):")
         print(dat_contains[rows_contains_impervious,])
         
-        # remove impervious SVCs
-        dat_contains_act <- dat_contains[-rows_contains_impervious,]
-        
-        # update fractions
-        frac_sum <- tapply(dat_contains_act$fraction, list(parent=dat_contains_act$tc_id), sum)
-        for (s in 1:nrow(dat_contains_act))
-          dat_contains_act$fraction[s] <- dat_contains_act$fraction[s] / frac_sum[paste0(dat_contains_act$tc_id[s])]
-        
-        
         # update database
         if(verbose)
           print("-> Updating table 'r_tc_contains_svc'...")
         tryCatch(
         {
-          sqlQuery(con, "delete from r_tc_contains_svc")
-          sqlSave(channel=con, tablename = "r_tc_contains_svc", dat=dat_contains_act, verbose=F, 
-                  append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
-          tbl_changed <- c(tbl_changed, "r_tc_contains_svc")
+          if(!option$update_frac_impervious) {
+            sqlQuery(con, paste("delete from r_tc_contains_svc ",
+                                "WHERE tc_id IN (", paste(unique(dat_contains$tc_id[rows_contains_impervious]), collapse = ", "), ")",
+                                "AND svc_id IN (", paste(unique(dat_contains$svc_id[rows_contains_impervious]), collapse = ", "), ")"))
+            tbl_changed <- c(tbl_changed, "r_tc_contains_svc")
+          } else {
+            # remove impervious SVCs
+            dat_contains_act <- dat_contains[-rows_contains_impervious,]
+            # update fractions
+            frac_sum <- tapply(dat_contains_act$fraction, list(parent=dat_contains_act$tc_id), sum)
+            for (s in 1:nrow(dat_contains_act))
+              dat_contains_act$fraction[s] <- dat_contains_act$fraction[s] / frac_sum[paste0(dat_contains_act$tc_id[s])]
+            # adjust database
+            sqlQuery(con, "delete from r_tc_contains_svc")
+            sqlSave(channel=con, tablename = "r_tc_contains_svc", dat=dat_contains_act, verbose=F, 
+                    append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
+            tbl_changed <- c(tbl_changed, "r_tc_contains_svc")
+          }
         }, error = function(e) {
           # update table meta_info
           meta_dat <- sqlFetch(con, "meta_info")
@@ -1161,11 +1172,12 @@ db_check <- function(
           if(any(r_del_tc) | any(r_del_svc)) {
             r_tmp <- which(dat_tc_contains$tc_id %in% dat_tc$pid[r_del_tc] | dat_tc_contains$svc_id %in% dat_svc$pid[r_del_svc])
             if(any(r_tmp)) { # might be that there is nothing to be changes in contains table due to prior fixes
+              frac_sum_old <- tapply(dat_tc_contains$fraction, list(parent=dat_tc_contains$tc_id), sum) # keep track of old fraction sums if they are less than one due to check 'remove_impervious_svc'
               dat_tc_contains <- dat_tc_contains[-r_tmp,]
               # update fractions
               frac_sum <- tapply(dat_tc_contains$fraction, list(parent=dat_tc_contains$tc_id), sum)
               for (s in 1:nrow(dat_tc_contains))
-                dat_tc_contains$fraction[s] <- dat_tc_contains$fraction[s] / frac_sum[paste0(dat_tc_contains$tc_id[s])]
+                dat_tc_contains$fraction[s] <- frac_sum_old[paste0(dat_tc_contains$tc_id[s])] * dat_tc_contains$fraction[s] / frac_sum[paste0(dat_tc_contains$tc_id[s])]
               # write to db
               sqlQuery(con, "delete from r_tc_contains_svc")
               sqlSave(channel=con, tablename = "r_tc_contains_svc", dat=dat_tc_contains, verbose=F, 
