@@ -88,8 +88,7 @@
 #'      to a vector map to ensure strictly linear features.
 #' 
 #' @author Tobias Pilz \email{tpilz@@uni-potsdam.de}
-#' 
-#' @export
+
 calc_subbas <- function(
   ### INPUT ###
   dem=NULL,

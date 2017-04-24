@@ -115,8 +115,6 @@
 #'      
 #' 
 #' @author Tobias Pilz \email{tpilz@@uni-potsdam.de}
-#'
-#' @export
 
 reservoir_lumped <- function(
   # INPUT #
