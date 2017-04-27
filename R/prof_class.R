@@ -243,9 +243,9 @@ prof_class <- function(
     stats <- scan(catena_file, nlines = 1, what=numeric(), sep = "\t", quiet = TRUE) #read first line only
     stats <- read.table(file = catena_file, colClasses = c("numeric", rep("NULL", length(stats)-1)), sep = "\t") #read first column only
     
-    p_id <- stats[,1] #get IDs
+    p_id = stats[,1]
     rm(stats)
-    p_id_unique = unique(p_id)
+    p_id_unique = unique(p_id) #get unique IDs
 
     if (!is.null(eha_subset)) 
     {
@@ -260,6 +260,7 @@ prof_class <- function(
     n_profs = length(p_id_unique)
     
     profpoints <- table(p_id)  #count number of points of each catena
+    rm(p_id)
     
     # use the median of sampling points as the desired common length of profiles
     if (classify_type != 'load') {  
@@ -528,13 +529,13 @@ prof_class <- function(
         stop("not yet implemented")
       } else {
         # unsupervised classification
-        unique_profs=unique(x=profs_resampled) #ii: avoid duplication of array here, try duplicates()?
-        if (nrow(unique_profs) <= nclasses) #not enough distinct profiles for this attribute 
+        dups = duplicated(profs_resampled)
+        if (nrow(profs_resampled) - sum(dups) <= nclasses) #not enough distinct profiles for this attribute 
         {
           kmeans_out=NULL #disables later plots
           for(jj in 1:nrow(profs_resampled)) 
-            cidx[jj]=which(apply(unique_profs, MARGIN=1, FUN=identical, profs_resampled[jj,]))
-          cmeans2 <- unique_profs # matrix of cluster centers
+            cidx[jj]=which(apply(profs_resampled[!dups,, drop=FALSE], MARGIN=1, FUN=identical, profs_resampled[jj,]))
+          cmeans2 <- profs_resampled[dups,, drop=FALSE] # matrix of cluster centers
           sumd <- 0   # within-cluster sum of squares, one per cluster  
         } else
         { #regular case  
