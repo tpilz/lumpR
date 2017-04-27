@@ -181,7 +181,7 @@ prof_class <- function(
   
   
   ### CALCULATIONS ###
-  #tryCatch(
+  tryCatch(
   {
     message("START 'prof_class'.")
     message("")
@@ -449,7 +449,7 @@ prof_class <- function(
       t_help <- rep(1,length(datacolumns))*com_length
       t_help[2:3] <- 1 # dimension attributes need only one value
       #ii: isn't this a copy of profs_resampled_stored, which is then weighted? Do we need this duplication, or
-      #couldn't weight and "unweigh" we the same instance to save memory?
+      #couldn't weight and "unweigh" (if necessary later) we the same instance to save memory?
       profs_resampled <- matrix(0, nrow=n_profs, ncol=sum(t_help*datacolumns*(attr_weights_class!=0)))
       
       
@@ -477,7 +477,7 @@ prof_class <- function(
           dest_column <- dest_column+1
         }
         
-        #ii: isn't this necessary only for cf_mode != 'successive'?
+        #ii: isn't this necessary only for cf_mode != 'successive'? Even in successive, wouldn't it be enough to do it once?
         #treat supp_data if present (resample, weigh and add to profile vector to be included in cluster analysis)
         if (n_suppl_attributes) {
           attr_start_column <- 1+com_length+2   #initial value for first loop
@@ -577,7 +577,6 @@ prof_class <- function(
         plot(1,1,type="n", xlim=c(0,max(profs_resampled_stored[,com_length+1])), ylim=c(0,max(profs_resampled_stored[,com_length+2])),
              main=paste("Original catenas\nclassified according ", attr_names[iw], sep=""), xlab="horizontal length [m]", ylab="elevation [m]")
         for (i in 1:n_profs) {
-          #lines(profsx[[i]], profs[[i]], col=cidx[i])
           lines(   (0:(com_length-1) / (com_length-1)) * profs_resampled_stored[i,com_length+1], 
                 profs_resampled_stored[i,1:com_length] * profs_resampled_stored[i,com_length+2], col=cidx[i])
         }
@@ -1209,19 +1208,19 @@ prof_class <- function(
 
     # if an error occurs...
   
-    }   #, 
-  # error = function(e) {
-  #   
-  #   # stop sinking
-  #   closeAllConnections()
-  #   
-  #   # restore original warning mode
-  #   if(silent)
-  #     options(warn = oldw)
-  #   
-  #   stop(paste(e))  
-  # 
-  #   })
+    }   , 
+  error = function(e) {
+
+    # stop sinking
+    closeAllConnections()
+
+    # restore original warning mode
+    if(silent)
+      options(warn = oldw)
+
+    stop(paste(e))
+
+    })
     
 } # EOF
 
