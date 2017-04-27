@@ -46,10 +46,6 @@
 #'      Impact Research, Potsdam, Germany.
 #'
 #' @author Tobias Pilz \email{tpilz@@uni-potsdam.de}
-#'
-#' @export
-#' 
-#' @useDynLib lumpR
 #' 
 
 calc_seasonality <- function(

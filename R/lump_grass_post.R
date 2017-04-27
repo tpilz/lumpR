@@ -215,8 +215,7 @@
 
 #' 
 #' @author Tobias Pilz \email{tpilz@@uni-potsdam.de}
-#'
-#' @export 
+
 lump_grass_post <- function(
   ### INPUT ###
   mask=NULL,

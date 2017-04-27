@@ -64,10 +64,6 @@
 #'      Impact Research, Potsdam, Germany.
 #'
 #' @author Tobias Pilz \email{tpilz@@uni-potsdam.de}
-#'
-#' @export
-#' 
-#' @useDynLib lumpR
 #' 
 
 rainy_season <- function(
