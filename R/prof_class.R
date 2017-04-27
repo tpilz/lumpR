@@ -67,6 +67,8 @@
 #'      Default: \code{FALSE}.
 #' @param silent \code{logical}. Shall the function be silent (also suppressing warnings)?
 #'      Default: \code{FALSE}.
+#' @param plot_silhouette \code{logical}. Shall a silhouette plot (illustrating the clustering process) be generated? Consumes much memory and should be disabled, if a memory error is thrown.
+#'      Default: \code{TRUE}.
 #'      
 #' @return Function returns nothing. Output files are written into output directory
 #'      as specified in arguments.
@@ -126,7 +128,8 @@ prof_class <- function(
   make_plots=F,
   eha_subset=NULL,
   overwrite=F,
-  silent=F
+  silent=F,
+  plot_silhouette=T
 ) {
   
   ### PREPROCESSING ###
@@ -178,7 +181,8 @@ prof_class <- function(
   
   
   ### CALCULATIONS ###
-  tryCatch({
+  #tryCatch(
+  {
     message("START 'prof_class'.")
     message("")
     
@@ -234,97 +238,29 @@ prof_class <- function(
     #   com_length <- -1
     
     # load standard catena data
-    stats <- scan(catena_file, what=numeric())
-    stats <- matrix(stats, ncol=sum(datacolumns), byrow=TRUE)
-      
+    message(' Loading rstats-file...')
+
+    stats <- scan(catena_file, nlines = 1, what=numeric(), sep = "\t", quiet = TRUE) #read first line only
+    stats <- read.table(file = catena_file, colClasses = c("numeric", rep("NULL", length(stats)-1)), sep = "\t") #read first column only
     
-    p_id <- stats[,1]
-    # if eha_subset is specified: select resp. values in every necessary vector/matrix
+    p_id <- stats[,1] #get IDs
+    rm(stats)
+    p_id_unique = unique(p_id)
+
     if (!is.null(eha_subset)) 
     {
       message('')
       warning(paste('Using only subset of input catenas.'))
       
-      #start_prof <- max(start_prof, min(p_id))
-      #end_prof <-   min(end_prof,   max(p_id))
-      
-      stats <- stats[p_id %in% eha_subset, , drop=FALSE]
-      p_id <- stats[,1]
-      if (nrow(stats)==0)
-        stop("Specified eha_subset not found.")
-      
-    }
+      to_do = intersect(eha_subset, p_id_unique)
+      if (length(to_do==0))
+          stop("Specified eha_subset not found.")
+      n_profs = length(to_do)
+    } else
+    n_profs = length(p_id_unique)
     
+    profpoints <- table(p_id)  #count number of points of each catena
     
-    
-    # load supplemental data if present
-    if (length(datacolumns) > 3) {
-      n_supp_data_columns <- sum(datacolumns[4:length(datacolumns)])
-      supp_data <- stats[,4:(n_supp_data_columns+3), drop=F]
-      n_suppl_attributes <- length(supp_data[1,])      # get number of supplemental attribute classes
-    } else {
-      n_supp_data_columns <- 0
-      supp_data <- NULL
-      n_suppl_attributes <- 0
-    }
-    
-    # arrange input data
-    p_id_unique = unique(p_id)
-     profs <- NULL         # initialise list of profile elevation data
-     profsx <- NULL        # initialise list of x-profile data
-  
-    profpoints <- NULL
-    profheights <- NULL
-    proflengths <- NULL
-  
-  for (i in 1:length(p_id_unique))
-  {
-    curr_pid_ix = p_id == p_id_unique[i]
-    profs [[i]] =  stats[curr_pid_ix,3]
-    profsx[[i]] = (stats[curr_pid_ix,2]-1)*dx
-    
-    # save length of profile (in sample points)
-    profpoints[i] <- length(profs[[i]])  
-    
-    # save relative height of profile in [m]
-    profheights[i] <- max(profs[[i]]) - profs[[i]][1]  
-    
-    # save absolute length of profile
-    proflengths[i] <- max(profsx[[i]])
-    
-  }
-  
-     
-  too_short = which(proflengths <= 1)
-  if (any(too_short)) {
-    message('')
-    message(paste('profile (s)', paste(too_short, collapse=", "), ' contain(s) only one point. Skipped.', sep=""))
-    profs       <- profs       [-too_short]
-    profsx      <- profsx      [-too_short]
-    profpoints  <- profpoints  [-too_short]
-    profheights <- profheights [-too_short]
-    proflengths <- proflengths [-too_short]
-  } 
-    
-    
-  
-  # remove not needed objects (at least the larger ones to save memory)
-     rm(stats) 
-    
-    
-    # PLOT original profile
-    if (make_plots) {
-      pdf(paste(dir_out, "plots_prof_class/plots_prof_class.pdf", sep="/"))
-      plot(1,1,type="n", xlim=c(0,max(unlist(profsx))), ylim=c(0,max(unlist(profs))),
-           main="Original catenas", xlab="horizontal length [m]", ylab="elevation [m]")
-      for (i in 1:length(profs)) {
-        lines(profsx[[i]], profs[[i]])
-      }
-    }
-    
-    
-    
-    # PREPARE attribute loop and key-generation #
     # use the median of sampling points as the desired common length of profiles
     if (classify_type != 'load') {  
       if (is.null(com_length)) #set com_length, if not specified from outside
@@ -335,93 +271,123 @@ prof_class <- function(
       }  
     }     # otherwise, the resolution from the saved clusters is used
     
+    
+  
+    n_suppl_attributes = max(0, length(datacolumns) - 3) #number of supplemental attributes
+    n_supp_data_columns <- sum(datacolumns[4:length(datacolumns)]) #number of respective columns
+    
     # allocate new matrix for storing resampled profiles (hillslopes)
     # for each profile (rows) com_length elevation points, the profile length, the
     # profile height, and supplemental data is stored in one long vector
-    profs_resampled_stored <- matrix(NA, nrow=length(profs), ncol=com_length+2+com_length*n_supp_data_columns)
+    profs_resampled_stored <- matrix(NA, nrow=n_profs, ncol=com_length+2+com_length*n_supp_data_columns)
     
+    # PLOT original profile
+    if (make_plots) {
+      pdf(paste(dir_out, "plots_prof_class/plots_prof_class.pdf", sep="/"))
+      plot(1,1,type="n", xlim=c(0,max(profpoints)*resolution), ylim=c(0,500),
+           main="Original catenas", xlab="horizontal length [m]", ylab="elevation [m]")
+    }
     
+  #read and resample profiles (done at the same time to avoid duplicates in memory)
+     testcon <- file(catena_file,open="r")
+     progress_print = as.numeric(silent) #for printing progress indicator
+     for (i in 1:length(p_id_unique))
+     {
+       done = i/length(p_id_unique)
+       if (i > progress_print) #next progress message
+       {
+         print(paste0("...", round(done*100),"%"))
+         flush.console()
+         progress_print = done + 0.10
+       }   
+       cur_p_id = p_id_unique[i] #id of profile to be loaded
+       
+       tt = scan(file=testcon, what=numeric(), nlines = profpoints[i], quiet = TRUE) #read single profile
+       tt = matrix(tt, nrow = c(profpoints[i]), byrow = TRUE) #reshape matrix
+
+       if (make_plots) 
+         lines(tt[,2]*resolution, tt[,3])
+       
+       
+       if (profpoints[i] < 2) { #catena too short, ignore
+         message('')
+         message(paste('profile ', paste(cur_p_id, collapse=", "), ' contains only one point. Skipped.', sep=""))
+         profs_resampled_stored[i,] = NA
+       } 
+       
+       
+         
+       p_resampled <- apply(tt[,-(1:2)], MARGIN = 2, FUN=function(y) approx(x = tt[,2]-1, y, xout = 0:(com_length-1)/(com_length-1)*(profpoints[i]-1))$y)
+
+       # set foot of profile to zero elevation
+       p_resampled[,1] = p_resampled[,1] - p_resampled[1,1]
+       
+       # amplitude of profile will be scaled to 1
+       d <- max(p_resampled[,1]) 
+       if(d==0) {
+         message('')
+         warning(paste('Warning: Profile ', p_id_unique[i], ' has no elevation gain (runs flat)', sep=""))
+         p_resampled[,1] <- 0
+       } else {
+         # normalize profile in elevation (ie. normally, top end at elevation = 1)
+         p_resampled[,1] <- p_resampled[,1] / d
+       }
+       
+       prof_length = (profpoints[i]-1) * resolution #compute original length of catena
+       prof_height = max(tt[,3]) - tt[1,3] #compute original elevation gain of catena
+       
+       # append the dimension components, unweighted
+       profs_resampled_stored[i,1:(com_length+2)] <- c(p_resampled[,1], prof_length, prof_height)
+       
+       # treat supp_data if present (resample, weigh and add to profile vector to be included in cluster analysis)
+       if (n_suppl_attributes>0) 
+       {
+         #check supplemental data for this profile
+         p_supp <- tt[-(1:3),]
+         all_na <- apply(p_supp, 2, function(x) all(is.na(x)))
+         if (any(all_na))
+         {  
+           if (make_plots)
+             dev.off() #close PDF output
+           na_attributes = names(datacolumns[-(1:3)])[unique(sapply (X = which(all_na), function(x) min(which(cumsum(datacolumns[-(1:3)]) >= x))))] #names of attributes with all NAs
+           stop(paste0("Error: EHA ", p_id_unique[i]," has only NAs for attribute(s) ", paste0(na_attributes, collapse=", "),". Most likely a result of insufficient map coverage. Fix coverage, remove this attribute or replace NAs manually."))
+         }
+         profs_resampled_stored[i,(com_length+3):(com_length+2+com_length*n_supp_data_columns)] <- as.vector(p_resampled[,-1])
+       }     
+     }   
+     
+     close(testcon)
+     # remove not needed objects to save memory
+     rm(list = c("p_supp", "p_resampled", "tt"))
+     message(' ...loaded.')
     
+     #save(file="debug.RData", list = ls(all.names = TRUE)) #for debugging only
+     
+     
+    # PREPARE attribute loop and key-generation #
+
     # START OF CLASS KEY GENERATION #
     attr_weights_class_original <- attr_weights_class
     iw <- 1
     
-    # successive weighting vs. single run
+    # successive weighting vs. single run: set number of times the classification loop has to be run
     if (cf_mode == 'successive') {
       iw_max <- length(attr_weights_class) # successive weighting for each single attribute
     } else {
       iw_max <- 1  # cf_mode ='singlerun'
     }
     
-    
-    
-    
-    # do RESAMPLING of profiles and store resampled profiles
-    for (i in 1:length(profs)) {
-      # current relative location of sampling points on the scale [0:com_lengths-1]
-      cur_x <- profsx[[i]]/proflengths[i]*(com_length-1)
-      
-      # resample to common length
-      p_new <- approx(cur_x,profs[[i]],0:(com_length-1))$y
-      # set foot of profile to zero elevation
-      p_new <- p_new-p_new[1]
-      
-      # amplitude of profile will be scaled to 1
-      d <- max(p_new[1:com_length]) - min(p_new[1:com_length])
-      if(d==0) {
-        message('')
-        warning(paste('Warning: Profile ', p_id_unique[i], ' has no elevation gain (runs flat)', sep=""))
-        p_new[1:com_length] <- 0
-      } else {
-        # normalize profile in elevation (ie. normally, top end at elevation = 1)
-        p_new <- p_new / d
-      }
-      
-      # append the dimension components, unweighted
-      profs_resampled_stored[i,1:(com_length+2)] <- c(p_new, proflengths[i], profheights[i])
-      
-      # treat supp_data if present (resample, weigh and add to profile vector to be included in cluster analysis)
-      if (n_suppl_attributes) {
-        #retrieve all supplemental data for this profile
-        p_supp <- supp_data[which(p_id==p_id_unique[i]),, drop=F]
-        all_na <- apply(p_supp,2,function(x) all(is.na(x)))
-        if (any(all_na))
-        {  
-          if (make_plots)
-            dev.off() #close PDF output
-          
-          na_attributes = names(datacolumns[-(1:3)])[unique(sapply (X = which(all_na), function(x) min(which(cumsum(datacolumns[-(1:3)]) >= x))))] #names of attributes with all NAs
-          stop(paste0("Error: EHA ", p_id_unique[i]," has only NAs for attribute(s) ", paste0(na_attributes, collapse=", "),". Most likely a result of insufficient map coverage. Fix coverage, remove this attribute or replace NAs manually."))
-        }
-        
-        # resample supplemental data to common resolution and store the results in a temporary vector
-        p_supp_resampled_temp <- apply(p_supp,2,function(x) approx(cur_x, x, 0:(com_length-1))$y)
-        
-        profs_resampled_stored[i,(com_length+3):(com_length+2+com_length*n_supp_data_columns)] <- as.vector(p_supp_resampled_temp)
-      }
-      
-    } # end resamling profiles
-    
-    # save memory
-    rm(supp_data)
-    
-    
+
     # PLOT modified (resampled) profiles
     if (make_plots) {
-      profs_resampled_plot <- matrix(0, nrow=length(profs), ncol=com_length*datacolumns[1])
-      for (i in 1:length(profs))
-        profs_resampled_plot[i,1:(com_length)] <- profs_resampled_stored[i,1:com_length]
       plot(1,1,type="n", xlim=c(0,com_length-1), ylim=c(0,1),
            main="catenas, resampled, reduced & normalized", xlab="catena point number", ylab="relative elevation")
-      for (i in 1:nrow(profs_resampled_plot)) {
-        lines(0:(com_length-1), profs_resampled_plot[i,])
+      for (i in 1:nrow(profs_resampled_stored)) {
+        lines(0:(com_length-1), profs_resampled_stored[i,1:com_length])
       }
     }
     
   
-    
-    
-    
     # CLASSIFICATION loop through all attributes
     cidx_save <- list(NULL) # initialise list to store classification results; i.e. a vector assinging each EHA to a cluster class for each attribute
     hc <- 0
@@ -454,10 +420,10 @@ prof_class <- function(
         # set nclass to specification in header file
         nclasses <- attr_weights_class_original[iw]
         
-        # in case of erroneous input zero or only 1 class don't do classification, just append the result of classifying into 1 class
+        # in case of erroneous input zero or only 1 class, don't do classification, just append the result of classifying into 1 class
         if (nclasses==0 || nclasses==1) {
           
-          cidx_save[[iw]] <- rep(1, length(profs))
+          cidx_save[[iw]] <- rep(1, n_profs)
           
           message('')
           message(paste("skipped '", attr_names[iw], "' (", iw-(iw>2), "/", length(attr_names)-1, ") because number of classes=1", sep=""))
@@ -481,17 +447,18 @@ prof_class <- function(
       # auxiliary vector for computing required array size for pre-allocation
       t_help <- rep(1,length(datacolumns))*com_length
       t_help[2:3] <- 1 # dimension attributes need only one value
-      profs_resampled <- matrix(0, nrow=length(profs), ncol=sum(t_help*datacolumns*(attr_weights_class!=0)))
+      #ii: isn't this a copy of profs_resampled_stored, which is then weighted? Do we need this duplication, or
+      #couldn't weight and "unweigh" we the same instance to save memory?
+      profs_resampled <- matrix(0, nrow=n_profs, ncol=sum(t_help*datacolumns*(attr_weights_class!=0)))
       
       
       
       
       # do WEIGHTING for all profiles according to current weighting scheme
-      for (i in 1:length(profs)) {
+      for (i in 1:n_profs) {
         
-        dest_column <- 1      # destination coulumn where an attribute is placed
+        dest_column <- 1      # destination column where an attribute is placed
         
-        # ii proflengths, profheights eliminieren
         # weigh shape and the dimension components, weighted with specified weights attr_weights_class(2), attr_weights_class(3) multiplied by com_length to make the weighting independent of any com_length that was computed; TODO: don't understand this
         # put into data matrix only if the weighting factors are not zero
         if (attr_weights_class[1]) {
@@ -499,15 +466,17 @@ prof_class <- function(
           dest_column <- dest_column+com_length
         }
         if (attr_weights_class[2]) {
-          profs_resampled[i,dest_column] <- proflengths[i]*com_length*attr_weights_class[2]
+          prof_length = profs_resampled_stored[i,com_length+1] # real length of profile
+          profs_resampled[i,dest_column] <- prof_length*com_length*attr_weights_class[2]
           dest_column <- dest_column+1
         }
         if (attr_weights_class[3]) {
-          profs_resampled[i,dest_column] <- profheights[i]*com_length*attr_weights_class[3]
+          prof_height = profs_resampled_stored[i,com_length+2] # real height of profile
+          profs_resampled[i,dest_column] <- prof_height*com_length*attr_weights_class[3]
           dest_column <- dest_column+1
         }
         
-        
+        #ii: isn't this necessary only for cf_mode != 'successive'?
         #treat supp_data if present (resample, weigh and add to profile vector to be included in cluster analysis)
         if (n_suppl_attributes) {
           attr_start_column <- 1+com_length+2   #initial value for first loop
@@ -556,9 +525,10 @@ prof_class <- function(
       if (classify_type=='load') {
         # classification based on loaded classes, TODO
         #[cidx,sumd,dists]=cluster_supervised(profs_resampled_stored,nclasses,cluster_centers_weighted);
+        stop("not yet implemented")
       } else {
         # unsupervised classification
-        unique_profs=unique(x=profs_resampled)
+        unique_profs=unique(x=profs_resampled) #ii: avoid duplication of array here, try duplicates()?
         if (nrow(unique_profs) <= nclasses) #not enough distinct profiles for this attribute 
         {
           kmeans_out=NULL #disables later plots
@@ -589,7 +559,7 @@ prof_class <- function(
         message(paste(nclasses-length(unique(cidx)), ' empty clusters produced.', sep=""))
       } else if (make_plots) {
         # silhouette plot, doesn't work with empty clusters
-        if (!is.null(kmeans_out))
+        if (!is.null(kmeans_out) & plot_silhouette)
         {
           dists <- daisy(profs_resampled) # compute pairwise distances, TODO: see warnings
           plot(silhouette(kmeans_out$cluster, dists^2), main=attr_names[iw]) # plot silhouette
@@ -603,10 +573,12 @@ prof_class <- function(
       # PLOT classified catenas
       # originals
       if (make_plots) {
-        plot(1,1,type="n", xlim=c(0,max(unlist(profsx))), ylim=c(0,max(unlist(profs))),
+        plot(1,1,type="n", xlim=c(0,max(profs_resampled_stored[,com_length+1])), ylim=c(0,max(profs_resampled_stored[,com_length+2])),
              main=paste("Original catenas\nclassified according ", attr_names[iw], sep=""), xlab="horizontal length [m]", ylab="elevation [m]")
-        for (i in 1:length(profs)) {
-          lines(profsx[[i]], profs[[i]], col=cidx[i])
+        for (i in 1:n_profs) {
+          #lines(profsx[[i]], profs[[i]], col=cidx[i])
+          lines(   (0:(com_length-1) / (com_length-1)) * profs_resampled_stored[i,com_length+1], 
+                profs_resampled_stored[i,1:com_length] * profs_resampled_stored[i,com_length+2], col=cidx[i])
         }
       }
       
@@ -614,8 +586,8 @@ prof_class <- function(
       if (make_plots) {
         plot(1,1,type="n", xlim=c(0,com_length-1), ylim=c(0,1), main=paste("catenas, resampled, reduced & normalized\nclassified according ", attr_names[iw], sep=""), 
              xlab="catena point number", ylab="relative elevation")
-        for (i in 1:nrow(profs_resampled)) {
-          lines(0:(com_length-1), profs_resampled_plot[i,], col=cidx[i])
+        for (i in 1:nrow(profs_resampled_stored)) {
+          lines(0:(com_length-1), profs_resampled_stored[i,1:com_length], col=cidx[i])
         }
       }
       
@@ -636,7 +608,7 @@ prof_class <- function(
     # complete key generation (successive mode only)
     # successive weighting mode: all prior classifications will be merged into one by generating unique key 
     if (cf_mode == 'successive') {
-      cidx_save[[iw_max+1]] <- 0
+      cidx_save[[iw_max+1]] <- 0 #inititalize overall (composite) classification result
       
       for (iz in 1:iw_max) {
         
@@ -644,7 +616,7 @@ prof_class <- function(
         if (iz==3) next
         
         # generate key from previous classifications
-        cidx_save[[iw_max+1]] <- cidx_save[[iw_max+1]]*10 + cidx_save[[iz]]
+        cidx_save[[iw_max+1]] <- cidx_save[[iw_max+1]]*10 + cidx_save[[iz]] #attention: this will be faulty when more than 10 classes have been chosen for any attribute, fix this
       }
       
       nclasses <- length(unique(cidx_save[[iw_max+1]]))
@@ -654,7 +626,7 @@ prof_class <- function(
       cidx <- cidx_save[[iw_max+1]]
       
       # quick and dirty computation of distance matrix to allow the rest of the script to be run without problems
-      dists <- matrix(1, nrow=length(profs), ncol=nclasses) 
+      dists <- matrix(1, nrow=n_profs, ncol=nclasses) 
       unique_classes <- unique(cidx)
       for (ii in 1:nclasses) {
         # find all profiles belonging to current class
@@ -679,7 +651,7 @@ prof_class <- function(
     
     mean_prof <- matrix(NA, nrow=nclasses, ncol=ncol(profs_resampled_stored)) # mean shape of every class
     class_repr <- matrix(NA, nrow=nclasses, ncol=2) # min. distance of class i to centroid and resp. ID
-    lu_labels=NULL #labels for LUs consisting of appended class memberships for each attribute  
+    
     for (i in 1:nclasses) {
       
       # find all profiles belonging to current class
@@ -835,8 +807,13 @@ prof_class <- function(
     # save original mean_prof (for later plotting only)
     mean_prof_orig_t <- mean_prof
     
-    
-    
+    #create labels for LUs
+    lu_labels=NULL #labels for LUs consisting of appended class memberships for each attribute  
+    for (i in 1:nclasses) {
+      class_i <- which(cidx==unique_classes[i])
+      curr_lu_key <- unique(cidx[class_i])
+      lu_labels=c(lu_labels, curr_lu_key)
+    }  
     
     # PARTITIONING OF MEAN PROFILE FOR EACH LU #
     for (i in 1:nclasses) {
@@ -1088,7 +1065,6 @@ prof_class <- function(
       
       
       #----------file output lu.dat
-      lu_labels=c(lu_labels, curr_lu_key)
       # write LU-ID, closest catena and its distance, catena length and relative elevation
       lu_out_dat <- c(i, p_id_unique[class_repr[i,1]], class_repr[i,2], round(mean_prof[i,(com_length+1):(com_length+2)],1))
       # write limits of TC-decomposition
@@ -1229,23 +1205,22 @@ prof_class <- function(
     
     message('\nDONE!\n')
     
-    
-    
-    
-    
-    
+
     # if an error occurs...
-  }, error = function(e) {
-    
-    # stop sinking
-    closeAllConnections()
-    
-    # restore original warning mode
-    if(silent)
-      options(warn = oldw)
-    
-    stop(paste(e))  
-  })
+  
+    }   #, 
+  # error = function(e) {
+  #   
+  #   # stop sinking
+  #   closeAllConnections()
+  #   
+  #   # restore original warning mode
+  #   if(silent)
+  #     options(warn = oldw)
+  #   
+  #   stop(paste(e))  
+  # 
+  #   })
     
 } # EOF
 
