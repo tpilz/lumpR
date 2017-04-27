@@ -564,7 +564,9 @@ prof_class <- function(
         {
           dists <- daisy(profs_resampled) # compute pairwise distances, TODO: see warnings
           plot(silhouette(kmeans_out$cluster, dists^2), main=attr_names[iw]) # plot silhouette
-        }  
+        }  else
+        dists <- rep(-9999,n_profs) #dummy, no distance computed
+      
       }
       
       
