@@ -124,15 +124,17 @@ The following checks are currently included and can be specified via argument \c
  
  \bold{delete_obsolete}\cr
  Delete obsolete datasets. I.e. special area SVCs, LUs not in any subbasin, TCs
- not in any LU, and SVCs not in any TC from the \emph{contains}- and the parent tables.
+ not in any LU, SVCs not in any TC from the \emph{contains}- and the parent tables,
+ and datasets in 'rainy_season' with obsolete subbasins (if table 'rainy_season' exists).
  Dependencies are respected. Areal fractions will be updated.
  
  \bold{completeness}\cr
  Check database for completeness. I.e. check if all IDs in the \emph{contains}-tables
  exist within the repective referenced tables and also in the lower level
  \emph{contains}-tables. Furthermore, check if all vegetation
- types and soils exist as referenced within 'soil_veg_components', and if all
- soils exist as referenced within 'horizons'.
+ types and soils exist as referenced within 'soil_veg_components', if all
+ soils exist as referenced within 'horizons', and if all subbasins in 'subbasins'
+ exist within 'rainy_season' (if table 'rainy_season' exists).
  If the check fails, function returns an error. If \code{fix=T}, additionally a warning
  message will be writting into table 'meta_info' of the databse.
  

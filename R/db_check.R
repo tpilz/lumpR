@@ -129,15 +129,17 @@
 #'  
 #'  \bold{delete_obsolete}\cr
 #'  Delete obsolete datasets. I.e. special area SVCs, LUs not in any subbasin, TCs
-#'  not in any LU, and SVCs not in any TC from the \emph{contains}- and the parent tables.
+#'  not in any LU, SVCs not in any TC from the \emph{contains}- and the parent tables,
+#'  and datasets in 'rainy_season' with obsolete subbasins (if table 'rainy_season' exists).
 #'  Dependencies are respected. Areal fractions will be updated.
 #'  
 #'  \bold{completeness}\cr
 #'  Check database for completeness. I.e. check if all IDs in the \emph{contains}-tables
 #'  exist within the repective referenced tables and also in the lower level
 #'  \emph{contains}-tables. Furthermore, check if all vegetation
-#'  types and soils exist as referenced within 'soil_veg_components', and if all
-#'  soils exist as referenced within 'horizons'.
+#'  types and soils exist as referenced within 'soil_veg_components', if all
+#'  soils exist as referenced within 'horizons', and if all subbasins in 'subbasins'
+#'  exist within 'rainy_season' (if table 'rainy_season' exists).
 #'  If the check fails, function returns an error. If \code{fix=T}, additionally a warning
 #'  message will be writting into table 'meta_info' of the databse.
 #'  
@@ -1028,12 +1030,19 @@ db_check <- function(
     dat_tc <- sqlFetch(con, "terrain_components")
     dat_tc_contains <- sqlFetch(con, "r_tc_contains_svc")
     dat_svc <- sqlFetch(con, "soil_veg_components")
+    if ("rainy_season" %in% sqlTables(con)[, "TABLE_NAME"])
+      rainy_exists <- TRUE
+    else
+      rainy_exists <- FALSE
+    if(rainy_exists)
+      dat_rainy <- sqlFetch(con, "rainy_season")
     
     # identify obsolete LUs, TCs, SVCs as is
     r_del_lu <- which(!(dat_lu$pid %in% dat_sub_contains$lu_id) | !(dat_lu$pid %in% dat_lu_contains$lu_id))
     r_del_tc <- which(!(dat_tc$pid %in% dat_lu_contains$tc_id) | !(dat_tc$pid %in% dat_tc_contains$tc_id))
     r_del_svc <- which(!(dat_svc$pid %in% dat_tc_contains$svc_id) | dat_svc$special_area != 0)
     r_del_sub <- NULL
+    r_del_rainy <- NULL
     
     # determine all obsolete datasets including dependencies
     if(any(r_del_svc)) {
@@ -1067,6 +1076,14 @@ db_check <- function(
         r_del_sub <- which(!(dat_sub$pid %in% dat_sub_contains$subbas_id[-r_tmp]))
     }
     
+    # identify obsolete entries in rainy_season
+    if(rainy_exists) {
+      if(any(r_del_sub))
+        r_del_rainy <- which(!(dat_rainy$subbas_id %in% dat_sub$pid[-r_del_sub]))
+      else
+        r_del_rainy <- which(!(dat_rainy$subbas_id %in% dat_sub$pid))
+    }
+    
     # report
     if(!fix | verbose) {
       if(any(r_del_sub)) {
@@ -1096,6 +1113,10 @@ db_check <- function(
         print(dat_svc[dat_svc$pid[r_del_svc],])
         print("... affecting the following datasets in 'r_tc_contains_svc':")
         print(dat_tc_contains[which(dat_tc_contains$svc_id %in% dat_svc$pid[r_del_svc]),])
+      }
+      if(any(r_del_rainy)) {
+        print("-> The following datasets in 'rainy_season' are obsolete:")
+        print(dat_rainy[r_del_rainy,])
       }
     }
     
@@ -1182,6 +1203,17 @@ db_check <- function(
                       append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
               tbl_changed <- c(tbl_changed, "r_tc_contains_svc")
             }
+          }
+          
+          if(any(r_del_rainy)) {
+            dat_rainy <- dat_rainy[-r_del_rainy,]
+            # update pid
+            dat_rainy$pid <- 1:nrow(dat_rainy)
+            # write to db
+            sqlQuery(con, "delete from rainy_season")
+            sqlSave(channel=con, tablename = "rainy_season", dat=dat_rainy, verbose=F, 
+                    append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
+            tbl_changed <- c(tbl_changed, "rainy_season")
           }
           
           
@@ -1388,6 +1420,24 @@ db_check <- function(
       print("-> The following soils appear in 'horizons' but not in 'soils':")
       print(paste(unique(dat_hor$soil_id[r_miss]), collapse = ", "))
       compl_failed <- compl_failed + 1
+    }
+    
+    
+    ### rainy_season
+    
+    if ("rainy_season" %in% sqlTables(con)[, "TABLE_NAME"]) {
+      # get data
+      dat_rainy <- sqlFetch(con, "rainy_season")
+      dat_sub <- sqlFetch(con, "subbasins")
+      
+      # check subbasins in rainy_season
+      r_miss <- which(!(dat_sub$pid %in% dat_rainy$subbas_id))
+      
+      if(any(r_miss)) {
+        print("-> The following subbasins appear in 'subbasins' but not in 'rainy_season':")
+        print(paste(unique(dat_sub$pid[r_miss]), collapse = ", "))
+        compl_failed <- compl_failed + 1
+      }
     }
     
     
