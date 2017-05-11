@@ -7,8 +7,8 @@
 db_fill(dbname, tables = c("r_subbas_contains_lu", "subbasins",
   "landscape_units", "r_lu_contains_tc", "terrain_components",
   "r_tc_contains_svc", "vegetation", "soils", "horizons", "soil_veg_components",
-  "particle_classes", "r_soil_contains_particles"), dat_files, dat_dir,
-  overwrite = FALSE, verbose = TRUE)
+  "particle_classes", "r_soil_contains_particles", "rainy_season"), dat_files,
+  dat_dir, overwrite = FALSE, verbose = TRUE)
 }
 \arguments{
 \item{dbname}{Name of the data source (DSN) registered at ODBC. See \code{Details} of
@@ -446,14 +446,13 @@ For each table a single file has to be prepared manually and/or using functions 
    
    
  \bold{rainy_season}\cr
- Fill in values \bold{manually} (i.e. this is not supported by this function) 
- using output of \code{\link[lumpR]{rainy_season}}. You can define separate
+ Fill in output of \code{\link[lumpR]{rainy_season}}. You can define separate
  seasonalities for different vegetation types if you want (i.e. 'growing season'
  instead of 'rainy season'). In this case the rainy/growing season starts and ends
  differently for the respective vegetation types. This, however, is not
  respected by function \code{\link[lumpR]{rainy_season}} which determines seasonalities
  based on precipitation only. You can use the wildcard value '-1' for all
- (remaining) vegetation types. After manual fill don't forget to update 'meta_info'.
+ (remaining) vegetation types.
  Columns:
    
    \emph{pid}\cr
