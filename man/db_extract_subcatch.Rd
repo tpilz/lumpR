@@ -20,7 +20,7 @@ containing the extracted sub-catchments. Database need to be registered for ODBC
 (see \code{Details} of \code{\link[lumpR]{db_create}}).}
 
 \item{ncores}{Ineger specifying number of cores that shall be used for computation.
-Needs package doMC (Linux only) or doParallel for ncores > 1. Default: 1.}
+Needs package doMC (Linux only) or doParallel for ncores > 1. Default: 1. See Note.}
 
 \item{verbose}{\code{logical}. Should detailed information during execution be
 printed? Default: \code{TRUE}.}
@@ -44,6 +44,13 @@ later on.
 Processing time might be rather long depending on \code{ncores}, the number of
 datasets to be processed, the underlying DBMS (sqlite is rather slow), and your
 operating system (Windows was always faster in my tests).
+}
+\note{
+Running on multiple CPU cores (option \code{ncores}) does not work properly.
+On Linux, just several threads are stared and processed but it is not real parallel
+processing, which presumably does not work with ODBC. However, it runs a bit faster
+than in serial mode. On Windows, however, my tests with \code{ncores > 1} resulted in errors.
+So, if it does not work on your Windows machine neither, set \code{ncores = 1}.
 }
 \author{
 Tobias Pilz \email{tpilz@uni-potsdam.de}
