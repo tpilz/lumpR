@@ -113,7 +113,7 @@ sql_dialect <- function(con, statement) {
   }
   
   return(statement)
-} # EOF
+} # EOF sql_dialect
 
 
 
@@ -163,7 +163,7 @@ writedb <- function(con, file, table, overwrite, verbose) {
 }
   )
 
-} # EOF
+} # EOF writedb
 
 
 
@@ -194,7 +194,7 @@ write_datetabs <- function(con, dat, tab, verbose) {
   if(verbose)
     print(paste0("Updated table '",tab,"'."))
   
-} # EOF
+} # EOF write_datetabs
 
 
 
@@ -356,4 +356,38 @@ filter_small_areas <- function(con, table, thres, fix, verbose, tbl_changed) {
   } # if any fraction < area_thresh
 
   return(tbl_changed)
-} # EOF
+} # EOF filter_small_areas
+
+
+
+
+
+# helper function to connect to a database
+connect_db <- function(dbname) {
+  suppressWarnings(con <- odbcConnect(dbname, believeNRows=F))
+  if (con == -1)
+    stop(paste0("Could not connect to database '", dbname, "'. Type 'odbcDataSources()' to see the data sources known to ODBC.",
+                 " If you want to connect to a MS Access database make sure you are using 32 bit R."))
+  return(con)
+} # EOF connect_db
+
+
+
+
+
+# simple function to copy data from one database table into another (same table name)
+# NOTE: ODBC::sqlCopy and ODBC::sqlCopyTable do not work properly
+dbCopyTable <- function(con, tab, con_dest) {
+  # read data
+  dat <- sqlFetch(con, tab)
+  
+  # check if there is a DATETIME column and use internal function write_datetabs() if so
+  types <- sqlColumns(con, tab)$TYPE_NAME
+  if(any(grepl("datetime", types, ignore.case = T)))
+    write_datetabs(con_dest, dat, tab, verbose = F)
+  else {
+    sqlQuery(con_dest, paste0("delete from ", tab))
+    sqlSave(con_dest, dat, tab, verbose=F, append=TRUE , test = FALSE,
+            nastring = NULL, fast = TRUE, rownames = FALSE)
+  }
+} # EOF dbCopyTable
