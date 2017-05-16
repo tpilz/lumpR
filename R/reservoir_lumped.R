@@ -192,10 +192,13 @@ reservoir_lumped <- function(
   # check that reservoir vector file has column 'volume' or 'area'
   cmd_out <- execGRASS("v.info", map=res_vect, flags=c("c"), intern=T, ignore.stderr = T)
   cmd_out <- unlist(strsplit(cmd_out, "|", fixed=T))
-  cols <- grep("area|volume", cmd_out, value=T)
-  if(length(cols) == 0)
+  ncols <- grep("area|volume", cmd_out, value = T)
+  if(length(ncols) == 0)
     stop("Attribute table of input vector 'res_vect' needs column 'area' (in m^2) OR (preferrably) 'volume' (in m^3)!")
-  
+  if(length(ncols) == 2)
+    cols <- "volume"
+  else
+    cols <- ncols
   
   
   # CLEAN UP AND RUNTIME OPTIONS # 
@@ -253,15 +256,29 @@ reservoir_lumped <- function(
       if(is.null(res_param$area_max)) {
         # area_max is also not given, i.e. calculate vol_max based on quantiles of sizes given in GRASS data
         res_lump <- readVECT6(res_vect)
-        quants <- quantile(res_lump@data[,cols], probs=c(.2,1))
-        classes <- exp(approx(log(quants), n = length(res_param$class))$y)
-        if(cols == "volume") {
-          res_param$vol_max <- classes
-          res_param$area_max <- molle_a(res_param$alpha_Molle, res_param$damk_Molle, classes)
-        } else {
-          res_param$vol_max <- molle_v(res_param$alpha_Molle, res_param$damk_Molle, classes)
-          res_param$area_max <- classes
+        # WINDOWS PROBLEM: delete temporary file otherwise an error occurs when calling writeVECT or readVECT again with the same (or a similar) file name 
+        if(.Platform$OS.type == "windows") {
+          dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
+          files_del <- grep(substr(res_vect, 1, 8), dir(dir_del), value = T)
+          file.remove(paste(dir_del, files_del, sep="/"))
         }
+        if("volume" %in% ncols) {
+          quants <- quantile(res_lump@data[,cols], probs=c(.2,1))
+          classes <- exp(approx(log(quants), n = length(res_param$class))$y)
+          res_param$vol_max <- classes
+          if("area" %in% ncols) {
+            quants <- quantile(res_lump@data[,"area"], probs=c(.2,1))
+            classes <- exp(approx(log(quants), n = length(res_param$class))$y)
+            res_param$area_max <- classes
+          } else
+            res_param$area_max <- molle_a(res_param$alpha_Molle, res_param$damk_Molle, classes)
+        } else {
+          quants <- quantile(res_lump@data[,cols], probs=c(.2,1))
+          classes <- exp(approx(log(quants), n = length(res_param$class))$y)
+          res_param$area_max <- classes
+          res_param$vol_max <- molle_v(res_param$alpha_Molle, res_param$damk_Molle, res_param$area_max)
+        }
+        
       } else
         res_param$vol_max <- molle_v(res_param$alpha_Molle, res_param$damk_Molle, res_param$area_max)
     }
@@ -270,8 +287,15 @@ reservoir_lumped <- function(
     sub_dat <- suppressWarnings(readRAST6(sub_rast))
     subbas_all <- na.omit(unique(sub_dat@data))
     projection(sub_dat) <- getLocationProj()
-    if(!exists("res_lump"))
+    if(!exists("res_lump")) {
       res_lump <- suppressWarnings(readVECT6(res_vect))
+      # WINDOWS PROBLEM: delete temporary file otherwise an error occurs when calling writeVECT or readVECT again with the same (or a similar) file name 
+      if(.Platform$OS.type == "windows") {
+        dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
+        files_del <- grep(substr(res_vect, 1, 8), dir(dir_del), value = T)
+        file.remove(paste(dir_del, files_del, sep="/"))
+      }
+    }
     projection(res_lump) <- getLocationProj()
     
     # determine which reservoirs are in which subbasin
@@ -312,8 +336,15 @@ reservoir_lumped <- function(
     message("\nCreate output files...\n")
     
     # res_vect_class
-    if(!is.null(res_vect_class))
+    if(!is.null(res_vect_class)) {
       writeVECT6(res_lump[-r_nares,], res_vect_class)
+      # WINDOWS PROBLEM: delete temporary file otherwise an error occurs when calling writeVECT or readVECT again with the same (or a similar) file name 
+      if(.Platform$OS.type == "windows") {
+        dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
+        files_del <- grep(substr(res_vect_class, 1, 8), dir(dir_del), value = T)
+        file.remove(paste(dir_del, files_del, sep="/"))
+      }
+    }
     
     # lake.dat from 'res_param'
     write("Specification of parameters for the reservoir size classes", paste(dir_out, lake_file, sep="/"))
