@@ -6,9 +6,9 @@
 \usage{
 reservoir_lumped(res_vect = NULL, sub_rast = NULL, res_vect_class = NULL,
   dir_out = "./", lake_file = "lake.dat",
-  lakenum_file = "lake_number.dat", res_param = data.frame(class = 1:5,
-  vol_max = c(5000, 25000, 50000, 1e+05, 250000), f_vol_init = 0.2, class_change
-  = 0, alpha_Molle = 2.7, damk_Molle = 1500, damc_hrr = c(7, 14, 21, 28, 35),
+  lakenum_file = "lake_number.dat", lakemaxvol_file = "lake_maxvol.dat",
+  res_param = data.frame(class = 1:5, f_vol_init = 0.2, class_change = 0,
+  alpha_Molle = 2.7, damk_Molle = 1500, damc_hrr = c(7, 14, 21, 28, 35),
   damd_hrr = 1.5), keep_temp = F, overwrite = F, silent = F)
 }
 \arguments{
@@ -21,9 +21,10 @@ with information on lake area in [m^2] in the attribute table.}
 \item{sub_rast}{Name of subbasin raster map in GRASS location. Can be created with
 \code{\link[lumpR]{calc_subbas}}.}
 
-\item{res_vect_class}{Output: Name for the vector reservoir map created in GRASS
-location containing information on reservoir size classes in the attribute
-table. If \code{NULL} (default) it will not be created.}
+\item{res_vect_class}{Output: Name for the vector reservoir map to be created in GRASS
+location. As \code{res_vect} with information of area or volume (which is missing),
+ID of the subbasin in which the reservoir is located, and the classified size class
+appended to the attribute table. If \code{NULL} (default) it will not be created.}
 
 \item{dir_out}{Character string specifying output directory (will be created if
 not available and files will be overwritten if \code{overwrite = TRUE}.}
@@ -33,6 +34,9 @@ See \code{Details}.}
 
 \item{lakenum_file}{Output: WASA file containing specification of total number
 of reservoirs in the size classes for a specific subbasin. See \code{Details}.}
+
+\item{lakemaxvol_file}{Output: WASA file containing specification of maximum volume
+of small reservoirs for a specific subbasin - size class combination.}
 
 \item{res_param}{A \code{data.frame} object containing parameters for the reservoir
 size classes. Given standard parameter set adjusted to semi-arid Brazil.
@@ -54,18 +58,21 @@ a pre-processed reservoir vector and a subbasin raster file stored in a GRASS
 location.
 }
 \details{
-This function creates the mandatory WASA input files needed to run the model
+This function creates WASA input files needed to run the model
      with option \code{doacudes}.
      
-     The given standard parameter set was estimated by Molle (1989) for the semi-arid
-     part of Brazil and needs to be adjusted if applied to some other region!
+     The given standard parameter set was estimated by Molle (1989) for the 
+     \bold{semi-arid NE of Brazil} and needs to be adjusted if applied to some other region!
      
      \bold{lake_file} / \bold{res_param}\cr
      Specification of parameters for the reservoir size classes. Note same order for
      \code{lake_file} and \code{res_param} but different header names! If information
-     on 'maxlake0' / 'vol_max' is not available, give 'area_max', i.e. the maximum area
-     of reservoir size classes in \emph{m^2}. This is internally converted to volume
+     on 'maxlake0' / 'vol_max' is not available, you can specify 'area_max' in \code{res_param},
+     i.e. the maximum area of reservoir size classes in \emph{m^2}. This is internally converted to volume
      by relationship of Molle (1989) using parameters 'alpha_Molle' and 'damk_Molle'.
+     If neither is given (default), the values will be estimated from the 20 % and 100 %
+     percentiles of the value distribution of area or volume in \code{res_vect} by interpolation
+     between both values using a logarithmic relationship.
      
      \emph{Reservoir_class-ID / class}\cr
      ID of reservoir size class.
@@ -101,10 +108,24 @@ This function creates the mandatory WASA input files needed to run the model
      
      \emph{acud}\cr
      Total number of reservoirs in the size classes.
+     
+     
+     \bold{lakemaxvol_file}\cr
+     Specification of the maximum volume of reservoirs for the size classes for a
+     specific subbasin.
+     
+     \emph{Subasin-ID}\cr
+     Subbasin ID.
+     
+     \emph{maxlake}\cr
+     Maximum volumes in \emph{m^3} of reservoirs in the size classes.
 }
 \note{
 Prepare GRASS location and necessary spatial objects in advance and start
      GRASS session in R using \code{\link[spgrass6]{initGRASS}}.
+     
+     Points in \code{res_vect} not overlapping with any \code{sub_rast} will be
+     silently removed during processing!
 }
 \references{
 WASA model in general:\cr

@@ -27,15 +27,18 @@
 #'      with information on lake area in [m^2] in the attribute table.
 #' @param sub_rast Name of subbasin raster map in GRASS location. Can be created with
 #'      \code{\link[lumpR]{calc_subbas}}.
-#' @param res_vect_class Output: Name for the vector reservoir map created in GRASS
-#'      location containing information on reservoir size classes in the attribute
-#'      table. If \code{NULL} (default) it will not be created.
+#' @param res_vect_class Output: Name for the vector reservoir map to be created in GRASS
+#'      location. As \code{res_vect} with information of area or volume (which is missing),
+#'      ID of the subbasin in which the reservoir is located, and the classified size class
+#'      appended to the attribute table. If \code{NULL} (default) it will not be created.
 #' @param dir_out Character string specifying output directory (will be created if
 #'      not available and files will be overwritten if \code{overwrite = TRUE}.
 #' @param lake_file Output: WASA file of parameters for the reservoir size classes.
 #'      See \code{Details}.
 #' @param lakenum_file Output: WASA file containing specification of total number
 #'      of reservoirs in the size classes for a specific subbasin. See \code{Details}.
+#' @param lakemaxvol_file Output: WASA file containing specification of maximum volume
+#'      of small reservoirs for a specific subbasin - size class combination.
 #' @param res_param A \code{data.frame} object containing parameters for the reservoir
 #'      size classes. Given standard parameter set adjusted to semi-arid Brazil.
 #'      See \code{Details}.
@@ -50,18 +53,24 @@
 #' @note Prepare GRASS location and necessary spatial objects in advance and start
 #'      GRASS session in R using \code{\link[spgrass6]{initGRASS}}.
 #'      
-#' @details This function creates the mandatory WASA input files needed to run the model
+#'      Points in \code{res_vect} not overlapping with any \code{sub_rast} will be
+#'      silently removed during processing!
+#'      
+#' @details This function creates WASA input files needed to run the model
 #'      with option \code{doacudes}.
 #'      
-#'      The given standard parameter set was estimated by Molle (1989) for the semi-arid
-#'      part of Brazil and needs to be adjusted if applied to some other region!
+#'      The given standard parameter set was estimated by Molle (1989) for the 
+#'      \bold{semi-arid NE of Brazil} and needs to be adjusted if applied to some other region!
 #'      
 #'      \bold{lake_file} / \bold{res_param}\cr
 #'      Specification of parameters for the reservoir size classes. Note same order for
 #'      \code{lake_file} and \code{res_param} but different header names! If information
-#'      on 'maxlake0' / 'vol_max' is not available, give 'area_max', i.e. the maximum area
-#'      of reservoir size classes in \emph{m^2}. This is internally converted to volume
+#'      on 'maxlake0' / 'vol_max' is not available, you can specify 'area_max' in \code{res_param},
+#'      i.e. the maximum area of reservoir size classes in \emph{m^2}. This is internally converted to volume
 #'      by relationship of Molle (1989) using parameters 'alpha_Molle' and 'damk_Molle'.
+#'      If neither is given (default), the values will be estimated from the 20 % and 100 %
+#'      percentiles of the value distribution of area or volume in \code{res_vect} by interpolation
+#'      between both values using a logarithmic relationship.
 #'      
 #'      \emph{Reservoir_class-ID / class}\cr
 #'      ID of reservoir size class.
@@ -99,6 +108,17 @@
 #'      Total number of reservoirs in the size classes.
 #'      
 #'      
+#'      \bold{lakemaxvol_file}\cr
+#'      Specification of the maximum volume of reservoirs for the size classes for a
+#'      specific subbasin.
+#'      
+#'      \emph{Subasin-ID}\cr
+#'      Subbasin ID.
+#'      
+#'      \emph{maxlake}\cr
+#'      Maximum volumes in \emph{m^3} of reservoirs in the size classes.
+#'      
+#'      
 #' @references 
 #'      WASA model in general:\cr
 #'      Guentner, A. (2002): Large-scale hydrological modelling in the semi-arid 
@@ -125,9 +145,9 @@ reservoir_lumped <- function(
   dir_out="./",
   lake_file="lake.dat",
   lakenum_file="lake_number.dat",
+  lakemaxvol_file="lake_maxvol.dat",
   # PARAMETERS #
   res_param=data.frame(class=1:5,
-                       vol_max=c(5000,25000,50000,100000,250000),
                        f_vol_init=0.2,
                        class_change=0,
                        alpha_Molle=2.7,
@@ -154,8 +174,6 @@ reservoir_lumped <- function(
   # check 'res_param'
   if(!is.data.frame(res_param))
     stop("'res_param' has to be a data.frame!")
-  if(is.null(res_param$area_max) & is.null(res_param$vol_max))
-    stop("'res_param' needs column 'area_max' or 'vol_max' to be given!")
   if(is.null(res_param$class))
     stop("'res_param' needs column 'class' to be given!")
   if(is.null(res_param$f_vol_init))
@@ -178,10 +196,7 @@ reservoir_lumped <- function(
   if(length(cols) == 0)
     stop("Attribute table of input vector 'res_vect' needs column 'area' (in m^2) OR (preferrably) 'volume' (in m^3)!")
   
-  # calculate vol_max for 'res_param' if not available
-  if(is.null(res_param$vol_max))
-    res_param$vol_max <- (res_param$area_max / (res_param$alpha_Molle * res_param$damk_Molle))^( res_param$alpha_Molle / (res_param$alpha_Molle - 1) ) * res_param$damk_Molle
-
+  
   
   # CLEAN UP AND RUNTIME OPTIONS # 
   # suppress annoying GRASS outputs
@@ -195,6 +210,10 @@ reservoir_lumped <- function(
     oldw <- getOption("warn")
     options(warn = -1)
   }
+  
+  # help function: calculation of reservoir volume / area by empirical relationship of Molle (1989)
+  molle_v <- function(alpha, k, A) 10^(log10(A/alpha/k)*(alpha-1)/alpha+log10(k))
+  molle_a <- function(alpha, k, V) alpha * k * (V/k)^(alpha/(alpha-1))
   
   
   
@@ -227,66 +246,74 @@ reservoir_lumped <- function(
       
     
     # GROUP RESERVOIRS INTO SIZE CLASSES #
-    message("\nGroup reservoirs into size classes...\n")
+    message("\nReservoir calculations...\n")
     
-    if(any(grepl("volume", cols))) { # volume information is available
-      
-      # convert vector to raster data for processing
-      execGRASS("v.to.rast", input=res_vect, output="reservoirs_lump_vol_t", column="volume")
-      
-      # loop over reservoir size classes to create formula string for r.mapcalculator
-      res_param_t <- rbind(0, res_param)
-      res_param_order <- order(res_param_t$vol_max)
-      expr <- NULL
-      for(s in 1:nrow(res_param)) {
-        expr_t <- paste0("if( A > ", sprintf(res_param_t$vol_max[res_param_order[s]], fmt="%f"), " && A < ", sprintf(res_param_t$vol_max[res_param_order[s+1]], fmt="%f"), ", ", res_param_t$class[res_param_order[s+1]], ", ")
-        expr <- paste0(expr, expr_t)
-      }
-      expr <- paste0(expr, "0", paste0(rep(")", nrow(res_param)), collapse = ""))
-      
-      # apply classification
-      execGRASS("r.mapcalculator", amap="reservoirs_lump_vol_t", outfile="reservoirs_classes_t", formula=expr)
-      
-    } else { # only area information is available
-      
-      # convert vector to raster data for processing
-      execGRASS("v.to.rast", input=res_vect, output="reservoirs_lump_area_t", column="area")
-      
-      # calculate maximum areas from volume in res_param
-      res_param_area <- res_param$alpha_Molle * res_param$damk_Molle * (res_param$vol_max / res_param$damk_Molle)^( (res_param$alpha_Molle - 1) / res_param$alpha_Molle )
-      
-      # loop over reservoir size classes to create formula string for r.mapcalculator
-      res_param_t <- cbind(res_param, area=res_param_area)
-      res_param_t <- rbind(0, res_param_t)
-      res_param_order <- order(res_param_t$area)
-      expr <- NULL
-      for(s in 1:nrow(res_param)) {
-        expr_t <- paste0("if( A > ", sprintf(res_param_t$area[res_param_order[s]], fmt="%f"), " && A < ", sprintf(res_param_t$area[res_param_order[s+1]], fmt="%f"), ", ", res_param_t$class[res_param_order[s+1]], ", ")
-        expr <- paste0(expr, expr_t)
-      }
-      expr <- paste0(expr, "0", paste0(rep(")", nrow(res_param)), collapse = ""))
-      
-      # apply classification
-      execGRASS("r.mapcalculator", amap="reservoirs_lump_area_t", outfile="reservoirs_classes_t", formula=expr)
-      
+    # calculate parameter vol_max if not given
+    if(is.null(res_param$vol_max)) {
+      if(is.null(res_param$area_max)) {
+        # area_max is also not given, i.e. calculate vol_max based on quantiles of sizes given in GRASS data
+        res_lump <- readVECT6(res_vect)
+        quants <- quantile(res_lump@data[,cols], probs=c(.2,1))
+        classes <- exp(approx(log(quants), n = length(res_param$class))$y)
+        if(cols == "volume") {
+          res_param$vol_max <- classes
+          res_param$area_max <- molle_a(res_param$alpha_Molle, res_param$damk_Molle, classes)
+        } else {
+          res_param$vol_max <- molle_v(res_param$alpha_Molle, res_param$damk_Molle, classes)
+          res_param$area_max <- classes
+        }
+      } else
+        res_param$vol_max <- molle_v(res_param$alpha_Molle, res_param$damk_Molle, res_param$area_max)
     }
     
-    # check result for reservoir being larger than given maximum and give warning if necessary
-    cmd_out <- execGRASS("r.stats", input="reservoirs_classes_t", fs=",", flags=c("n", "c"), intern=T, ignore.stderr = T)
-    cmd_out <- matrix(as.numeric(unlist(strsplit(cmd_out, ","))), ncol=2, byrow = T)
-    if(any(cmd_out[,1] == 0))
-      warning(paste0("There are ", cmd_out[which(cmd_out[,1]==0),2], " reservoirs larger than largest given reservoir class which will be ignored!\n",
-                     "These are candidates for strategic reservoir types. If you intended to handle them in a lumped manner as well you should adjust the size class difinitions in 'res_param' accordingly."))
+    # read subbasin and reservoir data
+    sub_dat <- suppressWarnings(readRAST6(sub_rast))
+    subbas_all <- na.omit(unique(sub_dat@data))
+    projection(sub_dat) <- getLocationProj()
+    if(!exists("res_lump"))
+      res_lump <- suppressWarnings(readVECT6(res_vect))
+    projection(res_lump) <- getLocationProj()
     
-    # output vector file (classified reservoirs)
-    execGRASS("r.null", map="reservoirs_classes_t", setnull="0")
-    if(!is.null(res_vect_class))
-      execGRASS("r.to.vect", input="reservoirs_classes_t", output=res_vect_class, feature="point")
+    # determine which reservoirs are in which subbasin
+    sub_contains <- over(res_lump, sub_dat)
+    res_lump$sub_id <- sub_contains[[1]]
+    # omit NAs (i.e., reservoirs not in any subbasin / outside of watershed)
+    r_nares <- which(is.na(sub_contains))
     
+    # determine size class for each reservoir
+    if(cols == "volume")
+      res_lump$size_class <- cut(res_lump$volume, c(0, res_param$vol_max), labels=res_param$class)
+    else 
+      res_lump$size_class <- cut(res_lump$area, c(0, res_param$area_max), labels=res_param$class)
     
+    # calculate volume for reservoirs if it does not exist
+    if(cols != "volume")
+      for(i in 1:nrow(res_lump))
+        res_lump$volume[i] <- molle_v(res_param$alpha_Molle[res_lump$size_class[i]],
+                                      res_param$damk_Molle[res_lump$size_class[i]],
+                                      res_lump$area[i])
+    
+    # get information of maximum volume for each subbasin - size class combination
+    lake_maxvol <- tapply(res_lump$volume, list(sub_id=res_lump$sub_id, size_class=res_lump$size_class), max)
+    lake_maxvol[which(is.na(lake_maxvol))] <- 0
+    sub_miss <- subbas_all[[1]][which(!(subbas_all[[1]] %in% as.numeric(rownames(lake_maxvol))))]
+    sub_miss <- matrix(0, nrow = length(sub_miss), ncol=nrow(res_param), dimnames = list(sub_miss, NULL))
+    lake_maxvol <- rbind(lake_maxvol, sub_miss)
+    lake_maxvol <- lake_maxvol[order(as.numeric(rownames(lake_maxvol))),]
+    
+    # get information of number of reservoirs for each subbasin - size class combination
+    lake_number <- tapply(res_lump$volume, list(sub_id=res_lump$sub_id, size_class=res_lump$size_class), length)
+    lake_number[which(is.na(lake_number))] <- 0
+    lake_number <- rbind(lake_number, sub_miss)
+    lake_number <- lake_number[order(as.numeric(rownames(lake_number))),]
+ 
     
     # CREATE OUTPUT FILES #
     message("\nCreate output files...\n")
+    
+    # res_vect_class
+    if(!is.null(res_vect_class))
+      writeVECT6(res_lump[-r_nares,], res_vect_class)
     
     # lake.dat from 'res_param'
     write("Specification of parameters for the reservoir size classes", paste(dir_out, lake_file, sep="/"))
@@ -297,35 +324,15 @@ reservoir_lumped <- function(
     
     
     # lake_number.dat from classified reservoirs
-    # loop over subbasins
-    subbas <- as.numeric(execGRASS("r.stats", input=sub_rast, fs=",", flags=c("n"), intern=T, ignore.stderr = T))
-    lake_num_out <- matrix(0, nrow=length(subbas), ncol=nrow(res_param)+1)
-    for(s in 1:length(subbas)) {
-      
-      # remove mask
-      x <- suppressWarnings(execGRASS("r.mask", flags=c("r"), intern=T))
-      
-      # subbasin mask
-      x <- execGRASS("r.mapcalculator", amap=sub_rast, outfile="sub_mask_t", formula=paste0("if(A==", subbas[s], ", 1, null())"), flags = c("overwrite"), intern=T)
-      x <- suppressWarnings(execGRASS("r.mask", input="sub_mask_t", flags=c("o"), intern=T))
-      
-      # statistics of classified reservoirs in mask region
-      cmd_out <- execGRASS("r.stats", input="reservoirs_classes_t", fs=",", flags=c("n", "c"), intern=T, ignore.stderr = T)
-      res_stats <- matrix(as.numeric(unlist(strsplit(cmd_out, ","))), ncol=2, byrow = T)
-      
-      # output data object
-      lake_num_out[s, c(1,res_stats[,1]+1)] <- c(subbas[s], res_stats[,2])
-    }
-    
-    # remove mask
-    x <- suppressWarnings(execGRASS("r.mask", flags=c("r"), intern=T))
-    
-    # write output
     write("Specification of total number of reservoirs in the size classes", paste(dir_out, lakenum_file, sep="/"))
     write("Sub-basin-ID, acud[-] (five reservoir size classes)", paste(dir_out, lakenum_file, sep="/"), append=T)
-    write.table(lake_num_out, paste(dir_out, lakenum_file, sep="/"), append=T, quote=F, sep="\t", row.names = F, col.names = F)
+    write.table(lake_number, paste(dir_out, lakenum_file, sep="/"), append=T, quote=F, sep="\t", row.names = T, col.names = F)
     
     
+    # lake_maxvol.dat
+    write("Specification of water storage capacity for the reservoir size classes", paste(dir_out, lakemaxvol_file, sep="/"))
+    write("Sub-basin-ID, maxlake[m**3] (five reservoir size classes)", paste(dir_out, lakemaxvol_file, sep="/"), append = T)
+    write.table(round(lake_maxvol,2), paste(dir_out, lakemaxvol_file, sep="/"), append=T, quote=F, sep="\t", row.names = T, col.names = F)
     
     
     # remove temporary maps
