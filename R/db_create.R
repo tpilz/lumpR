@@ -42,8 +42,6 @@
 #' 
 #' @author 
 #'  Tobias Pilz \email{tpilz@@uni-potsdam.de}, Till Francke \email{francke@@uni-potsdam.de}
-#'  
-#' @export
 #' 
 db_create <- function(
   dbname

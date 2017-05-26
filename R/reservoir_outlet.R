@@ -55,8 +55,7 @@
 #'      might more or less deviate from true locations!
 #'
 #' @author Tobias Pilz \email{tpilz@@uni-potsdam.de}
-#' 
-#' @export
+
 reservoir_outlet <- function(
   ### INPUT ###
   flowacc = NULL,
