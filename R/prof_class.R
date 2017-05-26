@@ -59,7 +59,8 @@
 #'      Too large values consume more memory and computational effort. Overwrites
 #'      max_com_length.
 #' @param make_plots logical; visualisation of classification results written into
-#'      sub-directory \emph{plots_prof_class}.
+#'      sub-directory \emph{plots_prof_class}. WARNING: Consumes a lot of processing
+#'      time and memory. Default: \code{FALSE}.
 #' @param eha_subset NULL or integer vector with subset of EHA ids that shall
 #'      be processed (for debugging and testing).
 #' @param overwrite \code{logical}. Shall output of previous calls of this function be
@@ -67,8 +68,9 @@
 #'      Default: \code{FALSE}.
 #' @param silent \code{logical}. Shall the function be silent (also suppressing warnings)?
 #'      Default: \code{FALSE}.
-#' @param plot_silhouette \code{logical}. Shall a silhouette plot (illustrating the clustering process) be generated? Consumes much memory and should be disabled, if a memory error is thrown.
-#'      Default: \code{TRUE}.
+#' @param plot_silhouette \code{logical}. Shall a silhouette plot (illustrating the clustering
+#'      process) be generated? Consumes much memory and processing time and should be disabled,
+#'      if a memory error is thrown. Default: \code{TRUE}.
 #'      
 #' @return Function returns nothing. Output files are written into output directory
 #'      as specified in arguments.
@@ -290,16 +292,15 @@ prof_class <- function(
     
   #read and resample profiles (done at the same time to avoid duplicates in memory)
      testcon <- file(catena_file,open="r")
-     progress_print = as.numeric(silent) #for printing progress indicator
+     if(!silent) #for printing progress indicator
+       pb <- txtProgressBar(min = 0, max = length(p_id_unique), style = 3)
+
      for (i in 1:length(p_id_unique))
      {
-       done = i/length(p_id_unique)
-       if (i > progress_print) #next progress message
-       {
-         print(paste0("...", round(done*100),"%"))
-         flush.console()
-         progress_print = done + 0.10
-       }   
+       
+       if (!silent) #next progress message
+         setTxtProgressBar(pb, i)
+       
        cur_p_id = p_id_unique[i] #id of profile to be loaded
        
        tt = scan(file=testcon, what=numeric(), nlines = profpoints[i], quiet = TRUE) #read single profile
@@ -354,7 +355,10 @@ prof_class <- function(
          }
          profs_resampled_stored[i,(com_length+3):(com_length+2+com_length*n_supp_data_columns)] <- as.vector(p_resampled[,-1])
        }     
-     }   
+     }
+     
+     if(!silent) # close progress bar
+       close(pb)
      
      close(testcon)
      # remove not needed objects to save memory

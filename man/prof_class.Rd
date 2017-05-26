@@ -12,7 +12,7 @@ prof_class(catena_file = NULL, catena_head_file = NULL,
   recl_lu = "reclass_lu.txt", saved_clusters = NULL, seed = 1312,
   resolution = NULL, classify_type = " ", max_com_length = NULL,
   com_length = NULL, make_plots = F, eha_subset = NULL, overwrite = F,
-  silent = F)
+  silent = F, plot_silhouette = T)
 }
 \arguments{
 \item{catena_file}{Name of file containing mean catena information derived from
@@ -70,7 +70,8 @@ Too large values consume more memory and computational effort. Overwrites
 max_com_length.}
 
 \item{make_plots}{logical; visualisation of classification results written into
-sub-directory \emph{plots_prof_class}.}
+sub-directory \emph{plots_prof_class}. WARNING: Consumes a lot of processing
+time and memory. Default: \code{FALSE}.}
 
 \item{eha_subset}{NULL or integer vector with subset of EHA ids that shall
 be processed (for debugging and testing).}
@@ -81,6 +82,10 @@ Default: \code{FALSE}.}
 
 \item{silent}{\code{logical}. Shall the function be silent (also suppressing warnings)?
 Default: \code{FALSE}.}
+
+\item{plot_silhouette}{\code{logical}. Shall a silhouette plot (illustrating the clustering
+process) be generated? Consumes much memory and processing time and should be disabled,
+if a memory error is thrown. Default: \code{TRUE}.}
 }
 \value{
 Function returns nothing. Output files are written into output directory
