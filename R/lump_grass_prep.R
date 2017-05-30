@@ -51,7 +51,7 @@
 #' @param elevriv Output: Name of relative elevation raster map exported into GRASS
 #'      location. Provides the elevations above stream node in units of \code{dem}.
 #' @param distriv Output: Name of distance to river raster map exported into GRASS
-#'      location. Provides distances to stream node in meters.
+#'      location. Provides distances to stream node in number of grid cells.
 #' @param mask_corr Output: Name of corrected mask (catchment area is slightly
 #'      smaller afer applying \emph{r.stream.distance}).
 #' @param svc Output: Name of Soil Vegetation Components raster map exported into

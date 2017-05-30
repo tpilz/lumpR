@@ -54,7 +54,7 @@ order exported into GRASS location.}
 location. Provides the elevations above stream node in units of \code{dem}.}
 
 \item{distriv}{Output: Name of distance to river raster map exported into GRASS
-location. Provides distances to stream node in meters.}
+location. Provides distances to stream node in number of grid cells.}
 
 \item{mask_corr}{Output: Name of corrected mask (catchment area is slightly
 smaller afer applying \emph{r.stream.distance}).}
