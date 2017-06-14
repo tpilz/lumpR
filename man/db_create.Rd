@@ -4,31 +4,30 @@
 \alias{db_create}
 \title{Create parameter database}
 \usage{
-db_create(dbname)
+db_create(dbname, overwrite = FALSE, keep_tables = NULL)
 }
 \arguments{
 \item{dbname}{Name of the data source (DSN) registered at ODBC. See \code{Details}.}
+
+\item{overwrite}{Overwrite any tables already existing in db. Default: FALSE. For TRUE, only overwrites tables not included in \emph{keep_tables}}
+
+\item{keep_tables}{preserves the specified tables, if existing. Overrides \emph{overwrite}. Default: NULL.}
 }
 \description{
-Function creates tables in a pre-defined empty database to store parameters relevant
+Function creates tables in a pre-defined database to store parameters relevant
 for modelling applications with the WASA model.
 }
 \details{
 This package uses the ODBC interface to connect to a database. Creating the database
- includes the following steps which are OS dependent:
- 
+requires the following prior steps which are OS dependent:
  \itemize{
-   \item{Install \emph{ODBC} and a \emph{Database Management System} on your computer.
-         Currently supported (tested) are: SQLite (v. 3.8.9), MariaDB/MySQL (v. 10.0.17), 
-         MS Access.}
+   \item{Install a \emph{Database Management System} and respective \emph{ODBC-driver} and on your computer.
+     Currently supported (tested) are: SQLite (v. 3.8.9), MariaDB/MySQL (v. 10.0.17), 
+     MS Access.}
    \item{Register an empty database at your ODBC configuration.}
-   \item{Install and load the \code{\link[RODBC]{RODBC}} package as interface to R.}
-   \item{Call this function to create the tables in the database.}
-   \item{Processing of the database using external software (or R packages)
-         and/or use functions coming with lumpR.}
- }
- 
- More information can be found at the lumpR package wiki: \url{https://github.com/tpilz/lumpR/wiki}
+ }  
+Calling \emph{db_create} creates the necessary tables in the database. These are then filled and processed by subsequent function of \emph{lumpR}.
+More information can be found at the lumpR package wiki: \url{https://github.com/tpilz/lumpR/wiki}
 }
 \author{
 Tobias Pilz \email{tpilz@uni-potsdam.de}, Till Francke \email{francke@uni-potsdam.de}

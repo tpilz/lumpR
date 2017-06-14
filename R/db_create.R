@@ -18,33 +18,29 @@
 
 #' Create parameter database
 #' 
-#' Function creates tables in a pre-defined empty database to store parameters relevant
+#' Function creates tables in a pre-defined database to store parameters relevant
 #' for modelling applications with the WASA model.
 #'
 #' @param dbname Name of the data source (DSN) registered at ODBC. See \code{Details}.
-#' 
+#' @param overwrite Overwrite any tables already existing in db. Default: FALSE. For TRUE, only overwrites tables not included in \emph{keep_tables}
+#' @param keep_tables preserves the specified tables, if existing. Overrides \emph{overwrite}. Default: NULL.
 #' @details
 #'  This package uses the ODBC interface to connect to a database. Creating the database
-#'  includes the following steps which are OS dependent:
-#'  
+#'requires the following prior steps which are OS dependent:
 #'  \itemize{
-#'    \item{Install \emph{ODBC} and a \emph{Database Management System} on your computer.
-#'          Currently supported (tested) are: SQLite (v. 3.8.9), MariaDB/MySQL (v. 10.0.17), 
-#'          MS Access.}
+#'    \item{Install a \emph{Database Management System} and respective \emph{ODBC-driver} and on your computer.
+#'      Currently supported (tested) are: SQLite (v. 3.8.9), MariaDB/MySQL (v. 10.0.17), 
+#'      MS Access.}
 #'    \item{Register an empty database at your ODBC configuration.}
-#'    \item{Install and load the \code{\link[RODBC]{RODBC}} package as interface to R.}
-#'    \item{Call this function to create the tables in the database.}
-#'    \item{Processing of the database using external software (or R packages)
-#'          and/or use functions coming with lumpR.}
-#'  }
-#'  
-#'  More information can be found at the lumpR package wiki: \url{https://github.com/tpilz/lumpR/wiki}
+#'  }  
+#'Calling \emph{db_create} creates the necessary tables in the database. These are then filled and processed by subsequent function of \emph{lumpR}.
+#'More information can be found at the lumpR package wiki: \url{https://github.com/tpilz/lumpR/wiki}
 #' 
 #' @author 
 #'  Tobias Pilz \email{tpilz@@uni-potsdam.de}, Till Francke \email{francke@@uni-potsdam.de}
 #' 
 db_create <- function(
-  dbname
+  dbname, overwrite=FALSE, keep_tables=NULL
 ) {
   
   # connect to ODBC registered database
@@ -69,24 +65,56 @@ db_create <- function(
   scriptparts <- strsplit(script, ";")[[1]]
   scriptparts <- scriptparts[-length(scriptparts)]
   
+  if (!overwrite) 
+    keep_tables = sqlTables(con)$TABLE_NAME #keep all existing tables
+  
   # loop over queries
   for(i in seq(along=scriptparts)){
     
     statement <- scriptparts[i]
     
     # identify table name
-    tablename <- gsub("CREATE TABLE *([[:alpha:]_]+).*","\\1",statement)
+    is_create_statement = grepl(statement, pattern="^[[:space:]]*CREATE|create")
+    
+    if (is_create_statement)
+      tablename <- gsub("CREATE TABLE *([[:alpha:]_]+).*","\\1",statement) else
+      tablename <- gsub("INSERT INTO *([[:alpha:]_]+).*","\\1",statement) #extract name of table from CREATE statements
+    if (tablename == statement) tablename="(none)"   #set to "(none)" for non-CREATE statements
     tablename <- gsub("[[:space:]]*", "", tablename)
+    
     
     # adjust to specific SQL dialects
     statement <- sql_dialect(con, statement)
 
-    # create table in database if it does not yet exist
-    if(!(tablename %in% sqlTables(con)$TABLE_NAME)) {
+    skip=FALSE
+    if(is_create_statement & tablename %in% sqlTables(con)$TABLE_NAME) 
+    {
+      if (overwrite & !(tablename %in% keep_tables)) #delete existing table
+      {
+        s2 = paste0("drop table ", tablename,";")
+        res <- sqlQuery(con, s2, errors=F)
+        if (res==-1){
+          res <- sqlQuery(con, s2, errors = T)
+          odbcClose(con)
+          stop(cat(paste0("Error in SQL query execution while deleting table\nerror-message: ", res[1])))
+        }  
+      } else
+        skip = TRUE
+    }  
+    if (!is_create_statement & (tablename %in% keep_tables)) #don't alter tables that ere to be kept
+     skip = TRUE
+    
+    if (skip)
+      message(paste0("Found existing table ", tablename, ", preserved. Use overwrite=TRUE to clean it."))
+    else
+    {  
+      # create table in database if it does not yet exist
       res <- sqlQuery(con, statement, errors=F)
       if (res==-1){
+        res <- sqlQuery(con, statement, errors = T)
         odbcClose(con)
-        stop("Error in SQL query execution while creating db.")
+        stop(cat(paste0("Error in SQL query execution while creating db.\nQuery: ", statement,
+                    "\nerror-message: ", res[1])))
       }
     } 
     

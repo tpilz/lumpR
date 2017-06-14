@@ -192,8 +192,10 @@ db_update <- function(
       # send query to database
       res <- sqlQuery(con, statement, errors=F)
       if (res==-1){
-        odbcClose(con)
-        stop("Error in SQL query execution while updating db.")
+          res <- sqlQuery(con, statement, errors = T)
+          odbcClose(con)
+          stop(cat(paste0("Error in SQL query execution while updating db.\nQuery: ", statement,
+                          "\nerror-message: ", res[1])))
       }
     }
   
