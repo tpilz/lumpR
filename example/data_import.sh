@@ -2,10 +2,12 @@
 # These are just examples! adjust to your needs!
 # Most steps can also be performed via the GUI.
 
-cd /cygdrive/e/till/uni/grass #set working directories, use "/" instead of "\" in Windows!
+cd e:/till/uni/organisation/iran/2_soil #set working directories, use "/" instead of "\" in Windows!
 
-#import ESRI-grid into GRASS and create new location (create or use arbitrary location/mapset, run command below, exit location and change to new mapset)
-r.in.gdal input=/cygdrive/d/till/ output=dem -e location=mynewlocation
+#create a new location using GUI (Settings -> GRASS working env -> Create New Location) or using the command below:
+	#import ESRI-grid into GRASS and create new location (create or use arbitrary location/mapset, run command below, exit location and change to new mapset)
+	r.in.gdal input=/cygdrive/d/till/ output=dem -e location=mynewlocation
+
 
 #import DEM from GEO-Tiff	
 r.in.gdal input=C:/Users/francke/ttt.tif output=dem15_filled -o                          
@@ -91,5 +93,4 @@ r.in.gdal input=C:/Users/francke/ttt.tif output=dem15_filled -o
 	g.remove river_rast
 	g.rename river_t,river_rast
 	
-
 
