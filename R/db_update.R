@@ -21,6 +21,7 @@
 #' 
 #' @param dbname Name of the data source (DSN) registered at ODBC.
 #' @param to_ver Version number to update to (default: newest version available).
+#' @param checkOnly only print current version number, no updating.
 #' 
 #' @details
 #'  This function currently is only relevant to users who already have a parameter
@@ -36,7 +37,7 @@
 #'   
 
 db_update <- function(
-  dbname, to_ver=Inf  
+  dbname, to_ver=Inf, checkOnly=FALSE  
 ) {
   
   # connect to ODBC registered database
@@ -62,6 +63,9 @@ db_update <- function(
   db_ver <- sqlFetch(con, "db_version")$version
   db_ver = max(db_ver)
   db_ver_init <- db_ver
+  
+  if (checkOnly)
+    return(db_ver)
   
   if(to_ver > db_ver_max)
     stop(paste0("Requested update (", to_ver, ") is greater than newest available database version (", db_ver_max, ")!"))

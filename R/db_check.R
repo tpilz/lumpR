@@ -184,6 +184,17 @@ db_check <- function(
   if(verbose)
     print("OK.")
   
+  #modify error handler to gracefully close ODBC-connection before aborting (otherwise, ODBC-handles are left open)
+    org_error_handler = getOption("error") #original error handler
+    
+    closeODBC_and_stop = function(msg=NULL)
+    {  
+      odbcCloseAll()
+      options(error=org_error_handler) #restore original handler
+      stop(msg)
+    }
+    options(error=closeODBC_and_stop)  #modify error handler
+    
   # ensure MySQL/MariaDB uses ANSI quotation (double quotes instead of back ticks)
   if(grepl("MariaDB", odbcGetInfo(con)["DBMS_Name"], ignore.case=T))
     sqlQuery(con, "SET sql_mode='ANSI';")
@@ -750,7 +761,7 @@ db_check <- function(
     
     dat_tc$frac_rocky[is.na(dat_tc$frac_rocky)] = 0 #set NAs to 0
     if (max(dat_tc$frac_rocky)>0)
-      print("-> ATTENTION: Column 'frac_rocky' in table 'terrain_components' already contains some values. The coputed fractions will be added to these.")
+      print("-> ATTENTION: Column 'frac_rocky' in table 'terrain_components' already contains some values. The computed fractions will be added to these.")
 
     # identify soils with 100% coarse fragments in topmost horizon
     soil_impervious <- dat_hor$soil_id[which(dat_hor$position == 1 & dat_hor$coarse_frag == 1)]
