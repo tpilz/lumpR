@@ -493,6 +493,11 @@ db_fill(dbname=dbname,
 ?db_check
 
 db_check(dbname, 
+         check=c("check_fix_fractions"), 
+         fix=T,
+         verbose=T)
+		 
+db_check(dbname, 
          check=c("filter_small_areas"), 
          option=list(area_thresh=0.01),
          fix=T,
