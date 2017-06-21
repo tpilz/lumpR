@@ -318,7 +318,8 @@ ver. 17
 ver 18
 	alter table landscape_units change lenght float,length float
 	alter table soil_veg_components add `special_area`, INT DEFAULT 0 COMMENT 'Flag for special areas: 1: water, 2: impervious, 0: ordinary SVC.'
-
+	alter table horizons change depth float,thickness float
+	
 	add new views:
 	#m_c1.1_remove_water_svcs
 	DELETE r_tc_contains_svc FROM r_tc_contains_svc LEFT JOIN soil_veg_components ON (r_tc_contains_svc.svc_id=soil_veg_components.pid) WHERE special_area=1;
@@ -337,5 +338,5 @@ ver 18
 	FROM (r_tc_contains_svc INNER JOIN soil_veg_components ON r_tc_contains_svc.svc_id=soil_veg_components.pid) INNER JOIN horizons ON soil_veg_components.soil_id=horizons.soil_id
 	WHERE (horizons.position=1 AND horizons.coarse_frag=1) OR soil_veg_components.special_area=2;
 
-	INSERT INTO db_version VALUES (18, 18, 'added column special_area to soil_veg_components; added queries to include impervious areas as frac_rocky in terrain_components and remove impervious SVC', '', 'soil_veg_components, terrain_components, r_tc_contains_svc', 'relevant, when used', '2015-01-19 00:00:00')
+	INSERT INTO db_version VALUES (18, 18, 'added column special_area to soil_veg_components; added queries to include impervious areas as frac_rocky in terrain_components and remove impervious SVC; renamed columns', '', 'soil_veg_components, terrain_components, r_tc_contains_svc,landscape_units, horizons', 'relevant, when used', '2015-01-19 00:00:00')
 	

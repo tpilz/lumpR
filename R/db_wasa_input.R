@@ -600,16 +600,11 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
     # check data
     if(any(is.na(dat_contains)) | nrow(dat_contains) == 0)
       stop("Could not write file Hillslope/svc_in_tc.dat. There are missing values in table 'r_tc_contains_svc'!")
-    
-    frac_sums <- round(tapply(dat_contains$fraction, dat_contains$tc_id, sum),3)
-    if(any(frac_sums !=1)) {
-      # calculate sums + rocky fractions (see check 'remove_impervious_svc')
-      dat_tc <- sqlFetch(con, "terrain_components")
-      frac_sums_rocky <- tapply(dat_contains$fraction, dat_contains$tc_id, sum) + dat_tc$frac_rocky
-      if(any(round(frac_sums_rocky,3) !=1))
-        stop("Check table 'r_tc_contains_svc'! Not all fractions per TC sum up to one.")
-    }
-    
+    # SVCs
+    flawed_tcs <- check_fix_fractions(con=con, table="r_tc_contains_svc", fix=FALSE, verbose=FALSE, tbl_changed="")
+    if(length(flawed_tcs) > 0)
+        stop("Not all fractions per TC sum up to one. Check tables 'r_tc_contains_svc' and 'terrain_components' (column frac_rocky) or call db_check(..., check=\"check_fix_fractions\", fix=TRUE)!")
+
     # write output
 #     write.table(round(dat_contains,4), paste(dest_dir, "Hillslope/svc_in_tc.dat", sep="/"), append=T,
 #                 quote=F, sep="\t", row.names=F, col.names=F)
