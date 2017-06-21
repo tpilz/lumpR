@@ -199,6 +199,122 @@ write_datetabs <- function(con, dat, tab, verbose) {
 
 
 
+# check or fix that fractions sum up to 1
+check_fix_fractions <- function(con, table, fix, verbose, tbl_changed) {
+  
+  if(verbose)
+    print(paste0("-> Processing table '", table, "' ..."))
+  
+  dat_contains <- sqlFetch(con, table)
+  if (table=="r_tc_contains_svc") #for TCs also the rocky fraction needs to be considered
+  {
+    res=sqlQuery(con, "select pid as tc_id, -1 as svc_id, frac_rocky as fraction from terrain_components")
+    dat_contains = rbind(dat_contains, res)
+  }
+  
+  # sum of 'fraction' should be 1 for every higher level class (rounding error allowed)
+  dat_contains_sum <- round(tapply(dat_contains$fraction, list(parent=dat_contains[[1]]), sum, na.rm=T), 2)
+  if(any(dat_contains_sum != 1)) {
+    if(!fix) {
+      flawedIDs = names(dat_contains_sum[dat_contains_sum!=1])
+
+      cat(paste0("The elements of the following entities do not sum to 1 in their fractions:\n", 
+                 paste0(flawedIDs, collapse = "\n "), 
+                 ".\nCheck table '", table, "'", ifelse(table=="r_tc_contains_svc", " and 'terrain_components' (column frac_rocky)","")," or call db_check(..., check=\"check_fix_fractions\", fix=TRUE)!\n"))
+    }
+  }
+  
+    # re-calculate areal fractions
+    if(fix && any(dat_contains_sum != 1)) {
+      
+      if(verbose)
+        print("-> Re-calculate fraction ...")
+      dat_contains_sum <- tapply(dat_contains$fraction, list(parent=dat_contains[[1]]), sum, na.rm=T)
+      dat_contains_new <- dat_contains
+      for (s in 1:nrow(dat_contains))
+        dat_contains_new$fraction[s] <- dat_contains$fraction[s] / dat_contains_sum[paste0(dat_contains[[1]][s])]
+      
+      
+      # write updated data into database
+      if (table=="r_tc_contains_svc") #for TCs also the rocky fraction needs to be considered
+      {
+        rocky_frac=        dat_contains_new[dat_contains_new$svc_id==-1,] #extract information on rocky fraction - this needs to go into another table
+        rocky_frac$svc_id = NULL #svc_id=-1 was just a marker for rocky fractions, not needed anymore
+        dat_contains_new = dat_contains_new[dat_contains_new$svc_id!=-1,] #keep only real SVCs, discard rocky fractions that had been temporally inserted as SVCs
+        
+        terrain_components <- sqlFetch(con, "terrain_components")
+        terrain_components = merge(terrain_components, rocky_frac, by.x="pid", by.y="tc_id")
+        
+        if (!identical(terrain_components$frac_rocky, terrain_components$fraction)) {
+          terrain_components$frac_rocky = terrain_components$fraction #correct to adjusted rocky fraction
+          terrain_components$fraction = NULL
+          tryCatch(
+            {
+              sqlQuery(con, paste0("delete from terrain_components"))
+              sqlSave(channel=con, tablename = "terrain_components", dat=terrain_components, verbose=F, 
+                      append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
+              tbl_changed <- c(tbl_changed, "terrain_components")
+            }, error = function(e) {
+              # update table meta_info
+              meta_dat <- sqlFetch(con, "meta_info")
+              if(any(meta_dat$pid)) {
+                pid_new <- max(meta_dat$pid) +1
+              } else {
+                pid_new <- 1
+              }
+              meta_out <- data.frame(pid=pid_new,
+                                     mod_date=as.POSIXct(Sys.time()),
+                                     mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
+                                     affected_tables=paste(unique(tbl_changed), collapse=", "),
+                                     affected_columns="various",
+                                     remarks=paste0("ATTENTION: Error while checking database using R package lumpR check check_fix_fractions. Nevertheless, affected_tables have already been changed."))
+              write_datetabs(con, meta_out, tab="meta_info", verbose)
+              
+              stop(paste0("An error occured when updating table terrain_components. ",
+                          "Error message of the writing function: ", e))
+            }
+          )
+        }
+      }
+      
+      tryCatch(
+        {
+          sqlQuery(con, paste0("delete from ", table))
+          sqlSave(channel=con, tablename = table, dat=dat_contains_new, verbose=F, 
+                  append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
+          tbl_changed <- c(tbl_changed, table)
+        }, error = function(e) {
+          # update table meta_info
+          meta_dat <- sqlFetch(con, "meta_info")
+          if(any(meta_dat$pid)) {
+            pid_new <- max(meta_dat$pid) +1
+          } else {
+            pid_new <- 1
+          }
+          meta_out <- data.frame(pid=pid_new,
+                                 mod_date=as.POSIXct(Sys.time()),
+                                 mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
+                                 affected_tables=paste(unique(tbl_changed), collapse=", "),
+                                 affected_columns="various",
+                                 remarks=paste0("ATTENTION: Error while checking database using R package lumpR check filter_small_areas. Nevertheless, affected_tables have already been changed."))
+          write_datetabs(con, meta_out, tab="meta_info", verbose)
+          stop(paste0("An error occured when updating table '", table, "'. ",
+                      "Error message of the writing function: ", e))
+        }
+      )
+      
+    } # if fix
+    
+    
+    if(verbose)
+      print("-> OK.")
+ 
+  
+  return(tbl_changed)
+} # EOF check_fix_fractions
+
+
+
 
 # filter disaggregated areas by areal fraction threshold
 filter_small_areas <- function(con, table, thres, fix, verbose, tbl_changed) {
@@ -231,9 +347,9 @@ filter_small_areas <- function(con, table, thres, fix, verbose, tbl_changed) {
                              affected_columns="various",
                              remarks=paste0("ATTENTION: Error while checking database using R package lumpR check filter_small_areas. Nevertheless, affected_tables have already been changed."))
       write_datetabs(con, meta_out, tab="meta_info", verbose)
-      stop(paste0("Before removal of tiny areas: sum of fractions per higher level unit not always equal to one. Check table '", table, ifelse(table=="r_tc_contains_svc", " and terrain_components (column frac_rocky)",""),"'!"))
+      stop(paste0("Before removal of tiny areas: sum of fractions per higher level unit not always equal to one. Check table '", table, "'", ifelse(table=="r_tc_contains_svc", " and 'terrain_components' (column frac_rocky)",""),"!"))
     } else {
-      print(paste0("-> ATTENTION: Before removal of tiny areas: sum of fractions per higher level unit not always equal to one. Check table '", table, ifelse(table=="r_tc_contains_svc", " and terrain_components (column frac_rocky)",""),"'!"))
+      print(paste0("-> ATTENTION: Before removal of tiny areas: sum of fractions per higher level unit not always equal to one. Check table '", table, "'", ifelse(table=="r_tc_contains_svc", " and 'terrain_components' (column frac_rocky)",""),"!"))
     }
   }
   
@@ -294,6 +410,8 @@ filter_small_areas <- function(con, table, thres, fix, verbose, tbl_changed) {
         if (!identical(terrain_components$frac_rocky, terrain_components$fraction)) {
           tryCatch(
           {
+            terrain_components$frac_rocky = terrain_components$fraction #correct to adjusted rocky fraction
+            terrain_components$fraction = NULL
             sqlQuery(con, paste0("delete from terrain_components"))
             sqlSave(channel=con, tablename = "terrain_components", dat=terrain_components, verbose=F, 
                     append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)

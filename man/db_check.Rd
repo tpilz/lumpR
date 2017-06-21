@@ -4,11 +4,12 @@
 \alias{db_check}
 \title{Check parameter database for consistency}
 \usage{
-db_check(dbname, check = c("filter_small_areas", "tc_slope", "special_areas",
-  "remove_water_svc", "compute_rocky_frac", "remove_impervious_svc",
-  "proxy_frgw_delay", "delete_obsolete", "completeness", "subbasin_order"),
-  option = list(area_thresh = 0.01, treat_slope = c(3, 0.01, 0.1),
-  update_frac_impervious = F), fix = F, verbose = TRUE)
+db_check(dbname, check = c("check_fix_fractions", "filter_small_areas",
+  "tc_slope", "special_areas", "remove_water_svc", "compute_rocky_frac",
+  "remove_impervious_svc", "proxy_frgw_delay", "delete_obsolete",
+  "completeness", "subbasin_order"), option = list(area_thresh = 0.01,
+  treat_slope = c(3, 0.01, 0.1), update_frac_impervious = F), fix = F,
+  verbose = TRUE)
 }
 \arguments{
 \item{dbname}{Name of the data source (DSN) registered at ODBC.}
@@ -36,7 +37,8 @@ The following checks are currently included and can be specified via argument \c
  Execute checks in pre-defined order as some checks build upon each other and
  lead to erroneous results when interchanged. However, some checks might be
  unnecessary for your purpose and can be left out.
- 
+ \bold{check_fix_fractions}\cr
+ Check/fix that the fractions of all sub-entities sum to 1.\cr
  \bold{filter_small_areas}\cr
  Tiny areas as result of landscape disaggregation considered irrelevant during model
  application will be removed and the areal fractions updated accordingly. The model

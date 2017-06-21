@@ -41,7 +41,8 @@
 #'  Execute checks in pre-defined order as some checks build upon each other and
 #'  lead to erroneous results when interchanged. However, some checks might be
 #'  unnecessary for your purpose and can be left out.
-#'  
+#'  \bold{check_fix_fractions}\cr
+#'  Check/fix that the fractions of all sub-entities sum to 1.\cr
 #'  \bold{filter_small_areas}\cr
 #'  Tiny areas as result of landscape disaggregation considered irrelevant during model
 #'  application will be removed and the areal fractions updated accordingly. The model
@@ -153,7 +154,7 @@
 
 db_check <- function(
   dbname,
-  check = c("filter_small_areas", "tc_slope", "special_areas", "remove_water_svc",
+  check = c("check_fix_fractions", "filter_small_areas", "tc_slope", "special_areas", "remove_water_svc",
             "compute_rocky_frac", "remove_impervious_svc", "proxy_frgw_delay",
             "delete_obsolete", "completeness", "subbasin_order"),
   option = list(area_thresh=0.01,
@@ -220,7 +221,30 @@ db_check <- function(
   }
   if(verbose)
     print("OK.")
+
+###############################################################################
+### check fractions (use external function for every relevant table)
+  if (any(grepl("check_fix_fractions", check))) {
+    if(verbose)
+      print("Check fractions ...")
+    
+    # LUs
+    tbl_ch <- check_fix_fractions(con=con, table="r_subbas_contains_lu", fix=fix, verbose=verbose, tbl_changed=tbl_changed)
+    tbl_changed <- c(tbl_changed, tbl_ch)
+    
+    # TCs
+    tbl_ch <- check_fix_fractions(con=con, table="r_lu_contains_tc", fix=fix, verbose=verbose, tbl_changed=tbl_changed)
+    tbl_changed <- c(tbl_changed, tbl_ch)
+    
+    # SVCs
+    tbl_ch <- check_fix_fractions(con=con, table="r_tc_contains_svc", fix=fix, verbose=verbose, tbl_changed=tbl_changed)
+    tbl_changed <- c(tbl_changed, tbl_ch)
+    
+    if(verbose)
+      print("OK.")
+  } # check fractions
   
+    
 ###############################################################################
 ### filter small areas (use external function for every relevant table)
   if (any(grepl("filter_small_areas", check))) {
