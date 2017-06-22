@@ -1117,37 +1117,59 @@ db_check <- function(
         r_del_rainy <- which(!(dat_rainy$subbas_id %in% dat_sub$pid[-r_del_sub]))
       else
         r_del_rainy <- which(!(dat_rainy$subbas_id %in% dat_sub$pid))
+      r_del_rainy = r_del_rainy[!(dat_rainy$subbas_id[r_del_rainy]==-1)] #do not remove entries with subbas_id=-1, as this is a wildcard
     }
     
     # report
     if(!fix | verbose) {
       if(any(r_del_sub)) {
         print("-> The following datasets in 'subbasins' are obsolete:")
-        print(dat_sub[dat_sub$pid[r_del_sub],])
+        print(dat_sub[r_del_sub,]) 
         print("... affecting the following datasets in 'r_subbas_contains_lu':")
         print(dat_sub_contains[which(dat_sub_contains$subbas_id %in% dat_sub$pid[r_del_sub]),])
       }
       if(any(r_del_lu)) {
         print("-> The following datasets in 'landscape_units' are obsolete:")
-        print(dat_lu[dat_lu$pid[r_del_lu],])
-        print("... affecting the following datasets in 'r_subbas_contains_lu':")
-        print(dat_sub_contains[which(dat_sub_contains$lu_id %in% dat_lu$pid[r_del_lu]),])
-        print("... and the following datasets in 'r_lu_contains_tc':")
-        print(dat_lu_contains[which(dat_lu_contains$lu_id %in% dat_lu$pid[r_del_lu]),])
+        print(dat_lu[r_del_lu,]) 
+        cascade_effected = which(dat_sub_contains$lu_id %in% dat_lu$pid[r_del_lu])
+        if (any(cascade_effected))
+        {
+          print("... affecting the following datasets in 'r_subbas_contains_lu':")
+          print(dat_sub_contains[cascade_effected,])
+          cascade_effected = which(dat_lu_contains$lu_id %in% dat_lu$pid[r_del_lu])
+          if (any(cascade_effected))
+          {
+            print("... and the following datasets in 'r_lu_contains_tc':")
+            print(dat_lu_contains[cascade_effected,])
+          }
+        }
       }
       if(any(r_del_tc)) {
         print("-> The following datasets in 'terrain_components' are obsolete:")
-        print(dat_tc[dat_tc$pid[r_del_tc],])
-        print("... affecting the following datasets in 'r_lu_contains_tc':")
-        print(dat_lu_contains[which(dat_lu_contains$tc_id %in% dat_tc$pid[r_del_tc]),])
-        print("... and the following datasets in 'r_tc_contains_svc':")
-        print(dat_tc_contains[which(dat_tc_contains$tc_id %in% dat_tc$pid[r_del_tc]),])
+        print(dat_tc[r_del_tc,]) 
+      
+        cascade_effected = which(dat_lu_contains$tc_id %in% dat_tc$pid[r_del_tc])
+        if (any(cascade_effected))
+        {
+          print("... affecting the following datasets in 'r_lu_contains_tc':")
+          print(dat_lu_contains[cascade_effected,])
+          cascade_effected = which(dat_tc_contains$tc_id %in% dat_tc$pid[r_del_tc])
+          if (any(cascade_effected))
+          {
+            print("... and the following datasets in 'r_tc_contains_svc':")
+            print(dat_tc_contains[cascade_effected,])
+          }
+        }
       }
       if(any(r_del_svc)) {
         print("-> The following datasets in 'soil_veg_components' are obsolete:")
-        print(dat_svc[dat_svc$pid[r_del_svc],])
-        print("... affecting the following datasets in 'r_tc_contains_svc':")
-        print(dat_tc_contains[which(dat_tc_contains$svc_id %in% dat_svc$pid[r_del_svc]),])
+        print(dat_svc[r_del_svc,])
+        cascade_effected = which(dat_tc_contains$svc_id %in% dat_svc$pid[r_del_svc])
+        if (any(cascade_effected))
+        {
+          print("... affecting the following datasets in 'r_tc_contains_svc':")
+          print(dat_tc_contains[cascade_effected,])
+        }
       }
       if(any(r_del_rainy)) {
         print("-> The following datasets in 'rainy_season' are obsolete:")
@@ -1193,7 +1215,7 @@ db_check <- function(
           
           if(any(r_del_sub) | any(r_del_lu)) {
             r_tmp <- which(dat_sub_contains$subbas_id %in% dat_sub$pid[r_del_sub] | dat_sub_contains$lu_id %in% dat_lu$pid[r_del_lu])
-            if(any(r_tmp)) { # might be that there is nothing to be changes in contains table due to prior fixes
+            if(any(r_tmp)) { # might be that there is nothing to be changed in contains-table due to prior fixes
               dat_sub_contains <- dat_sub_contains[-r_tmp,]
               # update fractions
               frac_sum <- tapply(dat_sub_contains$fraction, list(parent=dat_sub_contains$subbas_id), sum)
@@ -1209,7 +1231,7 @@ db_check <- function(
           
           if(any(r_del_lu) | any(r_del_tc)) {
             r_tmp <- which(dat_lu_contains$lu_id %in% dat_lu$pid[r_del_lu] | dat_lu_contains$tc_id %in% dat_tc$pid[r_del_tc])
-            if(any(r_tmp)) { # might be that there is nothing to be changes in contains table due to prior fixes
+            if(any(r_tmp)) { # might be that there is nothing to be changed in contains-table due to prior fixes
               dat_lu_contains <- dat_lu_contains[-r_tmp,]
               # update fractions
               frac_sum <- tapply(dat_lu_contains$fraction, list(parent=dat_lu_contains$lu_id), sum)
@@ -1225,7 +1247,7 @@ db_check <- function(
           
           if(any(r_del_tc) | any(r_del_svc)) {
             r_tmp <- which(dat_tc_contains$tc_id %in% dat_tc$pid[r_del_tc] | dat_tc_contains$svc_id %in% dat_svc$pid[r_del_svc])
-            if(any(r_tmp)) { # might be that there is nothing to be changes in contains table due to prior fixes
+            if(any(r_tmp)) { # might be that there is nothing to be changed in contains-table due to prior fixes
               frac_sum_old <- tapply(dat_tc_contains$fraction, list(parent=dat_tc_contains$tc_id), sum) # keep track of old fraction sums if they are less than one due to check 'remove_impervious_svc'
               dat_tc_contains <- dat_tc_contains[-r_tmp,]
               # update fractions

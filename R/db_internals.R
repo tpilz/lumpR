@@ -218,9 +218,12 @@ check_fix_fractions <- function(con, table, fix, verbose, tbl_changed) {
   flawedIDs = names(dat_contains_sum[dat_contains_sum!=1])
   if(length(flawedIDs)>0) {
       if (verbose)
+      {  
         cat(paste0("The elements of the following entities do not sum to 1 in their fractions:\n", 
-                 paste0(flawedIDs, collapse = "\n "), 
-                 ".\nCheck table '", table, "'", ifelse(table=="r_tc_contains_svc", " and 'terrain_components' (column frac_rocky)","")," or call db_check(..., check=\"check_fix_fractions\", fix=TRUE)!\n"))
+                 paste0(flawedIDs, collapse = "\n ")),"\n")
+        if (!fix) 
+          cat(paste0("Check table '", table, "'", ifelse(table=="r_tc_contains_svc", " and 'terrain_components' (column frac_rocky)","")," or call db_check(..., check=\"check_fix_fractions\", fix=TRUE)!\n"))
+      }
   } 
   if (!fix) return(flawedIDs) #just report
   
