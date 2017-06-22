@@ -129,20 +129,14 @@
 #'  mean matches this value (see formula above).
 #'  
 #'  \bold{delete_obsolete}\cr
-#'  Delete obsolete datasets. I.e. special area SVCs, LUs not in any subbasin, TCs
+#'  Check for (and delete) obsolete datasets. I.e. special area SVCs, LUs not in any subbasin, TCs
 #'  not in any LU, SVCs not in any TC from the \emph{contains}- and the parent tables,
 #'  and datasets in 'rainy_season' with obsolete subbasins (if table 'rainy_season' exists).
-#'  Dependencies are respected. Areal fractions will be updated.
+#'  Dependencies are respected. Areal fractions will not be updated, run with option \code{check_fix_fractions} after removal.
 #'  
 #'  \bold{completeness}\cr
-#'  Check database for completeness. I.e. check if all IDs in the \emph{contains}-tables
-#'  exist within the repective referenced tables and also in the lower level
-#'  \emph{contains}-tables. Furthermore, check if all vegetation
-#'  types and soils exist as referenced within 'soil_veg_components', if all
-#'  soils exist as referenced within 'horizons', and if all subbasins in 'subbasins'
-#'  exist within 'rainy_season' (if table 'rainy_season' exists).
-#'  If the check fails, function returns an error. If \code{fix=T}, additionally a warning
-#'  message will be writting into table 'meta_info' of the databse.
+#'  Check database for completeness. I.e. check if all entities in a higher hierarchy are used and specified in the related tables 
+#'  of lower hierarchy. Reports only, ignores \code{fix=T} and does no changes t the database.
 #'  
 #'  \bold{subbasin_order}\cr
 #'  Compute subbasin order for WASA's routing input file routing.dat. Order will
@@ -1048,459 +1042,138 @@ db_check <- function(
 
 
 ###############################################################################
+### delete obsolete datasets or check for completeness
+### define chains of table dependencies
+  if (any(grepl("delete_obsolete", check)) | any(grepl("completeness", check))) {
+    table_chain1= data.frame(stringsAsFactors = FALSE,      #scheme of table relations (1)
+      rbind(
+        c (table = "subbasins",    key2prev="", key2next="pid"),
+        c (table = "r_subbas_contains_lu", key2prev="subbas_id", key2next="lu_id"),
+        c (table = "landscape_units",      key2prev="pid"      , key2next="pid"),
+        c (table = "r_lu_contains_tc",     key2prev="lu_id"    , key2next="tc_id"),
+        c (table = "terrain_components",   key2prev="pid"      , key2next="pid"),
+        c (table = "r_tc_contains_svc",    key2prev="tc_id"    , key2next="svc_id"),
+        c (table = "soil_veg_components",  key2prev="pid"      , key2next="soil_id"),
+        c (table = "soils",                key2prev="pid"      , key2next="pid"),
+        c (table = "horizons",             key2prev="soil_id", key2next="")
+      ))
+    
+    table_chain2= data.frame(stringsAsFactors = FALSE,      #scheme of table relations (2)
+      rbind(
+        c (table = "soil_veg_components",  key2prev="pid"      , key2next="veg_id"),
+        c (table = "vegetation",           key2prev="pid"      , key2next="")
+      ))
+    
+    table_chain3= data.frame(stringsAsFactors = FALSE,      #scheme of table relations (3)
+      rbind(
+        c (table = "soils",                     key2prev="pid"      , key2next="pid"),
+        c (table = "r_soil_contains_particles", key2prev="soil_id"  , key2next="class_id"),
+        c (table = "particle_classes"        ,  key2prev="class_id" , key2next="")
+      ))
+    
+    table_chain4= data.frame(stringsAsFactors = FALSE,      #scheme of table relations (4)
+      rbind(
+        c (table = "subbasins",    key2prev="", key2next="pid"),
+        c (table = "x_seasons",    key2prev="subbas_id", key2next="")
+      ))
+    
+    table_chain5= data.frame(stringsAsFactors = FALSE,      #scheme of table relations (5)
+      rbind(
+        c (table = "soil_veg_components",  key2prev="pid"      , key2next="veg_id"),
+        c (table = "x_seasons",    key2prev="svc_id", key2next="")
+      ))
+    
+    table_chain6= data.frame(stringsAsFactors = FALSE,      #scheme of table relations (6)
+      rbind(
+        c (table = "subbasins",    key2prev="", key2next="pid"),
+        c (table = "rainy_season",    key2prev="subbas_id", key2next="")
+      ))
+    
+    table_chain7= data.frame(stringsAsFactors = FALSE,      #scheme of table relations (7)
+      rbind(
+        c (table = "vegetation",           key2prev="pid"      , key2next="pid"),
+        c (table = "rainy_season",    key2prev="veg_id", key2next="")
+      ))
+    
+    wildcard_fields = list(  #tables with wildcard values ("-1") need to be considered
+      rainy_season = c("subbas_id", "veg_id"),
+      x_seasons     = c("subbas_id", "svc_id")
+    )
+    chain_list = list(table_chain1, table_chain2, table_chain3, table_chain4, table_chain5, table_chain6, table_chain7) #list of all relation chains that need to be checked
+}
+    
+###############################################################################
 ### delete obsolete datasets
-  if (any(grepl("delete_obsolete", check))) {
+    
+if (any(grepl("delete_obsolete", check))) {
     
     if(fix & verbose)
-      print("Delete obsolete datasets ...")
+      print("Delete obsolete records ...")
     
     if(!fix & verbose)
-      print("Identify obsolete datasets ...")
+      print("Identify obsolete records ...")
     
-    # get data
-    dat_sub <- sqlFetch(con, "subbasins")
-    dat_sub_contains <- sqlFetch(con, "r_subbas_contains_lu")
-    dat_lu <- sqlFetch(con, "landscape_units")
-    dat_lu_contains <- sqlFetch(con, "r_lu_contains_tc")
-    dat_tc <- sqlFetch(con, "terrain_components")
-    dat_tc_contains <- sqlFetch(con, "r_tc_contains_svc")
-    dat_svc <- sqlFetch(con, "soil_veg_components")
-    if ("rainy_season" %in% sqlTables(con)[, "TABLE_NAME"])
-      rainy_exists <- TRUE
-    else
-      rainy_exists <- FALSE
-    if(rainy_exists)
-      dat_rainy <- sqlFetch(con, "rainy_season")
-    
-    # identify obsolete LUs, TCs, SVCs as is
-    r_del_lu <- which(!(dat_lu$pid %in% dat_sub_contains$lu_id) | !(dat_lu$pid %in% dat_lu_contains$lu_id))
-    r_del_tc <- which(!(dat_tc$pid %in% dat_lu_contains$tc_id) | !(dat_tc$pid %in% dat_tc_contains$tc_id))
-    r_del_svc <- which(!(dat_svc$pid %in% dat_tc_contains$svc_id) | dat_svc$special_area != 0)
-    r_del_sub <- NULL
-    r_del_rainy <- NULL
-    
-    # determine all obsolete datasets including dependencies
-    if(any(r_del_svc)) {
-      # lost TCs due to SVCs to be removed (add to existing TC deletes)
-      r_tmp <- which(dat_tc_contains$svc_id %in% dat_svc$pid[r_del_svc])
-      if(any(r_tmp))
-        r_del_tc <- unique(c(r_del_tc, which(!(dat_tc$pid %in% dat_tc_contains$tc_id[-r_tmp])) ))
-    }
-    if(any(r_del_tc)) {
-      # lost SVCs due to TCs to be removed (add to existing SVC deletes)
-      r_tmp <- which(dat_tc_contains$tc_id %in% dat_tc$pid[r_del_tc])
-      if(any(r_tmp))
-        r_del_svc <- unique(c(r_del_svc, which(!(dat_svc$pid %in% dat_tc_contains$svc_id[-r_tmp])) ))
-      # lost LUs due to TCs to be removed (add to existing LU deletes)
-      r_tmp <- which(dat_lu_contains$tc_id %in% dat_tc$pid[r_del_tc])
-      if(any(r_tmp))
-        r_del_lu <- unique(c(r_del_lu, which(!(dat_lu$pid %in% dat_lu_contains$lu_id[-r_tmp])) ))
-    }
-    if(any(r_del_lu)) {
-      # lost TCs due to LUs to be removed (add to existing TC deletes)
-      r_tmp <- which(dat_lu_contains$lu_id %in% dat_lu$pid[r_del_lu])
-      if(any(r_tmp))
-        r_del_tc <- unique(c(r_del_tc, which(!(dat_tc$pid %in% dat_lu_contains$tc_id[-r_tmp])) ))
-      # lost SVCs due to LUs to be removed (add to existing SVC deletes)
-      r_tmp <- which(dat_tc_contains$tc_id %in% dat_tc$pid[r_del_tc])
-      if(any(r_tmp))
-        r_del_svc <- unique(c(r_del_svc, which(!(dat_svc$pid %in% dat_tc_contains$svc_id[-r_tmp])) ))
-      # lost subbas due to LUs to be removed
-      r_tmp <- which(dat_sub_contains$lu_id %in% dat_lu$pid[r_del_lu])
-      if(any(r_tmp))
-        r_del_sub <- which(!(dat_sub$pid %in% dat_sub_contains$subbas_id[-r_tmp]))
-    }
-    
-    # identify obsolete entries in rainy_season
-    if(rainy_exists) {
-      if(any(r_del_sub))
-        r_del_rainy <- which(!(dat_rainy$subbas_id %in% dat_sub$pid[-r_del_sub]))
-      else
-        r_del_rainy <- which(!(dat_rainy$subbas_id %in% dat_sub$pid))
-      r_del_rainy = r_del_rainy[!(dat_rainy$subbas_id[r_del_rainy]==-1)] #do not remove entries with subbas_id=-1, as this is a wildcard
-    }
-    
-    # report
-    if(!fix | verbose) {
-      if(any(r_del_sub)) {
-        print("-> The following datasets in 'subbasins' are obsolete:")
-        print(dat_sub[r_del_sub,]) 
-        print("... affecting the following datasets in 'r_subbas_contains_lu':")
-        print(dat_sub_contains[which(dat_sub_contains$subbas_id %in% dat_sub$pid[r_del_sub]),])
-      }
-      if(any(r_del_lu)) {
-        print("-> The following datasets in 'landscape_units' are obsolete:")
-        print(dat_lu[r_del_lu,]) 
-        cascade_effected = which(dat_sub_contains$lu_id %in% dat_lu$pid[r_del_lu])
-        if (any(cascade_effected))
+    break_msg=""
+
+    for (table_chain in chain_list)
+    {  
+      for (i in 2:nrow(table_chain))
+      {
+        cur_table = table_chain$table[i]
+        pre_table = table_chain$table[i-1]
+        statement = paste0("select ",
+                           cur_table,".",table_chain$key2prev[i],
+                           " from ", cur_table, " left join ", pre_table, " on ",
+                     cur_table,".",table_chain$key2prev[i], "=", 
+                     pre_table,".",table_chain$key2next[i-1],
+                     " where ", pre_table,".",table_chain$key2next[i-1]," IS NULL")
+        if (cur_table %in% names(wildcard_fields))
+          statement = paste0(statement, " AND NOT ", cur_table,".",table_chain$key2prev[i], "=-1;") else
+          statement = paste0(statement, ";")
+              
+        statement <- sql_dialect(con, statement) # adjust to specific SQL dialects
+        
+        res <- sqlQuery(con, statement, errors=FALSE)
+        if (is.numeric(res) && res==-1)
         {
-          print("... affecting the following datasets in 'r_subbas_contains_lu':")
-          print(dat_sub_contains[cascade_effected,])
-          cascade_effected = which(dat_lu_contains$lu_id %in% dat_lu$pid[r_del_lu])
-          if (any(cascade_effected))
-          {
-            print("... and the following datasets in 'r_lu_contains_tc':")
-            print(dat_lu_contains[cascade_effected,])
-          }
+          res <- sqlQuery(con, statement, errors = T)
+          break_msg = paste0("Error in SQL query execution while detecting obsolete records: \nQuery: ", statement,
+                          "\nerror-message: ", res[1])
+          break
         }
-      }
-      if(any(r_del_tc)) {
-        print("-> The following datasets in 'terrain_components' are obsolete:")
-        print(dat_tc[r_del_tc,]) 
-      
-        cascade_effected = which(dat_lu_contains$tc_id %in% dat_tc$pid[r_del_tc])
-        if (any(cascade_effected))
+        if (nrow(res)==0) 
         {
-          print("... affecting the following datasets in 'r_lu_contains_tc':")
-          print(dat_lu_contains[cascade_effected,])
-          cascade_effected = which(dat_tc_contains$tc_id %in% dat_tc$pid[r_del_tc])
-          if (any(cascade_effected))
-          {
-            print("... and the following datasets in 'r_tc_contains_svc':")
-            print(dat_tc_contains[cascade_effected,])
-          }
+          if(verbose) print(paste0("No obsolete records found in '", cur_table,"'"))
+          next   #no obsolete records found
         }
-      }
-      if(any(r_del_svc)) {
-        print("-> The following datasets in 'soil_veg_components' are obsolete:")
-        print(dat_svc[r_del_svc,])
-        cascade_effected = which(dat_tc_contains$svc_id %in% dat_svc$pid[r_del_svc])
-        if (any(cascade_effected))
+        if(verbose) 
+        {  
+          print(paste0("-> The following records in '", cur_table,"' are obsolete:"))
+          print(res) 
+        }    
+        if (!fix) 
+          print("More records may turn up after actual cleaning (fix=TRUE).") else
         {
-          print("... affecting the following datasets in 'r_tc_contains_svc':")
-          print(dat_tc_contains[cascade_effected,])
-        }
+          statement = paste0("delete from ", cur_table, 
+                             " where ", table_chain$key2prev[i]," IN (",
+                             paste0(res[,1], collapse=","),")")
+          
+          statement <- sql_dialect(con, statement) # adjust to specific SQL dialects  
+          res <- sqlQuery(con, statement, errors=FALSE)
+          if (is.numeric(res) && res==-1)
+          {  
+            res <- sqlQuery(con, statement, errors = T)
+            break_msg = cat(paste0("Error in SQL query execution while detecting obsolete records. \nQuery: ", statement,
+                            "\nerror-message: ", res[1]))
+            break
+          } 
+          tbl_changed <- c(tbl_changed, cur_table)
+        }          
       }
-      if(any(r_del_rainy)) {
-        print("-> The following datasets in 'rainy_season' are obsolete:")
-        print(dat_rainy[r_del_rainy,])
-      }
-    }
-    
-    # fix
-    if(fix) {
-      
-      if(verbose)
-        print("All reported obsolete datasets will be removed from the respective tables.")
-      
-      tryCatch(
-        {
-          if(any(r_del_sub)) {
-            sqlQuery(con, "delete from subbasins")
-            sqlSave(channel=con, tablename = "subbasins", dat=dat_sub[-r_del_sub,], verbose=F, 
-                    append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
-            tbl_changed <- c(tbl_changed, "subbasins")
-          }
-          
-          if(any(r_del_lu)) {
-            sqlQuery(con, "delete from landscape_units")
-            sqlSave(channel=con, tablename = "landscape_units", dat=dat_lu[-r_del_lu,], verbose=F, 
-                    append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
-            tbl_changed <- c(tbl_changed, "landscape_units")
-          }
-          
-          if(any(r_del_tc)) {
-            sqlQuery(con, "delete from terrain_components")
-            sqlSave(channel=con, tablename = "terrain_components", dat=dat_tc[-r_del_tc,], verbose=F, 
-                    append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
-            tbl_changed <- c(tbl_changed, "terrain_components")
-          }
-          
-          if(any(r_del_svc)) {
-            sqlQuery(con, "delete from soil_veg_components")
-            sqlSave(channel=con, tablename = "soil_veg_components", dat=dat_svc[-r_del_svc,], verbose=F, 
-                    append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
-            tbl_changed <- c(tbl_changed, "soil_veg_components")
-          }
-          
-          if(any(r_del_sub) | any(r_del_lu)) {
-            r_tmp <- which(dat_sub_contains$subbas_id %in% dat_sub$pid[r_del_sub] | dat_sub_contains$lu_id %in% dat_lu$pid[r_del_lu])
-            if(any(r_tmp)) { # might be that there is nothing to be changed in contains-table due to prior fixes
-              dat_sub_contains <- dat_sub_contains[-r_tmp,]
-              # update fractions
-              frac_sum <- tapply(dat_sub_contains$fraction, list(parent=dat_sub_contains$subbas_id), sum)
-              for (s in 1:nrow(dat_sub_contains))
-                dat_sub_contains$fraction[s] <- dat_sub_contains$fraction[s] / frac_sum[paste0(dat_sub_contains$subbas_id[s])]
-              # write to db
-              sqlQuery(con, "delete from r_subbas_contains_lu")
-              sqlSave(channel=con, tablename = "r_subbas_contains_lu", dat=dat_sub_contains, verbose=F, 
-                      append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
-              tbl_changed <- c(tbl_changed, "r_subbas_contains_lu")
-            }
-          }
-          
-          if(any(r_del_lu) | any(r_del_tc)) {
-            r_tmp <- which(dat_lu_contains$lu_id %in% dat_lu$pid[r_del_lu] | dat_lu_contains$tc_id %in% dat_tc$pid[r_del_tc])
-            if(any(r_tmp)) { # might be that there is nothing to be changed in contains-table due to prior fixes
-              dat_lu_contains <- dat_lu_contains[-r_tmp,]
-              # update fractions
-              frac_sum <- tapply(dat_lu_contains$fraction, list(parent=dat_lu_contains$lu_id), sum)
-              for (s in 1:nrow(dat_lu_contains))
-                dat_lu_contains$fraction[s] <- dat_lu_contains$fraction[s] / frac_sum[paste0(dat_lu_contains$lu_id[s])]
-              # write to db
-              sqlQuery(con, "delete from r_lu_contains_tc")
-              sqlSave(channel=con, tablename = "r_lu_contains_tc", dat=dat_lu_contains, verbose=F, 
-                      append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
-              tbl_changed <- c(tbl_changed, "r_lu_contains_tc")
-            }
-          }
-          
-          if(any(r_del_tc) | any(r_del_svc)) {
-            r_tmp <- which(dat_tc_contains$tc_id %in% dat_tc$pid[r_del_tc] | dat_tc_contains$svc_id %in% dat_svc$pid[r_del_svc])
-            if(any(r_tmp)) { # might be that there is nothing to be changed in contains-table due to prior fixes
-              frac_sum_old <- tapply(dat_tc_contains$fraction, list(parent=dat_tc_contains$tc_id), sum) # keep track of old fraction sums if they are less than one due to check 'remove_impervious_svc'
-              dat_tc_contains <- dat_tc_contains[-r_tmp,]
-              # update fractions
-              frac_sum <- tapply(dat_tc_contains$fraction, list(parent=dat_tc_contains$tc_id), sum)
-              for (s in 1:nrow(dat_tc_contains))
-                dat_tc_contains$fraction[s] <- frac_sum_old[paste0(dat_tc_contains$tc_id[s])] * dat_tc_contains$fraction[s] / frac_sum[paste0(dat_tc_contains$tc_id[s])]
-              # write to db
-              sqlQuery(con, "delete from r_tc_contains_svc")
-              sqlSave(channel=con, tablename = "r_tc_contains_svc", dat=dat_tc_contains, verbose=F, 
-                      append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
-              tbl_changed <- c(tbl_changed, "r_tc_contains_svc")
-            }
-          }
-          
-          if(any(r_del_rainy)) {
-            dat_rainy <- dat_rainy[-r_del_rainy,]
-            # update pid
-            dat_rainy$pid <- 1:nrow(dat_rainy)
-            # write to db
-            sqlQuery(con, "delete from rainy_season")
-            sqlSave(channel=con, tablename = "rainy_season", dat=dat_rainy, verbose=F, 
-                    append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
-            tbl_changed <- c(tbl_changed, "rainy_season")
-          }
-          
-          
-        }, error = function(e) {
-          # update table meta_info
-          meta_dat <- sqlFetch(con, "meta_info")
-          if(any(meta_dat$pid)) {
-            pid_new <- max(meta_dat$pid) +1
-          } else {
-            pid_new <- 1
-          }
-          meta_out <- data.frame(pid=pid_new,
-                                 mod_date=as.POSIXct(Sys.time()),
-                                 mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
-                                 affected_tables=paste(unique(tbl_changed), collapse=", "),
-                                 affected_columns="various",
-                                 remarks=paste0("ATTENTION: Error while checking database using R package lumpR check delete_obsolete. Nevertheless, affected_tables have already been changed."))
-          write_datetabs(con, meta_out, tab="meta_info", verbose)
-          odbcClose(con)
-          stop(paste0("An error occured when updating certain tables to delete obsolete datasets. ",
-                      "Error message of the writing function: ", e))
-        }
-      )
-      
-      
-    } # fix: delete obsolete datasets
-    
-    
-
-    if(verbose)
-      print("OK.")
-    
-  } # check delete_obsolete
-
-
-
-
-###############################################################################
-### check completeness
-  if (any(grepl("completeness", check))) {
-    if(verbose)
-      print("Check completeness ...")
-    
-    compl_failed <- 0
-    
-    ### r_subbas_contains_lu
-    
-    # get data
-    dat_sub_contains <- sqlFetch(con, "r_subbas_contains_lu")
-    dat_lu <- sqlFetch(con, "landscape_units")
-    dat_sub <- sqlFetch(con, "subbasins")
-    
-    # check subbasins
-    r_miss <- which(!(dat_sub_contains$subbas_id %in% dat_sub$pid))
-    
-    if(any(r_miss)) {
-      print("-> The following subbasins appear in 'r_subbas_contains_lu' but not in 'subbasins':")
-      print(paste(unique(dat_sub_contains$subbas_id[r_miss]), collapse = ", "))
-      compl_failed <- compl_failed + 1
-    }
-    
-    # check LUs
-    r_miss <- which(!(dat_sub_contains$lu_id %in% dat_lu$pid))
-    
-    if(any(r_miss)) {
-      print("-> The following LUs appear in 'r_subbas_contains_lu' but not in 'landscape_units':")
-      print(paste(unique(dat_sub_contains$lu_id[r_miss]), collapse = ", "))
-      compl_failed <- compl_failed + 1
-    }
-    
-    
-    ### r_lu_contains_tc
-    
-    # get data
-    dat_lu_contains <- sqlFetch(con, "r_lu_contains_tc")
-    dat_lu <- sqlFetch(con, "landscape_units")
-    dat_tc <- sqlFetch(con, "terrain_components")
-    
-    # check LUs
-    r_miss <- which(!(dat_lu_contains$lu_id %in% dat_lu$pid))
-    
-    if(any(r_miss)) {
-      print("-> The following LUs appear in 'r_lu_contains_tc' but not in 'landscape_units':")
-      print(paste(unique(dat_lu_contains$lu_id[r_miss]), collapse = ", "))
-      compl_failed <- compl_failed + 1
-    }
-    
-    # check LU contains
-    r_miss <- which(!(unique(dat_sub_contains$lu_id) %in% dat_lu_contains$lu_id))
-    
-    if(any(r_miss)) {
-      print("-> The following LUs appear in 'r_subbas_contains_lu' but not in 'r_lu_contains_tc':")
-      print(paste(unique(dat_sub_contains$lu_id)[r_miss], collapse = ", "))
-      compl_failed <- compl_failed + 1
-    }
-    
-    # check TCs
-    r_miss <- which(!(dat_lu_contains$tc_id %in% dat_tc$pid))
-    
-    if(any(r_miss)) {
-      print("-> The following TCs appear in 'r_lu_contains_tc' but not in 'terrain_components':")
-      print(paste(unique(dat_lu_contains$tc_id[r_miss]), collapse = ", "))
-      compl_failed <- compl_failed + 1
-    }
-    
-    
-    ### r_tc_contains_svc
-    
-    # get data
-    dat_tc_contains <- sqlFetch(con, "r_tc_contains_svc")
-    dat_svc <- sqlFetch(con, "soil_veg_components")
-    dat_tc <- sqlFetch(con, "terrain_components")
-    
-    # check TCs
-    r_miss <- which(!(dat_tc_contains$tc_id %in% dat_tc$pid))
-    
-    if(any(r_miss)) {
-      print("-> The following TCs appear in 'r_tc_contains_svc' but not in 'terrain_components':")
-      print(paste(unique(dat_tc_contains$tc_id[r_miss]), collapse = ", "))
-      compl_failed <- compl_failed + 1
-    }
-    
-    # check LU contains
-    r_miss <- which(!(unique(dat_lu_contains$tc_id) %in% dat_tc_contains$tc_id))
-    
-    if(any(r_miss)) {
-      print("-> The following TCs appear in 'r_lu_contains_tc' but not in 'r_tc_contains_svc':")
-      print(paste(unique(dat_lu_contains$tc_id)[r_miss], collapse = ", "))
-      compl_failed <- compl_failed + 1
-    }
-    
-    # check SVCs
-    r_miss <- which(!(dat_tc_contains$svc_id %in% dat_svc$pid))
-    
-    if(any(r_miss)) {
-      print("-> The following SVCs appear in 'r_tc_contains_svc' but not in 'soil_veg_components':")
-      print(paste(unique(dat_tc_contains$svc_id[r_miss]), collapse = ", "))
-      compl_failed <- compl_failed + 1
-    }
-    
-
-    ### soil and vegetation
-    
-    # get data
-    dat_svc <- sqlFetch(con, "soil_veg_components")
-    dat_veg <- sqlFetch(con, "vegetation")
-    dat_soil <- sqlFetch(con, "soils")
-    
-    # check soils
-    r_miss <- which(!(dat_svc$soil_id %in% dat_soil$pid))
-    
-    if(any(r_miss)) {
-      print("-> The following soils appear in 'soil_veg_components' but not in 'soils':")
-      print(paste(unique(dat_svc$soil_id[r_miss]), collapse = ", "))
-      compl_failed <- compl_failed + 1
-    }
-    
-    # check vegetation
-    r_miss <- which(!(dat_svc$veg_id %in% dat_veg$pid))
-    
-    if(any(r_miss)) {
-      print("-> The following vegetation types appear in 'soil_veg_components' but not in 'vegetation':")
-      print(paste(unique(dat_svc$veg_id[r_miss]), collapse = ", "))
-      compl_failed <- compl_failed + 1
-    }
-    
-    
-    ### r_soil_contains_particles
-    
-    # get data
-    dat_contains <- sqlFetch(con, "r_soil_contains_particles")
-    dat_part <- sqlFetch(con, "particle_classes")
-    dat_soil <- sqlFetch(con, "soils")
-    
-    # check soils
-    r_miss <- which(!(dat_contains$soil_id %in% dat_soil$pid))
-    
-    if(any(r_miss)) {
-      print("-> The following soils appear in 'r_soil_contains_particles' but not in 'soils':")
-      print(paste(unique(dat_contains$soil_id[r_miss]), collapse = ", "))
-      compl_failed <- compl_failed + 1
-    }
-    
-    # check particle classes
-    r_miss <- which(!(dat_contains$class_id %in% dat_part$class_id))
-    
-    if(any(r_miss)) {
-      print("-> The following particle classes appear in 'r_soil_contains_particles' but not in 'particle_classes':")
-      print(paste(unique(dat_contains$class_id[r_miss]), collapse = ", "))
-      compl_failed <- compl_failed + 1
-    }
-    
-    
-    ### soil horizons
-    
-    # get data
-    dat_hor <- sqlFetch(con, "horizons")
-    dat_soil <- sqlFetch(con, "soils")
-    
-    # check soils
-    r_miss <- which(!(dat_hor$soil_id %in% dat_soil$pid))
-    
-    if(any(r_miss)) {
-      print("-> The following soils appear in 'horizons' but not in 'soils':")
-      print(paste(unique(dat_hor$soil_id[r_miss]), collapse = ", "))
-      compl_failed <- compl_failed + 1
-    }
-    
-    
-    ### rainy_season
-    
-    if ("rainy_season" %in% sqlTables(con)[, "TABLE_NAME"]) {
-      # get data
-      dat_rainy <- sqlFetch(con, "rainy_season")
-      dat_sub <- sqlFetch(con, "subbasins")
-      
-      # check subbasins in rainy_season
-      r_miss <- which(!(dat_sub$pid %in% dat_rainy$subbas_id))
-      
-      if(any(r_miss)) {
-        print("-> The following subbasins appear in 'subbasins' but not in 'rainy_season':")
-        print(paste(unique(dat_sub$pid[r_miss]), collapse = ", "))
-        compl_failed <- compl_failed + 1
-      }
-    }
-    
-    
-    if(compl_failed > 0) {
-      # update table meta_info
-      if(fix) {
+     
+      if (break_msg!="") #anything went wrong?
+      {
+        # update table meta_info
         meta_dat <- sqlFetch(con, "meta_info")
         if(any(meta_dat$pid)) {
           pid_new <- max(meta_dat$pid) +1
@@ -1512,18 +1185,67 @@ db_check <- function(
                                mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
                                affected_tables=paste(unique(tbl_changed), collapse=", "),
                                affected_columns="various",
-                               remarks=paste0("ATTENTION: Error while checking database using R package lumpR::db_check() for completeness (", compl_failed, " problem(s) occurred)."))
+                               remarks=paste0("ATTENTION: Error while checking database using R package lumpR check delete_obsolete. Nevertheless, affected_tables have already been changed."))
         write_datetabs(con, meta_out, tab="meta_info", verbose)
+        odbcClose(con)
+        stop(break_msg)
       }
-      odbcClose(con)
-      stop(paste0("Check for completeness failed ", compl_failed, " time(s). Restore data integrity before any further actions! Notice preceding output messages for more information."))
-    }
-    
-    if(verbose)
-      print("OK.")
-    
-  } # check completeness
+    }  
+    if(verbose & !fix)
+        print("All reported obsolete records will be removed from the respective tables with fix=TRUE.")
 
+  } # check delete_obsolete
+
+
+
+
+###############################################################################
+### check completeness
+  if (any(grepl("completeness", check)))
+  {
+    if(!fix & verbose)
+      print("Search referenced records without specification...")
+    
+    break_msg=""
+    
+    for (table_chain in chain_list)
+    {  
+      for (i in 1:(nrow(table_chain)-1))
+      {
+        cur_table = table_chain$table[i]
+        nex_table = table_chain$table[i+1]
+        statement = paste0("select ",
+                           cur_table,".",table_chain$key2next[i],
+                           " from ", cur_table, " left join ", nex_table, " on ",
+                           cur_table,".",table_chain$key2next[i], "=", 
+                           nex_table,".",table_chain$key2prev[i+1])
+        if (nex_table %in% names(wildcard_fields))
+          statement = paste0(statement, " OR ", nex_table,".",table_chain$key2prev[i+1], "=-1") 
+
+          statement = paste0(statement, " where ", nex_table,".",table_chain$key2prev[i+1]," IS NULL")
+        
+        statement <- sql_dialect(con, statement) # adjust to specific SQL dialects
+        
+        res <- sqlQuery(con, statement, errors=FALSE)
+        if (is.numeric(res) && res==-1)
+        {
+          res <- sqlQuery(con, statement, errors = T)
+          break_msg = paste0("Error in SQL query execution while detecting incomplete records: \nQuery: ", statement,
+                             "\nerror-message: ", res[1])
+          break
+        }
+        if(verbose)
+          if (nrow(res)==0) 
+            print(paste0("No incomplete records found in '", cur_table,"'")) else
+          {  
+            print(paste0("-> The following records in '", cur_table,"' are are missing their description in '", nex_table, "':"))
+            print(res) 
+          }   
+          
+           
+      }
+    } 
+  }   # check completeness
 
 
 
