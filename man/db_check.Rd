@@ -8,8 +8,8 @@ db_check(dbname, check = c("check_fix_fractions", "filter_small_areas",
   "tc_slope", "special_areas", "remove_water_svc", "compute_rocky_frac",
   "remove_impervious_svc", "proxy_frgw_delay", "delete_obsolete",
   "completeness", "subbasin_order"), option = list(area_thresh = 0.01,
-  treat_slope = c(3, 0.01, 0.1), update_frac_impervious = F), fix = F,
-  verbose = TRUE)
+  treat_slope = c(3, 0.01, 0.1), update_frac_impervious = F, overwrite = F),
+  fix = F, verbose = TRUE)
 }
 \arguments{
 \item{dbname}{Name of the data source (DSN) registered at ODBC.}
@@ -135,8 +135,9 @@ The following checks are currently included and can be specified via argument \c
  of lower hierarchy. Reports only, ignores \code{fix=T} and does no changes t the database.
  
  \bold{subbasin_order}\cr
- Compute subbasin order for WASA's routing input file routing.dat. Order will
- be defined in column 'a_stream_order' of table 'subbasins'.
+ Compute subbasin order for WASA's routing input file \code{routing.dat}. Order will
+ be derived from column 'drains_to' and written to 'a_stream_order' of table 'subbasins'.
+ \emph{Option: 'overwrite'}: Overwrite existing vaues.\cr
 }
 \author{
 Tobias Pilz \email{tpilz@uni-potsdam.de}, Till Francke \email{francke@uni-potsdam.de}

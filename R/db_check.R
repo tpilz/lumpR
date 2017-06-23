@@ -139,8 +139,9 @@
 #'  of lower hierarchy. Reports only, ignores \code{fix=T} and does no changes t the database.
 #'  
 #'  \bold{subbasin_order}\cr
-#'  Compute subbasin order for WASA's routing input file routing.dat. Order will
-#'  be defined in column 'a_stream_order' of table 'subbasins'.
+#'  Compute subbasin order for WASA's routing input file \code{routing.dat}. Order will
+#'  be derived from column 'drains_to' and written to 'a_stream_order' of table 'subbasins'.
+#'  \emph{Option: 'overwrite'}: Overwrite existing vaues.\cr
 #'  
 #'  
 #' @author 
@@ -153,7 +154,7 @@ db_check <- function(
             "delete_obsolete", "completeness", "subbasin_order"),
   option = list(area_thresh=0.01,
                 treat_slope=c(3,0.01,0.1),
-                update_frac_impervious=F),
+                update_frac_impervious=F, overwrite=F),
   fix=F,
   verbose=TRUE
 ) {
@@ -1254,15 +1255,19 @@ if (any(grepl("delete_obsolete", check))) {
   if (any(grepl("subbasin_order", check))) {
     if(verbose)
       print("Determine subbasin_order (column 'a_stream_order' of table 'subbasins') ...")
+    if(!fix) 
+      print("-> Running in report mode. No changes will be made.")
+  
+    # get data
+    dat_sub <- sqlFetch(con, "subbasins")  
+    stream_order_old = dat_sub$a_stream_order #keep for comparison
+    # identify outlet subbasin
+    r_outlet <- which(dat_sub$drains_to %in% c(9999,-9999,999,-999))
     
-    if(!fix) {
-      print("-> Running in report mode. Nothing to report for this check.")
-    } else {
-      
-      # get data
-      dat_sub <- sqlFetch(con, "subbasins")
-      
-      if(any(!is.na(dat_sub$a_stream_order))) {
+    
+    if((length(r_outlet) > 1) | (!any(r_outlet))) {
+      if (any(tbl_changed))
+      {  
         # update table meta_info
         meta_dat <- sqlFetch(con, "meta_info")
         if(any(meta_dat$pid)) {
@@ -1277,78 +1282,43 @@ if (any(grepl("delete_obsolete", check))) {
                                affected_columns="various",
                                remarks=paste0("ATTENTION: Error while checking database using R package lumpR check subbasin_order. Nevertheless, affected_tables have already been changed."))
         write_datetabs(con, meta_out, tab="meta_info", verbose)
-        odbcClose(con)
-        stop("There are already values in column 'a_stream_order' of table 'subbasins'. Set them all to 'NULL' if you want to compute subbasin order!")
-      }
+      }  
+      odbcClose(con)
+      if (!any(r_outlet))
+          stop("Could not identify outlet subbasin from column 'drains_to' in table 'subbasins'. Must be one of values c(9999,-9999,999,-999).") else
+          stop("More than one subbasin has been identified as outlet. Check column 'drains_to' in table 'subbasins'!")
+    }
+    
+    ##determine stream order
+    dat_sub$a_stream_order = NA
+    dat_sub$a_stream_order[r_outlet] <- 1
+    
+    # determine rest of stream order
+    fin <- FALSE
+    i <- 0
+    while(fin == F) {
+      i <- i+1
       
-      ### determine stream order
+      # determine indices of subbasins of previously filled 'a_stream_order' (downstream subbasins)
+      r <- which(dat_sub$a_stream_order == i)
       
-      # identify outlet subbasin
-      r_outlet <- which(dat_sub$drains_to %in% c(9999,-9999,999,-999))
+      # get pid(s) of downstream subbasin(s)
+      sub_up <- dat_sub$pid[r]
       
-      if(!any(r_outlet)) {
-        # update table meta_info
-        meta_dat <- sqlFetch(con, "meta_info")
-        if(any(meta_dat$pid)) {
-          pid_new <- max(meta_dat$pid) +1
-        } else {
-          pid_new <- 1
-        }
-        meta_out <- data.frame(pid=pid_new,
-                               mod_date=as.POSIXct(Sys.time()),
-                               mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
-                               affected_tables=paste(unique(tbl_changed), collapse=", "),
-                               affected_columns="various",
-                               remarks=paste0("ATTENTION: Error while checking database using R package lumpR check subbasin_order. Nevertheless, affected_tables have already been changed."))
-        write_datetabs(con, meta_out, tab="meta_info", verbose)
-        odbcClose(con)
-        stop("Could not identify outlet subbasin from column 'drains_to' in table 'subbasins'. Must be one of values c(9999,-9999,999,-999).")
-      }
-      if(length(r_outlet) > 1) {
-        # update table meta_info
-        meta_dat <- sqlFetch(con, "meta_info")
-        if(any(meta_dat$pid)) {
-          pid_new <- max(meta_dat$pid) +1
-        } else {
-          pid_new <- 1
-        }
-        meta_out <- data.frame(pid=pid_new,
-                               mod_date=as.POSIXct(Sys.time()),
-                               mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
-                               affected_tables=paste(unique(tbl_changed), collapse=", "),
-                               affected_columns="various",
-                               remarks=paste0("ATTENTION: Error while checking database using R package lumpR check subbasin_order. Nevertheless, affected_tables have already been changed."))
-        write_datetabs(con, meta_out, tab="meta_info", verbose)
-        odbcClose(con)
-        stop("More than one subbasin has been identified as outlet. Check column 'drains_to' in table 'subbasins'!")
-      }
+      # find this upstream subbasins to current downstream subbasins by checking 'drains_to'
+      r_up <- which(dat_sub$drains_to %in% sub_up)
       
-      dat_sub$a_stream_order[r_outlet] <- 1
+      # set corresponding 'a_stream_order' value to i+1
+      dat_sub$a_stream_order[r_up] <- i+1
       
-      # determine rest of stream order
-      fin <- FALSE
-      i <- 0
-      while(fin == F) {
-        i <- i+1
-        
-        # determine index of previously filled 'a_stream_order'
-        r <- which(dat_sub$a_stream_order == i)
-        
-        # get pid of upstream subbasin
-        sub_up <- dat_sub$pid[r]
-        
-        # find this subbasin in 'drains_to'
-        r_up <- which(dat_sub$drains_to %in% sub_up)
-        
-        # set corresponding 'a_stream_order' value to i+1
-        dat_sub$a_stream_order[r_up] <- i+1
-        
-        # check if finished
-        if(!any(is.na(dat_sub$a_stream_order)))
-          fin <- TRUE
-        
-        # throw an error if i is already very large (In this case there must be something wrong)
-        if (i > 10000) {
+      # check if finished
+      if(!any(is.na(dat_sub$a_stream_order)))
+        fin <- TRUE
+      
+      # throw an error if i is already very large (In this case there must be something wrong)
+      if (i > 10000) {
+        if (any(tbl_changed))
+        {  
           # update table meta_info
           meta_dat <- sqlFetch(con, "meta_info")
           if(any(meta_dat$pid)) {
@@ -1363,44 +1333,74 @@ if (any(grepl("delete_obsolete", check))) {
                                  affected_columns="various",
                                  remarks=paste0("ATTENTION: Error while checking database using R package lumpR check subbasin_order. Nevertheless, affected_tables have already been changed."))
           write_datetabs(con, meta_out, tab="meta_info", verbose)
-          odbcClose(con)
-          stop("Cannot successfully determine subbasin order (column 'a_stream_order' of table 'subbasins'). Check the table for errors!")
-        }
-      }
-      
-      
-      ### write results to db
-      if(verbose)
-        print("-> Updating table 'subbasins'...")
-      tryCatch(
-      {
-        sqlQuery(con, "delete from subbasins")
-        sqlSave(channel=con, tablename = "subbasins", dat=dat_sub, verbose=F, 
-                append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
-        tbl_changed <- c(tbl_changed, "subbasins")
-      }, error = function(e) {
-        # update table meta_info
-        meta_dat <- sqlFetch(con, "meta_info")
-        if(any(meta_dat$pid)) {
-          pid_new <- max(meta_dat$pid) +1
-        } else {
-          pid_new <- 1
-        }
-        meta_out <- data.frame(pid=pid_new,
-                               mod_date=as.POSIXct(Sys.time()),
-                               mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
-                               affected_tables=paste(unique(tbl_changed), collapse=", "),
-                               affected_columns="various",
-                               remarks=paste0("ATTENTION: Error while checking database using R package lumpR check subbasin_order. Nevertheless, affected_tables have already been changed."))
-        write_datetabs(con, meta_out, tab="meta_info", verbose)
+        }  
         odbcClose(con)
-        stop(paste0("An error occured when updating table 'subbasins'. ",
-                    "Error message of the writing function: ", e))
+        stop("Cannot successfully determine subbasin order (column 'a_stream_order' of table 'subbasins'). Check the table for errors!")
       }
-      )   
-      
-    } # if fix
+    }
     
+    if (any(!is.na(stream_order_old)) &
+        all(stream_order_old== dat_sub$a_stream_order)) 
+      print("-> existing stream order ok.") else
+      {
+        if(!fix) {
+          print("-> existing stream order needs updating. Consider running with 'fix=TRUE' and 'option=list(overwrite=TRUE)'") 
+        } else {
+          
+          if(is.null(option$overwrite) | !option$overwrite) {
+            if (any(tbl_changed))
+            { 
+              # update table meta_info
+              meta_dat <- sqlFetch(con, "meta_info")
+              if(any(meta_dat$pid)) {
+                pid_new <- max(meta_dat$pid) +1
+              } else {
+                pid_new <- 1
+              }
+              meta_out <- data.frame(pid=pid_new,
+                                     mod_date=as.POSIXct(Sys.time()),
+                                     mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
+                                     affected_tables=paste(unique(tbl_changed), collapse=", "),
+                                     affected_columns="various",
+                                     remarks=paste0("ATTENTION: Error while checking database using R package lumpR check subbasin_order. Nevertheless, affected_tables have already been changed."))
+              write_datetabs(con, meta_out, tab="meta_info", verbose)
+            }  
+            odbcClose(con)
+            stop("There are already values in column 'a_stream_order' of table 'subbasins'. Use option=list(overwrite=TRUE) or manually set them all to 'NULL' if you want to compute subbasin order!")
+          }
+
+          ### write results to db
+          if(verbose)
+            print("-> Updating table 'subbasins'...")
+          tryCatch(
+            {
+              sqlQuery(con, "delete from subbasins")
+              sqlSave(channel=con, tablename = "subbasins", dat=dat_sub, verbose=F, 
+                      append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
+              tbl_changed <- c(tbl_changed, "subbasins")
+            }, error = function(e) {
+              # update table meta_info
+              meta_dat <- sqlFetch(con, "meta_info")
+              if(any(meta_dat$pid)) {
+                pid_new <- max(meta_dat$pid) +1
+              } else {
+                pid_new <- 1
+              }
+              meta_out <- data.frame(pid=pid_new,
+                                     mod_date=as.POSIXct(Sys.time()),
+                                     mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
+                                     affected_tables=paste(unique(tbl_changed), collapse=", "),
+                                     affected_columns="various",
+                                     remarks=paste0("ATTENTION: Error while checking database using R package lumpR check subbasin_order. Nevertheless, affected_tables have already been changed."))
+              write_datetabs(con, meta_out, tab="meta_info", verbose)
+              odbcClose(con)
+              stop(paste0("An error occured when updating table 'subbasins'. ",
+                          "Error message of the writing function: ", e))
+            }
+          )   
+
+        } # if fix
+      }   
     if(verbose)
       print("OK.")
     
