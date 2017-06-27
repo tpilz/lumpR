@@ -1339,7 +1339,7 @@ if (any(grepl("delete_obsolete", check))) {
       }
     }
     
-    if (any(!is.na(stream_order_old)) &
+    if (all(!is.na(stream_order_old)) &
         all(stream_order_old== dat_sub$a_stream_order)) 
       print("-> existing stream order ok.") else
       {
@@ -1374,10 +1374,23 @@ if (any(grepl("delete_obsolete", check))) {
             print("-> Updating table 'subbasins'...")
           tryCatch(
             {
-              sqlQuery(con, "delete from subbasins")
-              sqlSave(channel=con, tablename = "subbasins", dat=dat_sub, verbose=F, 
-                      append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
-              tbl_changed <- c(tbl_changed, "subbasins")
+              for (i in 1:nrow(dat_sub))
+              {  
+                statement = paste0("update subbasins set a_stream_order=",dat_sub$a_stream_order[i],
+                                   " where pid=",dat_sub$pid[i],";")
+              
+                res <- sqlQuery(con, statement, errors=FALSE)
+                if (is.numeric(res) && res==-1)
+                {
+                  res <- sqlQuery(con, statement, errors = T)
+                  break_msg = paste0("Error in SQL query execution while updating stream order: \nQuery: ", statement,
+                                     "\nerror-message: ", res[1])
+                  stop(break_msg)
+                }
+                if (length(tbl_changed)==0 || tbl_changed[length(tbl_changed)]!="subbasins")
+                  tbl_changed <- c(tbl_changed, "subbasins")
+              }  
+
             }, error = function(e) {
               # update table meta_info
               meta_dat <- sqlFetch(con, "meta_info")
