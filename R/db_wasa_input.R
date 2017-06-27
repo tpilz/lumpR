@@ -405,11 +405,14 @@ db_wasa_input <- function(
     # select only subbasins which are in the contains table
     r_sub_out <- which(!(dat_sub$pid %in% dat_contains$subbas_id))
     if(any(r_sub_out)) {
-      warning(paste0("Subbasins ", paste0(dat_sub$pid[r_sub_out], collapse=", "), " from table 'subbasins' are not in table 'r_subbas_contains_lu' and will be ignored."))
+      warning(paste0("Subbasins ", paste0(dat_sub$pid[r_sub_out], collapse=", "), " from table 'subbasins' are not in table 'r_subbas_contains_lu' and will be removed from output. Check integrity of routing!"))
       dat_sub <- dat_sub[-r_sub_out,]
     }
+
+    if(nrow(dat_sub) == 0)
+      stop("Cannot write file Hillslope/hymo.dat No validly specified subbasins in 'subbasins' found!")
     
-    if(any(is.na(cbind(dat_sub$pid,dat_sub$area))) | nrow(dat_sub) == 0)
+    if(any(is.na(cbind(dat_sub$pid,dat_sub$area))))
       stop("Cannot write file Hillslope/hymo.dat Column(s) 'pid' and/or 'area' of table 'subbasins' contain missing values!")
     if(any(is.na(dat_contains)) | nrow(dat_contains) == 0)
       stop("Cannot write file Hillslope/hymo.dat Table 'r_subbas_contains_lu' contains missing values!")
@@ -842,7 +845,8 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
     if(any(r_veg_out)) {
       warning(paste0("Vegetation types ", paste0(dat_veg$pid[r_veg_out], collapse=", "), " from table 'vegetation' are not in table 'soil_veg_components', or the respective SVCs are not in 'r_tc_contains_svc', and will be ignored."))
       dat_veg_out <- dat_veg[-r_veg_out,]
-    }
+    } else dat_veg_out <- dat_veg
+      
     
     
     # only the following columns in the following order

@@ -779,7 +779,7 @@ db_check <- function(
     dat_contains <- sqlFetch(con, "r_tc_contains_svc")
     
     dat_tc$frac_rocky[is.na(dat_tc$frac_rocky)] = 0 #set NAs to 0
-    if (max(dat_tc$frac_rocky)>0)
+    if (nrow(dat_tc)>0 & max(dat_tc$frac_rocky)>0)
       print("-> ATTENTION: Column 'frac_rocky' in table 'terrain_components' already contains some values. The computed fractions will be added to these.")
 
     # identify soils with 100% coarse fragments in topmost horizon
@@ -1239,7 +1239,7 @@ if (any(grepl("delete_obsolete", check))) {
           if (nrow(res)==0) 
             print(paste0("No incomplete records found in '", cur_table,"'")) else
           {  
-            print(paste0("-> The following records in '", cur_table,"' are are missing their description in '", nex_table, "':"))
+            print(paste0("-> The following records in '", cur_table,"' are missing their description in '", nex_table, "':"))
             print(res) 
           }   
           
