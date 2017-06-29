@@ -1061,7 +1061,7 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
       stop("There are missing values in table 'particle_classes'!")
     
     # write output
-    write.table(dat_part[,c(1,3)], paste(dest_dir, "part_class.dat", sep="/"), append=T,
+    write.table(dat_part[,c(1,2)], paste(dest_dir, "part_class.dat", sep="/"), append=T,
                 quote=F, sep="\t", row.names=F, col.names=F)
     
     
