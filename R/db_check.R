@@ -1208,7 +1208,7 @@ if (any(grepl("delete_obsolete", check))) {
       print("Search referenced records without specification...")
     
     break_msg=""
-    
+
     for (table_chain in chain_list)
     {  
       for (i in 1:(nrow(table_chain)-1))
@@ -1246,6 +1246,21 @@ if (any(grepl("delete_obsolete", check))) {
            
       }
     } 
+  
+  #check for multiple use of TC in LUs (currently not allowed by structure of WASA input files)
+    statement = paste0("select tc_id, count(*) as ct from r_lu_contains_tc group by tc_id having count(*) >1")
+    statement <- sql_dialect(con, statement) # adjust to specific SQL dialects
+    
+    res <- sqlQuery(con, statement, errors=FALSE)
+    if (is.numeric(res) && res==-1)
+    {
+      res <- sqlQuery(con, statement, errors = T)
+      break_msg = paste0("Error in SQL query execution while detecting multiple use of TCs: \nQuery: ", statement,
+                         "\nerror-message: ", res[1])
+      break
+    }
+    if (nrow(res)>0)
+      stop(paste0("TC(s) ", paste0(res$tc_id, collapse=" ,"), " is/are part of multiple LUs, which is currently not supported. Duplicate these TCs and assign a different ID for each instance."))
   }   # check completeness
 
 

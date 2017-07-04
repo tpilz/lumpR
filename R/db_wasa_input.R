@@ -549,7 +549,7 @@ db_wasa_input <- function(
     if(any(is.na(dat_contains)) | nrow(dat_contains) == 0)
       stop("Cannot write file Hillslope/terrain.dat. Table 'r_lu_contains_tc' contains missing values!")
     
-    # reverse positions (in WASA input the opposite couting compared to database)
+    # reverse positions (in WASA input the opposite order compared to database)
     for (l in unique(dat_contains$lu_id)){
       rows <- which(dat_contains$lu_id == l)
       dat_contains$position[rows] <- rev(dat_contains$position[rows])
@@ -557,8 +557,13 @@ db_wasa_input <- function(
     
     # loop over TCs
     for(s in 1:nrow(dat_tc)) {
-      # identify rows in contains table of current LU
+      # identify rows in contains table of current TC
       r_contains <- which(dat_contains$tc_id == dat_tc$pid[s])
+      
+      if (nrow(unique(dat_contains[r_contains,-1])) > 1)
+        stop(paste0("TC ", dat_tc$pid[s], " is part of multiple LUs (", paste0(dat_contains$lu_id[r_contains], collapse=" ,"),") which is currently not supported. Duplicate these TCs and assign a different ID for each instance."))
+      else
+        r_contains = r_contains[1]
       
       # string for output file with relevant information
 #       str_out <- paste(dat_tc$pid[s], round(dat_contains$fraction[r_contains],3),
@@ -941,8 +946,8 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
                       "path/to/output_dir/",
                       "//tstart (start year of simulation)",
                       "//tstop (end year of simulation)",
-                      "//mstart (start month of simulation)",
-                      "//mstop (end month of simulation)",
+                      "//mstart (start month of simulation [ optional: start day])",
+                      "//mstop (end month of simulation [ optional: start day])",
                       paste0(no_sub, "\t//no. of sub-basins"),
                       paste0(no_sblutc, "\t//no. of combinations of sub-basins, landscape units, terrain components (TC-instances)"),
                       paste0(no_lu, "\t//total no. of landscape units in study area"),
