@@ -463,14 +463,19 @@ db_wasa_input <- function(
       stop("File 'Hillslope/soter.dat' exists!")
     }
     
-    # write header
-    writeLines(con=paste(dest_dir, "Hillslope/soter.dat", sep="/"),
-               text=c("Specification of landscape units",
-                      "LU-ID[id]\tNo._of_TC[-]\tTC1[id]\tTC2[id]\tTC3[id]\tkfsu[mm/d]\tlength[m]\tmeandep[mm]\tmaxdep[mm]\tRiverbed[mm]\tgwflag[0/1]\tgw_dist[mm]\tfrgw_delay[day]"))
-    
     # get data
     dat_lu <- sqlFetch(con, "landscape_units")
     dat_contains <- sqlFetch(con, "r_lu_contains_tc")
+    
+    # write header
+    htext=c("Specification of landscape units",
+           "LU-ID[id]\tNo._of_TC[-]\tTC1[id]\tTC2[id]\tTC3[id]\tkfsu[mm/d]\tlength[m]\tmeandep[mm]\tmaxdep[mm]\tRiverbed[mm]\tgwflag[0/1]\tgw_dist[mm]\tfrgw_delay[day]")
+    omit_fields = which(names(dat_lu) == "description")
+    if (all(is.na(dat_lu$sdr_lu))) 
+      omit_fields = c(omit_fields, which(names(dat_lu) == "sdr_lu")) else
+      htext[2]=paste0(htext[2],"\tSDR_LU[-]")  
+    
+    writeLines(con=paste(dest_dir, "Hillslope/soter.dat", sep="/"), text=htext)
     
     # select only LUs which are in the contains table
     r_lu_out <- which(!(dat_lu$pid %in% dat_contains$lu_id))
@@ -483,7 +488,6 @@ db_wasa_input <- function(
       stop("Cannot write file Hillslope/soter.dat Table 'landscape_units' contains missing values!")
     if(any(is.na(dat_contains)) | nrow(dat_contains) == 0)
       stop("Cannot write file Hillslope/soter.dat Table 'r_lu_contains_tc' contains missing values!")
-    
     
     # loop over LUs
     for(s in 1:nrow(dat_lu)) {
@@ -500,7 +504,7 @@ db_wasa_input <- function(
 #                        paste(round(dat_lu[s,-c(1,2,11)],1), collapse="\t"), sep="\t")
       str_out <- paste(dat_lu$pid[s], length(r_contains), 
                        paste(dat_contains$tc_id[r_contains], collapse="\t"),
-                       paste(dat_lu[s,-c(1,2,11)], collapse="\t"), sep="\t")
+                       paste(dat_lu[s,-omit_fields], collapse="\t"), sep="\t")
 
       # write output
       write(file=paste(dest_dir, "Hillslope/soter.dat", sep="/"),x=str_out,append=T,sep="\n")
