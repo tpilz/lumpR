@@ -196,6 +196,7 @@ write_datetabs <- function(con, dat, tab, verbose) {
 
 
 
+
 # check or fix that fractions sum up to 1
 check_fix_fractions <- function(con, table, fix, verbose, tbl_changed) {
   if(verbose) message("%")
@@ -256,20 +257,9 @@ check_fix_fractions <- function(con, table, fix, verbose, tbl_changed) {
               tbl_changed <- c(tbl_changed, "terrain_components")
             }, error = function(e) {
               # update table meta_info
-              meta_dat <- sqlFetch(con, "meta_info")
-              if(any(meta_dat$pid)) {
-                pid_new <- max(meta_dat$pid) +1
-              } else {
-                pid_new <- 1
-              }
-              meta_out <- data.frame(pid=pid_new,
-                                     mod_date=as.POSIXct(Sys.time()),
-                                     mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
-                                     affected_tables=paste(unique(tbl_changed), collapse=", "),
-                                     affected_columns="various",
-                                     remarks=paste0("ATTENTION: Error while checking database using R package lumpR check check_fix_fractions. Nevertheless, affected_tables have already been changed."))
-              write_datetabs(con, meta_out, tab="meta_info", verbose)
-              
+              if(!is.null(tbl_changed)) write_metainfo(paste(unique(tbl_changed), collapse=", "), "various",
+                                                       "ATTENTION: Error while checking database using R package lumpR check check_fix_fractions. Nevertheless, affected_tables have already been changed.",
+                                                       verbose)
               stop(paste0("An error occured when updating table terrain_components. ",
                           "Error message of the writing function: ", e))
             }
@@ -285,19 +275,9 @@ check_fix_fractions <- function(con, table, fix, verbose, tbl_changed) {
           tbl_changed <- c(tbl_changed, table)
         }, error = function(e) {
           # update table meta_info
-          meta_dat <- sqlFetch(con, "meta_info")
-          if(any(meta_dat$pid)) {
-            pid_new <- max(meta_dat$pid) +1
-          } else {
-            pid_new <- 1
-          }
-          meta_out <- data.frame(pid=pid_new,
-                                 mod_date=as.POSIXct(Sys.time()),
-                                 mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
-                                 affected_tables=paste(unique(tbl_changed), collapse=", "),
-                                 affected_columns="various",
-                                 remarks=paste0("ATTENTION: Error while checking database using R package lumpR check filter_small_areas. Nevertheless, affected_tables have already been changed."))
-          write_datetabs(con, meta_out, tab="meta_info", verbose)
+          if(!is.null(tbl_changed)) write_metainfo(paste(unique(tbl_changed), collapse=", "), "various",
+                                                   "ATTENTION: Error while checking database using R package lumpR check filter_small_areas. Nevertheless, affected_tables have already been changed.",
+                                                   verbose)
           stop(paste0("An error occured when updating table '", table, "'. ",
                       "Error message of the writing function: ", e))
         }
@@ -311,6 +291,7 @@ check_fix_fractions <- function(con, table, fix, verbose, tbl_changed) {
   
   return(tbl_changed)
 } # EOF check_fix_fractions
+
 
 
 
@@ -332,19 +313,9 @@ filter_small_areas <- function(con, table, thres, fix, verbose, tbl_changed) {
   if(any(dat_contains_sum != 1)) {
     if(fix) {
       # update table meta_info
-      meta_dat <- sqlFetch(con, "meta_info")
-      if(any(meta_dat$pid)) {
-        pid_new <- max(meta_dat$pid) +1
-      } else {
-        pid_new <- 1
-      }
-      meta_out <- data.frame(pid=pid_new,
-                             mod_date=as.POSIXct(Sys.time()),
-                             mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
-                             affected_tables=paste(unique(tbl_changed), collapse=", "),
-                             affected_columns="various",
-                             remarks=paste0("ATTENTION: Error while checking database using R package lumpR check filter_small_areas. Nevertheless, affected_tables have already been changed."))
-      write_datetabs(con, meta_out, tab="meta_info", verbose)
+      if(!is.null(tbl_changed)) write_metainfo(paste(unique(tbl_changed), collapse=", "), "various",
+                                               "ATTENTION: Error while checking database using R package lumpR check filter_small_areas. Nevertheless, affected_tables have already been changed.",
+                                               verbose)
       stop(paste0("Before removal of tiny areas: sum of fractions per higher level unit not always equal to one. Check table '", table, "'", ifelse(table=="r_tc_contains_svc", " and 'terrain_components' (column frac_rocky)",""),"!"))
     } else {
       message(paste0("% -> ATTENTION: Before removal of tiny areas: sum of fractions per higher level unit not always equal to one. Check table '", table, "'", ifelse(table=="r_tc_contains_svc", " and 'terrain_components' (column frac_rocky)",""),"!"))
@@ -428,3 +399,24 @@ dbCopyTable <- function(con, tab, con_dest) {
             nastring = NULL, fast = TRUE, rownames = FALSE)
   }
 } # EOF dbCopyTable
+
+
+
+
+
+# function to write into table meta_info
+write_metainfo <- function(affected_tbl, affected_col, remarks, verbose) {
+  meta_dat <- sqlFetch(con, "meta_info")
+  if(any(meta_dat$pid)) {
+    pid_new <- max(meta_dat$pid) +1
+  } else {
+    pid_new <- 1
+  }
+  meta_out <- data.frame(pid=pid_new,
+                         mod_date=as.POSIXct(Sys.time()),
+                         mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
+                         affected_tables=paste(unique(affected_tbl), collapse=", "),
+                         affected_columns=affected_col,
+                         remarks=remarks)
+  write_datetabs(con, meta_out, tab="meta_info", verbose)
+} # EOF write_metainfo

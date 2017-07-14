@@ -279,21 +279,9 @@ db_check <- function(
       
       if(!("treat_slope" %in% names(option))) {
         # update table meta_info
-        if(fix) {
-          meta_dat <- sqlFetch(con, "meta_info")
-          if(any(meta_dat$pid)) {
-            pid_new <- max(meta_dat$pid) +1
-          } else {
-            pid_new <- 1
-          }
-          meta_out <- data.frame(pid=pid_new,
-                                 mod_date=as.POSIXct(Sys.time()),
-                                 mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
-                                 affected_tables=paste(unique(tbl_changed), collapse=", "),
-                                 affected_columns="various",
-                                 remarks=paste0("ATTENTION: Error while checking database using R package lumpR check tc_slope. Nevertheless, affected_tables have already been changed."))
-          write_datetabs(con, meta_out, tab="meta_info", verbose)
-        }
+        if(!is.null(tbl_changed)) write_metainfo(paste(unique(tbl_changed), collapse=", "), "various",
+                               "ATTENTION: Error while checking database using R package lumpR check tc_slope. Nevertheless, affected_tables have already been changed.",
+                               verbose)
         stop("No option 'treat_slope' specified for check 'tc_slope'.")
       }
       
@@ -400,19 +388,9 @@ db_check <- function(
             tbl_changed <- c(tbl_changed, "r_lu_contains_tc")
           }, error = function(e) {
             # update table meta_info
-            meta_dat <- sqlFetch(con, "meta_info")
-            if(any(meta_dat$pid)) {
-              pid_new <- max(meta_dat$pid) +1
-            } else {
-              pid_new <- 1
-            }
-            meta_out <- data.frame(pid=pid_new,
-                                   mod_date=as.POSIXct(Sys.time()),
-                                   mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
-                                   affected_tables=paste(unique(tbl_changed), collapse=", "),
-                                   affected_columns="various",
-                                   remarks=paste0("ATTENTION: Error while checking database using R package lumpR check tc_slope. Nevertheless, affected_tables have already been changed."))
-            write_datetabs(con, meta_out, tab="meta_info", verbose)
+            if(!is.null(tbl_changed)) write_metainfo(paste(unique(tbl_changed), collapse=", "), "various",
+                                                "ATTENTION: Error while checking database using R package lumpR check tc_slope. Nevertheless, affected_tables have already been changed.",
+                                                verbose)
             stop(paste0("An error occured when updating table 'r_lu_contains_tc'. ",
                         "Error message of the writing function: ", e))
           }
@@ -430,19 +408,9 @@ db_check <- function(
             tbl_changed <- c(tbl_changed, "terrain_components")
           }, error = function(e) {
             # update table meta_info
-            meta_dat <- sqlFetch(con, "meta_info")
-            if(any(meta_dat$pid)) {
-              pid_new <- max(meta_dat$pid) +1
-            } else {
-              pid_new <- 1
-            }
-            meta_out <- data.frame(pid=pid_new,
-                                   mod_date=as.POSIXct(Sys.time()),
-                                   mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
-                                   affected_tables=paste(unique(tbl_changed), collapse=", "),
-                                   affected_columns="various",
-                                   remarks=paste0("ATTENTION: Error while checking database using R package lumpR check tc_slope. Nevertheless, affected_tables have already been changed."))
-            write_datetabs(con, meta_out, tab="meta_info", verbose)
+            if(!is.null(tbl_changed)) write_metainfo(paste(unique(tbl_changed), collapse=", "), "various",
+                                                "ATTENTION: Error while checking database using R package lumpR check tc_slope. Nevertheless, affected_tables have already been changed.",
+                                                verbose)
             stop(paste0("An error occured when updating table 'terrain_components'. ",
                         "Error message of the writing function: ", e))
           }
@@ -467,101 +435,41 @@ db_check <- function(
     # check arguments
     if(!("special_area" %in% names(option))) {
       # update table meta_info
-      if(fix) {
-        meta_dat <- sqlFetch(con, "meta_info")
-        if(any(meta_dat$pid)) {
-          pid_new <- max(meta_dat$pid) +1
-        } else {
-          pid_new <- 1
-        }
-        meta_out <- data.frame(pid=pid_new,
-                               mod_date=as.POSIXct(Sys.time()),
-                               mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
-                               affected_tables=paste(unique(tbl_changed), collapse=", "),
-                               affected_columns="various",
-                               remarks=paste0("ATTENTION: Error while checking database using R package lumpR check special_areas. Nevertheless, affected_tables have already been changed."))
-        write_datetabs(con, meta_out, tab="meta_info", verbose)
-      }
+      if(!is.null(tbl_changed)) write_metainfo(paste(unique(tbl_changed), collapse=", "), "various",
+                                          "ATTENTION: Error while checking database using R package lumpR check special_areas. Nevertheless, affected_tables have already been changed.",
+                                          verbose)
       stop("No option 'special_area' specified for check 'special_areas'.")
     }
     
     if(class(option$special_area) != "data.frame") {
       # update table meta_info
-      if(fix) {
-        meta_dat <- sqlFetch(con, "meta_info")
-        if(any(meta_dat$pid)) {
-          pid_new <- max(meta_dat$pid) +1
-        } else {
-          pid_new <- 1
-        }
-        meta_out <- data.frame(pid=pid_new,
-                               mod_date=as.POSIXct(Sys.time()),
-                               mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
-                               affected_tables=paste(unique(tbl_changed), collapse=", "),
-                               affected_columns="various",
-                               remarks=paste0("ATTENTION: Error while checking database using R package lumpR check special_areas. Nevertheless, affected_tables have already been changed."))
-        write_datetabs(con, meta_out, tab="meta_info", verbose)
-      }
+      if(!is.null(tbl_changed)) write_metainfo(paste(unique(tbl_changed), collapse=", "), "various",
+                                          "ATTENTION: Error while checking database using R package lumpR check special_areas. Nevertheless, affected_tables have already been changed.",
+                                          verbose)
       stop("Option 'special_area' is not a data.frame.")
     }
     
     if(any(!(c("reference_tbl", "ref_id", "special_id") %in% names(option$special_area)))) {
       # update table meta_info
-      if(fix) {
-        meta_dat <- sqlFetch(con, "meta_info")
-        if(any(meta_dat$pid)) {
-          pid_new <- max(meta_dat$pid) +1
-        } else {
-          pid_new <- 1
-        }
-        meta_out <- data.frame(pid=pid_new,
-                               mod_date=as.POSIXct(Sys.time()),
-                               mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
-                               affected_tables=paste(unique(tbl_changed), collapse=", "),
-                               affected_columns="various",
-                               remarks=paste0("ATTENTION: Error while checking database using R package lumpR check special_areas. Nevertheless, affected_tables have already been changed."))
-        write_datetabs(con, meta_out, tab="meta_info", verbose)
-      }
+      if(!is.null(tbl_changed)) write_metainfo(paste(unique(tbl_changed), collapse=", "), "various",
+                                          "ATTENTION: Error while checking database using R package lumpR check special_areas. Nevertheless, affected_tables have already been changed.",
+                                          verbose)
       stop("Option 'special_area' does not contain all necessary named vectors.")
     }
     
     if(any(!(unique(option$special_area$reference_tbl) %in% c("vegetation", "soils")))) {
       # update table meta_info
-      if(fix) {
-        meta_dat <- sqlFetch(con, "meta_info")
-        if(any(meta_dat$pid)) {
-          pid_new <- max(meta_dat$pid) +1
-        } else {
-          pid_new <- 1
-        }
-        meta_out <- data.frame(pid=pid_new,
-                               mod_date=as.POSIXct(Sys.time()),
-                               mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
-                               affected_tables=paste(unique(tbl_changed), collapse=", "),
-                               affected_columns="various",
-                               remarks=paste0("ATTENTION: Error while checking database using R package lumpR check special_areas. Nevertheless, affected_tables have already been changed."))
-        write_datetabs(con, meta_out, tab="meta_info", verbose)
-      }
+      if(!is.null(tbl_changed)) write_metainfo(paste(unique(tbl_changed), collapse=", "), "various",
+                                          "ATTENTION: Error while checking database using R package lumpR check special_areas. Nevertheless, affected_tables have already been changed.",
+                                          verbose)
       stop("Option 'special_area' vector 'reference_tbl' supports values 'vegetation' and 'soils' only.")
     }
     
     if(any(!(unique(option$special_area$special_id) %in% c(0,1,2)))) {
       # update table meta_info
-      if(fix) {
-        meta_dat <- sqlFetch(con, "meta_info")
-        if(any(meta_dat$pid)) {
-          pid_new <- max(meta_dat$pid) +1
-        } else {
-          pid_new <- 1
-        }
-        meta_out <- data.frame(pid=pid_new,
-                               mod_date=as.POSIXct(Sys.time()),
-                               mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
-                               affected_tables=paste(unique(tbl_changed), collapse=", "),
-                               affected_columns="various",
-                               remarks=paste0("ATTENTION: Error while checking database using R package lumpR check special_areas. Nevertheless, affected_tables have already been changed."))
-        write_datetabs(con, meta_out, tab="meta_info", verbose)
-      }
+      if(!is.null(tbl_changed)) write_metainfo(paste(unique(tbl_changed), collapse=", "), "various",
+                             "ATTENTION: Error while checking database using R package lumpR check special_areas. Nevertheless, affected_tables have already been changed.",
+                             verbose)
       stop("Option 'special_area' vector 'special_id' supports values '0', '1', and '2' only.")
     }
     
@@ -636,19 +544,9 @@ db_check <- function(
         if(verbose) message("% -> Table 'soil_veg_components' updated")
       }, error = function(e) {
         # update table meta_info
-        meta_dat <- sqlFetch(con, "meta_info")
-        if(any(meta_dat$pid)) {
-          pid_new <- max(meta_dat$pid) +1
-        } else {
-          pid_new <- 1
-        }
-        meta_out <- data.frame(pid=pid_new,
-                               mod_date=as.POSIXct(Sys.time()),
-                               mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
-                               affected_tables=paste(unique(tbl_changed), collapse=", "),
-                               affected_columns="various",
-                               remarks=paste0("ATTENTION: Error while checking database using R package lumpR check special_areas. Nevertheless, affected_tables have already been changed."))
-        write_datetabs(con, meta_out, tab="meta_info", verbose)
+        if(!is.null(tbl_changed)) write_metainfo(paste(unique(tbl_changed), collapse=", "), "various",
+                               "ATTENTION: Error while checking database using R package lumpR check special_areas. Nevertheless, affected_tables have already been changed.",
+                               verbose)
         stop(paste0("An error occured when updating table 'soil_veg_components'. ",
                     "Error message of the writing function: ", e))
       })
@@ -709,19 +607,9 @@ db_check <- function(
           tbl_changed <- c(tbl_changed, "r_tc_contains_svc")
         }, error = function(e) {
           # update table meta_info
-          meta_dat <- sqlFetch(con, "meta_info")
-          if(any(meta_dat$pid)) {
-            pid_new <- max(meta_dat$pid) +1
-          } else {
-            pid_new <- 1
-          }
-          meta_out <- data.frame(pid=pid_new,
-                                 mod_date=as.POSIXct(Sys.time()),
-                                 mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
-                                 affected_tables=paste(unique(tbl_changed), collapse=", "),
-                                 affected_columns="various",
-                                 remarks=paste0("ATTENTION: Error while checking database using R package lumpR check remove_water_svc. Nevertheless, affected_tables have already been changed."))
-          write_datetabs(con, meta_out, tab="meta_info", verbose)
+          if(!is.null(tbl_changed)) write_metainfo(paste(unique(tbl_changed), collapse=", "), "various",
+                                 "ATTENTION: Error while checking database using R package lumpR check remove_water_svc. Nevertheless, affected_tables have already been changed.",
+                                 verbose)
           stop(paste0("An error occured when updating table 'r_tc_contains_svc'. ",
                       "Error message of the writing function: ", e))
         }
@@ -800,19 +688,9 @@ db_check <- function(
         tbl_changed <- c(tbl_changed, "terrain_components")
       }, error = function(e) {
         # update table meta_info
-        meta_dat <- sqlFetch(con, "meta_info")
-        if(any(meta_dat$pid)) {
-          pid_new <- max(meta_dat$pid) +1
-        } else {
-          pid_new <- 1
-        }
-        meta_out <- data.frame(pid=pid_new,
-                               mod_date=as.POSIXct(Sys.time()),
-                               mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
-                               affected_tables=paste(unique(tbl_changed), collapse=", "),
-                               affected_columns="various",
-                               remarks=paste0("ATTENTION: Error while checking database using R package lumpR check compute_rocky_frac. Nevertheless, affected_tables have already been changed."))
-        write_datetabs(con, meta_out, tab="meta_info", verbose)
+        if(!is.null(tbl_changed)) write_metainfo(paste(unique(tbl_changed), collapse=", "), "various",
+                               "ATTENTION: Error while checking database using R package lumpR check compute_rocky_frac. Nevertheless, affected_tables have already been changed.",
+                               verbose)
         stop(paste0("An error occured when updating table 'terrain_components'. ",
                     "Error message of the writing function: ", e))
       }
@@ -879,19 +757,9 @@ db_check <- function(
           }
         }, error = function(e) {
           # update table meta_info
-          meta_dat <- sqlFetch(con, "meta_info")
-          if(any(meta_dat$pid)) {
-            pid_new <- max(meta_dat$pid) +1
-          } else {
-            pid_new <- 1
-          }
-          meta_out <- data.frame(pid=pid_new,
-                                 mod_date=as.POSIXct(Sys.time()),
-                                 mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
-                                 affected_tables=paste(unique(tbl_changed), collapse=", "),
-                                 affected_columns="various",
-                                 remarks=paste0("ATTENTION: Error while checking database using R package lumpR check remove_impervious_svc. Nevertheless, affected_tables have already been changed."))
-          write_datetabs(con, meta_out, tab="meta_info", verbose)
+          if(!is.null(tbl_changed)) write_metainfo(paste(unique(tbl_changed), collapse=", "), "various",
+                                 "ATTENTION: Error while checking database using R package lumpR check remove_impervious_svc. Nevertheless, affected_tables have already been changed.",
+                                 verbose)
           stop(paste0("An error occured when updating table 'r_tc_contains_svc'. ",
                       "Error message of the writing function: ", e))
         }
@@ -919,21 +787,9 @@ db_check <- function(
     # check arguments
     if(!("total_mean_delay" %in% names(option))) {
       # update table meta_info
-      if(fix) {
-        meta_dat <- sqlFetch(con, "meta_info")
-        if(any(meta_dat$pid)) {
-          pid_new <- max(meta_dat$pid) +1
-        } else {
-          pid_new <- 1
-        }
-        meta_out <- data.frame(pid=pid_new,
-                               mod_date=as.POSIXct(Sys.time()),
-                               mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
-                               affected_tables=paste(unique(tbl_changed), collapse=", "),
-                               affected_columns="various",
-                               remarks=paste0("ATTENTION: Error while checking database using R package lumpR check proxy_frgw_delay. Nevertheless, affected_tables have already been changed."))
-        write_datetabs(con, meta_out, tab="meta_info", verbose)
-      }
+      if(!is.null(tbl_changed)) write_metainfo(paste(unique(tbl_changed), collapse=", "), "various",
+                             "ATTENTION: Error while checking database using R package lumpR check proxy_frgw_delay. Nevertheless, affected_tables have already been changed.",
+                             verbose)
       stop("No option 'total_mean_delay' specified for check 'proxy_frgw_delay'.")
     }
     
@@ -977,19 +833,9 @@ db_check <- function(
         tbl_changed <- c(tbl_changed, "landscape_units")
       }, error = function(e) {
         # update table meta_info
-        meta_dat <- sqlFetch(con, "meta_info")
-        if(any(meta_dat$pid)) {
-          pid_new <- max(meta_dat$pid) +1
-        } else {
-          pid_new <- 1
-        }
-        meta_out <- data.frame(pid=pid_new,
-                               mod_date=as.POSIXct(Sys.time()),
-                               mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
-                               affected_tables=paste(unique(tbl_changed), collapse=", "),
-                               affected_columns="various",
-                               remarks=paste0("ATTENTION: Error while checking database using R package lumpR check proxy_frgw_delay. Nevertheless, affected_tables have already been changed."))
-        write_datetabs(con, meta_out, tab="meta_info", verbose)
+        if(!is.null(tbl_changed)) write_metainfo(paste(unique(tbl_changed), collapse=", "), "various",
+                               "ATTENTION: Error while checking database using R package lumpR check proxy_frgw_delay. Nevertheless, affected_tables have already been changed.",
+                               verbose)
         stop(paste0("An error occured when updating table 'landscape_units'. ",
                     "Error message of the writing function: ", e))
       }
@@ -1134,19 +980,9 @@ if (any(grepl("delete_obsolete", check))) {
       if (break_msg!="") #anything went wrong?
       {
         # update table meta_info
-        meta_dat <- sqlFetch(con, "meta_info")
-        if(any(meta_dat$pid)) {
-          pid_new <- max(meta_dat$pid) +1
-        } else {
-          pid_new <- 1
-        }
-        meta_out <- data.frame(pid=pid_new,
-                               mod_date=as.POSIXct(Sys.time()),
-                               mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
-                               affected_tables=paste(unique(tbl_changed), collapse=", "),
-                               affected_columns="various",
-                               remarks=paste0("ATTENTION: Error while checking database using R package lumpR check delete_obsolete. Nevertheless, affected_tables have already been changed."))
-        write_datetabs(con, meta_out, tab="meta_info", verbose)
+        if(!is.null(tbl_changed)) write_metainfo(paste(unique(tbl_changed), collapse=", "), "various",
+                               "ATTENTION: Error while checking database using R package lumpR check delete_obsolete. Nevertheless, affected_tables have already been changed.",
+                               verbose)
         stop(break_msg)
       }
     }  
@@ -1235,23 +1071,9 @@ if (any(grepl("delete_obsolete", check))) {
     
     
     if((length(r_outlet) > 1) | (!any(r_outlet))) {
-      if (any(tbl_changed))
-      {  
-        # update table meta_info
-        meta_dat <- sqlFetch(con, "meta_info")
-        if(any(meta_dat$pid)) {
-          pid_new <- max(meta_dat$pid) +1
-        } else {
-          pid_new <- 1
-        }
-        meta_out <- data.frame(pid=pid_new,
-                               mod_date=as.POSIXct(Sys.time()),
-                               mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
-                               affected_tables=paste(unique(tbl_changed), collapse=", "),
-                               affected_columns="various",
-                               remarks=paste0("ATTENTION: Error while checking database using R package lumpR check subbasin_order. Nevertheless, affected_tables have already been changed."))
-        write_datetabs(con, meta_out, tab="meta_info", verbose)
-      }  
+      if (!is.null(tbl_changed)) write_metainfo(paste(unique(tbl_changed), collapse=", "), "various",
+                               "ATTENTION: Error while checking database using R package lumpR check subbasin_order. Nevertheless, affected_tables have already been changed.",
+                               verbose)
       if (!any(r_outlet))
           stop("Could not identify outlet subbasin from column 'drains_to' in table 'subbasins'. Must be one of values c(9999,-9999,999,-999).")
       else
@@ -1286,23 +1108,9 @@ if (any(grepl("delete_obsolete", check))) {
       
       # throw an error if i is already very large (In this case there must be something wrong)
       if (i > 10000) {
-        if (any(tbl_changed))
-        {  
-          # update table meta_info
-          meta_dat <- sqlFetch(con, "meta_info")
-          if(any(meta_dat$pid)) {
-            pid_new <- max(meta_dat$pid) +1
-          } else {
-            pid_new <- 1
-          }
-          meta_out <- data.frame(pid=pid_new,
-                                 mod_date=as.POSIXct(Sys.time()),
-                                 mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
-                                 affected_tables=paste(unique(tbl_changed), collapse=", "),
-                                 affected_columns="various",
-                                 remarks=paste0("ATTENTION: Error while checking database using R package lumpR check subbasin_order. Nevertheless, affected_tables have already been changed."))
-          write_datetabs(con, meta_out, tab="meta_info", verbose)
-        }  
+        if (!is.null(tbl_changed)) write_metainfo(paste(unique(tbl_changed), collapse=", "), "various",
+                                 "ATTENTION: Error while checking database using R package lumpR check subbasin_order. Nevertheless, affected_tables have already been changed.",
+                                 verbose)
         stop("Cannot successfully determine subbasin order (column 'a_stream_order' of table 'subbasins'). Check the table for errors!")
       }
     }
@@ -1316,23 +1124,9 @@ if (any(grepl("delete_obsolete", check))) {
         } else {
           
           if(is.null(option$overwrite) | !option$overwrite) {
-            if (any(tbl_changed))
-            { 
-              # update table meta_info
-              meta_dat <- sqlFetch(con, "meta_info")
-              if(any(meta_dat$pid)) {
-                pid_new <- max(meta_dat$pid) +1
-              } else {
-                pid_new <- 1
-              }
-              meta_out <- data.frame(pid=pid_new,
-                                     mod_date=as.POSIXct(Sys.time()),
-                                     mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
-                                     affected_tables=paste(unique(tbl_changed), collapse=", "),
-                                     affected_columns="various",
-                                     remarks=paste0("ATTENTION: Error while checking database using R package lumpR check subbasin_order. Nevertheless, affected_tables have already been changed."))
-              write_datetabs(con, meta_out, tab="meta_info", verbose)
-            }  
+            if (!is.null(tbl_changed)) write_metainfo(paste(unique(tbl_changed), collapse=", "), "various",
+                                     "ATTENTION: Error while checking database using R package lumpR check subbasin_order. Nevertheless, affected_tables have already been changed.",
+                                     verbose)
             stop("There are already values in column 'a_stream_order' of table 'subbasins'. Use option=list(overwrite=TRUE) or manually set them all to 'NULL' if you want to compute subbasin order!")
           }
 
@@ -1360,19 +1154,9 @@ if (any(grepl("delete_obsolete", check))) {
 
             }, error = function(e) {
               # update table meta_info
-              meta_dat <- sqlFetch(con, "meta_info")
-              if(any(meta_dat$pid)) {
-                pid_new <- max(meta_dat$pid) +1
-              } else {
-                pid_new <- 1
-              }
-              meta_out <- data.frame(pid=pid_new,
-                                     mod_date=as.POSIXct(Sys.time()),
-                                     mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
-                                     affected_tables=paste(unique(tbl_changed), collapse=", "),
-                                     affected_columns="various",
-                                     remarks=paste0("ATTENTION: Error while checking database using R package lumpR check subbasin_order. Nevertheless, affected_tables have already been changed."))
-              write_datetabs(con, meta_out, tab="meta_info", verbose)
+              if(!is.null(tbl_changed)) write_metainfo(paste(unique(tbl_changed), collapse=", "), "various",
+                                     "ATTENTION: Error while checking database using R package lumpR check subbasin_order. Nevertheless, affected_tables have already been changed.",
+                                     verbose)
               stop(paste0("An error occured when updating table 'subbasins'. ",
                           "Error message of the writing function: ", e))
             }
@@ -1390,24 +1174,10 @@ if (any(grepl("delete_obsolete", check))) {
 ###############################################################################
 ### end of function, write changes into 'meta_info', close connection
   
-  if(fix) {
-    
-    # update table meta_info
-    meta_dat <- sqlFetch(con, "meta_info")
-    if(any(meta_dat$pid)) {
-      pid_new <- max(meta_dat$pid) +1
-    } else {
-      pid_new <- 1
-    }
-    meta_out <- data.frame(pid=pid_new,
-                           mod_date=as.POSIXct(Sys.time()),
-                           mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
-                           affected_tables=paste(unique(tbl_changed), collapse=", "),
-                           affected_columns="various",
-                           remarks=paste0("Database checked and adjusted using R package lumpR. Applied checks: ", paste(check, collapse=", "), ". Options: ", paste(names(option), option, sep=" = ", collapse=", ")))
-    write_datetabs(con, meta_out, tab="meta_info", verbose)
-  
-  } # fix
+  # update table meta_info
+  if(!is.null(tbl_changed)) write_metainfo(paste(unique(tbl_changed), collapse=", "), "various",
+                         paste0("Database checked and adjusted using R package lumpR. Applied checks: ", paste(check, collapse=", "), ". Options: ", paste(names(option), option, sep=" = ", collapse=", ")),
+                         verbose)
 
 
   if(verbose) message("%")
