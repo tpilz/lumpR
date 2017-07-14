@@ -185,11 +185,10 @@ db_check <- function(
   #modify error handler to gracefully close ODBC-connection before aborting (otherwise, ODBC-handles are left open)
   org_error_handler = getOption("error") #original error handler
     
-  closeODBC_and_stop = function(msg=NULL)
+  closeODBC_and_stop = function()
   {  
     odbcCloseAll()
     options(error=org_error_handler) #restore original handler
-    stop(msg)
   }
   options(error=closeODBC_and_stop)  #modify error handler
     
@@ -205,7 +204,7 @@ db_check <- function(
   
 ###############################################################################
 ### check current db version
-  if(verbose)message("%")
+  if(verbose) message("%")
   if(verbose) message("% Check database version ...")
 
   # get most recent db version from update sql files in source directory
@@ -214,10 +213,8 @@ db_check <- function(
   db_ver_max <- max(as.integer(sub(".sql", "", sub("update_db_v", "", db_up_files))))
 
   db_ver <- max(sqlFetch(con, "db_version")$version)
-  if(db_ver < db_ver_max) {
-    odbcClose(con)
-    stop(paste0("Database version is prior to version ", db_ver_max, ". Make sure you use the latest database version (consider function db_update())!"))
-  }
+  if(db_ver < db_ver_max) stop(paste0("Database version is prior to version ", db_ver_max, ". Make sure you use the latest database version (consider function db_update())!"))
+
   if(verbose) message("% OK")
 
 ###############################################################################
@@ -248,10 +245,7 @@ db_check <- function(
     if(verbose) message("%")
     if(verbose) message("% Filter small areas ...")
     
-    if(!("area_thresh" %in% names(option))) {
-      odbcClose(con)
-      stop("No option 'area_thresh' specified for check 'filter_small_areas'.")
-    }
+    if(!("area_thresh" %in% names(option))) stop("No option 'area_thresh' specified for check 'filter_small_areas'.")
     
     thres <- option[["area_thresh"]]
     
@@ -300,7 +294,6 @@ db_check <- function(
                                  remarks=paste0("ATTENTION: Error while checking database using R package lumpR check tc_slope. Nevertheless, affected_tables have already been changed."))
           write_datetabs(con, meta_out, tab="meta_info", verbose)
         }
-        odbcClose(con)
         stop("No option 'treat_slope' specified for check 'tc_slope'.")
       }
       
@@ -420,7 +413,6 @@ db_check <- function(
                                    affected_columns="various",
                                    remarks=paste0("ATTENTION: Error while checking database using R package lumpR check tc_slope. Nevertheless, affected_tables have already been changed."))
             write_datetabs(con, meta_out, tab="meta_info", verbose)
-            odbcClose(con)
             stop(paste0("An error occured when updating table 'r_lu_contains_tc'. ",
                         "Error message of the writing function: ", e))
           }
@@ -451,7 +443,6 @@ db_check <- function(
                                    affected_columns="various",
                                    remarks=paste0("ATTENTION: Error while checking database using R package lumpR check tc_slope. Nevertheless, affected_tables have already been changed."))
             write_datetabs(con, meta_out, tab="meta_info", verbose)
-            odbcClose(con)
             stop(paste0("An error occured when updating table 'terrain_components'. ",
                         "Error message of the writing function: ", e))
           }
@@ -491,7 +482,6 @@ db_check <- function(
                                remarks=paste0("ATTENTION: Error while checking database using R package lumpR check special_areas. Nevertheless, affected_tables have already been changed."))
         write_datetabs(con, meta_out, tab="meta_info", verbose)
       }
-      odbcClose(con)
       stop("No option 'special_area' specified for check 'special_areas'.")
     }
     
@@ -512,7 +502,6 @@ db_check <- function(
                                remarks=paste0("ATTENTION: Error while checking database using R package lumpR check special_areas. Nevertheless, affected_tables have already been changed."))
         write_datetabs(con, meta_out, tab="meta_info", verbose)
       }
-      odbcClose(con)
       stop("Option 'special_area' is not a data.frame.")
     }
     
@@ -533,7 +522,6 @@ db_check <- function(
                                remarks=paste0("ATTENTION: Error while checking database using R package lumpR check special_areas. Nevertheless, affected_tables have already been changed."))
         write_datetabs(con, meta_out, tab="meta_info", verbose)
       }
-      odbcClose(con)
       stop("Option 'special_area' does not contain all necessary named vectors.")
     }
     
@@ -554,7 +542,6 @@ db_check <- function(
                                remarks=paste0("ATTENTION: Error while checking database using R package lumpR check special_areas. Nevertheless, affected_tables have already been changed."))
         write_datetabs(con, meta_out, tab="meta_info", verbose)
       }
-      odbcClose(con)
       stop("Option 'special_area' vector 'reference_tbl' supports values 'vegetation' and 'soils' only.")
     }
     
@@ -575,7 +562,6 @@ db_check <- function(
                                remarks=paste0("ATTENTION: Error while checking database using R package lumpR check special_areas. Nevertheless, affected_tables have already been changed."))
         write_datetabs(con, meta_out, tab="meta_info", verbose)
       }
-      odbcClose(con)
       stop("Option 'special_area' vector 'special_id' supports values '0', '1', and '2' only.")
     }
     
@@ -663,7 +649,6 @@ db_check <- function(
                                affected_columns="various",
                                remarks=paste0("ATTENTION: Error while checking database using R package lumpR check special_areas. Nevertheless, affected_tables have already been changed."))
         write_datetabs(con, meta_out, tab="meta_info", verbose)
-        odbcClose(con)
         stop(paste0("An error occured when updating table 'soil_veg_components'. ",
                     "Error message of the writing function: ", e))
       })
@@ -737,7 +722,6 @@ db_check <- function(
                                  affected_columns="various",
                                  remarks=paste0("ATTENTION: Error while checking database using R package lumpR check remove_water_svc. Nevertheless, affected_tables have already been changed."))
           write_datetabs(con, meta_out, tab="meta_info", verbose)
-          odbcClose(con)
           stop(paste0("An error occured when updating table 'r_tc_contains_svc'. ",
                       "Error message of the writing function: ", e))
         }
@@ -829,7 +813,6 @@ db_check <- function(
                                affected_columns="various",
                                remarks=paste0("ATTENTION: Error while checking database using R package lumpR check compute_rocky_frac. Nevertheless, affected_tables have already been changed."))
         write_datetabs(con, meta_out, tab="meta_info", verbose)
-        odbcClose(con)
         stop(paste0("An error occured when updating table 'terrain_components'. ",
                     "Error message of the writing function: ", e))
       }
@@ -909,7 +892,6 @@ db_check <- function(
                                  affected_columns="various",
                                  remarks=paste0("ATTENTION: Error while checking database using R package lumpR check remove_impervious_svc. Nevertheless, affected_tables have already been changed."))
           write_datetabs(con, meta_out, tab="meta_info", verbose)
-          odbcClose(con)
           stop(paste0("An error occured when updating table 'r_tc_contains_svc'. ",
                       "Error message of the writing function: ", e))
         }
@@ -952,7 +934,6 @@ db_check <- function(
                                remarks=paste0("ATTENTION: Error while checking database using R package lumpR check proxy_frgw_delay. Nevertheless, affected_tables have already been changed."))
         write_datetabs(con, meta_out, tab="meta_info", verbose)
       }
-      odbcClose(con)
       stop("No option 'total_mean_delay' specified for check 'proxy_frgw_delay'.")
     }
     
@@ -1009,7 +990,6 @@ db_check <- function(
                                affected_columns="various",
                                remarks=paste0("ATTENTION: Error while checking database using R package lumpR check proxy_frgw_delay. Nevertheless, affected_tables have already been changed."))
         write_datetabs(con, meta_out, tab="meta_info", verbose)
-        odbcClose(con)
         stop(paste0("An error occured when updating table 'landscape_units'. ",
                     "Error message of the writing function: ", e))
       }
@@ -1167,7 +1147,6 @@ if (any(grepl("delete_obsolete", check))) {
                                affected_columns="various",
                                remarks=paste0("ATTENTION: Error while checking database using R package lumpR check delete_obsolete. Nevertheless, affected_tables have already been changed."))
         write_datetabs(con, meta_out, tab="meta_info", verbose)
-        odbcClose(con)
         stop(break_msg)
       }
     }  
@@ -1273,9 +1252,9 @@ if (any(grepl("delete_obsolete", check))) {
                                remarks=paste0("ATTENTION: Error while checking database using R package lumpR check subbasin_order. Nevertheless, affected_tables have already been changed."))
         write_datetabs(con, meta_out, tab="meta_info", verbose)
       }  
-      odbcClose(con)
       if (!any(r_outlet))
-          stop("Could not identify outlet subbasin from column 'drains_to' in table 'subbasins'. Must be one of values c(9999,-9999,999,-999).") else
+          stop("Could not identify outlet subbasin from column 'drains_to' in table 'subbasins'. Must be one of values c(9999,-9999,999,-999).")
+      else
           stop("More than one subbasin has been identified as outlet. Check column 'drains_to' in table 'subbasins'!")
     }
     
@@ -1324,7 +1303,6 @@ if (any(grepl("delete_obsolete", check))) {
                                  remarks=paste0("ATTENTION: Error while checking database using R package lumpR check subbasin_order. Nevertheless, affected_tables have already been changed."))
           write_datetabs(con, meta_out, tab="meta_info", verbose)
         }  
-        odbcClose(con)
         stop("Cannot successfully determine subbasin order (column 'a_stream_order' of table 'subbasins'). Check the table for errors!")
       }
     }
@@ -1355,7 +1333,6 @@ if (any(grepl("delete_obsolete", check))) {
                                      remarks=paste0("ATTENTION: Error while checking database using R package lumpR check subbasin_order. Nevertheless, affected_tables have already been changed."))
               write_datetabs(con, meta_out, tab="meta_info", verbose)
             }  
-            odbcClose(con)
             stop("There are already values in column 'a_stream_order' of table 'subbasins'. Use option=list(overwrite=TRUE) or manually set them all to 'NULL' if you want to compute subbasin order!")
           }
 
@@ -1396,7 +1373,6 @@ if (any(grepl("delete_obsolete", check))) {
                                      affected_columns="various",
                                      remarks=paste0("ATTENTION: Error while checking database using R package lumpR check subbasin_order. Nevertheless, affected_tables have already been changed."))
               write_datetabs(con, meta_out, tab="meta_info", verbose)
-              odbcClose(con)
               stop(paste0("An error occured when updating table 'subbasins'. ",
                           "Error message of the writing function: ", e))
             }
