@@ -121,10 +121,8 @@ sql_dialect <- function(con, statement) {
 
 # write data from external file into parameter database
 writedb <- function(con, file, table, overwrite, verbose) {
-  if(verbose) {
-    print("")
-    print(paste0("Writing data into table '", table, "' ..."))
-  }
+  if(verbose) message("%")
+  if(verbose) message(paste0("% -> Writing data into table '", table, "' ..."))
   
   # ensure MySQL/MariaDB uses ANSI quotation (double quotes instead of back ticks)
   if(grepl("MariaDB", odbcGetInfo(con)["DBMS_Name"], ignore.case=T))
@@ -191,8 +189,7 @@ write_datetabs <- function(con, dat, tab, verbose) {
     }
   }
   
-  if(verbose)
-    print(paste0("Updated table '",tab,"'."))
+  if(verbose) message(paste0("% -> Updated table '",tab,"'."))
   
 } # EOF write_datetabs
 
@@ -201,9 +198,8 @@ write_datetabs <- function(con, dat, tab, verbose) {
 
 # check or fix that fractions sum up to 1
 check_fix_fractions <- function(con, table, fix, verbose, tbl_changed) {
-  
-  if(verbose)
-    print(paste0("-> Processing table '", table, "' ..."))
+  if(verbose) message("%")
+  if(verbose) message(paste0("% -> Processing table '", table, "' ..."))
   
   dat_contains <- sqlFetch(con, table)
   if (table=="r_tc_contains_svc") #for TCs also the rocky fraction needs to be considered
@@ -232,7 +228,7 @@ check_fix_fractions <- function(con, table, fix, verbose, tbl_changed) {
     if(fix && any(dat_contains_sum != 1)) {
       
       if(verbose)
-        print("-> Re-calculate fractions ...")
+        message("% -> Re-calculate fractions ...")
       dat_contains_sum <- tapply(dat_contains$fraction, list(parent=dat_contains[[1]]), sum, na.rm=T)
       dat_contains_new <- dat_contains
       for (s in 1:nrow(dat_contains))
@@ -310,8 +306,7 @@ check_fix_fractions <- function(con, table, fix, verbose, tbl_changed) {
     } # if fix
     
     
-    if(verbose)
-      print("-> OK.")
+    if(verbose) message("% -> OK.")
  
   
   return(tbl_changed)
@@ -322,9 +317,8 @@ check_fix_fractions <- function(con, table, fix, verbose, tbl_changed) {
 
 # filter disaggregated areas by areal fraction threshold
 filter_small_areas <- function(con, table, thres, fix, verbose, tbl_changed) {
-
-  if(verbose)
-    print(paste0("-> Processing table '", table, "' ..."))
+  if(verbose) message("%")
+  if(verbose) message(paste0("% -> Processing table '", table, "' ..."))
   
   dat_contains <- sqlFetch(con, table)
   if (table=="r_tc_contains_svc") #for TCs also the rocky fraction needs to be considered
@@ -353,7 +347,7 @@ filter_small_areas <- function(con, table, thres, fix, verbose, tbl_changed) {
       write_datetabs(con, meta_out, tab="meta_info", verbose)
       stop(paste0("Before removal of tiny areas: sum of fractions per higher level unit not always equal to one. Check table '", table, "'", ifelse(table=="r_tc_contains_svc", " and 'terrain_components' (column frac_rocky)",""),"!"))
     } else {
-      print(paste0("-> ATTENTION: Before removal of tiny areas: sum of fractions per higher level unit not always equal to one. Check table '", table, "'", ifelse(table=="r_tc_contains_svc", " and 'terrain_components' (column frac_rocky)",""),"!"))
+      message(paste0("% -> ATTENTION: Before removal of tiny areas: sum of fractions per higher level unit not always equal to one. Check table '", table, "'", ifelse(table=="r_tc_contains_svc", " and 'terrain_components' (column frac_rocky)",""),"!"))
     }
   }
   
@@ -362,27 +356,26 @@ filter_small_areas <- function(con, table, thres, fix, verbose, tbl_changed) {
   
   # further processing if any fraction < area_thresh only
   if(!any(rows_rm)) {
-    print(paste0("-> In '", table, "' no fraction smaller ", thres, " could be found."))
+    message(paste0("% -> In '", table, "' no fraction smaller ", thres, " could be found."))
   } else {
     
     if(fix) {
-      print(paste0("-> The following datasets will be removed from '", table, "':"))
+      message(paste0("% -> There are ", length(rows_rm), " datasets going to be removed from '", table, "'"))
     } else {
-      print(paste0("-> The following datasets contain fractions < threshold in '", table, "':"))
+      message(paste0("% -> There are ", length(rows_rm), " datasets containing fractions < threshold in '", table, "'"))
     }
-    print(dat_contains[rows_rm,])
     
     # keep datasets where entities of more than 10% of the respective parent class' area would be removed
     lu_rm_sum <- tapply(dat_contains$fraction[rows_rm], list(parent=dat_contains[[1]][rows_rm]), sum)
     if(any(lu_rm_sum > 0.1)) {
       keep_lu <- which(lu_rm_sum > 0.1)
-      print(paste0("-> For '", colnames(dat_contains)[1], "' ", paste(names(lu_rm_sum)[keep_lu], collapse=", "),
+      message(paste0("% -> For '", colnames(dat_contains)[1], "' ", paste(names(lu_rm_sum)[keep_lu], collapse=", "),
                    " more than 10% of the area would be removed due to too many small '", colnames(dat_contains)[2], "'. These datasets will be kept."))
       
       rows_rm_keep <- which(dat_contains[[1]][rows_rm] %in% names(lu_rm_sum)[keep_lu])
       rows_rm <- rows_rm[-rows_rm_keep]
       if (!any(rows_rm)) {
-        print(paste0("-> For '", table, "' nothing to remove or choose smaller value for 'area_thresh' and re-run check."))
+        message(paste0("% -> For '", table, "' nothing to remove or choose smaller value for 'area_thresh' and re-run check."))
         return(NULL)
       }
         
@@ -396,8 +389,7 @@ filter_small_areas <- function(con, table, thres, fix, verbose, tbl_changed) {
     }  
 
 
-  if(verbose)
-    print("-> OK.")
+  if(verbose) message("% -> OK.")
   } # if any fraction < area_thresh
 
   return(tbl_changed)

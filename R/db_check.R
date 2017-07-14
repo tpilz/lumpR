@@ -41,8 +41,10 @@
 #'  Execute checks in pre-defined order as some checks build upon each other and
 #'  lead to erroneous results when interchanged. However, some checks might be
 #'  unnecessary for your purpose and can be left out.
+#'  
 #'  \bold{check_fix_fractions}\cr
-#'  Check/fix that the fractions of all sub-entities sum to 1.\cr
+#'  Check/fix that the fractions of all sub-entities sum to 1.
+#'  
 #'  \bold{filter_small_areas}\cr
 #'  Tiny areas as result of landscape disaggregation considered irrelevant during model
 #'  application will be removed and the areal fractions updated accordingly. The model
@@ -160,40 +162,42 @@ db_check <- function(
 ) {
   
   # if fix = F (default) set verbose = T
-  if(!fix) {
-    verbose <- T
-    print("START database checks in report mode, i.e. fix = FALSE and database will not be touched.")
-    print("")
+  if(verbose) message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+  if(verbose) message("% START db_check()")
+  if(verbose) {
+    if(fix) {
+      message("%")
+      message("% -> fix = TRUE and database will touched and fixed if necessary")
+    } else {
+      message("%")
+      message("% -> Running report mode, i.e. fix = FALSE and database will not be touched")
+    }
   }
-    
+
   
-  if (verbose)
-    print("Loading package 'RODBC' and connecting to database ...")
+  
+  if(verbose) message("%")
+  if(verbose) message("% Loading package 'RODBC' and connecting to database ...")
   
   # connect to ODBC registered database
-  suppressWarnings(con <- odbcConnect(dbname, believeNRows=F))
-  
-  if (con == -1)
-    print(paste0("Could not connect to database '", dbname, "'. Type 'odbcDataSources()' to see the data sources known to ODBC.",
-                 " If you want to connect to a MS Access database make sure you are using 32 bit R."))
-  
-  if(verbose)
-    print("OK.")
+  con <- connect_db(dbname)
   
   #modify error handler to gracefully close ODBC-connection before aborting (otherwise, ODBC-handles are left open)
-    org_error_handler = getOption("error") #original error handler
+  org_error_handler = getOption("error") #original error handler
     
-    closeODBC_and_stop = function(msg=NULL)
-    {  
-      odbcCloseAll()
-      options(error=org_error_handler) #restore original handler
-      stop(msg)
-    }
-    options(error=closeODBC_and_stop)  #modify error handler
+  closeODBC_and_stop = function(msg=NULL)
+  {  
+    odbcCloseAll()
+    options(error=org_error_handler) #restore original handler
+    stop(msg)
+  }
+  options(error=closeODBC_and_stop)  #modify error handler
     
   # ensure MySQL/MariaDB uses ANSI quotation (double quotes instead of back ticks)
   if(grepl("MariaDB", odbcGetInfo(con)["DBMS_Name"], ignore.case=T))
     sqlQuery(con, "SET sql_mode='ANSI';")
+  
+  if(verbose) message("% OK")
   
   # initialise vector to keep track of changed tables
   tbl_changed <- NULL
@@ -201,8 +205,8 @@ db_check <- function(
   
 ###############################################################################
 ### check current db version
-  if(verbose)
-    print("Check database version ...")
+  if(verbose)message("%")
+  if(verbose) message("% Check database version ...")
 
   # get most recent db version from update sql files in source directory
   db_dir <- system.file("database/", package="lumpR")
@@ -214,14 +218,13 @@ db_check <- function(
     odbcClose(con)
     stop(paste0("Database version is prior to version ", db_ver_max, ". Make sure you use the latest database version (consider function db_update())!"))
   }
-  if(verbose)
-    print("OK.")
+  if(verbose) message("% OK")
 
 ###############################################################################
 ### check fractions (use external function for every relevant table)
   if (any(grepl("check_fix_fractions", check))) {
-    if(verbose)
-      print("Check fractions ...")
+    if(verbose) message("%")
+    if(verbose) message("% Check fractions ...")
     
     # LUs
     tbl_ch <- check_fix_fractions(con=con, table="r_subbas_contains_lu", fix=fix, verbose=verbose, tbl_changed=tbl_changed)
@@ -235,16 +238,15 @@ db_check <- function(
     tbl_ch <- check_fix_fractions(con=con, table="r_tc_contains_svc", fix=fix, verbose=verbose, tbl_changed=tbl_changed)
     tbl_changed <- c(tbl_changed, tbl_ch)
     
-    if(verbose)
-      print("OK.")
+    if(verbose) message("% OK")
   } # check fractions
   
     
 ###############################################################################
 ### filter small areas (use external function for every relevant table)
   if (any(grepl("filter_small_areas", check))) {
-    if(verbose)
-      print("Filter small areas ...")
+    if(verbose) message("%")
+    if(verbose) message("% Filter small areas ...")
     
     if(!("area_thresh" %in% names(option))) {
       odbcClose(con)
@@ -265,21 +267,20 @@ db_check <- function(
     tbl_ch <- filter_small_areas(con=con, table="r_tc_contains_svc", thres=thres, fix=fix, verbose=verbose, tbl_changed=tbl_changed)
     tbl_changed <- c(tbl_changed, tbl_ch)
     
-    if(verbose)
-      print("OK.")
+    if(verbose) message("% OK")
   } # filter small areas
 
 
 ###############################################################################
 ### TC with slope <= 0
   if (any(grepl("tc_slope", check))) {
-    if(verbose)
-      print("Find TCs with slope <= 0 ...")
+    if(verbose) message("%")
+    if(verbose) message("% Find TCs with slope <= 0 ...")
     
     # get data
     dat_tc <- sqlFetch(con, "terrain_components")
     if(!any(which(dat_tc$slope <= 0))) {
-      print("-> There are no TCs with slope <= 0.")
+      message("% -> There are no TCs with slope <= 0.")
     } else {
       
       if(!("treat_slope" %in% names(option))) {
@@ -318,27 +319,26 @@ db_check <- function(
       if (option[["treat_slope"]][1] == 1 | option[["treat_slope"]][1] == 3) {
         
         if (verbose)
-          print("-> Option 1: Remove TCs with small fraction within LU...")
+          message("% -> Option 1: Remove TCs with small fraction within LU...")
         
         # identify datasets below fraction threshold
         rows_lutc_rm <- which(lutc_zero$fraction < option[["treat_slope"]][2])
         
         if (!any(rows_lutc_rm)) {
-          print("-> No TCs with fraction below defined threshold. No TCs will be removed.")
+          message("% -> No TCs with fraction below defined threshold. No TCs will be removed.")
         } else {
           
           if(fix) {
-            print("-> The following datasets will be removed from 'r_lu_contains_tc' ('fraction' will be updated):")
+            message(paste0("% -> There are ", length(rows_lutc_rm), " datasets going to be removed from 'r_lu_contains_tc' ('fraction' will be updated)"))
           } else {
-            print("-> The following datasets in 'r_lu_contains_tc' contain slopes <= 0 and fractions below threshold:")
+            message(paste0("% -> There are ", length(rows_lutc_rm), " datasets in 'r_lu_contains_tc' containing slopes <= 0 and fractions below threshold"))
           }
-          print(lutc_zero[rows_lutc_rm,])
           
           # keep datasets where TCs equal to more than 10% of the respective parent class' area would be removed
           rm_sum <- tapply(lutc_zero$fraction[rows_lutc_rm], list(parent=lutc_zero[[1]][rows_lutc_rm]), sum)
           if(any(rm_sum > 0.1)) {
             keep <- which(rm_sum > 0.1)
-            print(paste0("-> For '", colnames(lutc_zero)[1], "' ", paste(names(rm_sum)[keep], collapse=", "),
+            message(paste0("% -> For '", colnames(lutc_zero)[1], "' ", paste(names(rm_sum)[keep], collapse=", "),
                          " more than 10% of the area would be removed due to too many small '", colnames(lutc_zero)[2], ". These datasets will be kept."))
             
             rows_rm_keep <- which(lutc_zero[[1]][rows_lutc_rm] %in% names(rm_sum)[keep])
@@ -347,7 +347,7 @@ db_check <- function(
           
           # check if some datasets are left to remove
           if (!any(rows_lutc_rm)) {
-            print(paste0("-> Nothing left to remove or choose smaller value for threshold and re-run check."))
+            message("% -> Nothing left to remove or choose smaller value for threshold and re-run check.")
           } else {
             
             # remove datasets with small fraction
@@ -373,7 +373,7 @@ db_check <- function(
       if (option[["treat_slope"]][1] == 2 | option[["treat_slope"]][1] == 3) {
         
         if (verbose)
-          print("-> Option 2: Change slope to specified small positive value...")
+          message("% -> Option 2: Change slope to specified small positive value...")
         
         # determine replace value
         if (option[["treat_slope"]][1] == 2)
@@ -382,13 +382,12 @@ db_check <- function(
           repl_slope <- option[["treat_slope"]][3]
         
         if(fix) {
-          print(paste("-> For the following datasets slopes in 'terrain_components' will be replaced by ", repl_slope, ":"))
+          message(paste0("% -> There are ", length(r_tc_zero), " datasets where slopes in 'terrain_components' will be replaced by ", repl_slope))
           dat_out_tc <- dat_tc
           dat_out_tc[r_tc_zero,"slope"] <- repl_slope
         } else {
-          print("-> The following datasets in 'terrain_components' contains slopes <= 0:")
+          message(paste0("% -> There are ", length(r_tc_zero), " datasets in 'terrain_components' containing slopes <= 0"))
         }
-          print(dat_tc[r_tc_zero,])
           
       } # end of option 2
       
@@ -399,7 +398,7 @@ db_check <- function(
         
         if(!is.null(dat_out_lutc)) {
           if(verbose)
-            print("-> Updating table 'r_lu_contains_tc'...")
+            message("% -> Updating table 'r_lu_contains_tc'...")
           tryCatch(
           {
             sqlQuery(con, "delete from r_lu_contains_tc")
@@ -430,7 +429,7 @@ db_check <- function(
         
         if(!is.null(dat_out_tc)) {
           if(verbose)
-            print("-> Updating table 'terrain_components'...")
+            message("% -> Updating table 'terrain_components'...")
           tryCatch(
           {
             sqlQuery(con, "delete from terrain_components")
@@ -463,8 +462,7 @@ db_check <- function(
     
     } # TC with slope <= 0?
     
-    if(verbose)
-      print("OK.")
+    if(verbose) message("% OK")
     
   } # check tc_slope?
 
@@ -472,8 +470,8 @@ db_check <- function(
 ###############################################################################
 ### Assign special areas (water, impervious surfaces)
   if (any(grepl("special_areas", check))) {
-    if(verbose)
-      print("Define certain SVCs as special areas ...")
+    if(verbose) message("%")
+    if(verbose) message("% Define certain SVCs as special areas ...")
     
     # check arguments
     if(!("special_area" %in% names(option))) {
@@ -600,7 +598,7 @@ db_check <- function(
         svc_rows_adj <- which(dat_svc$veg_id == option$special_area$ref_id[r])
         
         if(!any(svc_rows_adj)){
-          print(paste0("-> ATTENTION: Option 'special_area': Vegetation id ", option$special_area$ref_id[r], " could not be found in column 'veg_id' of table 'soil_veg_components'."))
+          message(paste0("% -> ATTENTION: Option 'special_area': Vegetation id ", option$special_area$ref_id[r], " could not be found in column 'veg_id' of table 'soil_veg_components'."))
           next
         }
           
@@ -625,7 +623,7 @@ db_check <- function(
         svc_rows_adj <- which(dat_svc$soil_id == option$special_area$ref_id[r])
         
         if(!any(svc_rows_adj)){
-          print(paste0("-> ATTENTION: Option 'special_area': Soil id ", option$special_area$ref_id[r], " could not be found in column 'soil_id' of table 'soil_veg_components'."))
+          message(paste0("% -> ATTENTION: Option 'special_area': Soil id ", option$special_area$ref_id[r], " could not be found in column 'soil_id' of table 'soil_veg_components'."))
           next
         }
         
@@ -642,14 +640,14 @@ db_check <- function(
     if(changes_made & fix)
     {
       if(verbose)
-        print("-> Updating table 'soil_veg_components'...")
+        message("% -> Updating table 'soil_veg_components'...")
       tryCatch(
       {
         sqlQuery(con, "delete from soil_veg_components")
         sqlSave(channel=con, tablename = "soil_veg_components", dat=dat_svc, verbose=F, 
                 append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
         tbl_changed <- c(tbl_changed, "soil_veg_components")
-        if(verbose) print("Table 'soil_veg_components' updated")
+        if(verbose) message("% -> Table 'soil_veg_components' updated")
       }, error = function(e) {
         # update table meta_info
         meta_dat <- sqlFetch(con, "meta_info")
@@ -672,10 +670,9 @@ db_check <- function(
     }  
     else
       if(verbose)
-        print("Nothing done.")
+        message("% -> Nothing done.")
     
-    if(verbose)
-      print("OK.")
+    if(verbose) message("% OK")
     
   } # check special_areas
 
@@ -686,11 +683,9 @@ db_check <- function(
 ###############################################################################
 ### remove water SVCs
   if (any(grepl("remove_water_svc", check))) {
-    if(verbose & fix)
-      print("Remove SVCs marked as water ...")
-    
-    if(!fix)
-      print("Identify SVCs marked as water ...")
+    if(verbose) message("%")
+    if(verbose & fix) message("% Remove SVCs marked as water ...")
+    if(verbose & !fix) message("% Identify SVCs marked as water ...")
     
     # get data
     dat_svc <- sqlFetch(con, "soil_veg_components")
@@ -701,17 +696,14 @@ db_check <- function(
     svc_water <- dat_svc$pid[rows_water]
     rows_contains_water <- which(dat_contains$svc_id %in% svc_water)
     
-    if (length(rows_contains_water)==0)
-    {
-      print("-> No water-SVCs found, nothing done.")          
+    if (length(rows_contains_water)==0) {
+      message("% -> No water-SVCs found, nothing done.")          
     } else {
     
-      if(!fix){
-        print("-> The following datasets in 'r_tc_contains_svc' were identified as water areas:")
-        print(dat_contains[rows_contains_water,])
-      } else {
-        print("-> The following datasets will be removed from 'r_tc_contains_svc' ('fraction' will be updated):")
-        print(dat_contains[rows_contains_water,])
+      if(!fix)
+        message(paste0("% -> There are ", length(rows_contains_water), " datasets in 'r_tc_contains_svc' identified as water areas"))
+      else {
+        message(paste0("% -> There are ", length(rows_contains_water), " datasets going to be removed from 'r_tc_contains_svc' ('fraction' will be updated)"))
       
         # remove water SVCs
         dat_contains_act <- dat_contains[-rows_contains_water,]
@@ -721,10 +713,9 @@ db_check <- function(
         for (s in 1:nrow(dat_contains_act))
           dat_contains_act$fraction[s] <- dat_contains_act$fraction[s] / frac_sum[paste0(dat_contains_act$tc_id[s])]
         
-        
         # update database
         if(verbose)
-          print("-> Updating table 'r_tc_contains_svc'...")
+          message("% -> Updating table 'r_tc_contains_svc'...")
         tryCatch(
         {
           sqlQuery(con, "delete from r_tc_contains_svc")
@@ -757,8 +748,7 @@ db_check <- function(
     } # if water SVCs found
     
     
-    if(verbose)
-      print("OK.")
+    if(verbose) message("% OK")
     
   } # check remove_water_svc
 
@@ -768,8 +758,8 @@ db_check <- function(
 ###############################################################################
 ### compute rocky fractions for TCs
   if (any(grepl("compute_rocky_frac", check))) {
-    if(verbose)
-      print("Compute rocky (i.e. impervious) fractions for TCs ...")
+    if(verbose) message("%")
+    if(verbose) message("% Compute rocky (i.e. impervious) fractions for TCs ...")
     
     
     # get data
@@ -780,7 +770,7 @@ db_check <- function(
     
     dat_tc$frac_rocky[is.na(dat_tc$frac_rocky)] = 0 #set NAs to 0
     if (nrow(dat_tc)>0 & max(dat_tc$frac_rocky)>0)
-      print("-> ATTENTION: Column 'frac_rocky' in table 'terrain_components' already contains some values. The computed fractions will be added to these.")
+      message("% -> ATTENTION: Column 'frac_rocky' in table 'terrain_components' already contains some values. The computed fractions will be added to these.")
 
     # identify soils with 100% coarse fragments in topmost horizon
     soil_impervious <- dat_hor$soil_id[which(dat_hor$position == 1 & dat_hor$coarse_frag == 1)]
@@ -790,16 +780,15 @@ db_check <- function(
       rows_svc_impervious <- which(dat_svc$soil_id %in% soil_impervious)
       
       if(fix) {
-        print("-> The following datasets in 'soil_veg_components' will be marked as impervious due to 100% coarse fragments in topmost soil horizon:")
+        message(paste0("% -> There are ", length(rows_svc_impervious), " datasets in 'soil_veg_components' which will be marked as impervious due to 100% coarse fragments in topmost soil horizon"))
       } else {
-        print("-> The following datasets in 'soil_veg_components' were identified as impervious due to 100% coarse fragments in topmost soil horizon:")
+        message(paste0("% -> There are ", length(rows_svc_impervious), " datasets in 'soil_veg_components' identified as impervious due to 100% coarse fragments in topmost soil horizon"))
       }
-      print(dat_svc[rows_svc_impervious,])
       
       dat_svc$special_area[rows_svc_impervious] <- 2
     } else {
       if (verbose)
-        print("-> No topmost horizon with 100% coarse fragments could be found.")
+        message("% -> No topmost horizon with 100% coarse fragments could be found.")
     }
     
     # identify TCs containing impervious SVCs
@@ -818,7 +807,7 @@ db_check <- function(
     if(fix) {
       
       if(verbose)
-        print("-> Updating table 'terrain_components'...")
+        message("% -> Updating table 'terrain_components'...")
       tryCatch(
       {
         sqlQuery(con, "delete from terrain_components")
@@ -848,8 +837,7 @@ db_check <- function(
     
     } # if fix
     
-    if(verbose)
-      print("OK.")
+    if(verbose) message("% OK")
     
   } # check compute_rocky_frac
   
@@ -861,11 +849,9 @@ db_check <- function(
 ###############################################################################
 ### remove impervious SVCs
   if (any(grepl("remove_impervious_svc", check))) {
-    if(verbose & fix)
-      print("Remove SVCs marked as impervious ...")
-    
-    if(!fix)
-      print("Identify SVCs marked as impervious ...")
+    if(verbose) message("%")
+    if(verbose & fix) message("% Remove SVCs marked as impervious ...")
+    if(verbose & !fix) message("% Identify SVCs marked as impervious ...")
     
     # get data
     dat_svc <- sqlFetch(con, "soil_veg_components")
@@ -877,19 +863,17 @@ db_check <- function(
     rows_contains_impervious <- which(dat_contains$svc_id %in% svc_impervious)
     
     if(!any(rows_contains_impervious)) {
-      print("-> No impervious SVCs could be found. Nothing done.")
+      message("% -> No impervious SVCs could be found. Nothing done.")
     } else {
     
       if(!fix) {
-        print("-> The following datasets in 'r_tc_contains_svc' were identified as impervious:")
-        print(dat_contains[rows_contains_impervious,])
+        message(paste0("% -> There are ", length(rows_contains_impervious), " datasets in 'r_tc_contains_svc' identified as impervious"))
       } else {
-        print("-> The following datasets will be removed from 'r_tc_contains_svc' ('fraction' will be updated):")
-        print(dat_contains[rows_contains_impervious,])
+        message(paste0("% -> There are ", length(rows_contains_impervious), " datasets which will be removed from 'r_tc_contains_svc' ('fraction' will be updated)"))
         
         # update database
         if(verbose)
-          print("-> Updating table 'r_tc_contains_svc'...")
+          message("% -> Updating table 'r_tc_contains_svc'...")
         tryCatch(
         {
           if(!option$update_frac_impervious) {
@@ -936,8 +920,7 @@ db_check <- function(
     } # if any impervious SVC
   
   
-    if(verbose)
-      print("OK.")
+    if(verbose) message("% OK")
   
   } # check remove_impervious_svc
   
@@ -948,8 +931,8 @@ db_check <- function(
 ###############################################################################
 ### estimate frgw_delay
   if (any(grepl("proxy_frgw_delay", check))) {
-    if(verbose)
-      print("Estimate frgw_delay for LUs ...")
+    if(verbose) message("%")
+    if(verbose) message("% Estimate frgw_delay for LUs ...")
     
     # check arguments
     if(!("total_mean_delay" %in% names(option))) {
@@ -974,7 +957,7 @@ db_check <- function(
     }
     
     if(!fix) {
-      print("-> Running in report mode. Nothing to report for this check.")
+      message("% -> Running in report mode. Nothing to report for this check.")
     } else {
     
       # get data
@@ -1004,7 +987,7 @@ db_check <- function(
       
       # update database
       if(verbose)
-        print("-> Updating table 'landscape_units'...")
+        message("% -> Updating table 'landscape_units'...")
       tryCatch(
       {
         sqlQuery(con, "delete from landscape_units")
@@ -1034,8 +1017,7 @@ db_check <- function(
       
     } # if fix
     
-    if(verbose)
-      print("OK.")
+    if(verbose) message("% OK")
     
   } # check proxy_frgw_delay
   
@@ -1107,12 +1089,9 @@ db_check <- function(
 ### delete obsolete datasets
     
 if (any(grepl("delete_obsolete", check))) {
-    
-    if(fix & verbose)
-      print("Delete obsolete records ...")
-    
-    if(!fix & verbose)
-      print("Identify obsolete records ...")
+  if(verbose) message("%")
+  if(verbose & fix) message("% Delete obsolete records ...")
+  if(verbose & !fix) message("% Identify obsolete records ...")
     
     break_msg=""
 
@@ -1144,16 +1123,16 @@ if (any(grepl("delete_obsolete", check))) {
         }
         if (nrow(res)==0) 
         {
-          if(verbose) print(paste0("No obsolete records found in '", cur_table,"'"))
+          if(verbose) message(paste0("% -> No obsolete records found in '", cur_table,"'"))
           next   #no obsolete records found
         }
         if(verbose) 
         {  
-          print(paste0("-> The following records in '", cur_table,"' are obsolete:"))
-          print(res) 
+          message(paste0("% -> There are ", nrow(res), " obsolete datasets in '", cur_table,"'"))
         }    
         if (!fix) 
-          print("More records may turn up after actual cleaning (fix=TRUE).") else
+          if(verbose) message("% -> More records may turn up after actual cleaning (fix=TRUE).")
+        else
         {
           statement = paste0("delete from ", cur_table, 
                              " where ", table_chain$key2prev[i]," IN (",
@@ -1192,8 +1171,7 @@ if (any(grepl("delete_obsolete", check))) {
         stop(break_msg)
       }
     }  
-    if(verbose & !fix)
-        print("All reported obsolete records will be removed from the respective tables with fix=TRUE.")
+    if(verbose) message("% OK")
 
   } # check delete_obsolete
 
@@ -1202,10 +1180,9 @@ if (any(grepl("delete_obsolete", check))) {
 
 ###############################################################################
 ### check completeness
-  if (any(grepl("completeness", check)))
-  {
-    if(!fix & verbose)
-      print("Search referenced records without specification...")
+  if (any(grepl("completeness", check))){
+    if(verbose) message("%")
+    if(verbose) message("% Search referenced records without specification...")
     
     break_msg=""
 
@@ -1235,15 +1212,12 @@ if (any(grepl("delete_obsolete", check))) {
                              "\nerror-message: ", res[1])
           break
         }
-        if(verbose)
+        if(verbose) {
           if (nrow(res)==0) 
-            print(paste0("No incomplete records found in '", cur_table,"'")) else
-          {  
-            print(paste0("-> The following records in '", cur_table,"' are missing their description in '", nex_table, "':"))
-            print(res) 
-          }   
-          
-           
+            message(paste0("% -> No incomplete records found in '", cur_table,"'"))
+          else 
+            message(paste0("% -> There are ", nrow(res), " records in '", cur_table,"' missing their description in '", nex_table, "'"))
+        }
       }
     } 
   
@@ -1261,6 +1235,8 @@ if (any(grepl("delete_obsolete", check))) {
     }
     if (nrow(res)>0)
       stop(paste0("TC(s) ", paste0(res$tc_id, collapse=" ,"), " is/are part of multiple LUs, which is currently not supported. Duplicate these TCs and assign a different ID for each instance."))
+    
+    if(verbose) message("% OK")
   }   # check completeness
 
 
@@ -1268,10 +1244,9 @@ if (any(grepl("delete_obsolete", check))) {
 ###############################################################################
 ### determine subbasin order
   if (any(grepl("subbasin_order", check))) {
-    if(verbose)
-      print("Determine subbasin_order (column 'a_stream_order' of table 'subbasins') ...")
-    if(!fix) 
-      print("-> Running in report mode. No changes will be made.")
+    if(verbose) message("%")
+    if(verbose & fix) message("% Determine subbasin order (write into column 'a_stream_order' of table 'subbasins') ...")
+    if(verbose & !fix) message("% Determine subbasin order (report mode, no changes to database) ...")
   
     # get data
     dat_sub <- sqlFetch(con, "subbasins")  
@@ -1356,10 +1331,10 @@ if (any(grepl("delete_obsolete", check))) {
     
     if (all(!is.na(stream_order_old)) &
         all(stream_order_old== dat_sub$a_stream_order)) 
-      print("-> existing stream order ok.") else
+      message("% -> existing stream order ok.") else
       {
         if(!fix) {
-          print("-> existing stream order needs updating. Consider running with 'fix=TRUE' and 'option=list(overwrite=TRUE)'") 
+          message("% -> existing stream order needs updating. Consider running with 'fix=TRUE' and 'option=list(overwrite=TRUE)'") 
         } else {
           
           if(is.null(option$overwrite) | !option$overwrite) {
@@ -1386,7 +1361,7 @@ if (any(grepl("delete_obsolete", check))) {
 
           ### write results to db
           if(verbose)
-            print("-> Updating table 'subbasins'...")
+            message("% -> Updating table 'subbasins'...")
           tryCatch(
             {
               for (i in 1:nrow(dat_sub))
@@ -1429,8 +1404,7 @@ if (any(grepl("delete_obsolete", check))) {
 
         } # if fix
       }   
-    if(verbose)
-      print("OK.")
+    if(verbose) message("% OK")
     
   } # determine subbasin order
 
@@ -1460,8 +1434,13 @@ if (any(grepl("delete_obsolete", check))) {
   } # fix
 
 
-  print("All checks completed successfully. Close ODBC connection.")
+  if(verbose) message("%")
+  if(verbose) message("% All checks completed successfully. Close ODBC connection.")
   
   odbcClose(con)
+  
+  if(verbose) message("%")
+  if(verbose) message("% DONE!")
+  if(verbose) message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
   
 } # EOF

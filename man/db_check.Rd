@@ -37,8 +37,10 @@ The following checks are currently included and can be specified via argument \c
  Execute checks in pre-defined order as some checks build upon each other and
  lead to erroneous results when interchanged. However, some checks might be
  unnecessary for your purpose and can be left out.
+ 
  \bold{check_fix_fractions}\cr
- Check/fix that the fractions of all sub-entities sum to 1.\cr
+ Check/fix that the fractions of all sub-entities sum to 1.
+ 
  \bold{filter_small_areas}\cr
  Tiny areas as result of landscape disaggregation considered irrelevant during model
  application will be removed and the areal fractions updated accordingly. The model
