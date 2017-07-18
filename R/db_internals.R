@@ -133,9 +133,8 @@ writedb <- function(con, file, table, overwrite, verbose) {
   
   # check structure
   cols <- sqlColumns(con, table)$COLUMN_NAME
-  if (any(!(cols %in% colnames(dat))))
-    stop(paste0("File '", file, "' does not contain the required columns (",
-                paste(cols, collapse=", "), ")."))
+  if (any(!(cols %in% colnames(dat)))) 
+    stop(paste0("File '", file, "' does not contain the required columns (", paste(cols, collapse=", "), ")."))
   
   # remove unnecessary columns if available
   rm_cols <- which(!(colnames(dat) %in% cols))
@@ -152,7 +151,6 @@ writedb <- function(con, file, table, overwrite, verbose) {
   sqlSave(channel=con, tablename = table, dat=dat, verbose=F, 
           append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
 }, error = function(e) {
-  odbcClose(con)
   stop(paste0("An error occured when writing into table '", table, "'. ",
               "All values written until error occurence will be kept in the database! ",
               "There might be a problem with the input data structure (e.g. gaps), ",
@@ -183,10 +181,8 @@ write_datetabs <- function(con, dat, tab, verbose) {
   
     # apply statement
     res <- sqlQuery(con, statement, errors=F)
-    if (res==-1){
-      odbcClose(con)
+    if (res==-1)
       stop(paste0("Error in SQL query execution while writing into table '",tab,"'."))
-    }
   }
   
   if(verbose) message(paste0("% -> Updated table '",tab,"'."))
@@ -198,98 +194,40 @@ write_datetabs <- function(con, dat, tab, verbose) {
 
 
 # check or fix that fractions sum up to 1
-check_fix_fractions <- function(con, table, fix, verbose, tbl_changed) {
+check_fix_fractions <- function(dat_tbl, fix, verbose) {
   if(verbose) message("%")
-  if(verbose) message(paste0("% -> Processing table '", table, "' ..."))
-  
-  dat_contains <- sqlFetch(con, table)
-  if (table=="r_tc_contains_svc") #for TCs also the rocky fraction needs to be considered
-  {
-    res=sqlQuery(con, "select pid as tc_id, -1 as svc_id, frac_rocky as fraction from terrain_components")
-    dat_contains = rbind(dat_contains, res)
-  }
+  if(verbose) message(paste0("% -> Processing table '", attr(dat_tbl, "table"), "' ..."))
   
   # sum of 'fraction' should be 1 for every higher level class (rounding error allowed)
-  dat_contains_sum <- round(tapply(dat_contains$fraction, list(parent=dat_contains[[1]]), sum, na.rm=T), 2)
+  dat_contains_sum <- round(tapply(dat_tbl$fraction, list(parent=dat_tbl[[1]]), sum, na.rm=T), 2)
   
-  flawedIDs = names(dat_contains_sum[dat_contains_sum!=1])
-  if(length(flawedIDs)>0) {
-      if (verbose)
-      {  
-        cat(paste0("The elements of the following entities do not sum to 1 in their fractions:\n", 
-                 paste0(flawedIDs, collapse = "\n ")),"\n")
-        if (!fix) 
-          cat(paste0("Check table '", table, "'", ifelse(table=="r_tc_contains_svc", " and 'terrain_components' (column frac_rocky)","")," or call db_check(..., check=\"check_fix_fractions\", fix=TRUE)!\n"))
-      }
-  } 
-  if (!fix) return(flawedIDs) #just report
-  
-  
-  # re-calculate areal fractions
-    if(fix && any(dat_contains_sum != 1)) {
+  # re-calculate areal fractions if needed
+  dat_tbl_new <- dat_tbl
+  if(!any(dat_contains_sum!=1)) {
+    if (verbose) message("%   -> Everything sums up to one")
+  } else {
+    if (verbose)
+    {  
+      message(paste0("%   -> There are ", length(which(dat_contains_sum!=1)), " elements not summing to 1 in their fractions"))
+      if (!fix) 
+        message(paste0("%   -> Check table '", attr(dat_tbl, "table"), "'", ifelse(attr(dat_tbl, "table")=="r_tc_contains_svc", " and 'terrain_components' (column frac_rocky)","")," or call db_check(..., check=\"check_fix_fractions\", fix=TRUE)!"))
+    }
+
+    if(fix) {
       
       if(verbose)
-        message("% -> Re-calculate fractions ...")
-      dat_contains_sum <- tapply(dat_contains$fraction, list(parent=dat_contains[[1]]), sum, na.rm=T)
-      dat_contains_new <- dat_contains
-      for (s in 1:nrow(dat_contains))
-        dat_contains_new$fraction[s] <- dat_contains$fraction[s] / dat_contains_sum[paste0(dat_contains[[1]][s])]
+        message("%   -> Re-calculate fractions ...")
+      dat_contains_sum <- tapply(dat_tbl$fraction, list(parent=dat_tbl[[1]]), sum, na.rm=T)
+      for (s in 1:nrow(dat_tbl))
+        dat_tbl_new$fraction[s] <- dat_tbl$fraction[s] / dat_contains_sum[paste0(dat_tbl[[1]][s])]
       
-      
-      # write updated data into database
-      if (table=="r_tc_contains_svc") #for TCs also the rocky fraction needs to be considered
-      {
-        rocky_frac=        dat_contains_new[dat_contains_new$svc_id==-1,] #extract information on rocky fraction - this needs to go into another table
-        rocky_frac$svc_id = NULL #svc_id=-1 was just a marker for rocky fractions, not needed anymore
-        dat_contains_new = dat_contains_new[dat_contains_new$svc_id!=-1,] #keep only real SVCs, discard rocky fractions that had been temporally inserted as SVCs
-        
-        terrain_components <- sqlFetch(con, "terrain_components")
-        terrain_components = merge(terrain_components, rocky_frac, by.x="pid", by.y="tc_id")
-        
-        if (!identical(terrain_components$frac_rocky, terrain_components$fraction)) {
-          terrain_components$frac_rocky = terrain_components$fraction #correct to adjusted rocky fraction
-          terrain_components$fraction = NULL
-          tryCatch(
-            {
-              sqlQuery(con, paste0("delete from terrain_components"))
-              sqlSave(channel=con, tablename = "terrain_components", dat=terrain_components, verbose=F, 
-                      append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
-              tbl_changed <- c(tbl_changed, "terrain_components")
-            }, error = function(e) {
-              # update table meta_info
-              if(!is.null(tbl_changed)) write_metainfo(paste(unique(tbl_changed), collapse=", "), "various",
-                                                       "ATTENTION: Error while checking database using R package lumpR check check_fix_fractions. Nevertheless, affected_tables have already been changed.",
-                                                       verbose)
-              stop(paste0("An error occured when updating table terrain_components. ",
-                          "Error message of the writing function: ", e))
-            }
-          )
-        }
-      }
-      
-      tryCatch(
-        {
-          sqlQuery(con, paste0("delete from ", table))
-          sqlSave(channel=con, tablename = table, dat=dat_contains_new, verbose=F, 
-                  append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
-          tbl_changed <- c(tbl_changed, table)
-        }, error = function(e) {
-          # update table meta_info
-          if(!is.null(tbl_changed)) write_metainfo(paste(unique(tbl_changed), collapse=", "), "various",
-                                                   "ATTENTION: Error while checking database using R package lumpR check filter_small_areas. Nevertheless, affected_tables have already been changed.",
-                                                   verbose)
-          stop(paste0("An error occured when updating table '", table, "'. ",
-                      "Error message of the writing function: ", e))
-        }
-      )
-      
+      attr(dat_tbl_new, "altered") <- TRUE
     } # if fix
+  } # if any(dat_contains_sum!=1)
+      
     
-    
-    if(verbose) message("% -> OK.")
- 
-  
-  return(tbl_changed)
+  if(verbose) message("% -> OK.")
+  return(dat_tbl_new)
 } # EOF check_fix_fractions
 
 
@@ -297,73 +235,56 @@ check_fix_fractions <- function(con, table, fix, verbose, tbl_changed) {
 
 
 # filter disaggregated areas by areal fraction threshold
-filter_small_areas <- function(con, table, thres, fix, verbose, tbl_changed) {
+filter_small_areas <- function(dat_tbl, thres, fix, verbose) {
   if(verbose) message("%")
-  if(verbose) message(paste0("% -> Processing table '", table, "' ..."))
-  
-  dat_contains <- sqlFetch(con, table)
-  if (table=="r_tc_contains_svc") #for TCs also the rocky fraction needs to be considered
-  {
-    res=sqlQuery(con, "select pid as tc_id, -1 as svc_id, frac_rocky as fraction from terrain_components")
-    dat_contains = rbind(dat_contains, res)
-  }
+  if(verbose) message(paste0("% -> Processing table '", attr(dat_tbl, "table"), "' ..."))
 
   # sum of 'fraction' should be 1 for every higher level class (rounding error allowed)
-  dat_contains_sum <- round(tapply(dat_contains$fraction, list(parent=dat_contains[[1]]), sum, na.rm=T), 2)
+  dat_contains_sum <- round(tapply(dat_tbl$fraction, list(parent=dat_tbl[[1]]), sum, na.rm=T), 2)
   if(any(dat_contains_sum != 1)) {
-    if(fix) {
-      # update table meta_info
-      if(!is.null(tbl_changed)) write_metainfo(paste(unique(tbl_changed), collapse=", "), "various",
-                                               "ATTENTION: Error while checking database using R package lumpR check filter_small_areas. Nevertheless, affected_tables have already been changed.",
-                                               verbose)
-      stop(paste0("Before removal of tiny areas: sum of fractions per higher level unit not always equal to one. Check table '", table, "'", ifelse(table=="r_tc_contains_svc", " and 'terrain_components' (column frac_rocky)",""),"!"))
-    } else {
-      message(paste0("% -> ATTENTION: Before removal of tiny areas: sum of fractions per higher level unit not always equal to one. Check table '", table, "'", ifelse(table=="r_tc_contains_svc", " and 'terrain_components' (column frac_rocky)",""),"!"))
-    }
+    if(fix)
+      stop(paste0("Before removal of tiny areas: sum of fractions per higher level unit not always equal to one. Check table '", attr(dat_tbl, "table"), "'", ifelse(attr(dat_tbl, "table")=="r_tc_contains_svc", " and 'terrain_components' (column frac_rocky)","")," or call db_check(..., check=\"check_fix_fractions\", fix=TRUE)!"))
+    else
+      warning(paste0("Before removal of tiny areas: sum of fractions per higher level unit not always equal to one. Check table '", attr(dat_tbl, "table"), "'", ifelse(attr(dat_tbl, "table")=="r_tc_contains_svc", " and 'terrain_components' (column frac_rocky)","")," or call db_check(..., check=\"check_fix_fractions\", fix=TRUE)!"))
   }
   
   # remove datasets where fraction < area_thresh
-  rows_rm <- which(dat_contains$fraction < thres & dat_contains[,2]!=-1) #find entities below threshold, omit special case "rocky fractions"
+  rows_rm <- which(dat_tbl$fraction < thres & dat_tbl[,2]!=-1) #find entities below threshold, omit special case "rocky fractions"
   
-  # further processing if any fraction < area_thresh only
+  dat_tbl_new <- dat_tbl
   if(!any(rows_rm)) {
-    message(paste0("% -> In '", table, "' no fraction smaller ", thres, " could be found."))
+    message(paste0("%   -> No fraction smaller ", thres, " could be found."))
   } else {
     
-    if(fix) {
-      message(paste0("% -> There are ", length(rows_rm), " datasets going to be removed from '", table, "'"))
-    } else {
-      message(paste0("% -> There are ", length(rows_rm), " datasets containing fractions < threshold in '", table, "'"))
-    }
+    if(fix)
+      message(paste0("%   -> There are ", length(rows_rm), " datasets going to be removed from '", attr(dat_tbl, "table"), "'"))
+    else
+      message(paste0("%   -> There are ", length(rows_rm), " datasets containing fractions < threshold in '", attr(dat_tbl, "table"), "'"))
     
     # keep datasets where entities of more than 10% of the respective parent class' area would be removed
-    lu_rm_sum <- tapply(dat_contains$fraction[rows_rm], list(parent=dat_contains[[1]][rows_rm]), sum)
+    lu_rm_sum <- tapply(dat_tbl$fraction[rows_rm], list(parent=dat_tbl[[1]][rows_rm]), sum)
     if(any(lu_rm_sum > 0.1)) {
       keep_lu <- which(lu_rm_sum > 0.1)
-      message(paste0("% -> For '", colnames(dat_contains)[1], "' ", paste(names(lu_rm_sum)[keep_lu], collapse=", "),
-                   " more than 10% of the area would be removed due to too many small '", colnames(dat_contains)[2], "'. These datasets will be kept."))
+      message(paste0("%   -> For '", colnames(dat_tbl)[1], "' ", paste(names(lu_rm_sum)[keep_lu], collapse=", "),
+                   " more than 10% of the area would be removed due to too many small '", colnames(dat_tbl)[2], "'. These datasets will be kept."))
       
-      rows_rm_keep <- which(dat_contains[[1]][rows_rm] %in% names(lu_rm_sum)[keep_lu])
+      rows_rm_keep <- which(dat_tbl[[1]][rows_rm] %in% names(lu_rm_sum)[keep_lu])
       rows_rm <- rows_rm[-rows_rm_keep]
-      if (!any(rows_rm)) {
-        message(paste0("% -> For '", table, "' nothing to remove or choose smaller value for 'area_thresh' and re-run check."))
-        return(NULL)
-      }
-        
+      if (!any(rows_rm))
+        message(paste0("%   -> For '", attr(dat_tbl, "table"), "' nothing to remove or choose smaller value for 'area_thresh' and re-run check."))
     }
   
     # remove datasets and re-calculate areal fractions
     if(fix) 
     {
-      dat_contains_rm <- dat_contains[-rows_rm,]
-      tbl_changed = check_fix_fractions(con = con, table = table, fix = fix, verbose = verbose, tbl_changed = tbl_changed)
+      dat_tbl_new <- dat_tbl[-rows_rm,]
+      dat_tbl_new <- check_fix_fractions(dat_tbl=dat_tbl_new, fix=TRUE, verbose=FALSE)
     }  
 
-
-  if(verbose) message("% -> OK.")
   } # if any fraction < area_thresh
 
-  return(tbl_changed)
+  if(verbose) message("% -> OK.")
+  return(dat_tbl_new)
 } # EOF filter_small_areas
 
 
@@ -405,7 +326,7 @@ dbCopyTable <- function(con, tab, con_dest) {
 
 
 # function to write into table meta_info
-write_metainfo <- function(affected_tbl, affected_col, remarks, verbose) {
+write_metainfo <- function(con, affected_tbl, affected_col, remarks, verbose) {
   meta_dat <- sqlFetch(con, "meta_info")
   if(any(meta_dat$pid)) {
     pid_new <- max(meta_dat$pid) +1
@@ -420,3 +341,57 @@ write_metainfo <- function(affected_tbl, affected_col, remarks, verbose) {
                          remarks=remarks)
   write_datetabs(con, meta_out, tab="meta_info", verbose)
 } # EOF write_metainfo
+
+
+
+
+
+# function to read in data from selected tables
+read_db_dat <- function(tbl, con, tbl_exist) {
+  dat_out <- NULL
+  tbl_read <- tbl[which(!(tbl %in% tbl_exist))]
+  for(t in tbl_read) {
+    dat_out[[t]] <- sqlFetch(con, t)
+    if(t == "r_tc_contains_svc") { # information about rocky fractions needed for some checks
+      res <- sqlQuery(con, "select pid as tc_id, -1 as svc_id, frac_rocky as fraction from terrain_components")
+      dat_out[[t]] <- rbind(dat_out[[t]], res)
+    }
+    # meta information (attributes)
+    attr(dat_out[[t]], "altered") <- FALSE
+    attr(dat_out[[t]], "table") <- t
+  }
+  return(dat_out)
+} # EOF read_db_dat
+
+
+
+
+
+# function for writing changes into database
+modify_db <- function(con, dat_tbl) {
+  # define index columns for the verious tables (needed by function sqlUpdate())
+  tbls_keys <- list(
+    subbasins="pid",
+    r_subbas_contains_lu=c("subbas_id", "lu_id"),
+    landscape_units="pid",
+    r_lu_contains_tc=c("lu_id", "tc_id"),
+    terrain_components="pid",
+    r_tc_contains_svc=c("tc_id", "svc_id"),
+    soil_veg_components="pid",
+    vegetation="pid",
+    soils="pid",
+    horizons="pid",
+    particle_classes="class_id",
+    r_soil_contains_particles=c("soil_id", "class_id"),
+    rainy_season="pid"
+  )
+  
+  # check if table has been modified, otherwise return an flag (-1)
+  if (!attr(dat_tbl, "altered"))
+    return(-1)
+  
+  # update db
+  sqlUpdate(con, dat_tbl, attr(dat_tbl, "table"), tbls_keys[[attr(dat_tbl, "table")]])
+  
+  return(0)
+} # EOF modify_db

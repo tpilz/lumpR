@@ -127,14 +127,14 @@ The following checks are currently included and can be specified via argument \c
  mean matches this value (see formula above).
  
  \bold{delete_obsolete}\cr
- Check for (and delete) obsolete datasets. I.e. special area SVCs, LUs not in any subbasin, TCs
+ Check for (and optionally delete) obsolete datasets. I.e. LUs not in any subbasin, TCs
  not in any LU, SVCs not in any TC from the \emph{contains}- and the parent tables,
  and datasets in 'rainy_season' with obsolete subbasins (if table 'rainy_season' exists).
  Dependencies are respected. Areal fractions will not be updated, run with option \code{check_fix_fractions} after removal.
  
  \bold{completeness}\cr
  Check database for completeness. I.e. check if all entities in a higher hierarchy are used and specified in the related tables 
- of lower hierarchy. Reports only, ignores \code{fix=T} and does no changes t the database.
+ of lower hierarchy. Reports only, ignores \code{fix=T} and does no changes to the database.
  
  \bold{subbasin_order}\cr
  Compute subbasin order for WASA's routing input file \code{routing.dat}. Order will

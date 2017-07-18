@@ -131,14 +131,14 @@
 #'  mean matches this value (see formula above).
 #'  
 #'  \bold{delete_obsolete}\cr
-#'  Check for (and delete) obsolete datasets. I.e. special area SVCs, LUs not in any subbasin, TCs
+#'  Check for (and optionally delete) obsolete datasets. I.e. LUs not in any subbasin, TCs
 #'  not in any LU, SVCs not in any TC from the \emph{contains}- and the parent tables,
 #'  and datasets in 'rainy_season' with obsolete subbasins (if table 'rainy_season' exists).
 #'  Dependencies are respected. Areal fractions will not be updated, run with option \code{check_fix_fractions} after removal.
 #'  
 #'  \bold{completeness}\cr
 #'  Check database for completeness. I.e. check if all entities in a higher hierarchy are used and specified in the related tables 
-#'  of lower hierarchy. Reports only, ignores \code{fix=T} and does no changes t the database.
+#'  of lower hierarchy. Reports only, ignores \code{fix=T} and does no changes to the database.
 #'  
 #'  \bold{subbasin_order}\cr
 #'  Compute subbasin order for WASA's routing input file \code{routing.dat}. Order will
@@ -198,8 +198,8 @@ db_check <- function(
   
   if(verbose) message("% OK")
   
-  # initialise vector to keep track of changed tables
-  tbl_changed <- NULL
+  # initialise object where database information will be stored during processing
+  dat_all <- NULL
   
   
 ###############################################################################
@@ -223,17 +223,14 @@ db_check <- function(
     if(verbose) message("%")
     if(verbose) message("% Check fractions ...")
     
-    # LUs
-    tbl_ch <- check_fix_fractions(con=con, table="r_subbas_contains_lu", fix=fix, verbose=verbose, tbl_changed=tbl_changed)
-    tbl_changed <- c(tbl_changed, tbl_ch)
+    # read data
+    dat_all <- c(dat_all,
+                 read_db_dat(tbl = c("r_subbas_contains_lu", "r_lu_contains_tc", "r_tc_contains_svc"),
+                             con = con,
+                             tbl_exist = names(dat_all)))
     
-    # TCs
-    tbl_ch <- check_fix_fractions(con=con, table="r_lu_contains_tc", fix=fix, verbose=verbose, tbl_changed=tbl_changed)
-    tbl_changed <- c(tbl_changed, tbl_ch)
-    
-    # SVCs
-    tbl_ch <- check_fix_fractions(con=con, table="r_tc_contains_svc", fix=fix, verbose=verbose, tbl_changed=tbl_changed)
-    tbl_changed <- c(tbl_changed, tbl_ch)
+    # check fractions
+    dat_all <- lapply(dat_all, check_fix_fractions, fix=fix, verbose=verbose)
     
     if(verbose) message("% OK")
   } # check fractions
@@ -249,17 +246,14 @@ db_check <- function(
     
     thres <- option[["area_thresh"]]
     
-    # LUs
-    tbl_ch <- filter_small_areas(con=con, table="r_subbas_contains_lu", thres=thres, fix=fix, verbose=verbose, tbl_changed=tbl_changed)
-    tbl_changed <- c(tbl_changed, tbl_ch)
+    # read data
+    dat_all <- c(dat_all,
+                 read_db_dat(tbl = c("r_subbas_contains_lu", "r_lu_contains_tc", "r_tc_contains_svc"),
+                             con = con,
+                             tbl_exist = names(dat_all)))
     
-    # TCs
-    tbl_ch <- filter_small_areas(con=con, table="r_lu_contains_tc", thres=thres, fix=fix, verbose=verbose, tbl_changed=tbl_changed)
-    tbl_changed <- c(tbl_changed, tbl_ch)
-    
-    # SVCs
-    tbl_ch <- filter_small_areas(con=con, table="r_tc_contains_svc", thres=thres, fix=fix, verbose=verbose, tbl_changed=tbl_changed)
-    tbl_changed <- c(tbl_changed, tbl_ch)
+    # apply area filter
+    dat_all <- lapply(dat_all, filter_small_areas, thres=thres, fix=fix, verbose=verbose)
     
     if(verbose) message("% OK")
   } # filter small areas
@@ -272,35 +266,32 @@ db_check <- function(
     if(verbose) message("% Find TCs with slope <= 0 ...")
     
     # get data
-    dat_tc <- sqlFetch(con, "terrain_components")
-    if(!any(which(dat_tc$slope <= 0))) {
+    dat_all <- c(dat_all,
+                 read_db_dat(tbl = c("terrain_components"), con = con, tbl_exist = names(dat_all)))
+    
+    # do check
+    if(!any(which(dat_all$terrain_components$slope <= 0))) {
       message("% -> There are no TCs with slope <= 0.")
     } else {
       
-      if(!("treat_slope" %in% names(option))) {
-        # update table meta_info
-        if(!is.null(tbl_changed)) write_metainfo(paste(unique(tbl_changed), collapse=", "), "various",
-                               "ATTENTION: Error while checking database using R package lumpR check tc_slope. Nevertheless, affected_tables have already been changed.",
-                               verbose)
+      if(!("treat_slope" %in% names(option)))
         stop("No option 'treat_slope' specified for check 'tc_slope'.")
-      }
       
       # data from r_lu_contains_tc
-      dat_lutc <- sqlFetch(con, "r_lu_contains_tc")
+      dat_all <- c(dat_all,
+                   read_db_dat(tbl = c("r_lu_contains_tc"), con = con, tbl_exist = names(dat_all)))
       
       # datasets of r_lu_contains_tc where slope is <= 0
-      r_tc_zero <- which(dat_tc$slope <= 0)
-      tc_zero <- dat_tc$pid[r_tc_zero]
-      lutc_zero <- dat_lutc[which(dat_lutc$tc_id %in% tc_zero),]
-      dat_out_lutc <- NULL # will only be touched if dat_lutc needs to be fixed
-      dat_out_tc <- NULL # will only be touched if dat_tc needs to be fixed
+      r_tc_zero <- which(dat_all$terrain_components$slope <= 0)
+      tc_zero <- dat_all$terrain_components$pid[r_tc_zero]
+      lutc_zero <- dat_all$r_lu_contains_tc[which(dat_all$r_lu_contains_tc$tc_id %in% tc_zero),]
       
     
       # option 1: remove TC if areal fraction within LU is below threshold
       if (option[["treat_slope"]][1] == 1 | option[["treat_slope"]][1] == 3) {
         
         if (verbose)
-          message("% -> Option 1: Remove TCs with small fraction within LU...")
+          message("% -> Remove TCs with small fraction within LU...")
         
         # identify datasets below fraction threshold
         rows_lutc_rm <- which(lutc_zero$fraction < option[["treat_slope"]][2])
@@ -335,13 +326,12 @@ db_check <- function(
             lutc_zero <- lutc_zero[-rows_lutc_rm,]
             
             # merge unchanged datasets with adjusted datasets where slope of TC <= 0
-            dat_out_lutc <- dat_lutc[-which(dat_lutc$tc_id %in% tc_zero),]
-            dat_out_lutc <- rbind(dat_out_lutc, lutc_zero)
+            dat_all$r_lu_contains_tc <- dat_all$r_lu_contains_tc[-which(dat_all$r_lu_contains_tc$tc_id %in% tc_zero),]
+            dat_all$r_lu_contains_tc <- rbind(dat_all$r_lu_contains_tc, lutc_zero)
+            attr(dat_all$r_lu_contains_tc, "altered") <- TRUE
             
             # re-calculate fractions
-            frac_sum <- tapply(dat_out_lutc$fraction, list(parent=dat_out_lutc[[1]]), sum)
-            for (s in 1:nrow(dat_out_lutc))
-              dat_out_lutc$fraction[s] <- dat_out_lutc$fraction[s] / frac_sum[paste0(dat_out_lutc[[1]][s])]
+            dat_all$r_lu_contains_tc <- check_fix_fractions(dat_tbl=dat_all$r_lu_contains_tc, fix=TRUE, verbose=FALSE)
             
           } # still datasets left to remove?
         } # TCs wih fraction below threshold?
@@ -354,7 +344,7 @@ db_check <- function(
       if (option[["treat_slope"]][1] == 2 | option[["treat_slope"]][1] == 3) {
         
         if (verbose)
-          message("% -> Option 2: Change slope to specified small positive value...")
+          message("% -> Change slope to specified small positive value...")
         
         # determine replace value
         if (option[["treat_slope"]][1] == 2)
@@ -364,60 +354,13 @@ db_check <- function(
         
         if(fix) {
           message(paste0("% -> There are ", length(r_tc_zero), " datasets where slopes in 'terrain_components' will be replaced by ", repl_slope))
-          dat_out_tc <- dat_tc
-          dat_out_tc[r_tc_zero,"slope"] <- repl_slope
+          dat_all$terrain_components[r_tc_zero,"slope"] <- repl_slope
+          attr(dat_all$terrain_components, "altered") <- TRUE
         } else {
           message(paste0("% -> There are ", length(r_tc_zero), " datasets in 'terrain_components' containing slopes <= 0"))
         }
           
       } # end of option 2
-      
-      
-      
-      # update database
-      if(fix) {
-        
-        if(!is.null(dat_out_lutc)) {
-          if(verbose)
-            message("% -> Updating table 'r_lu_contains_tc'...")
-          tryCatch(
-          {
-            sqlQuery(con, "delete from r_lu_contains_tc")
-            sqlSave(channel=con, tablename = "r_lu_contains_tc", dat=dat_out_lutc, verbose=F, 
-                    append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
-            tbl_changed <- c(tbl_changed, "r_lu_contains_tc")
-          }, error = function(e) {
-            # update table meta_info
-            if(!is.null(tbl_changed)) write_metainfo(paste(unique(tbl_changed), collapse=", "), "various",
-                                                "ATTENTION: Error while checking database using R package lumpR check tc_slope. Nevertheless, affected_tables have already been changed.",
-                                                verbose)
-            stop(paste0("An error occured when updating table 'r_lu_contains_tc'. ",
-                        "Error message of the writing function: ", e))
-          }
-          )
-        } # dat_out_lutc exists?
-        
-        if(!is.null(dat_out_tc)) {
-          if(verbose)
-            message("% -> Updating table 'terrain_components'...")
-          tryCatch(
-          {
-            sqlQuery(con, "delete from terrain_components")
-            sqlSave(channel=con, tablename = "terrain_components", dat=dat_out_tc, verbose=F, 
-                    append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
-            tbl_changed <- c(tbl_changed, "terrain_components")
-          }, error = function(e) {
-            # update table meta_info
-            if(!is.null(tbl_changed)) write_metainfo(paste(unique(tbl_changed), collapse=", "), "various",
-                                                "ATTENTION: Error while checking database using R package lumpR check tc_slope. Nevertheless, affected_tables have already been changed.",
-                                                verbose)
-            stop(paste0("An error occured when updating table 'terrain_components'. ",
-                        "Error message of the writing function: ", e))
-          }
-          )
-        } # dat_out_tc exists?
-        
-      } # if fix
     
     } # TC with slope <= 0?
     
@@ -433,127 +376,83 @@ db_check <- function(
     if(verbose) message("% Define certain SVCs as special areas ...")
     
     # check arguments
-    if(!("special_area" %in% names(option))) {
-      # update table meta_info
-      if(!is.null(tbl_changed)) write_metainfo(paste(unique(tbl_changed), collapse=", "), "various",
-                                          "ATTENTION: Error while checking database using R package lumpR check special_areas. Nevertheless, affected_tables have already been changed.",
-                                          verbose)
+    if(!("special_area" %in% names(option)))
       stop("No option 'special_area' specified for check 'special_areas'.")
-    }
     
-    if(class(option$special_area) != "data.frame") {
-      # update table meta_info
-      if(!is.null(tbl_changed)) write_metainfo(paste(unique(tbl_changed), collapse=", "), "various",
-                                          "ATTENTION: Error while checking database using R package lumpR check special_areas. Nevertheless, affected_tables have already been changed.",
-                                          verbose)
+    if(class(option$special_area) != "data.frame")
       stop("Option 'special_area' is not a data.frame.")
-    }
     
-    if(any(!(c("reference_tbl", "ref_id", "special_id") %in% names(option$special_area)))) {
-      # update table meta_info
-      if(!is.null(tbl_changed)) write_metainfo(paste(unique(tbl_changed), collapse=", "), "various",
-                                          "ATTENTION: Error while checking database using R package lumpR check special_areas. Nevertheless, affected_tables have already been changed.",
-                                          verbose)
+    if(any(!(c("reference_tbl", "ref_id", "special_id") %in% names(option$special_area))))
       stop("Option 'special_area' does not contain all necessary named vectors.")
-    }
     
-    if(any(!(unique(option$special_area$reference_tbl) %in% c("vegetation", "soils")))) {
-      # update table meta_info
-      if(!is.null(tbl_changed)) write_metainfo(paste(unique(tbl_changed), collapse=", "), "various",
-                                          "ATTENTION: Error while checking database using R package lumpR check special_areas. Nevertheless, affected_tables have already been changed.",
-                                          verbose)
+    if(any(!(unique(option$special_area$reference_tbl) %in% c("vegetation", "soils"))))
       stop("Option 'special_area' vector 'reference_tbl' supports values 'vegetation' and 'soils' only.")
-    }
     
-    if(any(!(unique(option$special_area$special_id) %in% c(0,1,2)))) {
-      # update table meta_info
-      if(!is.null(tbl_changed)) write_metainfo(paste(unique(tbl_changed), collapse=", "), "various",
-                             "ATTENTION: Error while checking database using R package lumpR check special_areas. Nevertheless, affected_tables have already been changed.",
-                             verbose)
+    if(any(!(unique(option$special_area$special_id) %in% c(0,1,2))))
       stop("Option 'special_area' vector 'special_id' supports values '0', '1', and '2' only.")
-    }
     
+    if(!fix) {
+      message("% -> Running in report mode but nothing to report for this check.")
+    } else {
     
-    
-    # get SVC data
-    dat_svc <- sqlFetch(con, "soil_veg_components")
-    changes_made=FALSE
-    
-    # vegetation
-    if("vegetation" %in% option$special_area$reference_tbl) {
+      # get SVC data
+      dat_all <- c(dat_all,
+                   read_db_dat(tbl = c("soil_veg_components"), con = con, tbl_exist = names(dat_all)))
       
-      # determine relevant rows and vegetation ids
-      rows_veg <- grep("vegetation", option$special_area$reference_tbl)    
-      
-      # loop over rows for vegetation
-      for (r in rows_veg) {
+      # vegetation
+      if("vegetation" %in% option$special_area$reference_tbl) {
         
-        # get rows in dat_svc to be adjusted
-        svc_rows_adj <- which(dat_svc$veg_id == option$special_area$ref_id[r])
+        # determine relevant rows and vegetation ids
+        rows_veg <- grep("vegetation", option$special_area$reference_tbl)
         
-        if(!any(svc_rows_adj)){
-          message(paste0("% -> ATTENTION: Option 'special_area': Vegetation id ", option$special_area$ref_id[r], " could not be found in column 'veg_id' of table 'soil_veg_components'."))
-          next
-        }
+        # loop over rows for vegetation
+        for (r in rows_veg) {
           
-        # set special_area flag
-        dat_svc$special_area[svc_rows_adj] <- option$special_area$special_id[r] 
-        changes_made=TRUE
-      }
-      
-    } # end vegetation
-    
-    
-    # soils
-    if("soils" %in% option$special_area$reference_tbl) {
-      
-      # determine relevant rows and soil ids
-      rows_soil <- grep("soils", option$special_area$reference_tbl)    
-      
-      # loop over rows for soil
-      for (r in rows_soil) {
-        
-        # get rows in dat_svc to be adjusted
-        svc_rows_adj <- which(dat_svc$soil_id == option$special_area$ref_id[r])
-        
-        if(!any(svc_rows_adj)){
-          message(paste0("% -> ATTENTION: Option 'special_area': Soil id ", option$special_area$ref_id[r], " could not be found in column 'soil_id' of table 'soil_veg_components'."))
-          next
+          # get rows in dat_svc to be adjusted
+          svc_rows_adj <- which(dat_all$soil_veg_components$veg_id == option$special_area$ref_id[r])
+          
+          if(!any(svc_rows_adj)){
+            warning(paste0("Option 'special_area': Vegetation id ", option$special_area$ref_id[r], " could not be found in column 'veg_id' of table 'soil_veg_components'."))
+            next
+          }
+            
+          # set special_area flag
+          if (fix) {
+            dat_all$soil_veg_components$special_area[svc_rows_adj] <- option$special_area$special_id[r] 
+            attr(dat_all$soil_veg_components, "altered") <- TRUE
+          }
         }
         
-        # set special_area flag
-        dat_svc$special_area[svc_rows_adj] <- option$special_area$special_id[r] 
-        changes_made=TRUE
-      }
+      } # end vegetation
       
-    } # end soils
-    
-    
-    # update table
-    
-    if(changes_made & fix)
-    {
-      if(verbose)
-        message("% -> Updating table 'soil_veg_components'...")
-      tryCatch(
-      {
-        sqlQuery(con, "delete from soil_veg_components")
-        sqlSave(channel=con, tablename = "soil_veg_components", dat=dat_svc, verbose=F, 
-                append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
-        tbl_changed <- c(tbl_changed, "soil_veg_components")
-        if(verbose) message("% -> Table 'soil_veg_components' updated")
-      }, error = function(e) {
-        # update table meta_info
-        if(!is.null(tbl_changed)) write_metainfo(paste(unique(tbl_changed), collapse=", "), "various",
-                               "ATTENTION: Error while checking database using R package lumpR check special_areas. Nevertheless, affected_tables have already been changed.",
-                               verbose)
-        stop(paste0("An error occured when updating table 'soil_veg_components'. ",
-                    "Error message of the writing function: ", e))
-      })
-    }  
-    else
-      if(verbose)
-        message("% -> Nothing done.")
+      
+      # soils
+      if("soils" %in% option$special_area$reference_tbl) {
+        
+        # determine relevant rows and soil ids
+        rows_soil <- grep("soils", option$special_area$reference_tbl)    
+        
+        # loop over rows for soil
+        for (r in rows_soil) {
+          
+          # get rows in dat_svc to be adjusted
+          svc_rows_adj <- which(dat_all$soil_veg_components$soil_id == option$special_area$ref_id[r])
+          
+          if(!any(svc_rows_adj)){
+            warning(paste0("Option 'special_area': Soil id ", option$special_area$ref_id[r], " could not be found in column 'soil_id' of table 'soil_veg_components'."))
+            next
+          }
+          
+          # set special_area flag
+          if (fix) {
+            dat_all$soil_veg_components$special_area[svc_rows_adj] <- option$special_area$special_id[r]
+            attr(dat_all$soil_veg_components, "altered") <- TRUE
+          }
+        }
+        
+      } # end soils
+      
+    } # fix?
     
     if(verbose) message("% OK")
     
@@ -571,54 +470,30 @@ db_check <- function(
     if(verbose & !fix) message("% Identify SVCs marked as water ...")
     
     # get data
-    dat_svc <- sqlFetch(con, "soil_veg_components")
-    dat_contains <- sqlFetch(con, "r_tc_contains_svc")
+    dat_all <- c(dat_all,
+                 read_db_dat(tbl = c("soil_veg_components", "r_tc_contains_svc"), con = con, tbl_exist = names(dat_all)))
     
     # identify water SVCs
-    rows_water <- which(dat_svc$special_area == 1)
-    svc_water <- dat_svc$pid[rows_water]
-    rows_contains_water <- which(dat_contains$svc_id %in% svc_water)
+    rows_water <- which(dat_all$soil_veg_components$special_area == 1)
+    svc_water <- dat_all$soil_veg_components$pid[rows_water]
+    rows_contains_water <- which(dat_all$r_tc_contains_svc$svc_id %in% svc_water)
     
     if (length(rows_contains_water)==0) {
       message("% -> No water-SVCs found, nothing done.")          
     } else {
-    
       if(!fix)
         message(paste0("% -> There are ", length(rows_contains_water), " datasets in 'r_tc_contains_svc' identified as water areas"))
       else {
         message(paste0("% -> There are ", length(rows_contains_water), " datasets going to be removed from 'r_tc_contains_svc' ('fraction' will be updated)"))
       
         # remove water SVCs
-        dat_contains_act <- dat_contains[-rows_contains_water,]
+        dat_all$r_tc_contains_svc <- dat_all$r_tc_contains_svc[-rows_contains_water,]
+        attr(dat_all$r_tc_contains_svc, "altered") <- TRUE
         
         # update fractions
-        frac_sum <- tapply(dat_contains_act$fraction, list(parent=dat_contains_act$tc_id), sum)
-        for (s in 1:nrow(dat_contains_act))
-          dat_contains_act$fraction[s] <- dat_contains_act$fraction[s] / frac_sum[paste0(dat_contains_act$tc_id[s])]
-        
-        # update database
-        if(verbose)
-          message("% -> Updating table 'r_tc_contains_svc'...")
-        tryCatch(
-        {
-          sqlQuery(con, "delete from r_tc_contains_svc")
-          sqlSave(channel=con, tablename = "r_tc_contains_svc", dat=dat_contains_act, verbose=F, 
-                  append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
-          tbl_changed <- c(tbl_changed, "r_tc_contains_svc")
-        }, error = function(e) {
-          # update table meta_info
-          if(!is.null(tbl_changed)) write_metainfo(paste(unique(tbl_changed), collapse=", "), "various",
-                                 "ATTENTION: Error while checking database using R package lumpR check remove_water_svc. Nevertheless, affected_tables have already been changed.",
-                                 verbose)
-          stop(paste0("An error occured when updating table 'r_tc_contains_svc'. ",
-                      "Error message of the writing function: ", e))
-        }
-        )
-        
+        dat_all$r_tc_contains_svc <- check_fix_fractions(dat_tbl=dat_all$r_tc_contains_svc, fix = TRUE, verbose = FALSE)
       } # if fix
-      
     } # if water SVCs found
-    
     
     if(verbose) message("% OK")
     
@@ -633,69 +508,51 @@ db_check <- function(
     if(verbose) message("%")
     if(verbose) message("% Compute rocky (i.e. impervious) fractions for TCs ...")
     
-    
-    # get data
-    dat_svc <- sqlFetch(con, "soil_veg_components")
-    dat_tc <- sqlFetch(con, "terrain_components")
-    dat_hor <- sqlFetch(con, "horizons")
-    dat_contains <- sqlFetch(con, "r_tc_contains_svc")
-    
-    dat_tc$frac_rocky[is.na(dat_tc$frac_rocky)] = 0 #set NAs to 0
-    if (nrow(dat_tc)>0 & max(dat_tc$frac_rocky)>0)
-      message("% -> ATTENTION: Column 'frac_rocky' in table 'terrain_components' already contains some values. The computed fractions will be added to these.")
-
-    # identify soils with 100% coarse fragments in topmost horizon
-    soil_impervious <- dat_hor$soil_id[which(dat_hor$position == 1 & dat_hor$coarse_frag == 1)]
-    
-    # mark corresponding SVCs as impervious
-    if(any(soil_impervious)) {
-      rows_svc_impervious <- which(dat_svc$soil_id %in% soil_impervious)
-      
-      if(fix) {
-        message(paste0("% -> There are ", length(rows_svc_impervious), " datasets in 'soil_veg_components' which will be marked as impervious due to 100% coarse fragments in topmost soil horizon"))
+    if(!fix) {
+      message("% -> Running in report mode but nothing to report for this check.")
       } else {
-        message(paste0("% -> There are ", length(rows_svc_impervious), " datasets in 'soil_veg_components' identified as impervious due to 100% coarse fragments in topmost soil horizon"))
-      }
       
-      dat_svc$special_area[rows_svc_impervious] <- 2
-    } else {
-      if (verbose)
-        message("% -> No topmost horizon with 100% coarse fragments could be found.")
-    }
+        # get data
+        dat_all <- c(dat_all,
+                     read_db_dat(tbl = c("soil_veg_components", "terrain_components", "horizons", "r_tc_contains_svc"),
+                                 con = con, tbl_exist = names(dat_all)))
+        
+        # identify existing entries in frac_rocky (herein computed values will be added)
+        dat_all$terrain_components$frac_rocky[is.na(dat_all$terrain_components$frac_rocky)] = 0 #set NAs to 0
+        if (nrow(dat_all$terrain_components)>0 & max(dat_all$terrain_components$frac_rocky)>0)
+          message("% -> ATTENTION: Column 'frac_rocky' in table 'terrain_components' already contains some values. The computed fractions will be added to these.")
     
-    # identify TCs containing impervious SVCs
-    svc_impervious <- dat_svc$pid[which(dat_svc$special_area == 2)]
-    rows_tc_impervious <- which(dat_contains$svc_id %in% svc_impervious)
-    
-    # compute frac_rocky for every TC
-    tc_rocky <- tapply(dat_contains$fraction[rows_tc_impervious], list(parent=dat_contains$tc_id[rows_tc_impervious]), sum)
-    for (t in 1:length(tc_rocky)) {
-      row <- which(dat_tc$pid == names(tc_rocky)[t])
-      dat_tc$frac_rocky[row] <- dat_tc$frac_rocky[row] + tc_rocky[t]
-    }
-    
-    
-    # update database
-    if(fix) {
-      
-      if(verbose)
-        message("% -> Updating table 'terrain_components'...")
-      tryCatch(
-      {
-        sqlQuery(con, "delete from terrain_components")
-        sqlSave(channel=con, tablename = "terrain_components", dat=dat_tc, verbose=F, 
-                append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
-        tbl_changed <- c(tbl_changed, "terrain_components")
-      }, error = function(e) {
-        # update table meta_info
-        if(!is.null(tbl_changed)) write_metainfo(paste(unique(tbl_changed), collapse=", "), "various",
-                               "ATTENTION: Error while checking database using R package lumpR check compute_rocky_frac. Nevertheless, affected_tables have already been changed.",
-                               verbose)
-        stop(paste0("An error occured when updating table 'terrain_components'. ",
-                    "Error message of the writing function: ", e))
-      }
-      )
-    
+        # identify soils with 100% coarse fragments in topmost horizon
+        soil_impervious <- dat_all$horizons$soil_id[which(dat_all$horizons$position == 1 & dat_all$horizons$coarse_frag == 1)]
+        
+        # mark corresponding SVCs as impervious
+        if(any(soil_impervious)) {
+          rows_svc_impervious <- which(dat_all$soil_veg_components$soil_id %in% soil_impervious)
+          
+          if(fix) {
+            message(paste0("% -> There are ", length(rows_svc_impervious), " datasets in 'soil_veg_components' which will be marked as impervious due to 100% coarse fragments in topmost soil horizon"))
+          } else {
+            message(paste0("% -> There are ", length(rows_svc_impervious), " datasets in 'soil_veg_components' identified as impervious due to 100% coarse fragments in topmost soil horizon"))
+          }
+          
+          dat_all$soil_veg_components$special_area[rows_svc_impervious] <- 2
+          attr(dat_all$soil_veg_components, "altered") <- TRUE
+        } else {
+          if (verbose)
+            message("% -> No topmost horizon with 100% coarse fragments could be found.")
+        }
+        
+        # identify TCs containing impervious SVCs
+        svc_impervious <- dat_all$soil_veg_components$pid[which(dat_all$soil_veg_components$special_area == 2)]
+        rows_tc_impervious <- which(dat_all$r_tc_contains_svc$svc_id %in% svc_impervious)
+        
+        # compute frac_rocky for every TC
+        tc_rocky <- tapply(dat_all$r_tc_contains_svc$fraction[rows_tc_impervious], list(parent=dat_all$r_tc_contains_svc$tc_id[rows_tc_impervious]), sum)
+        for (t in 1:length(tc_rocky)) {
+          row <- which(dat_all$terrain_components$pid == names(tc_rocky)[t])
+          dat_all$terrain_components$frac_rocky[row] <- dat_all$terrain_components$frac_rocky[row] + tc_rocky[t]
+        }
+        attr(dat_all$terrain_components, "altered") <- TRUE
     } # if fix
     
     if(verbose) message("% OK")
@@ -715,13 +572,14 @@ db_check <- function(
     if(verbose & !fix) message("% Identify SVCs marked as impervious ...")
     
     # get data
-    dat_svc <- sqlFetch(con, "soil_veg_components")
-    dat_contains <- sqlFetch(con, "r_tc_contains_svc")
+    dat_all <- c(dat_all,
+                 read_db_dat(tbl = c("soil_veg_components", "r_tc_contains_svc"),
+                             con = con, tbl_exist = names(dat_all)))
     
     # identify impervious SVCs
-    rows_impervious <- which(dat_svc$special_area == 2)
-    svc_impervious <- dat_svc$pid[rows_impervious]
-    rows_contains_impervious <- which(dat_contains$svc_id %in% svc_impervious)
+    rows_impervious <- which(dat_all$soil_veg_components$special_area == 2)
+    svc_impervious <- dat_all$soil_veg_components$pid[rows_impervious]
+    rows_contains_impervious <- which(dat_all$r_tc_contains_svc$svc_id %in% svc_impervious)
     
     if(!any(rows_contains_impervious)) {
       message("% -> No impervious SVCs could be found. Nothing done.")
@@ -732,44 +590,16 @@ db_check <- function(
       } else {
         message(paste0("% -> There are ", length(rows_contains_impervious), " datasets which will be removed from 'r_tc_contains_svc' ('fraction' will be updated)"))
         
-        # update database
-        if(verbose)
-          message("% -> Updating table 'r_tc_contains_svc'...")
-        tryCatch(
-        {
-          if(!option$update_frac_impervious) {
-            sqlQuery(con, paste("delete from r_tc_contains_svc ",
-                                "WHERE tc_id IN (", paste(unique(dat_contains$tc_id[rows_contains_impervious]), collapse = ", "), ")",
-                                "AND svc_id IN (", paste(unique(dat_contains$svc_id[rows_contains_impervious]), collapse = ", "), ")"))
-            tbl_changed <- c(tbl_changed, "r_tc_contains_svc")
-          } else {
-            # remove impervious SVCs
-            dat_contains_act <- dat_contains[-rows_contains_impervious,]
-            # update fractions
-            frac_sum <- tapply(dat_contains_act$fraction, list(parent=dat_contains_act$tc_id), sum)
-            for (s in 1:nrow(dat_contains_act))
-              dat_contains_act$fraction[s] <- dat_contains_act$fraction[s] / frac_sum[paste0(dat_contains_act$tc_id[s])]
-            # adjust database
-            sqlQuery(con, "delete from r_tc_contains_svc")
-            sqlSave(channel=con, tablename = "r_tc_contains_svc", dat=dat_contains_act, verbose=F, 
-                    append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
-            tbl_changed <- c(tbl_changed, "r_tc_contains_svc")
-          }
-        }, error = function(e) {
-          # update table meta_info
-          if(!is.null(tbl_changed)) write_metainfo(paste(unique(tbl_changed), collapse=", "), "various",
-                                 "ATTENTION: Error while checking database using R package lumpR check remove_impervious_svc. Nevertheless, affected_tables have already been changed.",
-                                 verbose)
-          stop(paste0("An error occured when updating table 'r_tc_contains_svc'. ",
-                      "Error message of the writing function: ", e))
-        }
-        )
+        # remove impervious SVCs
+        dat_all$r_tc_contains_svc <- dat_all$r_tc_contains_svc[-rows_contains_impervious,]
+        attr(dat_all$r_tc_contains_svc, "altered") <- TRUE
         
+        # update fractions
+        dat_all$r_tc_contains_svc <- check_fix_fractions(dat_tbl=dat_all$r_tc_contains_svc, fix = TRUE, verbose = FALSE)
       } # if fix
       
     } # if any impervious SVC
-  
-  
+    
     if(verbose) message("% OK")
   
   } # check remove_impervious_svc
@@ -785,27 +615,22 @@ db_check <- function(
     if(verbose) message("% Estimate frgw_delay for LUs ...")
     
     # check arguments
-    if(!("total_mean_delay" %in% names(option))) {
-      # update table meta_info
-      if(!is.null(tbl_changed)) write_metainfo(paste(unique(tbl_changed), collapse=", "), "various",
-                             "ATTENTION: Error while checking database using R package lumpR check proxy_frgw_delay. Nevertheless, affected_tables have already been changed.",
-                             verbose)
+    if(!("total_mean_delay" %in% names(option)))
       stop("No option 'total_mean_delay' specified for check 'proxy_frgw_delay'.")
-    }
     
     if(!fix) {
-      message("% -> Running in report mode. Nothing to report for this check.")
+      message("% -> Running in report mode but nothing to report for this check.")
     } else {
     
       # get data
-      dat_tc <- sqlFetch(con, "terrain_components")
-      dat_lu <- sqlFetch(con, "landscape_units")
-      dat_contains <- sqlFetch(con, "r_lu_contains_tc")
+      dat_all <- c(dat_all,
+                   read_db_dat(tbl = c("terrain_components", "landscape_units", "r_lu_contains_tc"),
+                               con = con, tbl_exist = names(dat_all)))
       
       # compute area-weighted average slope for every LU
-      dat_contains_t <- merge(dat_contains, dat_tc, by.y="pid", by.x="tc_id")
+      dat_contains_t <- merge(dat_all$r_lu_contains_tc, dat_all$terrain_components, by.y="pid", by.x="tc_id")
       slope_lu <- sapply(split(dat_contains_t, dat_contains_t$lu_id), function(x) weighted.mean(x$slope, x$fraction))
-      dat_lu_t <- merge(dat_lu, data.frame(id=names(slope_lu), slope=slope_lu), by.x="pid", by.y="id")
+      dat_lu_t <- merge(dat_all$landscape_units, data.frame(id=names(slope_lu), slope=slope_lu), by.x="pid", by.y="id")
       
       # compute area-weighted average rocky fraction for every lu
       rocky_lu <- sapply(split(dat_contains_t, dat_contains_t$lu_id), function(x) weighted.mean(x$frac_rocky, x$fraction))
@@ -819,33 +644,14 @@ db_check <- function(
         proxy[which(is.infinite(proxy))] <- 10000
       
       # estimate frgw_delay
-      dat_lu$frgw_delay <- proxy * option$total_mean_delay / mean(proxy)
-      
-      
-      # update database
-      if(verbose)
-        message("% -> Updating table 'landscape_units'...")
-      tryCatch(
-      {
-        sqlQuery(con, "delete from landscape_units")
-        sqlSave(channel=con, tablename = "landscape_units", dat=dat_lu, verbose=F, 
-                append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
-        tbl_changed <- c(tbl_changed, "landscape_units")
-      }, error = function(e) {
-        # update table meta_info
-        if(!is.null(tbl_changed)) write_metainfo(paste(unique(tbl_changed), collapse=", "), "various",
-                               "ATTENTION: Error while checking database using R package lumpR check proxy_frgw_delay. Nevertheless, affected_tables have already been changed.",
-                               verbose)
-        stop(paste0("An error occured when updating table 'landscape_units'. ",
-                    "Error message of the writing function: ", e))
-      }
-      )
-      
+      dat_all$landscape_units$frgw_delay <- proxy * option$total_mean_delay / mean(proxy)
+      attr(dat_all$landscape_units, "altered") <- TRUE
     } # if fix
     
     if(verbose) message("% OK")
     
   } # check proxy_frgw_delay
+  
   
 
 
@@ -854,6 +660,18 @@ db_check <- function(
 ### delete obsolete datasets or check for completeness
 ### define chains of table dependencies
   if (any(grepl("delete_obsolete", check)) | any(grepl("completeness", check))) {
+    
+    # get data
+    dat_all <- c(dat_all,
+                 read_db_dat(tbl = c("subbasins", "landscape_units", "terrain_components", "soil_veg_components",
+                                     "vegetation", "soils", "horizons", "particle_classes", "rainy_season",
+                                     "r_subbas_contains_lu",  "r_lu_contains_tc", "r_tc_contains_svc", "r_soil_contains_particles"),
+                             con = con, tbl_exist = names(dat_all)))
+    
+    # database tables
+    tbl_db <- sqlTables(con)[,"TABLE_NAME"]
+    
+    # chain definitions
     table_chain1= data.frame(stringsAsFactors = FALSE,      #scheme of table relations (1)
       rbind(
         c (table = "subbasins",    key2prev="", key2next="pid"),
@@ -909,83 +727,61 @@ db_check <- function(
       x_seasons     = c("subbas_id", "svc_id")
     )
     chain_list = list(table_chain1, table_chain2, table_chain3, table_chain4, table_chain5, table_chain6, table_chain7) #list of all relation chains that need to be checked
-}
+  }
     
 ###############################################################################
 ### delete obsolete datasets
     
-if (any(grepl("delete_obsolete", check))) {
-  if(verbose) message("%")
-  if(verbose & fix) message("% Delete obsolete records ...")
-  if(verbose & !fix) message("% Identify obsolete records ...")
+  if (any(grepl("delete_obsolete", check))) {
+    if(verbose) message("%")
+    if(verbose & fix) message("% Delete obsolete records ...")
+    if(verbose & !fix) message("% Identify obsolete records ...")
     
-    break_msg=""
-
+    #break_msg=""
+    
     for (table_chain in chain_list)
-    {  
-      for (i in 2:nrow(table_chain))
-      {
-        cur_table = table_chain$table[i]
-        pre_table = table_chain$table[i-1]
-        statement = paste0("select ",
-                           cur_table,".",table_chain$key2prev[i],
-                           " from ", cur_table, " left join ", pre_table, " on ",
-                     cur_table,".",table_chain$key2prev[i], "=", 
-                     pre_table,".",table_chain$key2next[i-1],
-                     " where ", pre_table,".",table_chain$key2next[i-1]," IS NULL")
-        if (cur_table %in% names(wildcard_fields))
-          statement = paste0(statement, " AND NOT ", cur_table,".",table_chain$key2prev[i], "=-1;") else
-          statement = paste0(statement, ";")
-              
-        statement <- sql_dialect(con, statement) # adjust to specific SQL dialects
-        
-        res <- sqlQuery(con, statement, errors=FALSE)
-        if (is.numeric(res) && res==-1)
+    {
+      # check that all tables in table_chain are in the database to avaoid conflicts with optional tables
+      if(any(!(table_chain$table %in% tbl_db)))
+        next
+      else {
+        for (i in 2:nrow(table_chain))
         {
-          res <- sqlQuery(con, statement, errors = T)
-          break_msg = paste0("Error in SQL query execution while detecting obsolete records: \nQuery: ", statement,
-                          "\nerror-message: ", res[1])
-          break
-        }
-        if (nrow(res)==0) 
-        {
-          if(verbose) message(paste0("% -> No obsolete records found in '", cur_table,"'"))
-          next   #no obsolete records found
-        }
-        if(verbose) 
-        {  
-          message(paste0("% -> There are ", nrow(res), " obsolete datasets in '", cur_table,"'"))
-        }    
-        if (!fix) 
-          if(verbose) message("% -> More records may turn up after actual cleaning (fix=TRUE).")
-        else
-        {
-          statement = paste0("delete from ", cur_table, 
-                             " where ", table_chain$key2prev[i]," IN (",
-                             paste0(res[,1], collapse=","),")")
+          cur_table = table_chain$table[i]
+          pre_table = table_chain$table[i-1]
           
-          statement <- sql_dialect(con, statement) # adjust to specific SQL dialects  
-          res <- sqlQuery(con, statement, errors=FALSE)
-          if (is.numeric(res) && res==-1)
-          {  
-            res <- sqlQuery(con, statement, errors = T)
-            break_msg = cat(paste0("Error in SQL query execution while detecting obsolete records. \nQuery: ", statement,
-                            "\nerror-message: ", res[1]))
-            break
-          } 
-          tbl_changed <- c(tbl_changed, cur_table)
-        }          
-      }
-     
-      if (break_msg!="") #anything went wrong?
-      {
-        # update table meta_info
-        if(!is.null(tbl_changed)) write_metainfo(paste(unique(tbl_changed), collapse=", "), "various",
-                               "ATTENTION: Error while checking database using R package lumpR check delete_obsolete. Nevertheless, affected_tables have already been changed.",
-                               verbose)
-        stop(break_msg)
-      }
-    }  
+          # identify obsolete records
+          dat_x_t <- dat_all[[cur_table]][table_chain$key2prev[i]]
+          if (cur_table %in% names(wildcard_fields)) {
+            # only respect records that are no wildcards
+            r_nowild <- which(dat_x_t[[table_chain$key2prev[i]]] != -1)
+            if(!any(r_nowild)) {
+              if(verbose) message(paste0("% -> No obsolete records found in '", cur_table,"'"))
+              next
+            }
+            dat_x_t[[table_chain$key2prev[i]]] <- dat_x_t[r_nowild, ]
+          }
+          dat_merge_t <- merge(dat_x_t, dat_all[[pre_table]],
+                               by.x=table_chain$key2prev[i], by.y=table_chain$key2next[i-1], all.x=T)
+          r_rm <- which(is.na(dat_merge_t[,1]))
+          
+          if(!any(r_rm)) {
+            if(verbose) message(paste0("% -> No obsolete records found in '", cur_table,"'"))
+            next   #no obsolete records found
+          } else {
+            if(verbose) message(paste0("% -> There are ", length(r_rm), " obsolete datasets in '", cur_table,"'"))
+            
+            if (!fix) 
+              if(verbose) message("% -> More records may turn up after actual cleaning (fix=TRUE).")
+            else {
+              dat_all[[cur_table]] <- dat_all[[cur_table]][-r_rm,]
+              attr(dat_all[[cur_table]], "altered") <- TRUE
+            }
+          } # any obsolete records?
+        } # loop current table_chain
+      } # all tables of current table_chain in database?
+    }  # loop chain_list
+  
     if(verbose) message("% OK")
 
   } # check delete_obsolete
@@ -997,59 +793,45 @@ if (any(grepl("delete_obsolete", check))) {
 ### check completeness
   if (any(grepl("completeness", check))){
     if(verbose) message("%")
-    if(verbose) message("% Search referenced records without specification...")
-    
-    break_msg=""
+    if(verbose) message("% Search referenced datasets without specification...")
 
     for (table_chain in chain_list)
     {  
-      for (i in 1:(nrow(table_chain)-1))
-      {
-        cur_table = table_chain$table[i]
-        nex_table = table_chain$table[i+1]
-        statement = paste0("select ",
-                           cur_table,".",table_chain$key2next[i],
-                           " from ", cur_table, " left join ", nex_table, " on ",
-                           cur_table,".",table_chain$key2next[i], "=", 
-                           nex_table,".",table_chain$key2prev[i+1])
-        if (nex_table %in% names(wildcard_fields))
-          statement = paste0(statement, " OR ", nex_table,".",table_chain$key2prev[i+1], "=-1") 
-
-          statement = paste0(statement, " where ", nex_table,".",table_chain$key2prev[i+1]," IS NULL")
-        
-        statement <- sql_dialect(con, statement) # adjust to specific SQL dialects
-        
-        res <- sqlQuery(con, statement, errors=FALSE)
-        if (is.numeric(res) && res==-1)
+      # check that all tables in table_chain are in the database to avaoid conflicts with optional tables
+      if(any(!(table_chain$table %in% tbl_db)))
+        next
+      else {
+        for (i in 1:(nrow(table_chain)-1))
         {
-          res <- sqlQuery(con, statement, errors = T)
-          break_msg = paste0("Error in SQL query execution while detecting incomplete records: \nQuery: ", statement,
-                             "\nerror-message: ", res[1])
-          break
-        }
-        if(verbose) {
-          if (nrow(res)==0) 
-            message(paste0("% -> No incomplete records found in '", cur_table,"'"))
-          else 
-            message(paste0("% -> There are ", nrow(res), " records in '", cur_table,"' missing their description in '", nex_table, "'"))
+          cur_table = table_chain$table[i]
+          nex_table = table_chain$table[i+1]
+          
+          # exclude wildcards
+          dat_cur <- dat_all[[cur_table]][[table_chain$key2next[i]]]
+          dat_cur <- dat_cur[which(dat_cur != -1)]
+          dat_nex <- dat_all[[nex_table]][[table_chain$key2prev[i+1]]]
+          dat_nex <- dat_nex[which(dat_nex != -1)]
+          
+          if(length(dat_cur) > 0 & length(dat_nex) > 0) {
+            # identify excessive datasets
+            dat_excess <- list(cur=which(!(dat_cur %in% dat_nex)),
+                               nex=which(!(dat_nex %in% dat_cur)))
+            
+            if(any(sapply(dat_excess, any))) {
+              if(any(dat_excess$cur)) message(paste0("% -> WARNING: Table '", cur_table, "' contains ", length(dat_excess$cur), " dataset(s) not referenced in '", nex_table, "'"))
+              if(any(dat_excess$nex)) message(paste0("% -> WARNING: Table '", nex_table, "' contains ", length(dat_excess$nex), " dataset(s) not referenced in '", cur_table, "'"))
+            } else if(verbose)
+              message(paste0("% -> All datasets of '", cur_table,"' appear in referenced '", nex_table, "' and vice versa"))
+          } else if(verbose)
+            message(paste0("% -> All datasets of '", cur_table,"' appear in referenced '", nex_table, "' and vice versa"))
         }
       }
     } 
   
-  #check for multiple use of TC in LUs (currently not allowed by structure of WASA input files)
-    statement = paste0("select tc_id, count(*) as ct from r_lu_contains_tc group by tc_id having count(*) >1")
-    statement <- sql_dialect(con, statement) # adjust to specific SQL dialects
-    
-    res <- sqlQuery(con, statement, errors=FALSE)
-    if (is.numeric(res) && res==-1)
-    {
-      res <- sqlQuery(con, statement, errors = T)
-      break_msg = paste0("Error in SQL query execution while detecting multiple use of TCs: \nQuery: ", statement,
-                         "\nerror-message: ", res[1])
-      break
-    }
-    if (nrow(res)>0)
-      stop(paste0("TC(s) ", paste0(res$tc_id, collapse=" ,"), " is/are part of multiple LUs, which is currently not supported. Duplicate these TCs and assign a different ID for each instance."))
+    # check for multiple use of TC in LUs (currently not allowed by structure of WASA input files)
+    occ <- table(dat_all$r_lu_contains_tc$tc_id)
+    if(any(occ > 1))
+      message(paste0("% -> TC(s) ", paste0(names(occ[which(occ > 1)]), collapse=", "), " is/are duplicated and/or part of multiple LUs, which is currently not supported. Duplicate these TCs and assign a different ID for each instance."))
     
     if(verbose) message("% OK")
   }   # check completeness
@@ -1064,25 +846,23 @@ if (any(grepl("delete_obsolete", check))) {
     if(verbose & !fix) message("% Determine subbasin order (report mode, no changes to database) ...")
   
     # get data
-    dat_sub <- sqlFetch(con, "subbasins")  
-    stream_order_old = dat_sub$a_stream_order #keep for comparison
+    dat_all <- c(dat_all,
+                 read_db_dat(tbl = c("subbasins"), con = con, tbl_exist = names(dat_all)))
+    stream_order_old <- dat_all$subbasins$a_stream_order #keep for comparison
+    
     # identify outlet subbasin
-    r_outlet <- which(dat_sub$drains_to %in% c(9999,-9999,999,-999))
+    r_outlet <- which(dat_all$subbasins$drains_to %in% c(9999,-9999,999,-999))
     
+    if (!any(r_outlet))
+      stop("Could not identify outlet subbasin from column 'drains_to' in table 'subbasins'. Must be one of values c(9999,-9999,999,-999).")
     
-    if((length(r_outlet) > 1) | (!any(r_outlet))) {
-      if (!is.null(tbl_changed)) write_metainfo(paste(unique(tbl_changed), collapse=", "), "various",
-                               "ATTENTION: Error while checking database using R package lumpR check subbasin_order. Nevertheless, affected_tables have already been changed.",
-                               verbose)
-      if (!any(r_outlet))
-          stop("Could not identify outlet subbasin from column 'drains_to' in table 'subbasins'. Must be one of values c(9999,-9999,999,-999).")
-      else
-          stop("More than one subbasin has been identified as outlet. Check column 'drains_to' in table 'subbasins'!")
-    }
+    if((length(r_outlet) > 1))
+      stop("More than one subbasin has been identified as outlet. Check column 'drains_to' in table 'subbasins'!")
     
-    ##determine stream order
-    dat_sub$a_stream_order = NA
-    dat_sub$a_stream_order[r_outlet] <- 1
+    # determine stream order
+    dat_all$subbasins$a_stream_order = NA
+    dat_all$subbasins$a_stream_order[r_outlet] <- 1
+    attr(dat_all$subbasins, "altered") <- TRUE
     
     # determine rest of stream order
     fin <- FALSE
@@ -1091,79 +871,39 @@ if (any(grepl("delete_obsolete", check))) {
       i <- i+1
       
       # determine indices of subbasins of previously filled 'a_stream_order' (downstream subbasins)
-      r <- which(dat_sub$a_stream_order == i)
+      r <- which(dat_all$subbasins$a_stream_order == i)
       
       # get pid(s) of downstream subbasin(s)
-      sub_up <- dat_sub$pid[r]
+      sub_up <- dat_all$subbasins$pid[r]
       
       # find this upstream subbasins to current downstream subbasins by checking 'drains_to'
-      r_up <- which(dat_sub$drains_to %in% sub_up)
+      r_up <- which(dat_all$subbasins$drains_to %in% sub_up)
       
       # set corresponding 'a_stream_order' value to i+1
-      dat_sub$a_stream_order[r_up] <- i+1
+      dat_all$subbasins$a_stream_order[r_up] <- i+1
       
       # check if finished
-      if(!any(is.na(dat_sub$a_stream_order)))
+      if(!any(is.na(dat_all$subbasins$a_stream_order)))
         fin <- TRUE
       
       # throw an error if i is already very large (In this case there must be something wrong)
-      if (i > 10000) {
-        if (!is.null(tbl_changed)) write_metainfo(paste(unique(tbl_changed), collapse=", "), "various",
-                                 "ATTENTION: Error while checking database using R package lumpR check subbasin_order. Nevertheless, affected_tables have already been changed.",
-                                 verbose)
+      if (i > 10000)
         stop("Cannot successfully determine subbasin order (column 'a_stream_order' of table 'subbasins'). Check the table for errors!")
-      }
     }
     
     if (all(!is.na(stream_order_old)) &
-        all(stream_order_old== dat_sub$a_stream_order)) 
+        all(stream_order_old== dat_all$subbasins$a_stream_order)) 
       message("% -> existing stream order ok.") else
       {
         if(!fix) {
           message("% -> existing stream order needs updating. Consider running with 'fix=TRUE' and 'option=list(overwrite=TRUE)'") 
         } else {
           
-          if(is.null(option$overwrite) | !option$overwrite) {
-            if (!is.null(tbl_changed)) write_metainfo(paste(unique(tbl_changed), collapse=", "), "various",
-                                     "ATTENTION: Error while checking database using R package lumpR check subbasin_order. Nevertheless, affected_tables have already been changed.",
-                                     verbose)
+          if(is.null(option$overwrite) | !option$overwrite)
             stop("There are already values in column 'a_stream_order' of table 'subbasins'. Use option=list(overwrite=TRUE) or manually set them all to 'NULL' if you want to compute subbasin order!")
-          }
-
-          ### write results to db
-          if(verbose)
-            message("% -> Updating table 'subbasins'...")
-          tryCatch(
-            {
-              for (i in 1:nrow(dat_sub))
-              {  
-                statement = paste0("update subbasins set a_stream_order=",dat_sub$a_stream_order[i],
-                                   " where pid=",dat_sub$pid[i],";")
-              
-                res <- sqlQuery(con, statement, errors=FALSE)
-                if (is.numeric(res) && res==-1)
-                {
-                  res <- sqlQuery(con, statement, errors = T)
-                  break_msg = paste0("Error in SQL query execution while updating stream order: \nQuery: ", statement,
-                                     "\nerror-message: ", res[1])
-                  stop(break_msg)
-                }
-                if (length(tbl_changed)==0 || tbl_changed[length(tbl_changed)]!="subbasins")
-                  tbl_changed <- c(tbl_changed, "subbasins")
-              }  
-
-            }, error = function(e) {
-              # update table meta_info
-              if(!is.null(tbl_changed)) write_metainfo(paste(unique(tbl_changed), collapse=", "), "various",
-                                     "ATTENTION: Error while checking database using R package lumpR check subbasin_order. Nevertheless, affected_tables have already been changed.",
-                                     verbose)
-              stop(paste0("An error occured when updating table 'subbasins'. ",
-                          "Error message of the writing function: ", e))
-            }
-          )   
-
         } # if fix
-      }   
+      } # modify stream order
+    
     if(verbose) message("% OK")
     
   } # determine subbasin order
@@ -1172,12 +912,34 @@ if (any(grepl("delete_obsolete", check))) {
 
 
 ###############################################################################
-### end of function, write changes into 'meta_info', close connection
-  
-  # update table meta_info
-  if(!is.null(tbl_changed)) write_metainfo(paste(unique(tbl_changed), collapse=", "), "various",
-                         paste0("Database checked and adjusted using R package lumpR. Applied checks: ", paste(check, collapse=", "), ". Options: ", paste(names(option), option, sep=" = ", collapse=", ")),
-                         verbose)
+### POST-PROCESSING
+  if(fix) {
+    if(verbose) message("%")
+    if(verbose) message("% Write changes into database and update 'meta_info' ...")
+    
+    # update rocky fraction for TCs if necessary
+    rocky_frac <- dat_all$r_tc_contains_svc[dat_all$r_tc_contains_svc$svc_id==-1,] #extract information on rocky fraction - this needs to go into another table
+    rocky_frac$svc_id <- NULL #svc_id=-1 was just a marker for rocky fractions, not needed anymore
+    dat_all$r_tc_contains_svc <- dat_all$r_tc_contains_svc[dat_all$r_tc_contains_svc$svc_id!=-1,] #keep only real SVCs, discard rocky fractions that had been temporally inserted as SVCs
+    
+    terrain_components <- merge(dat_all$terrain_components, rocky_frac, by.x="pid", by.y="tc_id")
+    
+    if (!identical(terrain_components$frac_rocky, terrain_components$fraction))
+      dat_all$terrain_components$frac_rocky <- terrain_components$fraction #correct to adjusted rocky fraction
+    
+    # update db
+    tbls_changed <- sapply(dat_all, function(x) attr(x, "altered"))
+    junk <- lapply(dat_all[tbls_changed], function(x) modify_db(con, x))
+    
+    # update table meta_info
+    if(any(tbls_changed))
+      write_metainfo(con,
+                     paste(names(which(tbls_changed)), collapse=", "), "various",
+                     paste0("Database checked and adjusted using R package lumpR. Applied checks: ", paste(check, collapse=", "), ". Options: ", paste(names(option), option, sep=" = ", collapse=", ")),
+                     FALSE)
+    
+    if(verbose) message("% OK")
+  }
 
 
   if(verbose) message("%")
