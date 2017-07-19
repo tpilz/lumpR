@@ -177,7 +177,7 @@ db_check <- function(
   
   
   if(verbose) message("%")
-  if(verbose) message("% Loading package 'RODBC' and connecting to database ...")
+  if(verbose) message("% Connecting to database ...")
   
   # connect to ODBC registered database
   con <- connect_db(dbname)

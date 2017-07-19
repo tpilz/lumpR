@@ -521,49 +521,59 @@ db_fill <- function(
   verbose=TRUE
 ) {
   
-  
-  if (verbose)
-    print("Loading package 'RODBC' and connecting to database ...")
+  if(verbose) message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+  if(verbose) message("% START db_fill()")
+  if(verbose) message("%")
+  if(verbose) message("% Connecting to and checking database ...")
   
   # connect to ODBC registered database
-  suppressWarnings(con <- odbcConnect(dbname, believeNRows=F))
+  con <- connect_db(dbname)
   
-  if (con == -1)
-    print(paste0("Could not connect to database '", dbname, "'. Type 'odbcDataSources()' to see the data sources known to ODBC.",
-                 " If you want to connect to a MS Access database make sure you are using 32 bit R."))
+  #modify error handler to gracefully close ODBC-connection before aborting (otherwise, ODBC-handles are left open)
+  org_error_handler = getOption("error") #original error handler
+  
+  closeODBC_and_stop = function()
+  {  
+    odbcCloseAll()
+    options(error=org_error_handler) #restore original handler
+  }
+  options(error=closeODBC_and_stop)  #modify error handler
+  
+  # ensure MySQL/MariaDB uses ANSI quotation (double quotes instead of back ticks)
+  if(grepl("MariaDB", odbcGetInfo(con)["DBMS_Name"], ignore.case=T))
+    sqlQuery(con, "SET sql_mode='ANSI';")
   
   # check database (all 'tables' have to exist)
   check_tbl <- tables %in% sqlTables(con)$TABLE_NAME
-  if (any(!check_tbl)) {
-    odbcClose(con)
+  if (any(!check_tbl))
     stop(paste0("Table(s) ", paste(tables[which(!check_tbl)], sep=", "), " could not be found in database '", dbname, "'."))
-  }
  
+  if(verbose) message("% OK")
   
   # write data into database (use internal function defined in db_internals.R)
+  if(verbose) message("%")
+  if(verbose) message("% Write data into database ...")
   for (t in 1:length(tables)) {
     writedb(con = con, file = paste(dat_dir,dat_files[t], sep="/"), table = tables[t],
             overwrite = overwrite, verbose = verbose)
   }
   
   # update table meta_info
-  meta_dat <- sqlFetch(con, "meta_info")
-  if(any(meta_dat$pid)) {
-    pid_new <- max(meta_dat$pid) +1
-  } else {
-    pid_new <- 1
-  }
-  meta_out <- data.frame(pid=pid_new,
-                         mod_date=as.POSIXct(Sys.time()),
-                         mod_user=paste0("db_fill(), v. ", installed.packages()["lumpR","Version"]),
-                         affected_tables=paste(tables, collapse=", "),
-                         affected_columns="all",
-                         remarks=paste0("Automated filling of tables with R package lumpR using files from location ", dat_dir, "."))
-  write_datetabs(con, meta_out, tab="meta_info", verbose)
+  write_metainfo(con,
+                 paste(tables, collapse=", "), "all",
+                 paste0("Automated filling of tables with R package lumpR using files from location ", dat_dir, "."),
+                 FALSE)
   
+  if(verbose) message("% OK")
   
-  # close connection
+  if(verbose) message("%")
+  if(verbose) message("% All data written successfully. Close ODBC connection.")
+  
   odbcClose(con)
+  
+  if(verbose) message("%")
+  if(verbose) message("% DONE!")
+  if(verbose) message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
   
   
 } # EOF
