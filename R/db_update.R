@@ -58,6 +58,9 @@ db_update <- function(
   
   if(is.infinite(to_ver))
     to_ver <- db_ver_max
+  
+  # tables in database
+  tbls <- sqlTables(con)[,"TABLE_NAME"]
     
   # check current db version
   db_ver <- sqlFetch(con, "db_version")$version
@@ -91,6 +94,9 @@ db_update <- function(
        affected_tables= c("horizons","landscape_units","particle_classes","soils","soil_veg_components","subbasins","terrain_components","vegetation")
        for (tab in affected_tables)
        {
+         if (!(tab %in% tbls))
+           stop(paste0("Table '", tabs, "' does not exist but is needed to update to version 19!"))
+           
          statement = paste0("ALTER TABLE ", tab," add description VARCHAR(50);")
          res <- sqlQuery(con, statement, errors=TRUE)
          if (length(res)!=0) warning(res)
@@ -139,6 +145,8 @@ db_update <- function(
           split <- strsplit(statement, "[ ]+")[[1]]
           pos <- grep("change", split, ignore.case = T)
           tbl <- split[pos-1]
+          if (!(tbl %in% tbls))
+            stop(paste0("Table '", tbl, "' does not exist but is needed to update to version 19!"))
           col_old <- split[pos+1]
           col_new <- split[pos+2]
           tbl_cols <- sqlColumns(con, tbl)$COLUMN_NAME
@@ -192,6 +200,25 @@ db_update <- function(
       if(is.null(statement))
         next
       
+      # check if table to be created already exists for some reason
+      if(grepl("create table", statement, ignore.case = TRUE)) {
+        split <- strsplit(statement, "[ ]+")[[1]]
+        pos <- grep("create", split, ignore.case = T)
+        tbl <- split[pos+2]
+        if(tbl %in% tbls) {
+          warning(paste0("Table '", tbl, "' already exists when updating to version ", to_ver, " and will not be touched!"))
+          next
+        }
+      }
+      
+      # check if table to be altered does exist
+      if(grepl("alter table", statement, ignore.case = TRUE)) {
+        split <- strsplit(statement, "[ ]+")[[1]]
+        pos <- grep("change", split, ignore.case = T)
+        tbl <- split[pos-1]
+        if (!(tbl %in% tbls))
+          stop(paste0("Table '", tbl, "' does not exist but is needed to update database to version ", to_ver, "!"))
+      }
       
       # send query to database
       res <- sqlQuery(con, statement, errors=F)
@@ -201,7 +228,7 @@ db_update <- function(
           stop(cat(paste0("Error in SQL query execution while updating db.\nQuery: ", statement,
                           "\nerror-message: ", res[1])))
       }
-    }
+    } # query loop
   
     
     db_ver <- db_ver +1

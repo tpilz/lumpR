@@ -22,8 +22,11 @@
 #' for modelling applications with the WASA model.
 #'
 #' @param dbname Name of the data source (DSN) registered at ODBC. See \code{Details}.
-#' @param overwrite Overwrite any tables already existing in db. Default: FALSE. For TRUE, only overwrites tables not included in \emph{keep_tables}
-#' @param keep_tables preserves the specified tables, if existing. Overrides \emph{overwrite}. Default: NULL.
+#' @param overwrite  \code{logical}. Overwrite any tables already existing in db. Default: FALSE. For TRUE, only overwrites tables not included in \emph{keep_tables}
+#' @param keep_tables Vector of type \code{character}. Preserves the specified tables, if existing. Overrides \emph{overwrite}. Default: NULL.
+#' @param db_ver \code{numeric}. If \code{Inf} (default) the database will be updated
+#' to the latest version calling \code{\link[lumpR]{db_update}} internally. Otherwise, the
+#' specified version is created. The earliest possible version is 19.
 #' @details
 #'  This package uses the ODBC interface to connect to a database. Creating the database
 #'requires the following prior steps which are OS dependent:
@@ -40,8 +43,13 @@
 #'  Tobias Pilz \email{tpilz@@uni-potsdam.de}, Till Francke \email{francke@@uni-potsdam.de}
 #' 
 db_create <- function(
-  dbname, overwrite=FALSE, keep_tables=NULL
+  dbname, overwrite=FALSE, keep_tables=NULL, db_ver=Inf
 ) {
+  
+  if(db_ver < 19) {
+    odbcClose(con)
+    stop("Argument 'db_ver' less than 19 is not possible.")
+  }
   
   # connect to ODBC registered database
   suppressWarnings(con <- odbcConnect(dbname, believeNRows=F))
@@ -69,6 +77,7 @@ db_create <- function(
     keep_tables = sqlTables(con)$TABLE_NAME #keep all existing tables
   
   # loop over queries
+  tbls_created <- NULL
   for(i in seq(along=scriptparts)){
     
     statement <- scriptparts[i]
@@ -76,8 +85,10 @@ db_create <- function(
     # identify table name
     is_create_statement = grepl(statement, pattern="^[[:space:]]*CREATE|create")
     
-    if (is_create_statement)
-      tablename <- gsub("CREATE TABLE *([[:alpha:]_]+).*","\\1",statement) else
+    if (is_create_statement) {
+      tablename <- gsub("CREATE TABLE *([[:alpha:]_]+).*","\\1",statement)
+      tbls_created <- c(tbls_created, gsub("[[:space:]]*", "", tablename))
+    } else
       tablename <- gsub("INSERT INTO *([[:alpha:]_]+).*","\\1",statement) #extract name of table from CREATE statements
     if (tablename == statement) tablename="(none)"   #set to "(none)" for non-CREATE statements
     tablename <- gsub("[[:space:]]*", "", tablename)
@@ -96,7 +107,7 @@ db_create <- function(
         if (res==-1){
           res <- sqlQuery(con, s2, errors = T)
           odbcClose(con)
-          stop(cat(paste0("Error in SQL query execution while deleting table\nerror-message: ", res[1])))
+          stop(paste0("Error in SQL query execution while deleting table\nerror-message: ", res[1]))
         }  
       } else
         skip = TRUE
@@ -113,11 +124,24 @@ db_create <- function(
       if (res==-1){
         res <- sqlQuery(con, statement, errors = T)
         odbcClose(con)
-        stop(cat(paste0("Error in SQL query execution while creating db.\nQuery: ", statement,
-                    "\nerror-message: ", res[1])))
+        stop(paste0("Error in SQL query execution while creating db.\nQuery: ", statement,
+                    "\nerror-message: ", res[1]))
       }
-    } 
+    } # skip?
     
+  } # loop over scriptparts
+  
+  # delete other tables (those that shall not be preserved and are not part of the base version 19 which is created here)
+  tbls <- sqlTables(con)[,"TABLE_NAME"]
+  r_tbls_del <- which(!(tbls %in% c(keep_tables, tbls_created)))
+  if (length(r_tbls_del) > 0) {
+    s2 = paste0("drop table ", tbls[r_tbls_del],";")
+    res <- sqlQuery(con, s2, errors=F)
+    if (res==-1){
+      res <- sqlQuery(con, s2, errors = T)
+      odbcClose(con)
+      stop(cat(paste0("Error in SQL query execution while deleting table\nerror-message: ", res[1])))
+    }
   }
   
   # update table meta_info
@@ -134,6 +158,10 @@ db_create <- function(
                          affected_columns="all",
                          remarks=paste0("Created database version ", max(sqlFetch(con, "db_version")$version), " using R package lumpR."))
   write_datetabs(con, meta_out, tab="meta_info", verbose=F)
+  
+  # update database if desired
+  if (db_ver > 19)
+    db_update(dbname, db_ver)
   
   # close connection
   odbcClose(con)

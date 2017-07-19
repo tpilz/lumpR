@@ -4,14 +4,18 @@
 \alias{db_create}
 \title{Create parameter database}
 \usage{
-db_create(dbname, overwrite = FALSE, keep_tables = NULL)
+db_create(dbname, overwrite = FALSE, keep_tables = NULL, db_ver = Inf)
 }
 \arguments{
 \item{dbname}{Name of the data source (DSN) registered at ODBC. See \code{Details}.}
 
-\item{overwrite}{Overwrite any tables already existing in db. Default: FALSE. For TRUE, only overwrites tables not included in \emph{keep_tables}}
+\item{overwrite}{\code{logical}. Overwrite any tables already existing in db. Default: FALSE. For TRUE, only overwrites tables not included in \emph{keep_tables}}
 
-\item{keep_tables}{preserves the specified tables, if existing. Overrides \emph{overwrite}. Default: NULL.}
+\item{keep_tables}{Vector of type \code{character}. Preserves the specified tables, if existing. Overrides \emph{overwrite}. Default: NULL.}
+
+\item{db_ver}{\code{numeric}. If \code{Inf} (default) the database will be updated
+to the latest version calling \code{\link[lumpR]{db_update}} internally. Otherwise, the
+specified version is created. The earliest possible version is 19.}
 }
 \description{
 Function creates tables in a pre-defined database to store parameters relevant
