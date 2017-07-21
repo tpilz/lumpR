@@ -153,6 +153,9 @@
 #'  you should always explicitly specify it, even when check 'remove_impervious_svc' is not applied,
 #'  to make sure, 'fraction' of table 'r_tc_contains_svc' is always correctly calculated.
 #'  
+#'  Database will only be touched (if \code{fix = TRUE}) after all checks are completed successfully.
+#'  If the function stops with an error during checks, the database will be left unchanged.
+#'  
 #' @author 
 #'  Tobias Pilz \email{tpilz@@uni-potsdam.de}, Till Francke \email{francke@@uni-potsdam.de}
 
