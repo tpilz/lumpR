@@ -139,7 +139,12 @@ The following checks are currently included and can be specified via argument \c
  \bold{subbasin_order}\cr
  Compute subbasin order for WASA's routing input file \code{routing.dat}. Order will
  be derived from column 'drains_to' and written to 'a_stream_order' of table 'subbasins'.
- \emph{Option: 'overwrite'}: Overwrite existing vaues.\cr
+ \emph{Option: 'overwrite'}: Overwrite existing vaues.
+}
+\note{
+In case the default value of option \emph{'update_frac_impervious'} shall NOT be used,
+ you should always explicitly specify it, even when check 'remove_impervious_svc' is not applied,
+ to make sure, 'fraction' of table 'r_tc_contains_svc' is always correctly calculated.
 }
 \author{
 Tobias Pilz \email{tpilz@uni-potsdam.de}, Till Francke \email{francke@uni-potsdam.de}

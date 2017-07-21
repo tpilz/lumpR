@@ -143,8 +143,12 @@
 #'  \bold{subbasin_order}\cr
 #'  Compute subbasin order for WASA's routing input file \code{routing.dat}. Order will
 #'  be derived from column 'drains_to' and written to 'a_stream_order' of table 'subbasins'.
-#'  \emph{Option: 'overwrite'}: Overwrite existing vaues.\cr
+#'  \emph{Option: 'overwrite'}: Overwrite existing vaues.
 #'  
+#' @note
+#'  In case the default value of option \emph{'update_frac_impervious'} shall NOT be used,
+#'  you should always explicitly specify it, even when check 'remove_impervious_svc' is not applied,
+#'  to make sure, 'fraction' of table 'r_tc_contains_svc' is always correctly calculated.
 #'  
 #' @author 
 #'  Tobias Pilz \email{tpilz@@uni-potsdam.de}, Till Francke \email{francke@@uni-potsdam.de}
@@ -227,10 +231,10 @@ db_check <- function(
     dat_all <- c(dat_all,
                  read_db_dat(tbl = c("r_subbas_contains_lu", "r_lu_contains_tc", "r_tc_contains_svc"),
                              con = con,
-                             tbl_exist = names(dat_all)))
+                             tbl_exist = names(dat_all), update_frac_impervious=option[["update_frac_impervious"]]))
     
     # check fractions
-    dat_all[c("r_subbas_contains_lu", "r_lu_contains_tc", "r_tc_contains_svc")] <- lapply(dat_all[c("r_subbas_contains_lu", "r_lu_contains_tc", "r_tc_contains_svc")], check_fix_fractions, fix=fix, verbose=verbose)
+    dat_all[c("r_subbas_contains_lu", "r_lu_contains_tc", "r_tc_contains_svc")] <- lapply(dat_all[c("r_subbas_contains_lu", "r_lu_contains_tc", "r_tc_contains_svc")], check_fix_fractions, fix=fix, update_frac_impervious=option[["update_frac_impervious"]], verbose=verbose)
     
     if(verbose) message("% OK")
   } # check fractions
@@ -250,7 +254,7 @@ db_check <- function(
     dat_all <- c(dat_all,
                  read_db_dat(tbl = c("r_subbas_contains_lu", "r_lu_contains_tc", "r_tc_contains_svc"),
                              con = con,
-                             tbl_exist = names(dat_all)))
+                             tbl_exist = names(dat_all), update_frac_impervious=option[["update_frac_impervious"]]))
     
     # apply area filter
     dat_all[c("r_subbas_contains_lu", "r_lu_contains_tc", "r_tc_contains_svc")] <- lapply(dat_all[c("r_subbas_contains_lu", "r_lu_contains_tc", "r_tc_contains_svc")], filter_small_areas, thres=thres, fix=fix, verbose=verbose)
@@ -267,7 +271,7 @@ db_check <- function(
     
     # get data
     dat_all <- c(dat_all,
-                 read_db_dat(tbl = c("terrain_components"), con = con, tbl_exist = names(dat_all)))
+                 read_db_dat(tbl = c("terrain_components"), con = con, tbl_exist = names(dat_all), update_frac_impervious=option[["update_frac_impervious"]]))
     
     # do check
     if(!any(which(dat_all$terrain_components$slope <= 0))) {
@@ -279,7 +283,7 @@ db_check <- function(
       
       # data from r_lu_contains_tc
       dat_all <- c(dat_all,
-                   read_db_dat(tbl = c("r_lu_contains_tc"), con = con, tbl_exist = names(dat_all)))
+                   read_db_dat(tbl = c("r_lu_contains_tc"), con = con, tbl_exist = names(dat_all), update_frac_impervious=option[["update_frac_impervious"]]))
       
       # datasets of r_lu_contains_tc where slope is <= 0
       r_tc_zero <- which(dat_all$terrain_components$slope <= 0)
@@ -331,7 +335,7 @@ db_check <- function(
             attr(dat_all$r_lu_contains_tc, "altered") <- TRUE
             
             # re-calculate fractions
-            dat_all$r_lu_contains_tc <- check_fix_fractions(dat_tbl=dat_all$r_lu_contains_tc, fix=TRUE, verbose=FALSE)
+            dat_all$r_lu_contains_tc <- check_fix_fractions(dat_tbl=dat_all$r_lu_contains_tc, fix=TRUE, update_frac_impervious=option[["update_frac_impervious"]], verbose=FALSE)
             
           } # still datasets left to remove?
         } # TCs wih fraction below threshold?
@@ -397,7 +401,7 @@ db_check <- function(
     
       # get SVC data
       dat_all <- c(dat_all,
-                   read_db_dat(tbl = c("soil_veg_components"), con = con, tbl_exist = names(dat_all)))
+                   read_db_dat(tbl = c("soil_veg_components"), con = con, tbl_exist = names(dat_all), update_frac_impervious=option[["update_frac_impervious"]]))
       
       # vegetation
       if("vegetation" %in% option$special_area$reference_tbl) {
@@ -471,7 +475,7 @@ db_check <- function(
     
     # get data
     dat_all <- c(dat_all,
-                 read_db_dat(tbl = c("soil_veg_components", "r_tc_contains_svc"), con = con, tbl_exist = names(dat_all)))
+                 read_db_dat(tbl = c("soil_veg_components", "r_tc_contains_svc"), con = con, tbl_exist = names(dat_all), update_frac_impervious=option[["update_frac_impervious"]]))
     
     # identify water SVCs
     rows_water <- which(dat_all$soil_veg_components$special_area == 1)
@@ -491,7 +495,7 @@ db_check <- function(
         attr(dat_all$r_tc_contains_svc, "altered") <- TRUE
         
         # update fractions
-        dat_all$r_tc_contains_svc <- check_fix_fractions(dat_tbl=dat_all$r_tc_contains_svc, fix = TRUE, verbose = FALSE)
+        dat_all$r_tc_contains_svc <- check_fix_fractions(dat_tbl=dat_all$r_tc_contains_svc, fix = TRUE, update_frac_impervious=option[["update_frac_impervious"]], verbose = FALSE)
       } # if fix
     } # if water SVCs found
     
@@ -515,7 +519,7 @@ db_check <- function(
         # get data
         dat_all <- c(dat_all,
                      read_db_dat(tbl = c("soil_veg_components", "terrain_components", "horizons", "r_tc_contains_svc"),
-                                 con = con, tbl_exist = names(dat_all)))
+                                 con = con, tbl_exist = names(dat_all), update_frac_impervious=option[["update_frac_impervious"]]))
         
         # identify existing entries in frac_rocky (herein computed values will be added)
         dat_all$terrain_components$frac_rocky[is.na(dat_all$terrain_components$frac_rocky)] = 0 #set NAs to 0
@@ -578,7 +582,7 @@ db_check <- function(
     # get data
     dat_all <- c(dat_all,
                  read_db_dat(tbl = c("soil_veg_components", "r_tc_contains_svc"),
-                             con = con, tbl_exist = names(dat_all)))
+                             con = con, tbl_exist = names(dat_all), update_frac_impervious=option[["update_frac_impervious"]]))
     
     # identify impervious SVCs
     rows_impervious <- which(dat_all$soil_veg_components$special_area == 2)
@@ -599,7 +603,7 @@ db_check <- function(
         attr(dat_all$r_tc_contains_svc, "altered") <- TRUE
         
         # update fractions
-        dat_all$r_tc_contains_svc <- check_fix_fractions(dat_tbl=dat_all$r_tc_contains_svc, fix = TRUE, verbose = FALSE)
+        dat_all$r_tc_contains_svc <- check_fix_fractions(dat_tbl=dat_all$r_tc_contains_svc, fix = TRUE, update_frac_impervious=option[["update_frac_impervious"]], verbose = FALSE)
       } # if fix
       
     } # if any impervious SVC
@@ -629,7 +633,7 @@ db_check <- function(
       # get data
       dat_all <- c(dat_all,
                    read_db_dat(tbl = c("terrain_components", "landscape_units", "r_lu_contains_tc"),
-                               con = con, tbl_exist = names(dat_all)))
+                               con = con, tbl_exist = names(dat_all), update_frac_impervious=option[["update_frac_impervious"]]))
       
       # compute area-weighted average slope for every LU
       dat_contains_t <- merge(dat_all$r_lu_contains_tc, dat_all$terrain_components, by.y="pid", by.x="tc_id")
@@ -670,7 +674,7 @@ db_check <- function(
                  read_db_dat(tbl = c("subbasins", "landscape_units", "terrain_components", "soil_veg_components",
                                      "vegetation", "soils", "horizons", "particle_classes", "rainy_season",
                                      "r_subbas_contains_lu",  "r_lu_contains_tc", "r_tc_contains_svc", "r_soil_contains_particles"),
-                             con = con, tbl_exist = names(dat_all)))
+                             con = con, tbl_exist = names(dat_all), update_frac_impervious=option[["update_frac_impervious"]]))
     
     # database tables
     tbl_db <- sqlTables(con)[,"TABLE_NAME"]
@@ -851,7 +855,7 @@ db_check <- function(
   
     # get data
     dat_all <- c(dat_all,
-                 read_db_dat(tbl = c("subbasins"), con = con, tbl_exist = names(dat_all)))
+                 read_db_dat(tbl = c("subbasins"), con = con, tbl_exist = names(dat_all), update_frac_impervious=option[["update_frac_impervious"]]))
     stream_order_old <- dat_all$subbasins$a_stream_order #keep for comparison
     
     # identify outlet subbasin
@@ -928,7 +932,7 @@ db_check <- function(
       if(nrow(rocky_frac) > 0) {
         rocky_frac$svc_id <- NULL #svc_id=-1 was just a marker for rocky fractions, not needed anymore
         if(!("terrain_components" %in% names(dat_all)))
-          dat_all <- c(dat_all, read_db_dat(tbl = c("terrain_components"), con = con, tbl_exist = names(dat_all)))
+          dat_all <- c(dat_all, read_db_dat(tbl = c("terrain_components"), con = con, tbl_exist = names(dat_all), update_frac_impervious=option[["update_frac_impervious"]]))
         terrain_components <- merge(dat_all$terrain_components, rocky_frac, by.x="pid", by.y="tc_id")
         
         if (!identical(terrain_components$frac_rocky, terrain_components$fraction))

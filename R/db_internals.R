@@ -194,9 +194,11 @@ write_datetabs <- function(con, dat, tab, verbose) {
 
 
 # check or fix that fractions sum up to 1
-check_fix_fractions <- function(dat_tbl, fix, verbose) {
+check_fix_fractions <- function(dat_tbl, fix, update_frac_impervious, verbose) {
+  name_tbl <- attr(dat_tbl, "table")
+  
   if(verbose) message("%")
-  if(verbose) message(paste0("% -> Processing table '", attr(dat_tbl, "table"), "' ..."))
+  if(verbose) message(paste0("% -> Processing table '", name_tbl, "' ..."))
   
   # sum of 'fraction' should be 1 for every higher level class (rounding error allowed)
   dat_contains_sum <- round(tapply(dat_tbl$fraction, list(parent=dat_tbl[[1]]), sum, na.rm=T), 2)
@@ -210,7 +212,7 @@ check_fix_fractions <- function(dat_tbl, fix, verbose) {
     {  
       message(paste0("%   -> There are ", length(which(dat_contains_sum!=1)), " elements not summing to 1 in their fractions"))
       if (!fix) 
-        message(paste0("%   -> Check table '", attr(dat_tbl, "table"), "'", ifelse(attr(dat_tbl, "table")=="r_tc_contains_svc", " and 'terrain_components' (column frac_rocky)","")," or call db_check(..., check=\"check_fix_fractions\", fix=TRUE)!"))
+        message(paste0("%   -> Check table '", name_tbl, "'", ifelse(name_tbl=="r_tc_contains_svc" & !update_frac_impervious, " and 'terrain_components' (column frac_rocky)","")," or call db_check(..., check=\"check_fix_fractions\", fix=TRUE)!"))
     }
 
     if(fix) {
@@ -278,7 +280,7 @@ filter_small_areas <- function(dat_tbl, thres, fix, verbose) {
     if(fix) 
     {
       dat_tbl_new <- dat_tbl[-rows_rm,]
-      dat_tbl_new <- check_fix_fractions(dat_tbl=dat_tbl_new, fix=TRUE, verbose=FALSE)
+      dat_tbl_new <- check_fix_fractions(dat_tbl=dat_tbl_new, fix=TRUE, update_frac_impervious=update_frac_impervious, verbose=FALSE)
     }  
 
   } # if any fraction < area_thresh
@@ -347,12 +349,13 @@ write_metainfo <- function(con, affected_tbl, affected_col, remarks, verbose) {
 
 
 # function to read in data from selected tables
-read_db_dat <- function(tbl, con, tbl_exist) {
+read_db_dat <- function(tbl, con, tbl_exist, update_frac_impervious) {
   dat_out <- NULL
   tbl_read <- tbl[which(!(tbl %in% tbl_exist))]
   for(t in tbl_read) {
     dat_out[[t]] <- sqlFetch(con, t)
-    if(t == "r_tc_contains_svc") { # information about rocky fractions needed for some checks
+    # information about rocky fractions needed for r_tc_contains_svc, see ?db_check: remove_impervious_svc, option update_frac_impervious = FALSE
+    if(t == "r_tc_contains_svc" & !update_frac_impervious) {
       res <- sqlQuery(con, "select pid as tc_id, -1 as svc_id, frac_rocky as fraction from terrain_components")
       dat_out[[t]] <- rbind(dat_out[[t]], res)
     }
