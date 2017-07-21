@@ -369,6 +369,7 @@ read_db_dat <- function(tbl, con, tbl_exist) {
 
 # function for writing changes into database
 modify_db <- function(con, dat_tbl) {
+  tbl_name <- attr(dat_tbl, "table")
   # define index columns for the verious tables (needed by function sqlUpdate())
   tbls_keys <- list(
     subbasins="pid",
@@ -390,8 +391,28 @@ modify_db <- function(con, dat_tbl) {
   if (!attr(dat_tbl, "altered"))
     return(-1)
   
+  # delete removed datasets (sqlUpdate() does not delete)
+  key_t <- tbls_keys[[tbl_name]]
+  
+  del_query <- paste0("delete from ", tbl_name, " where not ", key_t[1], " in (",
+                      paste(unique(dat_tbl[, key_t[1]]), collapse = ", "), ")")
+  del_query <- sql_dialect(con, del_query)
+  res <- sqlQuery(con, del_query, errors=F) # throws an "error" if nothing was deleted, so don't investigate further and hope everything is fine
+  
+  if(length(key_t) > 1) {
+    for(k in 2:length(key_t)) {
+      for(i in unique(dat_tbl[,k-1])) {
+        dat_t <- dat_tbl[which(dat_tbl[,k-1]==i),]
+        del_query <- paste0("delete from ", tbl_name, " where ", key_t[k-1], "==", i,
+                            " and not ", key_t[k], " in (", paste(dat_t[, key_t[k]], collapse = ", "), ")")
+        del_query <- sql_dialect(con, del_query)
+        res <- sqlQuery(con, del_query, errors=F) # throws an "error" if nothing was deleted, so don't investigate further and hope everything is fine
+      }
+    }
+  }
+  
   # update db
-  sqlUpdate(con, dat_tbl, attr(dat_tbl, "table"), tbls_keys[[attr(dat_tbl, "table")]])
+  sqlUpdate(con, dat_tbl, tbl_name, tbls_keys[[tbl_name]])
   
   return(0)
 } # EOF modify_db

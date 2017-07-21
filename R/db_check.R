@@ -230,7 +230,7 @@ db_check <- function(
                              tbl_exist = names(dat_all)))
     
     # check fractions
-    dat_all <- lapply(dat_all, check_fix_fractions, fix=fix, verbose=verbose)
+    dat_all[c("r_subbas_contains_lu", "r_lu_contains_tc", "r_tc_contains_svc")] <- lapply(dat_all[c("r_subbas_contains_lu", "r_lu_contains_tc", "r_tc_contains_svc")], check_fix_fractions, fix=fix, verbose=verbose)
     
     if(verbose) message("% OK")
   } # check fractions
@@ -253,7 +253,7 @@ db_check <- function(
                              tbl_exist = names(dat_all)))
     
     # apply area filter
-    dat_all <- lapply(dat_all, filter_small_areas, thres=thres, fix=fix, verbose=verbose)
+    dat_all[c("r_subbas_contains_lu", "r_lu_contains_tc", "r_tc_contains_svc")] <- lapply(dat_all[c("r_subbas_contains_lu", "r_lu_contains_tc", "r_tc_contains_svc")], filter_small_areas, thres=thres, fix=fix, verbose=verbose)
     
     if(verbose) message("% OK")
   } # filter small areas
@@ -915,17 +915,22 @@ db_check <- function(
 ### POST-PROCESSING
   if(fix) {
     if(verbose) message("%")
-    if(verbose) message("% Write changes into database and update 'meta_info' ...")
+    if(verbose) message("% Write changes into database and update 'meta_info' (might take a while) ...")
     
     # update rocky fraction for TCs if necessary
-    rocky_frac <- dat_all$r_tc_contains_svc[dat_all$r_tc_contains_svc$svc_id==-1,] #extract information on rocky fraction - this needs to go into another table
-    rocky_frac$svc_id <- NULL #svc_id=-1 was just a marker for rocky fractions, not needed anymore
-    dat_all$r_tc_contains_svc <- dat_all$r_tc_contains_svc[dat_all$r_tc_contains_svc$svc_id!=-1,] #keep only real SVCs, discard rocky fractions that had been temporally inserted as SVCs
-    
-    terrain_components <- merge(dat_all$terrain_components, rocky_frac, by.x="pid", by.y="tc_id")
-    
-    if (!identical(terrain_components$frac_rocky, terrain_components$fraction))
-      dat_all$terrain_components$frac_rocky <- terrain_components$fraction #correct to adjusted rocky fraction
+    if("r_tc_contains_svc" %in% names(dat_all)) {
+      rocky_frac <- dat_all$r_tc_contains_svc[dat_all$r_tc_contains_svc$svc_id==-1,] #extract information on rocky fraction - this needs to go into another table
+      dat_all$r_tc_contains_svc <- dat_all$r_tc_contains_svc[dat_all$r_tc_contains_svc$svc_id!=-1,] #keep only real SVCs, discard rocky fractions that had been temporally inserted as SVCs
+      if(nrow(rocky_frac) > 0) {
+        rocky_frac$svc_id <- NULL #svc_id=-1 was just a marker for rocky fractions, not needed anymore
+        if(!("terrain_components" %in% names(dat_all)))
+          dat_all <- c(dat_all, read_db_dat(tbl = c("terrain_components"), con = con, tbl_exist = names(dat_all)))
+        terrain_components <- merge(dat_all$terrain_components, rocky_frac, by.x="pid", by.y="tc_id")
+        
+        if (!identical(terrain_components$frac_rocky, terrain_components$fraction))
+          dat_all$terrain_components$frac_rocky <- terrain_components$fraction #correct to adjusted rocky fraction
+      }
+    }
     
     # update db
     tbls_changed <- sapply(dat_all, function(x) attr(x, "altered"))
@@ -938,6 +943,8 @@ db_check <- function(
                      paste0("Database checked and adjusted using R package lumpR. Applied checks: ", paste(check, collapse=", "), ". Options: ", paste(names(option), option, sep=" = ", collapse=", ")),
                      FALSE)
     
+    if(verbose) message("%")
+    if(verbose) message(paste0("% -> Updated table(s) ", paste(names(which(tbls_changed)), collapse=", ")))
     if(verbose) message("% OK")
   }
 
