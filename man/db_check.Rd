@@ -8,8 +8,8 @@ db_check(dbname, check = c("check_fix_fractions", "filter_small_areas",
   "tc_slope", "special_areas", "remove_water_svc", "compute_rocky_frac",
   "remove_impervious_svc", "proxy_frgw_delay", "delete_obsolete",
   "completeness", "subbasin_order"), option = list(area_thresh = 0.01,
-  treat_slope = c(3, 0.01, 0.1), update_frac_impervious = F, overwrite = F),
-  fix = F, verbose = TRUE)
+  treat_slope = c(3, 0.01, 0.1), update_frac_impervious = F, overwrite = F,
+  tbls_preserve = NULL), fix = F, verbose = TRUE)
 }
 \arguments{
 \item{dbname}{Name of the data source (DSN) registered at ODBC.}
@@ -130,7 +130,10 @@ The following checks are currently included and can be specified via argument \c
  Check for (and optionally delete) obsolete datasets. I.e. LUs not in any subbasin, TCs
  not in any LU, SVCs not in any TC from the \emph{contains}- and the parent tables,
  and datasets in 'rainy_season' with obsolete subbasins (if table 'rainy_season' exists).
- Dependencies are respected. Areal fractions will not be updated, run with option \code{check_fix_fractions} after removal.
+ Dependencies are respected. Areal fractions will be updated in case obsolete datasets are removed.\cr
+ \emph{Option: 'tbls_preserve'}\cr
+ Vector of type \code{character} giving the names of tables where obsolete datasets will NOT be removed.
+ Default: \code{NULL}.
  
  \bold{completeness}\cr
  Check database for completeness. I.e. check if all entities in a higher hierarchy are used and specified in the related tables 
@@ -138,7 +141,7 @@ The following checks are currently included and can be specified via argument \c
  
  \bold{subbasin_order}\cr
  Compute subbasin order for WASA's routing input file \code{routing.dat}. Order will
- be derived from column 'drains_to' and written to 'a_stream_order' of table 'subbasins'.
+ be derived from column 'drains_to' and written to 'a_stream_order' of table 'subbasins'.\cr
  \emph{Option: 'overwrite'}: Overwrite existing vaues.
 }
 \note{

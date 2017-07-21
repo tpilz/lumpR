@@ -134,7 +134,10 @@
 #'  Check for (and optionally delete) obsolete datasets. I.e. LUs not in any subbasin, TCs
 #'  not in any LU, SVCs not in any TC from the \emph{contains}- and the parent tables,
 #'  and datasets in 'rainy_season' with obsolete subbasins (if table 'rainy_season' exists).
-#'  Dependencies are respected. Areal fractions will not be updated, run with option \code{check_fix_fractions} after removal.
+#'  Dependencies are respected. Areal fractions will be updated in case obsolete datasets are removed.\cr
+#'  \emph{Option: 'tbls_preserve'}\cr
+#'  Vector of type \code{character} giving the names of tables where obsolete datasets will NOT be removed.
+#'  Default: \code{NULL}.
 #'  
 #'  \bold{completeness}\cr
 #'  Check database for completeness. I.e. check if all entities in a higher hierarchy are used and specified in the related tables 
@@ -142,7 +145,7 @@
 #'  
 #'  \bold{subbasin_order}\cr
 #'  Compute subbasin order for WASA's routing input file \code{routing.dat}. Order will
-#'  be derived from column 'drains_to' and written to 'a_stream_order' of table 'subbasins'.
+#'  be derived from column 'drains_to' and written to 'a_stream_order' of table 'subbasins'.\cr
 #'  \emph{Option: 'overwrite'}: Overwrite existing vaues.
 #'  
 #' @note
@@ -160,7 +163,7 @@ db_check <- function(
             "delete_obsolete", "completeness", "subbasin_order"),
   option = list(area_thresh=0.01,
                 treat_slope=c(3,0.01,0.1),
-                update_frac_impervious=F, overwrite=F),
+                update_frac_impervious=F, overwrite=F, tbls_preserve=NULL),
   fix=F,
   verbose=TRUE
 ) {
@@ -178,7 +181,9 @@ db_check <- function(
     }
   }
 
-  
+  # Check arguments (other argument checks at section of respective checks)
+  if(!("update_frac_impervious" %in% names(option)))
+    stop("Option 'update_frac_impervious' is missing which always should be given!")
   
   if(verbose) message("%")
   if(verbose) message("% Connecting to database ...")
@@ -758,34 +763,41 @@ db_check <- function(
           cur_table = table_chain$table[i]
           pre_table = table_chain$table[i-1]
           
-          # identify obsolete records
-          dat_x_t <- dat_all[[cur_table]][table_chain$key2prev[i]]
-          if (cur_table %in% names(wildcard_fields)) {
-            # only respect records that are no wildcards
-            r_nowild <- which(dat_x_t[[table_chain$key2prev[i]]] != -1)
-            if(!any(r_nowild)) {
-              if(verbose) message(paste0("% -> No obsolete records found in '", cur_table,"'"))
-              next
-            }
-            dat_x_t[[table_chain$key2prev[i]]] <- dat_x_t[r_nowild, ]
-          }
-          dat_merge_t <- merge(dat_x_t, dat_all[[pre_table]],
-                               by.x=table_chain$key2prev[i], by.y=table_chain$key2next[i-1], all.x=T)
-          r_rm <- which(is.na(dat_merge_t[,1]))
+          # exclude wildcards
+          dat_cur <- dat_all[[cur_table]][[table_chain$key2prev[i]]]
+          dat_cur <- dat_cur[which(dat_cur != -1)]
+          dat_pre <- dat_all[[pre_table]][[table_chain$key2next[i-1]]]
+          dat_pre <- dat_pre[which(dat_pre != -1)]
           
-          if(!any(r_rm)) {
-            if(verbose) message(paste0("% -> No obsolete records found in '", cur_table,"'"))
-            next   #no obsolete records found
-          } else {
-            if(verbose) message(paste0("% -> There are ", length(r_rm), " obsolete datasets in '", cur_table,"'"))
+          if (length(dat_cur) == 0 | length(dat_pre) == 0) {
+            if(verbose) message(paste0("% -> No obsolete datasets found in '", cur_table,"' with reference to '", pre_table, "'"))
+            next
+          }
+          
+          # identify obsolete records
+          r_obsol <- which(!(dat_cur %in% dat_pre))
+          
+          if(length(r_obsol) > 0) {
+            if (verbose) message(paste0("% -> There are ", length(r_obsol), " obsolete datasets in '", cur_table, "' not appearing in '", pre_table, "'"))
             
-            if (!fix) 
+            if(!fix) {
               if(verbose) message("% -> More records may turn up after actual cleaning (fix=TRUE).")
-            else {
-              dat_all[[cur_table]] <- dat_all[[cur_table]][-r_rm,]
-              attr(dat_all[[cur_table]], "altered") <- TRUE
+            } else {
+              if (cur_table %in% option$tbls_preserve) {
+                if(verbose) message("% -> Obsolete datasets of this table will be preserved as specified")
+              } else {
+                if(verbose) message("% -> Datasets will be removed (and fraction updated accordingly where necessary)")
+                # delete obsolete datasets
+                dat_all[[cur_table]] <- dat_all[[cur_table]][-r_obsol,]
+                attr(dat_all[[cur_table]], "altered") <- TRUE
+                
+                # re-calculate fractions of contains tables
+                if(grepl("contains", cur_table))
+                  dat_all[[cur_table]] <- check_fix_fractions(dat_tbl= dat_all[[cur_table]], fix=TRUE, update_frac_impervious=option[["update_frac_impervious"]], verbose=FALSE)
+              }
             }
-          } # any obsolete records?
+          } else if(verbose) message(paste0("% -> No obsolete datasets found in '", cur_table,"' with reference to '", pre_table, "'"))
+          
         } # loop current table_chain
       } # all tables of current table_chain in database?
     }  # loop chain_list
