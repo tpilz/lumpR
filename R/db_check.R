@@ -547,12 +547,16 @@ db_check <- function(
         rows_tc_impervious <- which(dat_all$r_tc_contains_svc$svc_id %in% svc_impervious)
         
         # compute frac_rocky for every TC
-        tc_rocky <- tapply(dat_all$r_tc_contains_svc$fraction[rows_tc_impervious], list(parent=dat_all$r_tc_contains_svc$tc_id[rows_tc_impervious]), sum)
-        for (t in 1:length(tc_rocky)) {
-          row <- which(dat_all$terrain_components$pid == names(tc_rocky)[t])
-          dat_all$terrain_components$frac_rocky[row] <- dat_all$terrain_components$frac_rocky[row] + tc_rocky[t]
-        }
-        attr(dat_all$terrain_components, "altered") <- TRUE
+        if (length(rows_tc_impervious) > 0) {
+          if(verbose) message(paste0("% -> Found ", length(svc_impervious), " impervious SVCs. Add aereal fractions to corresponding TCs"))
+          tc_rocky <- tapply(dat_all$r_tc_contains_svc$fraction[rows_tc_impervious], list(parent=dat_all$r_tc_contains_svc$tc_id[rows_tc_impervious]), sum)
+          for (t in 1:length(tc_rocky)) {
+            row <- which(dat_all$terrain_components$pid == names(tc_rocky)[t])
+            dat_all$terrain_components$frac_rocky[row] <- dat_all$terrain_components$frac_rocky[row] + tc_rocky[t]
+          }
+          attr(dat_all$terrain_components, "altered") <- TRUE
+        } else
+          if(verbose) message("% -> No impervious SVCs found. Table 'terrain_components' will be left unchanged")
     } # if fix
     
     if(verbose) message("% OK")
@@ -934,17 +938,18 @@ db_check <- function(
     
     # update db
     tbls_changed <- sapply(dat_all, function(x) attr(x, "altered"))
-    junk <- lapply(dat_all[tbls_changed], function(x) modify_db(con, x))
     
-    # update table meta_info
-    if(any(tbls_changed))
+    if(any(tbls_changed)) {
+      junk <- lapply(dat_all[tbls_changed], function(x) modify_db(con, x))
+      # update table meta_info
       write_metainfo(con,
                      paste(names(which(tbls_changed)), collapse=", "), "various",
                      paste0("Database checked and adjusted using R package lumpR. Applied checks: ", paste(check, collapse=", "), ". Options: ", paste(names(option), option, sep=" = ", collapse=", ")),
                      FALSE)
-    
-    if(verbose) message("%")
-    if(verbose) message(paste0("% -> Updated table(s) ", paste(names(which(tbls_changed)), collapse=", ")))
+      if(verbose) message(paste0("% -> Updated table(s) ", paste(names(which(tbls_changed)), collapse=", ")))
+    } else {
+      if(verbose) message("% -> No tables were updated, nothing to do")
+    }
     if(verbose) message("% OK")
   }
 
