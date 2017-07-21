@@ -750,7 +750,8 @@ db_check <- function(
     if(verbose & fix) message("% Delete obsolete records ...")
     if(verbose & !fix) message("% Identify obsolete records ...")
     
-    #break_msg=""
+    if(!("tbls_preserve" %in% names(option)))
+      stop("Option 'tbls_preserve' to run check 'delete_obsolete'!")
     
     for (table_chain in chain_list)
     {
@@ -865,6 +866,9 @@ db_check <- function(
     if(verbose & fix) message("% Determine subbasin order (write into column 'a_stream_order' of table 'subbasins') ...")
     if(verbose & !fix) message("% Determine subbasin order (report mode, no changes to database) ...")
   
+    if(!("overwrite" %in% names(option)))
+      stop("Option 'overwrite' to run check 'subbasin_order'!")
+    
     # get data
     dat_all <- c(dat_all,
                  read_db_dat(tbl = c("subbasins"), con = con, tbl_exist = names(dat_all), update_frac_impervious=option[["update_frac_impervious"]]))
