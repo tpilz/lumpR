@@ -880,9 +880,8 @@ db_check <- function(
       stop("More than one subbasin has been identified as outlet. Check column 'drains_to' in table 'subbasins'!")
     
     # determine stream order
-    dat_all$subbasins$a_stream_order = NA
-    dat_all$subbasins$a_stream_order[r_outlet] <- 1
-    attr(dat_all$subbasins, "altered") <- TRUE
+    stream_order <- rep(NA, nrow(dat_all$subbasins))
+    stream_order[r_outlet] <- 1
     
     # determine rest of stream order
     fin <- FALSE
@@ -891,7 +890,7 @@ db_check <- function(
       i <- i+1
       
       # determine indices of subbasins of previously filled 'a_stream_order' (downstream subbasins)
-      r <- which(dat_all$subbasins$a_stream_order == i)
+      r <- which(stream_order == i)
       
       # get pid(s) of downstream subbasin(s)
       sub_up <- dat_all$subbasins$pid[r]
@@ -900,10 +899,10 @@ db_check <- function(
       r_up <- which(dat_all$subbasins$drains_to %in% sub_up)
       
       # set corresponding 'a_stream_order' value to i+1
-      dat_all$subbasins$a_stream_order[r_up] <- i+1
+      stream_order[r_up] <- i+1
       
       # check if finished
-      if(!any(is.na(dat_all$subbasins$a_stream_order)))
+      if(!any(is.na(stream_order)))
         fin <- TRUE
       
       # throw an error if i is already very large (In this case there must be something wrong)
@@ -911,18 +910,20 @@ db_check <- function(
         stop("Cannot successfully determine subbasin order (column 'a_stream_order' of table 'subbasins'). Check the table for errors!")
     }
     
-    if (all(!is.na(stream_order_old)) &
-        all(stream_order_old== dat_all$subbasins$a_stream_order)) 
-      message("% -> existing stream order ok.") else
-      {
-        if(!fix) {
-          message("% -> existing stream order needs updating. Consider running with 'fix=TRUE' and 'option=list(overwrite=TRUE)'") 
-        } else {
-          
-          if(is.null(option$overwrite) | !option$overwrite)
-            stop("There are already values in column 'a_stream_order' of table 'subbasins'. Use option=list(overwrite=TRUE) or manually set them all to 'NULL' if you want to compute subbasin order!")
-        } # if fix
-      } # modify stream order
+    if (all(!is.na(dat_all$subbasins$a_stream_order)) & all(dat_all$subbasins$a_stream_order==stream_order)) 
+      message("% -> existing stream order ok.")
+    else {
+      if(!fix) {
+        message("% -> existing stream order needs updating. Consider running with 'fix=TRUE' and 'option=list(overwrite=TRUE)'") 
+      } else {
+        
+        if(is.null(option$overwrite) | !option$overwrite)
+          stop("There are already values in column 'a_stream_order' of table 'subbasins'. Use option=list(overwrite=TRUE) or manually set them all to 'NULL' if you want to compute subbasin order!")
+        
+        dat_all$subbasins$a_stream_order <- stream_order
+        attr(dat_all$subbasins, "altered") <- TRUE
+      } # if fix
+    } # modify stream order
     
     if(verbose) message("% OK")
     
