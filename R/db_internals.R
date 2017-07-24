@@ -194,6 +194,8 @@ write_datetabs <- function(con, dat, tab, verbose) {
 
 
 # check or fix that fractions sum up to 1
+# returns: if fix: dat_tbl unchanged or with updated 'fraction'
+#          if !fix: flawd IDs (IDs of first column where fraction does not sum up to one)
 check_fix_fractions <- function(dat_tbl, fix, update_frac_impervious, verbose) {
   name_tbl <- attr(dat_tbl, "table")
   
@@ -226,10 +228,14 @@ check_fix_fractions <- function(dat_tbl, fix, update_frac_impervious, verbose) {
       attr(dat_tbl_new, "altered") <- TRUE
     } # if fix
   } # if any(dat_contains_sum!=1)
-      
-    
-  if(verbose) message("% -> OK.")
-  return(dat_tbl_new)
+  
+  if(verbose) message("% -> OK")
+   
+  if(fix)
+    return(dat_tbl_new)
+  else
+    return(as.numeric(names(dat_contains_sum[which(dat_contains_sum!=1)])))
+  
 } # EOF check_fix_fractions
 
 

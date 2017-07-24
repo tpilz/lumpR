@@ -627,17 +627,17 @@ str_out <- paste(dat_all$terrain_components$pid[s], dat_all$r_lu_contains_tc$fra
                              tbl_exist = names(dat_all), update_frac_impervious=F))
     
     # check data
-    if(any(is.na(dat_all$r_tc_contains_svc)) | nrow(dat_all$r_tc_contains_svc) == 0)
+    dat_out <- dat_all$r_tc_contains_svc[which(dat_all$r_tc_contains_svc$svc_id != -1),] # remove special area flag
+    if(any(is.na(dat_out)) | nrow(dat_out) == 0)
       stop("Could not write file Hillslope/svc_in_tc.dat. There are missing values in table 'r_tc_contains_svc'!")
-    # SVCs
     flawed_tcs <- check_fix_fractions(dat_tbl=dat_all$r_tc_contains_svc, fix=FALSE, update_frac_impervious=FALSE, verbose=FALSE)
     if(length(flawed_tcs) > 0)
-        stop("Not all fractions per TC sum up to one. Check tables 'r_tc_contains_svc' and 'terrain_components' (column frac_rocky) or call db_check(..., check=\"check_fix_fractions\", fix=TRUE)!")
-
+        stop(paste0("The fractions of TCs ", paste(flawed_tcs, collapse = ", "), " do not sum up to one. Check tables 'r_tc_contains_svc' and 'terrain_components' (column frac_rocky) or call db_check(..., check=\"check_fix_fractions\", fix=TRUE)!"))
+    
     # write output
 #     write.table(round(dat_contains,4), paste(dest_dir, "Hillslope/svc_in_tc.dat", sep="/"), append=T,
 #                 quote=F, sep="\t", row.names=F, col.names=F)
-    write.table(dat_all$r_tc_contains_svc, paste(dest_dir, "Hillslope/svc_in_tc.dat", sep="/"), append=T,
+    write.table(dat_out, paste(dest_dir, "Hillslope/svc_in_tc.dat", sep="/"), append=T,
                 quote=F, sep="\t", row.names=F, col.names=F)
     
     if(verbose) message("% OK")
@@ -684,20 +684,20 @@ str_out <- paste(dat_all$terrain_components$pid[s], dat_all$r_lu_contains_tc$fra
         
         # loop over TCs in this LU
         for(tc in dat_all$r_lu_contains_tc$tc_id[r_lu_contains]){
-          # identify rows in contains table of current TC
-          r_tc_contains <- which(dat_all$r_tc_contains_svc$tc_id == tc)
           
-          # rows in svc table (only svc in contains table are considered)
-          tc_svc <- dat_all$r_tc_contains_svc$svc_id[r_tc_contains]
-          r_svc <- which(dat_all$soil_veg_components$pid %in% tc_svc)
+          # identify rows in contains table of current TC
+          dat_tc_svc_t <- dat_all$r_tc_contains_svc[which(dat_all$r_tc_contains_svc$tc_id == tc), ]
           
           # check that fractions sum up to 1
-          if(round(sum(dat_all$r_tc_contains_svc$fraction[r_tc_contains]), 3) != 1) {
-            # calculate sums + rocky fractions (see check 'remove_impervious_svc')
-            sum_rocky <- sum(dat_all$r_tc_contains_svc$fraction[r_tc_contains]) + dat_all$terrain_components$frac_rocky[which(dat_all$terrain_components$pid == tc)]
-            if(round(sum_rocky, 3) != 1)
-              stop(paste0("For TC ", tc, " sum of areal fractions of SVCs (table 'r_tc_contains_svc') are not equal to one. Consider function db_check()."))
-          }
+          flawed_tcs <- check_fix_fractions(dat_tbl=dat_tc_svc_t, fix=FALSE, update_frac_impervious=FALSE, verbose=FALSE)
+          if(length(flawed_tcs) > 0)
+            stop(paste0("The fractions of TCs ", paste(flawed_tcs, collapse = ", "), " do not sum up to one. Check tables 'r_tc_contains_svc' and 'terrain_components' (column frac_rocky) or call db_check(..., check=\"check_fix_fractions\", fix=TRUE)!"))
+          
+          # remove special area flag
+          dat_tc_svc_t <- dat_tc_svc_t[which(dat_tc_svc_t$svc_id != -1),]
+          
+          # rows in svc table (only svc in contains table are considered)
+          r_svc <- which(dat_all$soil_veg_components$pid %in% dat_tc_svc_t$svc_id)
           
           # string for output file with relevant information
 #           str_out_1 <- paste(s, l, tc, round(dat_tc$frac_rocky[which(dat_tc$pid == tc)],3), length(r_tc_contains),
@@ -706,12 +706,12 @@ str_out <- paste(dat_all$terrain_components$pid[s], dat_all$r_lu_contains_tc$fra
 #                              paste(dat_svc$veg_id[r_svc], collapse="\t"), sep="\t")
 #           str_out_3 <- paste(s, l, tc, round(dat_tc$frac_rocky[which(dat_tc$pid == tc)],3), length(r_tc_contains),
 #                              paste(round(dat_tc_contains$fraction[r_tc_contains],4), collapse="\t"), sep="\t")
-          str_out_1 <- paste(s, l, tc, dat_all$terrain_components$frac_rocky[which(dat_all$terrain_components$pid == tc)], length(r_tc_contains),
+          str_out_1 <- paste(s, l, tc, dat_all$terrain_components$frac_rocky[which(dat_all$terrain_components$pid == tc)], nrow(dat_tc_svc_t),
                              paste(dat_all$soil_veg_components$soil_id[r_svc], collapse="\t"), sep="\t")
-          str_out_2 <- paste(s, l, tc, dat_all$terrain_components$frac_rocky[which(dat_all$terrain_components$pid == tc)], length(r_tc_contains),
+          str_out_2 <- paste(s, l, tc, dat_all$terrain_components$frac_rocky[which(dat_all$terrain_components$pid == tc)], nrow(dat_tc_svc_t),
                              paste(dat_all$soil_veg_components$veg_id[r_svc], collapse="\t"), sep="\t")
-          str_out_3 <- paste(s, l, tc, dat_all$terrain_components$frac_rocky[which(dat_all$terrain_components$pid == tc)], length(r_tc_contains),
-                             paste(dat_all$r_tc_contains_svc$fraction[r_tc_contains], collapse="\t"), sep="\t")
+          str_out_3 <- paste(s, l, tc, dat_all$terrain_components$frac_rocky[which(dat_all$terrain_components$pid == tc)], nrow(dat_tc_svc_t),
+                             paste(dat_tc_svc_t$fraction, collapse="\t"), sep="\t")
           
           # write output
           write(file=paste(dest_dir, "Hillslope/soil_vegetation.dat", sep="/"),
@@ -1020,6 +1020,9 @@ str_out <- paste(dat_all$terrain_components$pid[s], dat_all$r_lu_contains_tc$fra
                              con = con,
                              tbl_exist = names(dat_all), update_frac_impervious=F))
     
+    # remove special area flag from "r_tc_contains_svc"
+    dat_tc_svc_t <- dat_all$r_tc_contains_svc[which(dat_all$r_tc_contains_svc$svc_id != -1),]
+    
     # max no. of LU in a subbasin
     counts <- tapply(dat_all$r_subbas_contains_lu$lu_id, dat_all$r_subbas_contains_lu$subbas_id, length)
     no_max_lu <- max(counts)
@@ -1029,7 +1032,7 @@ str_out <- paste(dat_all$terrain_components$pid[s], dat_all$r_lu_contains_tc$fra
     no_max_tc <- max(counts)
     
     # max no. of SVC in a TC
-    counts <- tapply(dat_all$r_tc_contains_svc$svc_id, dat_all$r_tc_contains_svc$tc_id, length)
+    counts <- tapply(dat_tc_svc_t$svc_id, dat_tc_svc_t$tc_id, length)
     no_max_svc <- max(counts)
     
     # max no. of horizons in a soil)
