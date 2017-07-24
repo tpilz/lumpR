@@ -272,6 +272,10 @@ db_wasa_input <- function(
     } else {
       stop(paste0("There are still files at '", dest_dir, "' that shall not be overwritten: ", paste(files[file.exists(pathfiles)], collapse=", ")))
     }
+  
+  
+  # initialise object where database information will be stored during processing
+  dat_all <- NULL
 
 
   
@@ -290,8 +294,11 @@ db_wasa_input <- function(
     }
   
     # get actual database revision from meta_info
-    meta_dat <- sqlFetch(con, "meta_info")
-    meta_rev <- max(meta_dat$pid)
+    dat_all <- c(dat_all,
+                 read_db_dat(tbl = c("meta_info"),
+                             con = con,
+                             tbl_exist = names(dat_all), update_frac_impervious=F))
+    meta_rev <- max(dat_all$meta_info$pid)
     
     # write data into file
     writeLines(con=paste(dest_dir, "info.dat", sep="/"),
@@ -325,14 +332,17 @@ db_wasa_input <- function(
 
     
     # get data
-    dat <- sqlFetch(con, "subbasins")
+    dat_all <- c(dat_all,
+                 read_db_dat(tbl = c("subbasins"),
+                             con = con,
+                             tbl_exist = names(dat_all), update_frac_impervious=F))
     
-    if(any(is.na(cbind(dat$pid, dat$drains_to, dat$a_stream_order))) | nrow(dat) == 0)
+    if(any(is.na(cbind(dat_all$subbasins$pid, dat_all$subbasins$drains_to, dat_all$subbasins$a_stream_order))) | nrow(dat_all$subbasins) == 0)
       stop("Cannot write file River/routing.dat. Column(s) 'pid', 'drains_to' and/or 'a_stream_order' of table 'subbasins' contain missing values!")
     
     # sort
-    r_order <- order(dat$a_stream_order, decreasing=TRUE)
-    dat_out <- dat[r_order,]
+    r_order <- order(dat_all$subbasins$a_stream_order, decreasing=TRUE)
+    dat_out <- dat_all$subbasins[r_order,]
     dat_out <- cbind(1:nrow(dat_out), dat_out$pid, dat_out$drains_to)
     
     # write output
@@ -365,11 +375,14 @@ db_wasa_input <- function(
                       "Subbasin-ID\tlag time [d]\tretention [d]"))
     
     # get data
-    dat <- sqlFetch(con, "subbasins")
+    dat_all <- c(dat_all,
+                 read_db_dat(tbl = c("subbasins"),
+                             con = con,
+                             tbl_exist = names(dat_all), update_frac_impervious=F))
     
     # data for output
-    dat_out <- cbind(dat$pid, dat$lag_time, dat$retention)
-    if(any(is.na(dat_out)) | nrow(dat) == 0)
+    dat_out <- cbind(dat_all$subbasins$pid, dat_all$subbasins$lag_time, dat_all$subbasins$retention)
+    if(any(is.na(dat_out)) | nrow(dat_all$subbasins) == 0)
       stop("Cannot write file River/response.dat Column(s) 'pid', 'lag_time' and/or 'retention' of table 'subbasins' contain missing values!")
     
     # write output
@@ -402,42 +415,42 @@ db_wasa_input <- function(
                       "Subasin-ID[-]\tArea[km**2]\tnbr[-]\tLU-ID[-]\tareal_fraction_of_LU[-]"))
     
     # get data
-    dat_sub <- sqlFetch(con, "subbasins")
-    dat_contains <- sqlFetch(con, "r_subbas_contains_lu")
+    dat_all <- c(dat_all,
+                 read_db_dat(tbl = c("subbasins", "r_subbas_contains_lu"),
+                             con = con,
+                             tbl_exist = names(dat_all), update_frac_impervious=F))
     
-    # select only subbasins which are in the contains table
-    r_sub_out <- which(!(dat_sub$pid %in% dat_contains$subbas_id))
-    if(any(r_sub_out)) {
-      warning(paste0("Subbasins ", paste0(dat_sub$pid[r_sub_out], collapse=", "), " from table 'subbasins' are not in table 'r_subbas_contains_lu' and will be removed from output. Check integrity of routing!"))
-      dat_sub <- dat_sub[-r_sub_out,]
-    }
+    # check if subbasins are in the contains table
+    r_sub_out <- which(!(dat_all$subbasins$pid %in% dat_all$r_subbas_contains_lu$subbas_id))
+    if(any(r_sub_out))
+      stop(paste0("Subbasins ", paste0(dat_all$subbasins$pid[r_sub_out], collapse=", "), " from table 'subbasins' are not in table 'r_subbas_contains_lu'! Consider db_check()!"))
 
-    if(nrow(dat_sub) == 0)
+    if(nrow(dat_all$subbasins) == 0)
       stop("Cannot write file Hillslope/hymo.dat No validly specified subbasins in 'subbasins' found!")
     
-    if(any(is.na(cbind(dat_sub$pid,dat_sub$area))))
+    if(any(is.na(cbind(dat_all$subbasins$pid,dat_all$subbasins$area))))
       stop("Cannot write file Hillslope/hymo.dat Column(s) 'pid' and/or 'area' of table 'subbasins' contain missing values!")
-    if(any(is.na(dat_contains)) | nrow(dat_contains) == 0)
+    if(any(is.na(dat_all$r_subbas_contains_lu)) | nrow(dat_all$r_subbas_contains_lu) == 0)
       stop("Cannot write file Hillslope/hymo.dat Table 'r_subbas_contains_lu' contains missing values!")
 
     
     # loop over subbasins, reversely ordered by a_stream_order
-    r_sub_ordered <- rev(order(dat_sub$a_stream_order))
+    r_sub_ordered <- rev(order(dat_all$subbasins$a_stream_order))
     for(s in r_sub_ordered) {
       # identify rows in contains table of current subbasin
-      r_contains <- which(dat_contains$subbas_id == dat_sub$pid[s])
+      r_contains <- which(dat_all$r_subbas_contains_lu$subbas_id == dat_all$subbasins$pid[s])
       
       # check that fractions sum up to 1
-      if(round(sum(dat_contains$fraction[r_contains]),3) != 1)
-        stop(paste0("For subbasin ", dat_sub$pid[s], " sum of areal fractions of landscape units (table 'r_subbas_contains_lu') are not equal to one. Consider function db_check()."))
+      if(round(sum(dat_all$r_subbas_contains_lu$fraction[r_contains]),3) != 1)
+        stop(paste0("For subbasin ", dat_all$subbasins$pid[s], " sum of areal fractions of landscape units (table 'r_subbas_contains_lu') are not equal to one. Consider function db_check()."))
       
       # string for output file with relevant information
 #       str_out <- paste(dat_sub$pid[s], round(dat_sub$area[s],2), length(r_contains), 
 #                        paste(dat_contains$lu_id[r_contains], collapse="\t"),
 #                        paste(round(dat_contains$fraction[r_contains],3), collapse="\t"), sep="\t")
-      str_out <- paste(dat_sub$pid[s], dat_sub$area[s], length(r_contains), 
-                       paste(dat_contains$lu_id[r_contains], collapse="\t"),
-                       paste(dat_contains$fraction[r_contains], collapse="\t"), sep="\t")
+      str_out <- paste(dat_all$subbasins$pid[s], dat_all$subbasins$area[s], length(r_contains), 
+                       paste(dat_all$r_subbas_contains_lu$lu_id[r_contains], collapse="\t"),
+                       paste(dat_all$r_subbas_contains_lu$fraction[r_contains], collapse="\t"), sep="\t")
       
       # write output
       write(file=paste(dest_dir, "Hillslope/hymo.dat", sep="/"),x=str_out,append=T,sep="\n")
@@ -466,47 +479,48 @@ db_wasa_input <- function(
     }
     
     # get data
-    dat_lu <- sqlFetch(con, "landscape_units")
-    dat_contains <- sqlFetch(con, "r_lu_contains_tc")
+    dat_all <- c(dat_all,
+                 read_db_dat(tbl = c("landscape_units", "r_lu_contains_tc"),
+                             con = con,
+                             tbl_exist = names(dat_all), update_frac_impervious=F))
     
     # write header
     htext=c("Specification of landscape units",
            "LU-ID[id]\tNo._of_TC[-]\tTC1[id]\tTC2[id]\tTC3[id]\tkfsu[mm/d]\tlength[m]\tmeandep[mm]\tmaxdep[mm]\tRiverbed[mm]\tgwflag[0/1]\tgw_dist[mm]\tfrgw_delay[day]")
-    omit_fields = which(names(dat_lu) == "description")
-    if (all(is.na(dat_lu$sdr_lu))) 
-      omit_fields = c(omit_fields, which(names(dat_lu) == "sdr_lu")) else
+    omit_fields = which(names(dat_all$landscape_units) == "description")
+    if (all(is.na(dat_all$landscape_units$sdr_lu))) 
+      omit_fields = c(omit_fields, which(names(dat_all$landscape_units) == "sdr_lu"))
+    else
       htext[2]=paste0(htext[2],"\tSDR_LU[-]")  
     
     writeLines(con=paste(dest_dir, "Hillslope/soter.dat", sep="/"), text=htext)
     
-    # select only LUs which are in the contains table
-    r_lu_out <- which(!(dat_lu$pid %in% dat_contains$lu_id))
-    if(any(r_lu_out)) {
-      warning(paste0("LUs ", paste0(dat_lu$pid[r_lu_out], collapse=", "), " from table 'landscape_units' are not in table 'r_lu_contains_tc' and will be ignored."))
-      dat_lu <- dat_lu[-r_lu_out,]
-    }
+    # check that LUs are in the contains table
+    r_lu_out <- which(!(dat_all$landscape_units$pid %in% dat_all$r_lu_contains_tc$lu_id))
+    if(any(r_lu_out))
+      stop(paste0("LUs ", paste0(dat_all$landscape_units$pid[r_lu_out], collapse=", "), " from table 'landscape_units' are not in table 'r_lu_contains_tc'! Consider db_check()!"))
     
-    if(any(is.na(dat_lu[,-c(2,11)])) | nrow(dat_lu) == 0)
+    if(any(is.na(dat_all$landscape_units[,-omit_fields])) | nrow(dat_all$landscape_units) == 0)
       stop("Cannot write file Hillslope/soter.dat Table 'landscape_units' contains missing values!")
-    if(any(is.na(dat_contains)) | nrow(dat_contains) == 0)
+    if(any(is.na(dat_all$r_lu_contains_tc)) | nrow(dat_all$r_lu_contains_tc) == 0)
       stop("Cannot write file Hillslope/soter.dat Table 'r_lu_contains_tc' contains missing values!")
     
     # loop over LUs
-    for(s in 1:nrow(dat_lu)) {
+    for(s in 1:nrow(dat_all$landscape_units)) {
       # identify rows in contains table of current LU
-      r_contains <- which(dat_contains$lu_id == dat_lu$pid[s])
+      r_contains <- which(dat_all$r_lu_contains_tc$lu_id == dat_all$landscape_units$pid[s])
       
       # check that fractions sum up to 1
-      if(round(sum(dat_contains$fraction[r_contains]),3) != 1)
-        stop(paste0("For LU ", dat_lu$pid[s], " sum of areal fractions of terrain components (table 'r_lu_contains_tc') are not equal to one. Consider function db_check()."))
+      if(round(sum(dat_all$r_lu_contains_tc$fraction[r_contains]),3) != 1)
+        stop(paste0("For LU ", dat_all$landscape_units$pid[s], " sum of areal fractions of terrain components (table 'r_lu_contains_tc') are not equal to one. Consider function db_check()."))
       
       # string for output file with relevant information
 #       str_out <- paste(dat_lu$pid[s], length(r_contains), 
 #                        paste(dat_contains$tc_id[r_contains], collapse="\t"),
 #                        paste(round(dat_lu[s,-c(1,2,11)],1), collapse="\t"), sep="\t")
-      str_out <- paste(dat_lu$pid[s], length(r_contains), 
-                       paste(dat_contains$tc_id[r_contains], collapse="\t"),
-                       paste(dat_lu[s,-omit_fields], collapse="\t"), sep="\t")
+      str_out <- paste(dat_all$landscape_units$pid[s], length(r_contains), 
+                       paste(dat_all$r_lu_contains_tc$tc_id[r_contains], collapse="\t"),
+                       paste(dat_all$landscape_units[s,-omit_fields], collapse="\t"), sep="\t")
 
       # write output
       write(file=paste(dest_dir, "Hillslope/soter.dat", sep="/"),x=str_out,append=T,sep="\n")
@@ -539,42 +553,42 @@ db_wasa_input <- function(
                       "TC-ID\tfraction\tslope[%]\tposition[-]"))
     
     # get data
-    dat_tc <- sqlFetch(con, "terrain_components")
-    dat_contains <- sqlFetch(con, "r_lu_contains_tc")
+    dat_all <- c(dat_all,
+                 read_db_dat(tbl = c("terrain_components", "r_lu_contains_tc"),
+                             con = con,
+                             tbl_exist = names(dat_all), update_frac_impervious=F))
     
-    # select only TCs which are in the contains table
-    r_tc_out <- which(!(dat_tc$pid %in% dat_contains$tc_id))
-    if(any(r_tc_out)) {
-      warning(paste0("TCs ", paste0(dat_tc$pid[r_tc_out], collapse=", "), " from table 'terrain_components' are not in table 'r_lu_contains_tc' and will be ignored."))
-      dat_tc <- dat_tc[-r_tc_out,]
-    }
+    # check that TCs are in the contains table
+    r_tc_out <- which(!(dat_all$terrain_components$pid %in% dat_all$r_lu_contains_tc$tc_id))
+    if(any(r_tc_out))
+      stop(paste0("TCs ", paste0(dat_all$terrain_components$pid[r_tc_out], collapse=", "), " from table 'terrain_components' are not in table 'r_lu_contains_tc'! Consider db_check()!"))
     
-    if(any(is.na(dat_tc[,c(1,3)])) | nrow(dat_tc) == 0)
+    if(any(is.na(dat_all$terrain_components$pid)) | any(is.na(dat_all$terrain_components$slope)) | nrow(dat_all$terrain_components) == 0)
       stop("Cannot write file Hillslope/terrain.dat. Column(s) 'pid' and/or 'slope' of table 'terrain_components' contain missing values!")
-    if(any(is.na(dat_contains)) | nrow(dat_contains) == 0)
+    if(any(is.na(dat_all$r_lu_contains_tc)) | nrow(dat_all$r_lu_contains_tc) == 0)
       stop("Cannot write file Hillslope/terrain.dat. Table 'r_lu_contains_tc' contains missing values!")
     
     # reverse positions (in WASA input the opposite order compared to database)
-    for (l in unique(dat_contains$lu_id)){
-      rows <- which(dat_contains$lu_id == l)
-      dat_contains$position[rows] <- rev(dat_contains$position[rows])
+    for (l in unique(dat_all$r_lu_contains_tc$lu_id)){
+      rows <- which(dat_all$r_lu_contains_tc$lu_id == l)
+      dat_all$r_lu_contains_tc$position[rows] <- rev(dat_all$r_lu_contains_tc$position[rows])
     }
     
     # loop over TCs
-    for(s in 1:nrow(dat_tc)) {
+    for(s in 1:nrow(dat_all$terrain_components)) {
       # identify rows in contains table of current TC
-      r_contains <- which(dat_contains$tc_id == dat_tc$pid[s])
+      r_contains <- which(dat_all$r_lu_contains_tc$tc_id == dat_all$terrain_components$pid[s])
       
-      if (nrow(unique(dat_contains[r_contains,-1])) > 1)
-        stop(paste0("TC ", dat_tc$pid[s], " is part of multiple LUs (", paste0(dat_contains$lu_id[r_contains], collapse=" ,"),") which is currently not supported. Duplicate these TCs and assign a different ID for each instance."))
+      if (nrow(unique(dat_all$r_lu_contains_tc[r_contains,-1])) > 1)
+        stop(paste0("TC ", dat_all$terrain_components$pid[s], " is part of multiple LUs (", paste0(dat_all$r_lu_contains_tc$lu_id[r_contains], collapse=" ,"),") which is currently not supported. Duplicate these TCs and assign a different ID for each instance."))
       else
         r_contains = r_contains[1]
       
       # string for output file with relevant information
 #       str_out <- paste(dat_tc$pid[s], round(dat_contains$fraction[r_contains],3),
 #                        round(dat_tc[s,"slope"],3), dat_contains$position[r_contains], sep="\t")
-str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
-                 dat_tc[s,"slope"], dat_contains$position[r_contains], sep="\t")
+str_out <- paste(dat_all$terrain_components$pid[s], dat_all$r_lu_contains_tc$fraction[r_contains],
+                 dat_all$terrain_components$slope[s], dat_all$r_lu_contains_tc$position[r_contains], sep="\t")
       
       # write output
       write(file=paste(dest_dir, "Hillslope/terrain.dat", sep="/"),x=str_out,append=T,sep="\n")
@@ -607,20 +621,23 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
                       "TC-ID[-]\tSVC-ID[-]\tfraction[-]"))
     
     # get data
-    dat_contains <- sqlFetch(con, "r_tc_contains_svc")
+    dat_all <- c(dat_all,
+                 read_db_dat(tbl = c("r_tc_contains_svc"),
+                             con = con,
+                             tbl_exist = names(dat_all), update_frac_impervious=F))
     
     # check data
-    if(any(is.na(dat_contains)) | nrow(dat_contains) == 0)
+    if(any(is.na(dat_all$r_tc_contains_svc)) | nrow(dat_all$r_tc_contains_svc) == 0)
       stop("Could not write file Hillslope/svc_in_tc.dat. There are missing values in table 'r_tc_contains_svc'!")
     # SVCs
-    flawed_tcs <- check_fix_fractions(dat_tbl=dat_contains, fix=FALSE, update_frac_impervious=FALSE, verbose=FALSE)
+    flawed_tcs <- check_fix_fractions(dat_tbl=dat_all$r_tc_contains_svc, fix=FALSE, update_frac_impervious=FALSE, verbose=FALSE)
     if(length(flawed_tcs) > 0)
         stop("Not all fractions per TC sum up to one. Check tables 'r_tc_contains_svc' and 'terrain_components' (column frac_rocky) or call db_check(..., check=\"check_fix_fractions\", fix=TRUE)!")
 
     # write output
 #     write.table(round(dat_contains,4), paste(dest_dir, "Hillslope/svc_in_tc.dat", sep="/"), append=T,
 #                 quote=F, sep="\t", row.names=F, col.names=F)
-    write.table(dat_contains, paste(dest_dir, "Hillslope/svc_in_tc.dat", sep="/"), append=T,
+    write.table(dat_all$r_tc_contains_svc, paste(dest_dir, "Hillslope/svc_in_tc.dat", sep="/"), append=T,
                 quote=F, sep="\t", row.names=F, col.names=F)
     
     if(verbose) message("% OK")
@@ -650,35 +667,34 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
                       "Subasin-ID[id]\tLU-ID[id]\tTC-ID[id]\tfraction_rocky[-]\tnbrSVC[-]\tSoil-ID(n_values)[-]\tVegetation-ID(n_values)[-]\tfraction(n_values)[-]"))
     
     # get data
-    dat_tc <- sqlFetch(con, "terrain_components")
-    dat_svc <- sqlFetch(con, "soil_veg_components")
-    dat_sub_contains <- sqlFetch(con, "r_subbas_contains_lu")
-    dat_lu_contains <- sqlFetch(con, "r_lu_contains_tc")
-    dat_tc_contains <- sqlFetch(con, "r_tc_contains_svc")
+    dat_all <- c(dat_all,
+                 read_db_dat(tbl = c("terrain_components", "soil_veg_components", "r_subbas_contains_lu", "r_lu_contains_tc", "r_tc_contains_svc"),
+                             con = con,
+                             tbl_exist = names(dat_all), update_frac_impervious=F))
     
     # loop over subbasins
-    for(s in unique(dat_sub_contains$subbas_id)) {
+    for(s in unique(dat_all$r_subbas_contains_lu$subbas_id)) {
       # identify rows in contains table of current subbasin
-      r_sub_contains <- which(dat_sub_contains$subbas_id == s)
+      r_sub_contains <- which(dat_all$r_subbas_contains_lu$subbas_id == s)
       
       # loop over LUs in this subbasin
-      for(l in dat_sub_contains$lu_id[r_sub_contains]) {
+      for(l in dat_all$r_subbas_contains_lu$lu_id[r_sub_contains]) {
         # identify rows in contains table of current LU
-        r_lu_contains <- which(dat_lu_contains$lu_id == l)
+        r_lu_contains <- which(dat_all$r_lu_contains_tc$lu_id == l)
         
         # loop over TCs in this LU
-        for(tc in dat_lu_contains$tc_id[r_lu_contains]){
+        for(tc in dat_all$r_lu_contains_tc$tc_id[r_lu_contains]){
           # identify rows in contains table of current TC
-          r_tc_contains <- which(dat_tc_contains$tc_id == tc)
+          r_tc_contains <- which(dat_all$r_tc_contains_svc$tc_id == tc)
           
           # rows in svc table (only svc in contains table are considered)
-          tc_svc <- dat_tc_contains$svc_id[r_tc_contains]
-          r_svc <- which(dat_svc$pid %in% tc_svc)
+          tc_svc <- dat_all$r_tc_contains_svc$svc_id[r_tc_contains]
+          r_svc <- which(dat_all$soil_veg_components$pid %in% tc_svc)
           
           # check that fractions sum up to 1
-          if(round(sum(dat_tc_contains$fraction[r_tc_contains]), 3) != 1) {
+          if(round(sum(dat_all$r_tc_contains_svc$fraction[r_tc_contains]), 3) != 1) {
             # calculate sums + rocky fractions (see check 'remove_impervious_svc')
-            sum_rocky <- sum(dat_tc_contains$fraction[r_tc_contains]) + dat_tc$frac_rocky[which(dat_tc$pid == tc)]
+            sum_rocky <- sum(dat_all$r_tc_contains_svc$fraction[r_tc_contains]) + dat_all$terrain_components$frac_rocky[which(dat_all$terrain_components$pid == tc)]
             if(round(sum_rocky, 3) != 1)
               stop(paste0("For TC ", tc, " sum of areal fractions of SVCs (table 'r_tc_contains_svc') are not equal to one. Consider function db_check()."))
           }
@@ -690,12 +706,12 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
 #                              paste(dat_svc$veg_id[r_svc], collapse="\t"), sep="\t")
 #           str_out_3 <- paste(s, l, tc, round(dat_tc$frac_rocky[which(dat_tc$pid == tc)],3), length(r_tc_contains),
 #                              paste(round(dat_tc_contains$fraction[r_tc_contains],4), collapse="\t"), sep="\t")
-          str_out_1 <- paste(s, l, tc, dat_tc$frac_rocky[which(dat_tc$pid == tc)], length(r_tc_contains),
-                             paste(dat_svc$soil_id[r_svc], collapse="\t"), sep="\t")
-          str_out_2 <- paste(s, l, tc, dat_tc$frac_rocky[which(dat_tc$pid == tc)], length(r_tc_contains),
-                             paste(dat_svc$veg_id[r_svc], collapse="\t"), sep="\t")
-          str_out_3 <- paste(s, l, tc, dat_tc$frac_rocky[which(dat_tc$pid == tc)], length(r_tc_contains),
-                             paste(dat_tc_contains$fraction[r_tc_contains], collapse="\t"), sep="\t")
+          str_out_1 <- paste(s, l, tc, dat_all$terrain_components$frac_rocky[which(dat_all$terrain_components$pid == tc)], length(r_tc_contains),
+                             paste(dat_all$soil_veg_components$soil_id[r_svc], collapse="\t"), sep="\t")
+          str_out_2 <- paste(s, l, tc, dat_all$terrain_components$frac_rocky[which(dat_all$terrain_components$pid == tc)], length(r_tc_contains),
+                             paste(dat_all$soil_veg_components$veg_id[r_svc], collapse="\t"), sep="\t")
+          str_out_3 <- paste(s, l, tc, dat_all$terrain_components$frac_rocky[which(dat_all$terrain_components$pid == tc)], length(r_tc_contains),
+                             paste(dat_all$r_tc_contains_svc$fraction[r_tc_contains], collapse="\t"), sep="\t")
           
           # write output
           write(file=paste(dest_dir, "Hillslope/soil_vegetation.dat", sep="/"),
@@ -732,11 +748,14 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
                       "id\tsoil_id\tveg_id\tmusle_k[(ton acre hr)/(acre ft-ton inch)]\tmusle_c[-]\tmusle_p[-]\tcoarse_fraction[%]\tmanning_n"))
     
     # get data
-    dat_svc <- sqlFetch(con, "soil_veg_components")
+    dat_all <- c(dat_all,
+                 read_db_dat(tbl = c("soil_veg_components"),
+                             con = con,
+                             tbl_exist = names(dat_all), update_frac_impervious=F))
     
     # only relevant data
-    dat_out <- data.frame(dat_svc$pid, dat_svc$soil_id, dat_svc$veg_id, dat_svc$musle_k, dat_svc$musle_c1,
-                          dat_svc$musle_p, dat_svc$coarse_frac, dat_svc$manning_n)
+    dat_out <- data.frame(dat_all$soil_veg_components$pid, dat_all$soil_veg_components$soil_id, dat_all$soil_veg_components$veg_id, dat_all$soil_veg_components$musle_k, dat_all$soil_veg_components$musle_c1,
+                          dat_all$soil_veg_components$musle_p, dat_all$soil_veg_components$coarse_frac, dat_all$soil_veg_components$manning_n)
     
     # set NA values to -9999 (related to sediment which is not yet supported; file in present form only useful for saving WASA storages)
     dat_out[is.na(dat_out)] <- -9999
@@ -771,19 +790,21 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
                       "Soil-ID[-]\tnumber(horizons)[-]\t(n_res[Vol-]\tn_PWP[-]\tn_FK2.6[-]\tn_FK1.8[-]\tn_nFK[-]\tn_saturated[-]\tn_thickness[mm]\tn_ks[mm/d]\tn_suction[mm]\tn_pore-size-index[-]\tn_bubblepressure[cm]\tn_coarse_frag[-]*n\tn_shrinks[0/1])\tbedrock[0/1]\talluvial[0/1]"))
     
     # get data
-    dat_hor <- sqlFetch(con, "horizons")
-    dat_soil <- sqlFetch(con, "soils")    
-    dat_svc <- sqlFetch(con, "soil_veg_components")
-    dat_contains <- sqlFetch(con, "r_tc_contains_svc")
+    dat_all <- c(dat_all,
+                 read_db_dat(tbl = c("horizons", "soils", "soil_veg_components", "r_tc_contains_svc"),
+                             con = con,
+                             tbl_exist = names(dat_all), update_frac_impervious=F))
     
     # only soil types occurring in soil_veg_components and r_tc_contains_svc will be considered
-    r_svc_out <- which(!(dat_svc$pid %in% dat_contains$svc_id))
+    dat_svc <- dat_all$soil_veg_components
+    dat_soil <- dat_all$soils
+    r_svc_out <- which(!(dat_svc$pid %in% dat_all$r_tc_contains_svc$svc_id))
     if(any(r_svc_out))
       dat_svc <- dat_svc[-r_svc_out,]
     
     r_soil_out <- which(!(dat_soil$pid %in% dat_svc$soil_id))
     if(any(r_soil_out)) {
-      warning(paste0("Soil types ", paste0(dat_soil$pid[r_soil_out], collapse=", "), " from table 'soils' are not in table 'soil_veg_components', or the respective SVCs are not in 'r_tc_contains_svc', and will be ignored."))
+      warning(paste0("Soil types ", paste0(dat_all$soils$pid[r_soil_out], collapse=", "), " from table 'soils' are not in table 'soil_veg_components', or the respective SVCs are not in 'r_tc_contains_svc', and will be ignored."))
       dat_soil <- dat_soil[-r_soil_out,]
     }
     
@@ -791,12 +812,12 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
     # loop over soils
     for(s in 1:nrow(dat_soil)) {
       # get rows of current soil
-      r_hor <- which(dat_hor$soil_id == dat_soil$pid[s])
+      r_hor <- which(dat_all$horizons$soil_id == dat_soil$pid[s])
       
       # string for output file with relevant information
 #       dat_out <- round(dat_hor[r_hor, c("theta_r", "theta_pwp", "fk", "fk63", "nfk", "theta_s", "thickness",
 #                                         "ks", "suction", "pore_size_i", "bubb_pres", "coarse_frag", "shrinks")],3)
-      dat_out <- dat_hor[r_hor, c("theta_r", "theta_pwp", "fk", "fk63", "nfk", "theta_s", "thickness",
+      dat_out <- dat_all$horizons[r_hor, c("theta_r", "theta_pwp", "fk", "fk63", "nfk", "theta_s", "thickness",
                                         "ks", "suction", "pore_size_i", "bubb_pres", "coarse_frag", "shrinks")]
       
       if(any(is.na(cbind(dat_out, dat_soil$pid[s], dat_soil$bedrock_flag[s], dat_soil$alluvial_flag[s]))) | nrow(dat_soil) == 0)
@@ -837,20 +858,23 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
                       "Veg-ID\tStomata_Resistance[s/m]\tminsuction[hPa]\tmaxsuction[hPa]\theight1[m]\theight2[m]\theight3[m]\theight4[m]\trootdepth1[m]\trootdepth2[m]\trootdepth3[m]\trootdepth4[m]\tLAI1[-]\tLAI2[-]\tLAI3[-]\tLAI4[-]\talbedo1[-]\talbedo2[-]\talbedo3[-]\talbedo4[-]"))
     
     # get data
-    dat_veg <- sqlFetch(con, "vegetation")
-    dat_svc <- sqlFetch(con, "soil_veg_components")
-    dat_contains <- sqlFetch(con, "r_tc_contains_svc")
+    dat_all <- c(dat_all,
+                 read_db_dat(tbl = c("vegetation", "soil_veg_components", "r_tc_contains_svc"),
+                             con = con,
+                             tbl_exist = names(dat_all), update_frac_impervious=F))
     
     # only veg types occurring in soil_veg_components and r_tc_contains_svc will be considered
-    r_svc_out <- which(!(dat_svc$pid %in% dat_contains$svc_id))
+    dat_veg_out <- dat_all$vegetation
+    dat_svc <- dat_all$soil_veg_components
+    r_svc_out <- which(!(dat_svc$pid %in% dat_all$r_tc_contains_svc$svc_id))
     if(any(r_svc_out))
       dat_svc <- dat_svc[-r_svc_out,]
     
-    r_veg_out <- which(!(dat_veg$pid %in% dat_svc$veg_id))
+    r_veg_out <- which(!(dat_veg_out$pid %in% dat_svc$veg_id))
     if(any(r_veg_out)) {
-      warning(paste0("Vegetation types ", paste0(dat_veg$pid[r_veg_out], collapse=", "), " from table 'vegetation' are not in table 'soil_veg_components', or the respective SVCs are not in 'r_tc_contains_svc', and will be ignored."))
-      dat_veg_out <- dat_veg[-r_veg_out,]
-    } else dat_veg_out <- dat_veg
+      warning(paste0("Vegetation types ", paste0(dat_veg_out$pid[r_veg_out], collapse=", "), " from table 'vegetation' are not in table 'soil_veg_components', or the respective SVCs are not in 'r_tc_contains_svc', and will be ignored."))
+      dat_veg_out <- dat_veg_out[-r_veg_out,]
+    }
       
     
     
@@ -891,51 +915,40 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
     
     ### get relevant output information
     
-    # no. of subbasin
-    dat_sub <- sqlFetch(con, "subbasins")
-    dat_contains <- sqlFetch(con, "r_subbas_contains_lu")
-    dat_sub <- dat_sub[which(dat_sub$pid %in% dat_contains$subbas_id),]
-    no_sub <- nrow(dat_sub)
+    # get data
+    dat_all <- c(dat_all,
+                 read_db_dat(tbl = c("subbasins", "landscape_units", "r_subbas_contains_lu", "r_lu_contains_tc",
+                                     "soils", "soil_veg_components", "r_tc_contains_svc", "particle_classes"),
+                             con = con,
+                             tbl_exist = names(dat_all), update_frac_impervious=F))
+    
+    # no. of subbasins
+    no_sub <- dat_all$subbasins[which(dat_all$subbasins$pid %in% dat_all$r_subbas_contains_lu$subbas_id),]
+    no_sub <- nrow(no_sub)
     
     # no. of combinations of sub-basins, landscape units, terrain components
-    dat_sub <- sqlFetch(con, "r_subbas_contains_lu")
-    dat_lu <- sqlFetch(con, "r_lu_contains_tc")
-    dat_merge <- merge(dat_sub[,c(1,2)], dat_lu[,c(1,2)], by.x="lu_id", by.y="lu_id")
+    dat_merge <- merge(dat_all$r_subbas_contains_lu, dat_all$r_lu_contains_tc, by.x="lu_id", by.y="lu_id")
     no_sblutc <- nrow(dat_merge)
     
     # no. of landscape units
-    dat_lu <- sqlFetch(con, "landscape_units")
-    dat_contains <- sqlFetch(con, "r_subbas_contains_lu")
-    dat_lu <- dat_lu[which(dat_lu$pid %in% dat_contains$lu_id),]
-    no_lu <- nrow(dat_lu)
+    no_lu <- dat_all$landscape_units[which(dat_all$landscape_units$pid %in% dat_all$r_subbas_contains_lu$lu_id),]
+    no_lu <- nrow(no_lu)
     
     # no. of terrain components
-    dat_tc <- sqlFetch(con, "terrain_components")
-    dat_contains <- sqlFetch(con, "r_lu_contains_tc")
-    dat_tc <- dat_tc[which(dat_tc$pid %in% dat_contains$tc_id),]
-    no_tc <- nrow(dat_tc)
+    no_tc <- dat_all$terrain_components[which(dat_all$terrain_components$pid %in% dat_all$r_lu_contains_tc$tc_id),]
+    no_tc <- nrow(no_tc)
     
     # no. of soils
-    dat_soil <- sqlFetch(con, "soils")
-    dat_svc <- sqlFetch(con, "soil_veg_components")
-    dat_contains <- sqlFetch(con, "r_tc_contains_svc")
-    
-    dat_svc <- dat_svc[which(dat_svc$pid %in% dat_contains$svc_id),]
-    dat_soil <- dat_soil[which(dat_soil$pid %in% dat_svc$soil_id),]
-    no_soil <- nrow(dat_soil)
+    dat_svc <- dat_all$soil_veg_components[which(dat_all$soil_veg_components$pid %in% dat_all$r_tc_contains_svc$svc_id),]
+    no_soil <- dat_all$soils[which(dat_all$soils$pid %in% dat_svc$soil_id),]
+    no_soil <- nrow(no_soil)
     
     # no. of veg types
-    dat_veg <- sqlFetch(con, "vegetation")
-    dat_svc <- sqlFetch(con, "soil_veg_components")
-    dat_contains <- sqlFetch(con, "r_tc_contains_svc")
-    
-    dat_svc <- dat_svc[which(dat_svc$pid %in% dat_contains$svc_id),]
-    dat_veg <- dat_veg[which(dat_veg$pid %in% dat_svc$veg_id),]
-    no_veg <- nrow(dat_veg)
+    no_veg <- dat_all$vegetation[which(dat_all$vegetation$pid %in% dat_svc$veg_id),]
+    no_veg <- nrow(no_veg)
     
     # no. of soil particle size classes
-    dat_part <- sqlFetch(con, "particle_classes")
-    no_part <- nrow(dat_part)
+    no_part <- nrow(dat_all$particle_classes)
     
     
     ### write output
@@ -1001,24 +1014,26 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
     
     ### get relevant output information
     
+    # get data
+    dat_all <- c(dat_all,
+                 read_db_dat(tbl = c("r_subbas_contains_lu", "r_lu_contains_tc", "r_tc_contains_svc", "horizons"),
+                             con = con,
+                             tbl_exist = names(dat_all), update_frac_impervious=F))
+    
     # max no. of LU in a subbasin
-    dat_contains <- sqlFetch(con, "r_subbas_contains_lu")
-    counts <- tapply(dat_contains$lu_id, dat_contains$subbas_id, length)
+    counts <- tapply(dat_all$r_subbas_contains_lu$lu_id, dat_all$r_subbas_contains_lu$subbas_id, length)
     no_max_lu <- max(counts)
     
     # max no. of TC in a LU
-    dat_contains <- sqlFetch(con, "r_lu_contains_tc")
-    counts <- tapply(dat_contains$tc_id, dat_contains$lu_id, length)
+    counts <- tapply(dat_all$r_lu_contains_tc$tc_id, dat_all$r_lu_contains_tc$lu_id, length)
     no_max_tc <- max(counts)
     
     # max no. of SVC in a TC
-    dat_contains <- sqlFetch(con, "r_tc_contains_svc")
-    counts <- tapply(dat_contains$svc_id, dat_contains$tc_id, length)
+    counts <- tapply(dat_all$r_tc_contains_svc$svc_id, dat_all$r_tc_contains_svc$tc_id, length)
     no_max_svc <- max(counts)
     
-    # max no. of horizons in a soil
-    dat_contains <- sqlFetch(con, "horizons")
-    counts <- tapply(dat_contains$position, dat_contains$soil_id, length)
+    # max no. of horizons in a soil)
+    counts <- tapply(dat_all$horizons$position, dat_all$horizons$soil_id, length)
     no_max_hor <- max(counts)
     
     
@@ -1052,18 +1067,21 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
     }
     
     # get data
-    dat_part <- sqlFetch(con, "particle_classes")
+    dat_all <- c(dat_all,
+                 read_db_dat(tbl = c("particle_classes"),
+                             con = con,
+                             tbl_exist = names(dat_all), update_frac_impervious=F))
     
     # write header
     writeLines(con=paste(dest_dir, "part_class.dat", sep="/"),
                text=c("Particle size classes to be used in sediment modelling",
                       "class_number\tupper_limit[mm]"))
     
-    if(any(is.na(dat_part)) | nrow(dat_part) == 0)
+    if(any(is.na(dat_all$particle_classes)) | nrow(dat_all$particle_classes) == 0)
       stop("There are missing values in table 'particle_classes'!")
     
     # write output
-    write.table(dat_part[,c(1,2)], paste(dest_dir, "part_class.dat", sep="/"), append=T,
+    write.table(dat_all$particle_classes[,c("class_id", "upper_limit")], paste(dest_dir, "part_class.dat", sep="/"), append=T,
                 quote=F, sep="\t", row.names=F, col.names=F)
     
     
@@ -1093,12 +1111,15 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
                       "soil_id\tpart_class_id\tfraction[-]"))
     
     # get data
-    dat_contains_part <- sqlFetch(con, "r_soil_contains_particles")
-    dat_svc <- sqlFetch(con, "soil_veg_components")
-    dat_contains_svc <- sqlFetch(con, "r_tc_contains_svc")
+    dat_all <- c(dat_all,
+                 read_db_dat(tbl = c("soil_veg_components", "r_tc_contains_svc", "r_soil_contains_particles"),
+                             con = con,
+                             tbl_exist = names(dat_all), update_frac_impervious=F))
     
     # only soil types occurring in soil_veg_components and r_tc_contains_svc will be considered
-    r_svc_out <- which(!(dat_svc$pid %in% dat_contains_svc$svc_id))
+    dat_contains_part <- dat_all$r_soil_contains_particles
+    dat_svc <- dat_all$soil_veg_components
+    r_svc_out <- which(!(dat_svc$pid %in% dat_all$r_tc_contains_svc$svc_id))
     if(any(r_svc_out))
       dat_svc <- dat_svc[-r_svc_out,]
     
@@ -1145,14 +1166,18 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
                       "Subasin\tVeg_id\tYear\tDOY1\tDOY2\tDOY3\tDOY4"))
     
     # get data
-    dat_rs <- sqlFetch(con, "rainy_season")
+    dat_all <- c(dat_all,
+                 read_db_dat(tbl = c("rainy_season"),
+                             con = con,
+                             tbl_exist = names(dat_all), update_frac_impervious=F))
     
-    if(any(is.na(dat_rs)) | nrow(dat_rs) == 0)
+    if(any(is.na(dat_all$rainy_season)) | nrow(dat_all$rainy_season) == 0)
       stop("There are missing values in table 'rainy_season'!")
     
     ### sort data, i.e. wildcards at the last lines
     
     # search for years with wildcards and put them at the end of the data.frame
+    dat_rs <- dat_all$rainy_season
     r_year_wild <- which(dat_rs$yearm == -1)
     if(any(r_year_wild)) {
       # substract rows from data.frame
@@ -1190,7 +1215,8 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
     
     
     # write output
-    write.table(dat_rs[,-1], paste(dest_dir, "Hillslope/rainy_season.dat", sep="/"), append=T,
+    r_omit <- which(names(dat_rs) == "pid")
+    write.table(dat_rs[,-r_omit], paste(dest_dir, "Hillslope/rainy_season.dat", sep="/"), append=T,
                 quote=F, sep="\t", row.names=F, col.names=F)
     
   
