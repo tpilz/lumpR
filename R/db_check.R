@@ -186,7 +186,7 @@ db_check <- function(
 
   # Check arguments (other argument checks at section of respective checks)
   if(!("update_frac_impervious" %in% names(option)))
-    stop("Option 'update_frac_impervious' is missing which always should be given!")
+    option[["update_frac_impervious"]] <- FALSE
   
   if(verbose) message("%")
   if(verbose) message("% Connecting to database ...")
