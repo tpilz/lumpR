@@ -216,53 +216,59 @@ db_wasa_input <- function(
   verbose = TRUE
 ) {
   
-  if (verbose)
-    print("Loading package 'RODBC' and connecting to database ...")
+  if(verbose) message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+  if(verbose) message("% START db_wasa_input()")
+  
+  if(verbose) message("%")
+  if(verbose) message("% Connecting to database ...")
   
   # connect to ODBC registered database
-  suppressWarnings(con <- odbcConnect(dbname, believeNRows=F))
+  con <- connect_db(dbname)
   
-  if (con == -1)
-    print(paste0("Could not connect to database '", dbname, "'. Type 'odbcDataSources()' to see the data sources known to ODBC.",
-                 " If you want to connect to a MS Access database make sure you are using 32 bit R."))
+  #modify error handler to gracefully close ODBC-connection before aborting (otherwise, ODBC-handles are left open)
+  org_error_handler = getOption("error") #original error handler
   
-  if(verbose)
-    print("OK.")
+  closeODBC_and_stop = function()
+  {  
+    odbcCloseAll()
+    options(error=org_error_handler) #restore original handler
+  }
+  options(error=closeODBC_and_stop)  #modify error handler
   
   # ensure MySQL/MariaDB uses ANSI quotation (double quotes instead of back ticks)
   if(grepl("MariaDB", odbcGetInfo(con)["DBMS_Name"], ignore.case=T))
     sqlQuery(con, "SET sql_mode='ANSI';")
   
+  if(verbose) message("% OK")
+  
+  
+  if(verbose) message("%")
+  if(verbose) message("% Check database version ...")
   
   # get most recent db version from update sql files in source directory
   db_dir <- system.file("database/", package="lumpR")
   db_up_files <- dir(db_dir, pattern="update_[a-zA-Z0-9_]*.sql")
   db_ver_max <- max(as.integer(sub(".sql", "", sub("update_db_v", "", db_up_files))))
   
-  #check current db version
-  if(verbose)
-    print("Check database version ...")
   db_ver <- max(sqlFetch(con, "db_version")$version)
-  if(db_ver < db_ver_max) {
-    odbcClose(con)
-    stop(paste0("Database version is prior to version ",db_ver_max, ". Make sure you use the latest database version (consider function db_update())!"))
-  }
-  if(verbose)
-    print("OK.")
-
+  if(db_ver < db_ver_max) stop(paste0("Database version is prior to version ", db_ver_max, ". Make sure you use the latest database version (consider function db_update())!"))
+  
+  if(verbose) message("% OK")
+  
+  
   # create and/or check output directory
   dir.create(dest_dir, recursive=T, showWarnings = F)
   dir.create(paste(dest_dir, "River", sep="/"), recursive=T, showWarnings = F)
   dir.create(paste(dest_dir, "Hillslope", sep="/"), recursive=T, showWarnings = F)
 
-  if(verbose)
-    print(paste("Output will be written to ", dest_dir))
+  if(verbose) message("%")
+  if(verbose) message(paste0("% Output will be written to ", dest_dir))
     
   pathfiles <- paste(dest_dir, files, sep="/")
   if(any(file.exists(pathfiles)))
     if(overwrite) {
       if(verbose)
-        print(paste0("The following files in specified path '", dest_dir, "' will be overwritten: ", paste(files[file.exists(pathfiles)], collapse=", ")))
+        message(paste0("% -> The following files in specified path '", dest_dir, "' will be overwritten: ", paste(files[file.exists(pathfiles)], collapse=", ")))
     } else {
       stop(paste0("There are still files at '", dest_dir, "' that shall not be overwritten: ", paste(files[file.exists(pathfiles)], collapse=", ")))
     }
@@ -273,8 +279,8 @@ db_wasa_input <- function(
 ###############################################################################
 ### info.dat
   if("info.dat" %in% files) {
-    if(verbose)
-      print("Create info.dat ...")
+    if(verbose) message("%")
+    if(verbose) message("% Create info.dat ...")
   
     # create file
     if(!file.exists(paste(dest_dir, "info.dat", sep="/")) | overwrite){
@@ -293,8 +299,7 @@ db_wasa_input <- function(
                       installed.packages()["lumpR","Version"], " from database version ",
                       db_ver, " revision ", meta_rev,"."))
     
-    if(verbose)
-      print("OK.")
+    if(verbose) message("% OK")
   }
 
 
@@ -303,8 +308,8 @@ db_wasa_input <- function(
 ###############################################################################
 ### River/routing.dat
   if("River/routing.dat" %in% files) {
-    if(verbose)
-      print("Create River/routing.dat ...")
+    if(verbose) message("%")
+    if(verbose) message("% Create River/routing.dat ...")
     
     # create file
     if(!file.exists(paste(dest_dir, "River/routing.dat", sep="/")) | overwrite){
@@ -335,8 +340,7 @@ db_wasa_input <- function(
                 quote=F, sep="\t", row.names=F, col.names=F)
     
     
-    if(verbose)
-      print("OK.")
+    if(verbose) message("% OK")
   } # River/routing.dat
 
 
@@ -345,8 +349,8 @@ db_wasa_input <- function(
 ###############################################################################
 ### River/response.dat
   if("River/response.dat" %in% files) {
-    if(verbose)
-      print("Create River/response.dat ...")
+    if(verbose) message("%")
+    if(verbose) message("% Create River/response.dat ...")
     
     # create file
     if(!file.exists(paste(dest_dir, "River/response.dat", sep="/")) | overwrite){
@@ -372,8 +376,7 @@ db_wasa_input <- function(
     write.table(dat_out, paste(dest_dir, "River/response.dat", sep="/"), append=T,
                 quote=F, sep="\t", row.names=F, col.names=F)
     
-    if(verbose)
-      print("OK.")
+    if(verbose) message("% OK")
     
   } # River/response.dat
 
@@ -383,8 +386,8 @@ db_wasa_input <- function(
 ###############################################################################
 ### Hillslope/hymo.dat
   if("Hillslope/hymo.dat" %in% files) {
-    if(verbose)
-      print("Create Hillslope/hymo.dat ...")
+    if(verbose) message("%")
+    if(verbose) message("% Create Hillslope/hymo.dat ...")
     
     # create file
     if(!file.exists(paste(dest_dir, "Hillslope/hymo.dat", sep="/")) | overwrite){
@@ -441,8 +444,7 @@ db_wasa_input <- function(
     }
     
     
-    if(verbose)
-      print("OK.")
+    if(verbose) message("% OK")
     
   } # Hillslope/hymo.dat
   
@@ -453,8 +455,8 @@ db_wasa_input <- function(
 ###############################################################################
 ### Hillslope/soter.dat
   if("Hillslope/soter.dat" %in% files) {
-    if(verbose)
-      print("Create Hillslope/soter.dat ...")
+    if(verbose) message("%")
+    if(verbose) message("% Create Hillslope/soter.dat ...")
     
     # create file
     if(!file.exists(paste(dest_dir, "Hillslope/soter.dat", sep="/")) | overwrite){
@@ -511,8 +513,7 @@ db_wasa_input <- function(
     }
     
     
-    if(verbose)
-      print("OK.")
+    if(verbose) message("% OK")
     
   } # Hillslope/soter.dat
 
@@ -522,8 +523,8 @@ db_wasa_input <- function(
 ###############################################################################
 ### Hillslope/terrain.dat
   if("Hillslope/terrain.dat" %in% files) {
-    if(verbose)
-      print("Create Hillslope/terrain.dat ...")
+    if(verbose) message("%")
+    if(verbose) message("% Create Hillslope/terrain.dat ...")
     
     # create file
     if(!file.exists(paste(dest_dir, "Hillslope/terrain.dat", sep="/")) | overwrite){
@@ -580,8 +581,7 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
     }
     
     
-    if(verbose)
-      print("OK.")
+    if(verbose) message("% OK")
     
   } # Hillslope/terrain.dat
 
@@ -591,8 +591,8 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
 ###############################################################################
 ### Hillslope/svc_in_tc.dat
   if("Hillslope/svc_in_tc.dat" %in% files) {
-    if(verbose)
-      print("Create Hillslope/svc_in_tc.dat ...")
+    if(verbose) message("%")
+    if(verbose) message("% Create Hillslope/svc_in_tc.dat ...")
     
     # create file
     if(!file.exists(paste(dest_dir, "Hillslope/svc_in_tc.dat", sep="/")) | overwrite){
@@ -613,7 +613,7 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
     if(any(is.na(dat_contains)) | nrow(dat_contains) == 0)
       stop("Could not write file Hillslope/svc_in_tc.dat. There are missing values in table 'r_tc_contains_svc'!")
     # SVCs
-    flawed_tcs <- check_fix_fractions(dat_tbl="r_tc_contains_svc", fix=FALSE, update_frac_impervious=FALSE, verbose=FALSE)
+    flawed_tcs <- check_fix_fractions(dat_tbl=dat_contains, fix=FALSE, update_frac_impervious=FALSE, verbose=FALSE)
     if(length(flawed_tcs) > 0)
         stop("Not all fractions per TC sum up to one. Check tables 'r_tc_contains_svc' and 'terrain_components' (column frac_rocky) or call db_check(..., check=\"check_fix_fractions\", fix=TRUE)!")
 
@@ -623,8 +623,7 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
     write.table(dat_contains, paste(dest_dir, "Hillslope/svc_in_tc.dat", sep="/"), append=T,
                 quote=F, sep="\t", row.names=F, col.names=F)
     
-    if(verbose)
-      print("OK.")
+    if(verbose) message("% OK")
     
   } # Hillslope/svc_in_tc.dat
 
@@ -634,8 +633,8 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
 ###############################################################################
 ### Hillslope/soil_vegetation.dat
   if("Hillslope/soil_vegetation.dat" %in% files) {
-    if(verbose)
-      print("Create Hillslope/soil_vegetation.dat ...")
+    if(verbose) message("%")
+    if(verbose) message("% Create Hillslope/soil_vegetation.dat ...")
     
     # create file
     if(!file.exists(paste(dest_dir, "Hillslope/soil_vegetation.dat", sep="/")) | overwrite){
@@ -707,8 +706,7 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
     } # sub
     
     
-    if(verbose)
-      print("OK.")
+    if(verbose) message("% OK")
     
   } # Hillslope/soil_vegetation.dat
 
@@ -718,8 +716,8 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
 ###############################################################################
 ### Hillslope/svc.dat
   if("Hillslope/svc.dat" %in% files) {
-    if(verbose)
-      print("Create Hillslope/svc.dat ...")
+    if(verbose) message("%")
+    if(verbose) message("% Create Hillslope/svc.dat ...")
     
     # create file
     if(!file.exists(paste(dest_dir, "Hillslope/svc.dat", sep="/")) | overwrite){
@@ -747,8 +745,7 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
     write.table(dat_out, paste(dest_dir, "Hillslope/svc.dat", sep="/"), sep="\t", row.names=F, col.names=F, append=T, quote=F)
     
   
-    if(verbose)
-      print("OK.")
+    if(verbose) message("% OK")
     
   } # Hillslope/svc.dat
   
@@ -758,8 +755,8 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
 ###############################################################################
 ### Hillslope/soil.dat
   if("Hillslope/soil.dat" %in% files) {
-    if(verbose)
-      print("Create Hillslope/soil.dat ...")
+    if(verbose) message("%")
+    if(verbose) message("% Create Hillslope/soil.dat ...")
     
     # create file
     if(!file.exists(paste(dest_dir, "Hillslope/soil.dat", sep="/")) | overwrite){
@@ -814,8 +811,7 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
             x=str_out, append=T, sep="\n")
     }
     
-    if(verbose)
-      print("OK.")
+    if(verbose) message("% OK")
     
   } # Hillslope/soil.dat
 
@@ -825,8 +821,8 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
 ###############################################################################
 ### Hillslope/vegetation.dat
   if("Hillslope/vegetation.dat" %in% files) {
-    if(verbose)
-      print("Create Hillslope/vegetation.dat ...")
+    if(verbose) message("%")
+    if(verbose) message("% Create Hillslope/vegetation.dat ...")
     
     # create file
     if(!file.exists(paste(dest_dir, "Hillslope/vegetation.dat", sep="/")) | overwrite){
@@ -872,8 +868,7 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
                 quote=F, sep="\t", row.names=F, col.names=F)
     
     
-    if(verbose)
-      print("OK.")
+    if(verbose) message("% OK")
     
   } # Hillslope/vegetation.dat
 
@@ -883,8 +878,8 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
 ###############################################################################
 ### do.dat
   if("do.dat" %in% files) {
-    if(verbose)
-      print("Create do.dat ...")
+    if(verbose) message("%")
+    if(verbose) message("% Create Hillslope/do.dat ...")
     
     # create file
     if(!file.exists(paste(dest_dir, "do.dat", sep="/")) | overwrite){
@@ -983,8 +978,7 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
                       ".f.\t//load state of storages from files (if present) at start (optional)",
                       ".f.\t//save state of storages to files after simulation period (optional)"))
     
-    if(verbose)
-      print("OK.")
+    if(verbose) message("% OK")
     
   } # do.dat
 
@@ -994,8 +988,8 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
 ###############################################################################
 ### maxdim.dat
   if("maxdim.dat" %in% files) {
-    if(verbose)
-      print("Create maxdim.dat ...")
+    if(verbose) message("%")
+    if(verbose) message("% Create maxdim.dat ...")
     
     # create file
     if(!file.exists(paste(dest_dir, "maxdim.dat", sep="/")) | overwrite){
@@ -1037,8 +1031,7 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
                       paste0(no_max_hor, "\t//maximum no. of horizons in a soil"),
                       "2\t//maximum no. transpositions between sub-basins (only dummy; no value > 2 supported yet)"))
     
-    if(verbose)
-      print("OK.")
+    if(verbose) message("% OK")
     
   } # maxdim.dat
 
@@ -1048,8 +1041,8 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
 ###############################################################################
 ### part_class.dat
   if("part_class.dat" %in% files) {
-    if(verbose)
-      print("Create part_class.dat ...")
+    if(verbose) message("%")
+    if(verbose) message("% Create part_class.dat ...")
     
     # create file
     if(!file.exists(paste(dest_dir, "part_class.dat", sep="/")) | overwrite){
@@ -1074,8 +1067,7 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
                 quote=F, sep="\t", row.names=F, col.names=F)
     
     
-    if(verbose)
-      print("OK.")
+    if(verbose) message("% OK")
     
   } # part_class.dat
 
@@ -1085,8 +1077,8 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
 ###############################################################################
 ### Hillslope/soil_particles.dat
   if("Hillslope/soil_particles.dat" %in% files) {
-    if(verbose)
-      print("Create Hillslope/soil_particles.dat ...")
+    if(verbose) message("%")
+    if(verbose) message("% Create Hillslope/soil_particles.dat ...")
     
     # create file
     if(!file.exists(paste(dest_dir, "Hillslope/soil_particles.dat", sep="/")) | overwrite){
@@ -1126,8 +1118,7 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
     write.table(dat_contains_part, paste(dest_dir, "Hillslope/soil_particles.dat", sep="/"), append=T,
                 quote=F, sep="\t", row.names=F, col.names=F)
     
-    if(verbose)
-      print("OK.")
+    if(verbose) message("% OK")
     
   } # Hillslope/soil_particles.dat
 
@@ -1137,8 +1128,8 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
 ###############################################################################
 ### Hillslope/rainy_season.dat
   if("Hillslope/rainy_season.dat" %in% files) {
-    if(verbose)
-      print("Create Hillslope/rainy_season.dat ...")
+    if(verbose) message("%")
+    if(verbose) message("% Create Hillslope/rainy_season.dat ...")
     
     # create file
     if(!file.exists(paste(dest_dir, "Hillslope/rainy_season.dat", sep="/")) | overwrite){
@@ -1203,8 +1194,7 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
                 quote=F, sep="\t", row.names=F, col.names=F)
     
   
-    if(verbose)
-      print("OK.")
+    if(verbose) message("% OK")
     
   } # Hillslope/rainy_season.dat
   
@@ -1231,8 +1221,13 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
 
 
 
-  print("All output files written successfully. Close ODBC connection.")
+  if(verbose) message("%")
+  if(verbose) message("% All files written successfully. Close ODBC connection.")
   
   odbcClose(con)
+  
+  if(verbose) message("%")
+  if(verbose) message("% DONE!")
+  if(verbose) message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
 
 } # EOF
