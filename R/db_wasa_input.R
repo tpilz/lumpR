@@ -613,7 +613,7 @@ str_out <- paste(dat_tc$pid[s], dat_contains$fraction[r_contains],
     if(any(is.na(dat_contains)) | nrow(dat_contains) == 0)
       stop("Could not write file Hillslope/svc_in_tc.dat. There are missing values in table 'r_tc_contains_svc'!")
     # SVCs
-    flawed_tcs <- check_fix_fractions(con=con, table="r_tc_contains_svc", fix=FALSE, verbose=FALSE, tbl_changed="")
+    flawed_tcs <- check_fix_fractions(dat_tbl="r_tc_contains_svc", fix=FALSE, update_frac_impervious=FALSE, verbose=FALSE)
     if(length(flawed_tcs) > 0)
         stop("Not all fractions per TC sum up to one. Check tables 'r_tc_contains_svc' and 'terrain_components' (column frac_rocky) or call db_check(..., check=\"check_fix_fractions\", fix=TRUE)!")
 
