@@ -139,8 +139,8 @@ db_update <- function(
         # check if column name already has been updated (that would cause an error by sqlQuery())
         if(grepl("alter table", statement, ignore.case = TRUE)) {
           split <- strsplit(statement, "[ ]+")[[1]]
-          pos <- grep("change", split, ignore.case = T)
-          tbl <- split[pos-1]
+          pos <- grep("change|modify|alter", split, ignore.case = T)
+          tbl <- split[tail(pos, n=1)-1]
           if (!(tbl %in% tbls))
             stop(paste0("Table '", tbl, "' does not exist but is needed to update to version 19!"))
           col_old <- split[pos+1]
@@ -210,8 +210,8 @@ db_update <- function(
       # check if table to be altered does exist
       if(grepl("alter table", statement, ignore.case = TRUE)) {
         split <- strsplit(statement, "[ ]+")[[1]]
-        pos <- grep("change", split, ignore.case = T)
-        tbl <- split[pos-1]
+        pos <- grep("change|modify|alter", split, ignore.case = T)
+        tbl <- split[tail(pos, n=1)-1]
         if (!(tbl %in% tbls))
           stop(paste0("Table '", tbl, "' does not exist but is needed to update database to version ", to_ver, "!"))
       }
