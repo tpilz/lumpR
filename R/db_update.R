@@ -41,11 +41,7 @@ db_update <- function(
 ) {
   
   # connect to ODBC registered database
-  suppressWarnings(con <- odbcConnect(dbname, believeNRows=F))
-  
-  if (con == -1)
-    print(paste0("Could not connect to database '", dbname, "'. Type 'odbcDataSources()' to see the data sources known to ODBC.",
-                 " If you want to connect to a MS Access database make sure you are using 32 bit R."))
+  con <- connect_db(dbname)
   
   # ensure MySQL/MariaDB uses ANSI quotation (double quotes instead of back ticks)
   if(grepl("MariaDB", odbcGetInfo(con)["DBMS_Name"], ignore.case=T))
