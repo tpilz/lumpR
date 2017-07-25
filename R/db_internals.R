@@ -412,7 +412,7 @@ modify_db <- function(con, dat_tbl) {
     for(k in 2:length(key_t)) {
       for(i in unique(dat_tbl[,k-1])) {
         dat_t <- dat_tbl[which(dat_tbl[,k-1]==i),]
-        del_query <- paste0("delete from ", tbl_name, " where ", key_t[k-1], "==", i,
+        del_query <- paste0("delete from ", tbl_name, " where ", key_t[k-1], "=", i,
                             " and not ", key_t[k], " in (", paste(dat_t[, key_t[k]], collapse = ", "), ")")
         del_query <- sql_dialect(con, del_query)
         res <- sqlQuery(con, del_query, errors=F) # throws an "error" if nothing was deleted, so don't investigate further and hope everything is fine
