@@ -108,12 +108,9 @@ Function creates most of the input files needed for the ECHSE model engine WASA,
  manual. The engine manual contains descriptions of the model engines and incorporated processes.
 }
 \note{
-So far, this function is only capable to create input files for the ECHSE model engine WASA.
+So far, this function is only capable of creating input files for the ECHSE model engine WASA.
  Other ECHSE engines cannot be initialised with this function, although that might be enabled in
  the future.
-}
-\author{
-Tobias Pilz \email{tpilz@uni-potsdam.de}
 }
 \references{
 Theoretical description of the \bold{EC}o-\bold{H}ydrological \bold{S}imulation
@@ -123,4 +120,6 @@ Theoretical description of the \bold{EC}o-\bold{H}ydrological \bold{S}imulation
  hydrological model engines. \emph{Environmental Modelling & Software}, 68, 110-121,
  doi: 10.1016/j.envsoft.2015.02.009
 }
-
+\author{
+Tobias Pilz \email{tpilz@uni-potsdam.de}
+}

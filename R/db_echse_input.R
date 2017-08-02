@@ -44,7 +44,7 @@
 #'  information on general file structures and how to run and install echse, read the core
 #'  manual. The engine manual contains descriptions of the model engines and incorporated processes.
 #'  
-#' @note So far, this function is only capable to create input files for the ECHSE model engine WASA.
+#' @note So far, this function is only capable of creating input files for the ECHSE model engine WASA.
 #'  Other ECHSE engines cannot be initialised with this function, although that might be enabled in
 #'  the future.
 #'  
@@ -127,8 +127,6 @@
 #'  
 #' @author 
 #'  Tobias Pilz \email{tpilz@@uni-potsdam.de}
-#'  
-#' @export
 
 db_echse_input <- function(
   dbname,
@@ -138,44 +136,53 @@ db_echse_input <- function(
   verbose = TRUE
 ) {
   
-  if (verbose)
-    print("Connecting to database ...")
+  if(verbose) message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+  if(verbose) message("% START db_echse_input()")
+  if(verbose) message("%")
+  if(verbose) message("% Connecting to and checking database ...")
   
   # connect to ODBC registered database
-  suppressWarnings(con <- odbcConnect(dbname, believeNRows=F))
+  con <- connect_db(dbname)
   
-  if (con == -1)
-    print(paste0("Could not connect to database '", dbname, "'. Type 'odbcDataSources()' to see the data sources known to ODBC.",
-                 " If you want to connect to a MS Access database make sure you are using 32 bit R."))
+  #modify error handler to gracefully close ODBC-connection before aborting (otherwise, ODBC-handles are left open)
+  org_error_handler = getOption("error") #original error handler
   
-  if(verbose)
-    print("OK.")
+  closeODBC_and_stop = function()
+  {  
+    odbcCloseAll()
+    options(error=org_error_handler) #restore original handler
+  }
+  options(error=closeODBC_and_stop)  #modify error handler
   
   # ensure MySQL/MariaDB uses ANSI quotation (double quotes instead of back ticks)
   if(grepl("MariaDB", odbcGetInfo(con)["DBMS_Name"], ignore.case=T))
     sqlQuery(con, "SET sql_mode='ANSI';")
   
+  if(verbose) message("% OK")
+  
+  
+  
+  if(verbose) message("%")
+  if(verbose) message("% Check database version ...")
   
   # get most recent db version from update sql files in source directory
   db_dir <- system.file("database/", package="lumpR")
   db_up_files <- dir(db_dir, pattern="update_[a-zA-Z0-9_]*.sql")
   db_ver_max <- max(as.integer(sub(".sql", "", sub("update_db_v", "", db_up_files))))
   
-  #check current db version
-  if(verbose)
-    print("Check database version ...")
   db_ver <- max(sqlFetch(con, "db_version")$version)
-  if(db_ver < db_ver_max) {
-    odbcClose(con)
-    stop(paste0("Database version is prior to version ",db_ver_max, ". Make sure you use the latest database version (consider function db_update())!"))
-  }
-  if(verbose)
-    print("OK.")
+  if(db_ver < db_ver_max) stop(paste0("Database version is prior to version ", db_ver_max, ". Make sure you use the latest database version (consider function db_update())!"))
+  
+  if(verbose) message("% OK")
+  
+  
   
   # create and/or check output directory
   if(!file_test("-d", paste(proj_dir, proj_name, sep="/")) | overwrite == T) {
-    if(verbose)
-      print(paste0("Output directory ", paste(proj_dir, proj_name, "data", sep="/"), " with all sub-directories will be created."))
+    if(verbose) {
+      message("%")
+      message(paste0("% Output directory ", paste(proj_dir, proj_name, "data", sep="/"), " with all sub-directories will be created."))
+    }
     dir.create(paste(proj_dir, proj_name, "data", "parameter", sep="/") , recursive=T, showWarnings=F)
     dir.create(paste(proj_dir, proj_name, "data", "catchment", sep="/") , recursive=T, showWarnings=F)
     dir.create(paste(proj_dir, proj_name, "data", "initials", sep="/") , recursive=T, showWarnings=F)
@@ -191,8 +198,8 @@ db_echse_input <- function(
 ###############################################################################
 ### object declaration, linkage, object-specific parameters and initial conditions
   
-  if(verbose)
-    print(paste0("Calculate object declaration, linkage, object-specific parameters and initial conditions ..."))
+  if(verbose) message("%")
+  if(verbose) message("% Calculate object declaration, linkage, object-specific parameters and initial conditions ...")
   
   # create files
   objdecl <- "objDecl.dat"
@@ -1060,17 +1067,15 @@ db_echse_input <- function(
   }
   
   
-  if(verbose)
-    print("OK.")
+  if(verbose) message("% OK")
   
   
+
+###############################################################################
+### GROUP SPECIFIC (SHARED) PARAMETERS
   
-### GROUP SPECIFIC (SHARED) PARAMETERS ###
-  
-  if(verbose)
-    print(paste0("Calculate group-specific (shared) parameters ..."))
-  
-  
+  if(verbose) message("%")
+  if(verbose) message("% Calculate group-specific (shared) parameters ...")
   
   # SVC
   out_dat <- data.frame(parameter=c("# Meteorological parameters",
@@ -1135,15 +1140,14 @@ db_echse_input <- function(
   
   
   
-  if(verbose)
-    print("OK.")
+  if(verbose) message("% OK")
+
+###############################################################################
+### DUMMY
   
+  if(verbose) message("%")
+  if(verbose) message("% Create dummy parameter files ...")
   
-  
-### DUMMY ###
-  
-  if(verbose)
-    print(paste0("Create dummy parameter files ..."))
   
   out_dat <- data.frame(object="NODATA", NOTHING=-9999)
   
@@ -1171,15 +1175,14 @@ db_echse_input <- function(
   suppressWarnings(write.table(out_dat, file=paste(proj_dir, proj_name, "data", "parameter", objpar_dummy, sep="/"),
               col.names=T, row.names=F, append=T, quote=F, sep="\t"))
   
-  if(verbose)
-    print("OK.")
+  if(verbose) message("% OK")
   
+###############################################################################
+### VEGETATION TIME SERIES
   
+  if(verbose) message("%")
+  if(verbose) message("% Calculate vegetation parameter time series ...")
   
-### VEGETATION TIME SERIES ###
-  
-  if(verbose)
-    print(paste0("Calculate vegetation parameter time series ..."))
   
   # prepare external locations file
   extloc_file <- "input_ext_locs.dat"
@@ -1269,11 +1272,19 @@ db_echse_input <- function(
               sep="\t", quote=F, col.names=F, row.names=format(index(doy_ts), '%Y-%m-%d %H:%M:%S'), append=T)
 
   
-  if(verbose)
-    print("OK.")
+  if(verbose) message("% OK")
   
- 
   
-  print("All outputs written. You still need to prepare the meteorological forcing (consider ECHSE tools, expand 'input_ext_locs.dat' accordingly)! Adjust sharedParamNum_WASA_*.dat to your needs!")
+  if(verbose) message("%")
+  if(verbose) message("% All files written successfully. You still need to prepare the meteorological forcing (consider ECHSE tools, expand 'input_ext_locs.dat' accordingly)! Adjust sharedParamNum_WASA_*.dat to your needs!")
+  
+  if(verbose) message("%")
+  if(verbose) message("% Close ODBC connection.")
+  
+  odbcClose(con)
+  
+  if(verbose) message("%")
+  if(verbose) message("% DONE!")
+  if(verbose) message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
 
 } # EOF
