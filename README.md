@@ -44,11 +44,13 @@ This package was also known as LUMP and has been renamed by Jan 9th 2017 to dist
 
 ## REFERENCES
 
-A paper describing lumpR along with an example study is under discussion in GMD: http://www.geosci-model-dev-discuss.net/gmd-2017-17/
+A paper describing lumpR along with an example study was published in GMD:
+
+[Pilz, T., Francke, T., and Bronstert, A.: lumpR 2.0.0: an R package facilitating landscape discretisation for hillslope-based hydrological models, Geosci. Model Dev., 10, 3001-3023, doi: 10.5194/gmd-10-3001-2017, 2017.](https://www.geosci-model-dev.net/10/3001/2017/gmd-10-3001-2017.html)
 
 See also the accompanying github repository: https://github.com/tpilz/lumpr_paper
 
 
 For the original LUMP algorithm see:
 
-[Francke, T., Güntner, A., Mamede, G., Müller, E. N., and Bronstert, A.: Automated catena-based discretization of landscapes for the derivation of hydrological modelling units, Int. J. Geogr. Inf. Sci., 22, 111–132, doi:10.1080/13658810701300873, 2008.](http://www.tandfonline.com/doi/abs/10.1080/13658810701300873)
+[Francke, T., Güntner, A., Mamede, G., Müller, E. N., and Bronstert, A.: Automated catena-based discretization of landscapes for the derivation of hydrological modelling units, Int. J. Geogr. Inf. Sci., 22, 111-132, doi:10.1080/13658810701300873, 2008.](http://www.tandfonline.com/doi/abs/10.1080/13658810701300873)
