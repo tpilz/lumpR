@@ -507,20 +507,21 @@ db_wasa_input <- function(
     
     # loop over LUs
     for(s in 1:nrow(dat_all$landscape_units)) {
-      # identify rows in contains table of current LU
+      # identify rows in contains table of current LU and ensure correct order of TCs
       r_contains <- which(dat_all$r_lu_contains_tc$lu_id == dat_all$landscape_units$pid[s])
+      ord <- order(dat_all$r_lu_contains_tc$position[r_contains])
       
       # check that fractions sum up to 1
       if(round(sum(dat_all$r_lu_contains_tc$fraction[r_contains]),3) != 1)
         stop(paste0("For LU ", dat_all$landscape_units$pid[s], " sum of areal fractions of terrain components (table 'r_lu_contains_tc') are not equal to one. Consider function db_check()."))
       
       # string for output file with relevant information
-#       str_out <- paste(dat_lu$pid[s], length(r_contains), 
-#                        paste(dat_contains$tc_id[r_contains], collapse="\t"),
-#                        paste(round(dat_lu[s,-c(1,2,11)],1), collapse="\t"), sep="\t")
       str_out <- paste(dat_all$landscape_units$pid[s], length(r_contains), 
-                       paste(dat_all$r_lu_contains_tc$tc_id[r_contains], collapse="\t"),
-                       paste(dat_all$landscape_units[s,-omit_fields], collapse="\t"), sep="\t")
+                       paste(dat_all$r_lu_contains_tc$tc_id[r_contains][ord], collapse="\t"),
+                       paste(dat_all$landscape_units[s,c("kf_bedrock", "slopelength", "soil_depth", "allu_depth",
+                                                   "riverbed_depth", "gw_flag", "gw_dist", "frgw_delay")], collapse = "\t"), sep="\t")
+      if (!all(is.na(dat_all$landscape_units$sdr_lu)))
+        str_out <- paste(str_out, dat_all$landscape_units[s, "sdr_lu"], sep="\t")
 
       # write output
       write(file=paste(dest_dir, "Hillslope/soter.dat", sep="/"),x=str_out,append=T,sep="\n")
@@ -585,10 +586,8 @@ db_wasa_input <- function(
         r_contains = r_contains[1]
       
       # string for output file with relevant information
-#       str_out <- paste(dat_tc$pid[s], round(dat_contains$fraction[r_contains],3),
-#                        round(dat_tc[s,"slope"],3), dat_contains$position[r_contains], sep="\t")
-str_out <- paste(dat_all$terrain_components$pid[s], dat_all$r_lu_contains_tc$fraction[r_contains],
-                 dat_all$terrain_components$slope[s], dat_all$r_lu_contains_tc$position[r_contains], sep="\t")
+      str_out <- paste(dat_all$terrain_components$pid[s], dat_all$r_lu_contains_tc$fraction[r_contains],
+                       dat_all$terrain_components$slope[s], dat_all$r_lu_contains_tc$position[r_contains], sep="\t")
       
       # write output
       write(file=paste(dest_dir, "Hillslope/terrain.dat", sep="/"),x=str_out,append=T,sep="\n")
@@ -628,6 +627,7 @@ str_out <- paste(dat_all$terrain_components$pid[s], dat_all$r_lu_contains_tc$fra
     
     # check data
     dat_out <- dat_all$r_tc_contains_svc[which(dat_all$r_tc_contains_svc$svc_id != -1),] # remove special area flag
+    dat_out <- dat_out[,c("tc_id", "svc_id", "fraction")]
     if(any(is.na(dat_out)) | nrow(dat_out) == 0)
       stop("Could not write file Hillslope/svc_in_tc.dat. There are missing values in table 'r_tc_contains_svc'!")
     flawed_tcs <- check_fix_fractions(dat_tbl=dat_all$r_tc_contains_svc, fix=FALSE, update_frac_impervious=FALSE, verbose=FALSE)
@@ -635,8 +635,6 @@ str_out <- paste(dat_all$terrain_components$pid[s], dat_all$r_lu_contains_tc$fra
         stop(paste0("The fractions of TCs ", paste(flawed_tcs, collapse = ", "), " do not sum up to one. Check tables 'r_tc_contains_svc' and 'terrain_components' (column frac_rocky) or call db_check(..., check=\"check_fix_fractions\", fix=TRUE)!"))
     
     # write output
-#     write.table(round(dat_contains,4), paste(dest_dir, "Hillslope/svc_in_tc.dat", sep="/"), append=T,
-#                 quote=F, sep="\t", row.names=F, col.names=F)
     write.table(dat_out, paste(dest_dir, "Hillslope/svc_in_tc.dat", sep="/"), append=T,
                 quote=F, sep="\t", row.names=F, col.names=F)
     
@@ -700,12 +698,6 @@ str_out <- paste(dat_all$terrain_components$pid[s], dat_all$r_lu_contains_tc$fra
           r_svc <- which(dat_all$soil_veg_components$pid %in% dat_tc_svc_t$svc_id)
           
           # string for output file with relevant information
-#           str_out_1 <- paste(s, l, tc, round(dat_tc$frac_rocky[which(dat_tc$pid == tc)],3), length(r_tc_contains),
-#                              paste(dat_svc$soil_id[r_svc], collapse="\t"), sep="\t")
-#           str_out_2 <- paste(s, l, tc, round(dat_tc$frac_rocky[which(dat_tc$pid == tc)],3), length(r_tc_contains),
-#                              paste(dat_svc$veg_id[r_svc], collapse="\t"), sep="\t")
-#           str_out_3 <- paste(s, l, tc, round(dat_tc$frac_rocky[which(dat_tc$pid == tc)],3), length(r_tc_contains),
-#                              paste(round(dat_tc_contains$fraction[r_tc_contains],4), collapse="\t"), sep="\t")
           str_out_1 <- paste(s, l, tc, dat_all$terrain_components$frac_rocky[which(dat_all$terrain_components$pid == tc)], nrow(dat_tc_svc_t),
                              paste(dat_all$soil_veg_components$soil_id[r_svc], collapse="\t"), sep="\t")
           str_out_2 <- paste(s, l, tc, dat_all$terrain_components$frac_rocky[which(dat_all$terrain_components$pid == tc)], nrow(dat_tc_svc_t),
@@ -815,8 +807,6 @@ str_out <- paste(dat_all$terrain_components$pid[s], dat_all$r_lu_contains_tc$fra
       r_hor <- which(dat_all$horizons$soil_id == dat_soil$pid[s])
       
       # string for output file with relevant information
-#       dat_out <- round(dat_hor[r_hor, c("theta_r", "theta_pwp", "fk", "fk63", "nfk", "theta_s", "thickness",
-#                                         "ks", "suction", "pore_size_i", "bubb_pres", "coarse_frag", "shrinks")],3)
       dat_out <- dat_all$horizons[r_hor, c("theta_r", "theta_pwp", "fk", "fk63", "nfk", "theta_s", "thickness",
                                         "ks", "suction", "pore_size_i", "bubb_pres", "coarse_frag", "shrinks")]
       
@@ -1137,8 +1127,6 @@ str_out <- paste(dat_all$terrain_components$pid[s], dat_all$r_lu_contains_tc$fra
       stop("Could not successfully write file Hillslope/soil_particles.dat. In table 'r_soil_contains_particles' not all fractions sum up to 1.")
     
     # write output
-    #write.table(round(dat_contains_part,3), paste(dest_dir, "Hillslope/soil_particles.dat", sep="/"), append=T,
-    #            quote=F, sep="\t", row.names=F, col.names=F)
     write.table(dat_contains_part, paste(dest_dir, "Hillslope/soil_particles.dat", sep="/"), append=T,
                 quote=F, sep="\t", row.names=F, col.names=F)
     
@@ -1218,8 +1206,8 @@ str_out <- paste(dat_all$terrain_components$pid[s], dat_all$r_lu_contains_tc$fra
     
     
     # write output
-    r_omit <- which(names(dat_rs) == "pid")
-    write.table(dat_rs[,-r_omit], paste(dest_dir, "Hillslope/rainy_season.dat", sep="/"), append=T,
+    dat_out <- dat_rs[,c("subbas_id", "veg_id", "yearm", "node1", "node2", "node3", "node4")]
+    write.table(dat_out, paste(dest_dir, "Hillslope/rainy_season.dat", sep="/"), append=T,
                 quote=F, sep="\t", row.names=F, col.names=F)
     
   
