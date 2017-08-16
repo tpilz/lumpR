@@ -530,7 +530,11 @@ db_check <- function(
                                  con = con, tbl_exist = names(dat_all), update_frac_impervious=option[["update_frac_impervious"]]))
         
         # identify existing entries in frac_rocky (herein computed values will be added)
-        dat_all$terrain_components$frac_rocky[is.na(dat_all$terrain_components$frac_rocky)] = 0 #set NAs to 0
+        if(any(is.na(dat_all$terrain_components$frac_rocky))) {
+          dat_all$terrain_components$frac_rocky[is.na(dat_all$terrain_components$frac_rocky)] = 0 #set NAs to 0
+          attr(dat_all$terrain_components, "altered") <- TRUE
+          message("% -> NA values in 'terrain_components' column 'frac_rocky' set to zero.")
+        }
         if (nrow(dat_all$terrain_components)>0 & max(dat_all$terrain_components$frac_rocky)>0)
           message("% -> ATTENTION: Column 'frac_rocky' in table 'terrain_components' already contains some values. The computed fractions will be added to these.")
     
@@ -568,7 +572,7 @@ db_check <- function(
           }
           attr(dat_all$terrain_components, "altered") <- TRUE
         } else
-          if(verbose) message("% -> No impervious SVCs found. Table 'terrain_components' will be left unchanged")
+          if(verbose) message("% -> No impervious SVCs found.")
     } # if fix
     
     if(verbose) message("% OK")

@@ -363,6 +363,8 @@ read_db_dat <- function(tbl, con, tbl_exist, update_frac_impervious) {
     # information about rocky fractions needed for r_tc_contains_svc, see ?db_check: remove_impervious_svc, option update_frac_impervious = FALSE
     if(t == "r_tc_contains_svc" & !update_frac_impervious) {
       res <- sqlQuery(con, "select pid as tc_id, -1 as svc_id, frac_rocky as fraction from terrain_components")
+      # replace NA in rocky fraction by zero
+      res$fraction[is.na(res$fraction)] <- 0
       dat_out[[t]] <- rbind(dat_out[[t]], res)
     }
     # meta information (attributes)
