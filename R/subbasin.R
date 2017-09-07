@@ -126,8 +126,11 @@ calc_subbas <- function(
     stop("You have to specify points_processed!")
   if(!is.numeric(snap_dist))
     stop("You have to specify snap_dist as a number!")
-  if(is.null(outlet) & (nrow(drain_points@coords) > 1))
-    stop("You have to give 'outlet' if the given number of drain_points is greater than one!")
+  if(is.null(outlet)) {
+    if(nrow(drain_points@coords) > 1)
+      stop("You have to give 'outlet' if the given number of drain_points is greater than one!")
+    outlet <- 1
+  }
   if(is.null(thresh_sub))
     rm_spurious <- 0
   if(!is.numeric(rm_spurious))
