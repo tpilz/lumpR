@@ -114,6 +114,7 @@ calc_subbas <- function(
 ### PREPROCESSING ###
   
   # CHECKS #
+  tryCatch(gmeta(), error = function(e) stop("Cannot execute GRASS commands. Maybe you forgot to run initGRASS()?"))
   if(is.null(dem))
     stop("The name of a DEM within the mapset of your initialised GRASS session has to be given!")
   if(is.null(drain_points) | !grepl("SpatialPoints", class(drain_points)))

@@ -71,6 +71,8 @@ reservoir_outlet <- function(
   
 ) {
   
+  tryCatch(gmeta(), error = function(e) stop("Cannot execute GRASS commands. Maybe you forgot to run initGRASS()?"))
+  
   tryCatch({
     
     # Check arguments

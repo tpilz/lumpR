@@ -163,6 +163,8 @@ reservoir_lumped <- function(
   
   # CHECKS #
   
+  tryCatch(gmeta(), error = function(e) stop("Cannot execute GRASS commands. Maybe you forgot to run initGRASS()?"))
+  
   # spatial input from GRASS location
   if(is.null(res_vect))
     stop("The name of a reservoir vector file 'res_vect' within the mapset of your initialised GRASS session has to be given!")
