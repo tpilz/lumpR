@@ -560,6 +560,7 @@ db_fill <- function(
   
   # update table meta_info
   write_metainfo(con,
+                 "db_fill()",
                  paste(tables, collapse=", "), "all",
                  paste0("Automated filling of tables with R package lumpR using files from location ", dat_dir, "."),
                  FALSE)
