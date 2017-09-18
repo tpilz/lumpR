@@ -323,7 +323,7 @@ db_check <- function(
           if(any(rm_sum > 0.1)) {
             keep <- which(rm_sum > 0.1)
             message(paste0("% -> For '", colnames(lutc_zero)[1], "' ", paste(names(rm_sum)[keep], collapse=", "),
-                         " more than 10% of the area would be removed due to too many small '", colnames(lutc_zero)[2], ". These datasets will be kept."))
+                         " more than 10% of the area would be removed due to too many small '", colnames(lutc_zero)[2], ". No changes done. Consider using smaller threshold to remove less entries."))
             
             rows_rm_keep <- which(lutc_zero[[1]][rows_lutc_rm] %in% names(rm_sum)[keep])
             rows_lutc_rm <- rows_lutc_rm[-rows_rm_keep]
