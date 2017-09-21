@@ -217,8 +217,6 @@ area2catena <- function(
     if (length(supp_qual)==0) supp_qual=NULL
     if (!is.null(supp_qual)) 
     {  
-      
-      
       for (i in supp_qual) {
         tmp <- raster(readRAST6(i))
         qual_rast <- stack(tmp, qual_rast)
@@ -563,7 +561,6 @@ eha_calc <- function(curr_id, eha_rast, flowaccum_rast, dist2river_rast, relelev
   density <- array(NA, res+1) # initialise vector for density values
   entry_missing <- 0 # flag indicating that the value for the previous point in the mean catena could not be computed
   out_combined <- NULL # combined output of one catena    
-  
   # loop over data points of mean catena
   for (j in 0:res) {
     # point number in catena output
@@ -572,11 +569,11 @@ eha_calc <- function(curr_id, eha_rast, flowaccum_rast, dist2river_rast, relelev
     # initial search range used for averaging the current point of the mean catena
     search_range <- 0.5
     
-    # seek all entries within the "spacing" range that are averaged to one point in the output catena
+    # seek all entries within the "spacing" range that will be averaged to one point in the output catena
     while (1) {
       curr_entries <- which(dist2river_vals>=(j-search_range) & dist2river_vals<(j+search_range))
 
-      # check, if enough cells have been found to be used for averageing this point of the catena
+      # check, if enough cells have been found to be used for averaging this point of the catena
       if (j==0 || length(curr_entries)>=min_no_cells || search_range==100) {     
         break
       }
@@ -591,6 +588,7 @@ eha_calc <- function(curr_id, eha_rast, flowaccum_rast, dist2river_rast, relelev
       
       # square root of flowaccumulation (~flow path density)
       flowaccum_sqrt <- sqrt(flowaccum_vals[curr_entries])
+      sum_flowaccum_sqrt <- sum(flowaccum_sqrt) #safe some calculation time
       
       # averaging of elevations of all points
       # mean weighted with square root of flowaccumulation (~flow path density)
@@ -599,9 +597,8 @@ eha_calc <- function(curr_id, eha_rast, flowaccum_rast, dist2river_rast, relelev
       # compute average quantitative supplemental data
       if (!is.null(quant_rast)) {
         for (k in 1:length(supp_quant)) {
-          supp_attrib_mean[k,j+1] <- weighted.mean(x=quant_vals[curr_entries,k], w=flowaccum_sqrt/sum(flowaccum_sqrt), na.rm=TRUE)  #weighted mean, weighted with sqrt(flow_accum) and NAs removed
+          supp_attrib_mean[k,j+1] <- weighted.mean(x=quant_vals[curr_entries,k], w=flowaccum_sqrt/sum_flowaccum_sqrt, na.rm=TRUE)  #weighted mean, weighted with sqrt(flow_accum) and NAs removed
         }
-        
       }
       
       # for summing up the number of classes needed by the successive qualitative attributes
@@ -618,7 +615,7 @@ eha_calc <- function(curr_id, eha_rast, flowaccum_rast, dist2river_rast, relelev
           for (kk in 1:n_supp_data_qual_classes[k]) { # loop over attribute's classes
             supp_attrib_mean[quant_columns+kk+col_counter,j+1] <- sum((curr_att_val==supp_data_classnames[[k]][kk])*flowaccum_sqrt)/sum(flowaccum_sqrt) 
           }
-          
+
           # check averages (should sum up to one for each attribute), SEVERE ERROR CODE 666
           if(sum(supp_attrib_mean[(quant_columns+col_counter+1):(quant_columns+col_counter+n_supp_data_qual_classes[k]),j+1]) < 0.999) {
             message(paste('For EHA ', curr_id, ' areal fractions of qualitative supplemental attribute ', k, ' does not sum to one for profile point ', j+1, sep=""))
@@ -655,7 +652,6 @@ eha_calc <- function(curr_id, eha_rast, flowaccum_rast, dist2river_rast, relelev
                             density[j+1]))
     
   } # end of reference points loop
-  
   # PLOT mean catena + cumulated density
   if (plot_catena) {
     lines((out_x)*xres,out_y,lwd=2,col="red")
