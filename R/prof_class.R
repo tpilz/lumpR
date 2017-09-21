@@ -115,7 +115,7 @@ prof_class <- function(
   luoutfile="lu.dat",
   tcoutfile="tc.dat",
   lucontainstcoutfile="lucontainstc.dat",
-  tccontainssvcoutfile="tc_contains_svc.dat",
+  tccontainssvcoutfile="r_tc_contains_svc.dat",
   terraincomponentsoutfile="terraincomponents.dat",
   recl_lu="reclass_lu.txt",
   saved_clusters=NULL,
@@ -180,13 +180,11 @@ prof_class <- function(
   
 
   
-  
   ### CALCULATIONS ###
   tryCatch(
   {
     message("START 'prof_class'.")
     message("")
-    
     
     # SETTINGS #
     # output dir
@@ -228,6 +226,7 @@ prof_class <- function(
       attr_names[2] <- 'xy-extent'
     } else {
       cf_mode <- 'singlerun' # classification performed in single run for all classes using the specified weighting factors (option 1)
+      warning("cf_mode='singlerun' is experimental. Please consider 'successive' by adding a '-' before the first number of line 8 in rstats_head.txt")
     }
     
     # number of classes to divide the dataset into
@@ -289,7 +288,6 @@ prof_class <- function(
       plot(1,1,type="n", xlim=c(0,max(profpoints)*resolution), ylim=c(0,500),
            main="Original catenas", xlab="horizontal length [m]", ylab="elevation [m]")
     }
-    
   #read and resample profiles (done at the same time to avoid duplicates in memory)
      testcon <- file(catena_file,open="r")
      if(!silent) #for printing progress indicator
@@ -417,7 +415,6 @@ prof_class <- function(
           maskw <- emptymask
           maskw[iw] <- 1 
         }
-        
         # modify original weights:
         attr_weights_class <- maskw
         
@@ -549,7 +546,7 @@ prof_class <- function(
           sumd <- kmeans_out$withinss   # within-cluster sum of squares, one per cluster
         }  
       }
-      
+
       # store classification result of this treated attribute
       cidx_save[[iw]] <- cidx
       
@@ -609,7 +606,6 @@ prof_class <- function(
     
     
     
-    
     # complete key generation (successive mode only)
     # successive weighting mode: all prior classifications will be merged into one by generating unique key 
     if (cf_mode == 'successive') {
@@ -643,14 +639,13 @@ prof_class <- function(
     
     #-----------end of class key generation
     
-    
-    
+
     
     # calculate MEAN CATENA of each class
     unique_classes <- unique(cidx)
     
     if (length(unique_classes)!=nclasses) {
-      warning(paste('Number of generated classes (', length(unique_classes), ') is not not as expected (', nclasses, '). Please check what happended.'))
+      warning(paste('Number of generated classes (', length(unique_classes), ') is not not as expected (', nclasses, '). Too few EHAs, too many classes requested, too few differences in EHAs? Please check what happended.'))
       nclasses <- length(unique_classes)
     }
     
@@ -766,9 +761,8 @@ prof_class <- function(
     write(file=paste(dir_out,tcoutfile,sep="/"), append=F, x=dumstr)
     #---------end prepare file output tc.dat
     
-    
-    
-    #---------prepare file output tc_contains_svc.dat
+
+    #---------prepare file output r_tc_contains_svc
     svc_col_index <- 0
     # find index of column containing svcs
     for (j in 1:length(attr_names)) {
@@ -779,7 +773,7 @@ prof_class <- function(
     }
     
     if (svc_col_index) {
-      #write header string to output file tc_contains_svc.dat
+      #write header string to output file r_tc_contains_svc
       write(file=paste(dir_out,tccontainssvcoutfile,sep="/"), append=F, x='tc_id\tsvc_id\tfraction')
       
       svc_recl_file <- paste('reclass_', attr_names[svc_col_index], '.txt', sep="")
@@ -795,7 +789,7 @@ prof_class <- function(
         org_svc_ids <- mod_svc_ids
       }
     }
-    #---------end prepare file output tc_contains_svc.dat
+    #---------end prepare file output r_tc_contains_svc
     
     
     
@@ -819,7 +813,6 @@ prof_class <- function(
       curr_lu_key <- unique(cidx[class_i])
       lu_labels=c(lu_labels, curr_lu_key)
     }  
-    
     # PARTITIONING OF MEAN PROFILE FOR EACH LU #
     for (i in 1:nclasses) {
       message('')
@@ -867,7 +860,6 @@ prof_class <- function(
             tmp_v <- c(tmp_v, mean_supp_data[attr_start_column:attr_end_column,jj])
           }
         }  
-        
         cluster_centers[i,] <- c(mean_prof[i,1:(com_length+2)], tmp_v) 
       } # end if classify_type==save
       
@@ -892,7 +884,6 @@ prof_class <- function(
         for (ii in 2:com_length) {
           mean_prof[i,1:com_length][ii] <- max(mean_prof[i,1:com_length][ii-1], mean_prof[i,1:com_length][ii])
         }
-        
         # compute local slopes of profile
         prof_slopes <- vector("numeric", length=com_length-1)
         # the first and last point are treated differently
@@ -926,8 +917,7 @@ prof_class <- function(
           pdata <- prof_slopes
         }
         
-        
-        
+
         # decomposition using standard deviation
         # quality and  best limits of partitioning
         b_part <- best_partition(pdata, attr_weights_partition[1])
@@ -974,8 +964,7 @@ prof_class <- function(
                 best_limits_c <- c(best_limits_c, xvec[1])
               } 
             }
-            
-            
+
             # continuous clustering achieved?
             if (continuous_clusters) {
               break
@@ -1026,7 +1015,6 @@ prof_class <- function(
         lim_clu <- best_limits_c
         
       } # end else attr_weights_partition[1]==1
-      
       
       # plot orig
       if (make_plots) {
@@ -1146,16 +1134,16 @@ prof_class <- function(
             tmp_v <- round(mean(mean_supp_data[treated_attribs+k,from_point:till_point]),5)
             dumstr <- paste(dumstr, paste(tmp_v,collapse=tab),sep=tab)
             
-            #---------output tc_contains_svc.dat
+            #---------output r_tc_contains_svc.dat
             # if this is the svc column...
             if (ii==svc_col_index) {
               # print out svc-fration, if greater than 0
               if (tmp_v) {
-                # fraction of svc in current tc to output file tc_contains_svc.dat
+                # fraction of svc in current tc to output file r_tc_contains_svc
                 write(file=paste(dir_out,tccontainssvcoutfile,sep="/"), append=T, x=paste(tc_id, org_svc_ids[k], tmp_v, sep=tab))
               }
             }
-            #---------end output tc_contains_svc.dat
+            #---------end output r_tc_contains_svc.dat
           }
           # increase counter for attributes already treated
           treated_attribs <- treated_attribs+k
@@ -1214,18 +1202,18 @@ prof_class <- function(
     # if an error occurs...
   
     }   , 
-  error = function(e) {
-
-    # stop sinking
-    closeAllConnections()
-
-    # restore original warning mode
-    if(silent)
-      options(warn = oldw)
-
-    stop(paste(e))
-
-    })
+   error = function(e) {
+   
+     # stop sinking
+     closeAllConnections()
+   
+     # restore original warning mode
+     if(silent)
+       options(warn = oldw)
+   
+     stop(paste(e))
+   
+     })
     
 } # EOF
 
