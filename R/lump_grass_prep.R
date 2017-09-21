@@ -79,6 +79,8 @@
 #'      of internally used GRASS functions)? Default: \code{FALSE}.
 #' @param addon_path Charactering string giving the path to your locally installed
 #'      GRASS add-ons. Must only be given if necessary, see \code{Note}.
+#' @param things2do \code{c("eha","river","svc")}. Enables the specification of sub-tasks only. \code{"eha"}: do EHA generation, 
+#' \code{"river"}: calculate river network and morphological parameters, \code{"svc"}: generate SVC map 
 #' 
 #' @return Function returns nothing. Output raster files as specified in arguments
 #'      (see above) are written into GRASS location.
@@ -138,7 +140,8 @@ lump_grass_prep <- function(
   keep_temp=F,
   overwrite=F,
   silent=F,
-  addon_path=NULL
+  addon_path=NULL,
+  things2do=c("eha","river","svc")
 ) {
   
   ### PREPROCESSING ###
@@ -146,40 +149,53 @@ lump_grass_prep <- function(
   # CHECKS #
   if(is.null(mask))
     stop("The name of a raster within the mapset of your initialised GRASS session to be used as catchment MASK in GRASS has to be given!")
-  if(is.null(dem))
-    stop("The name of a DEM within the mapset of your initialised GRASS session has to be given!")
-  if(is.null(lcov))
-    stop("The name of a landcover / vegetation raster map within the mapset of your initialised GRASS session has to be given!")
-  if(is.null(soil))
-    stop("The name of a soil raster map within the mapset of your initialised GRASS session has to be given!")
-  if(is.null(eha))
-    stop("A name for the calculated EHA raster map within the mapset of your initialised GRASS session has to be given!")
-  if(is.null(flowdir))
-    stop("A name for the calculated flow direction raster map within the mapset of your initialised GRASS session has to be given!")
-  if(is.null(flowacc))
-    stop("A name for the calculated flow accumulation raster map within the mapset of your initialised GRASS session has to be given!")
-  if(is.null(stream))
-    stop("A name for the calculated stream segments raster map within the mapset of your initialised GRASS session has to be given!")
-  if(is.null(stream_horton))
-    stop("A name for the calculated Horton stream order raster map within the mapset of your initialised GRASS session has to be given!")
-  if(is.null(elevriv))
-    stop("A name for the calculated relative elevation raster map within the mapset of your initialised GRASS session has to be given!")
-  if(is.null(distriv))
-    stop("A name for the calculated distance to river raster map within the mapset of your initialised GRASS session has to be given!")
-  if(is.null(mask_corr))
-    stop("A name for the corrected raster MASK within the mapset of your initialised GRASS session has to be given!")
-  if(is.null(svc))
-    stop("A name for the calculated soil-vegetation-components raster map within the mapset of your initialised GRASS session has to be given!")
-  if(is.null(dir_out))
-    stop("An output directory has to be specified!")
-  if(is.null(svc_ofile))
-    stop("A name for the file containing the calculated SVC parameters has to be given!")
-  if(!is.numeric(eha_thres))
-    stop("You have to specify eha_thres as a number!")
-  if(!is.numeric(sizefilter))
-    stop("You have to specify sizefilter as a number!")
-  if(!is.numeric(growrad))
-    stop("You have to specify growrad as a number!")
+  
+  if ("eha" %in% things2do)
+  {
+    if(is.null(dem))
+      stop("The name of a DEM within the mapset of your initialised GRASS session has to be given!")
+    if(is.null(eha))
+      stop("A name for the calculated EHA raster map within the mapset of your initialised GRASS session has to be given!")
+    if(is.null(flowdir))
+      stop("A name for the calculated flow direction raster map within the mapset of your initialised GRASS session has to be given!")
+    if(is.null(flowacc))
+      stop("A name for the calculated flow accumulation raster map within the mapset of your initialised GRASS session has to be given!")
+    if(!is.numeric(eha_thres))
+      stop("You have to specify eha_thres as a number!")
+    if(!is.numeric(sizefilter))
+      stop("You have to specify sizefilter as a number!")
+    if(!is.numeric(growrad))
+      stop("You have to specify growrad as a number!")
+  }
+  if ("river" %in% things2do)
+  {
+    if(is.null(stream))
+      stop("A name for the calculated stream segments raster map within the mapset of your initialised GRASS session has to be given!")
+    if(is.null(stream_horton))
+      stop("A name for the calculated Horton stream order raster map within the mapset of your initialised GRASS session has to be given!")
+    if(is.null(elevriv))
+      stop("A name for the calculated relative elevation raster map within the mapset of your initialised GRASS session has to be given!")
+    if(is.null(distriv))
+      stop("A name for the calculated distance to river raster map within the mapset of your initialised GRASS session has to be given!")
+    if(is.null(mask_corr))
+      stop("A name for the corrected raster MASK within the mapset of your initialised GRASS session has to be given!")
+  }
+  
+  if ("svc" %in% things2do)
+  {
+    if(is.null(lcov))
+      stop("The name of a landcover / vegetation raster map within the mapset of your initialised GRASS session has to be given!")
+    if(is.null(soil))
+      stop("The name of a soil raster map within the mapset of your initialised GRASS session has to be given!")
+    if(is.null(svc))
+      stop("A name for the calculated soil-vegetation-components raster map within the mapset of your initialised GRASS session has to be given!")
+    if(is.null(svc_ofile))
+      stop("A name for the file containing the calculated SVC parameters has to be given!")
+    if(is.null(dir_out))
+      stop("An output directory has to be specified!")
+  }
+
+
   
   # add slash to end of addon_path if necessary
   if(!is.null(addon_path))
@@ -200,22 +216,13 @@ lump_grass_prep <- function(
     options(warn = -1)
   }
   
-  
-  
-  
+
   
   
   ### CALCULATIONS ###
+  if ("eha" %in% things2do)
   tryCatch({
     message("\nSTART hydrological preprocessing for lumpR using GRASS...\n")
-    
-    # create output directory
-    dir.create(dir_out, recursive=T, showWarnings=F)
-    
-    # check output directory
-    if (!overwrite & file.exists(paste(dir_out,svc_ofile,sep="/"))) 
-      stop(paste0("In output directory '", dir_out, "' the file '", svc_ofile, "' already exists!"))
-    
     
     # remove mask if any
     suppressWarnings(execGRASS("r.mask", flags=c("r")))
@@ -237,7 +244,7 @@ lump_grass_prep <- function(
     execGRASS("r.watershed", elevation=dem, threshold=eha_thres, half.basin="eha_t1", stream=stream,
               accumulation="flow_accum_t", drainage=flowdir)
 
-    #border cells that receive inflow from outside get negative values, which propagate through entire basin. Check is this is a real problem or just an artefact!
+    #border cells that receive inflow from outside get negative values, which propagate through entire basin. Check if this is a real problem or just an artefact!
     execGRASS("r.mapcalculator", amap="flow_accum_t", outfile=flowacc, formula="abs(flow_accum_t)")
     
     # set mask and region
@@ -246,7 +253,7 @@ lump_grass_prep <- function(
     #remove fragments
     execGRASS("r.reclass.area", input="eha_t1", greater=sizefilter, output="eha_t2")
     
-    # grow subbasin map to fill gaps resulted from remove of fragments
+    # grow EHA map to fill gaps resulted from remove of fragments
     grow_eval <- NULL
     execGRASS("r.grow", input="eha_t2", output=eha, radius=growrad)
     
@@ -262,12 +269,29 @@ lump_grass_prep <- function(
     grow_eval <- c(grow_eval, grow_eval2)
     
     if (any(grow_eval==1)) {
-      stop("There are still gaps in the subbasin and/or EHA raster maps after growing. Try to increase growrad and run again.")
+      stop("There are still gaps in the EHA raster maps after growing. Try to increase growrad and run again.")
     }
-
+    # if an error occurs delete all temporary output
+  }, error = function(e) {
+    
+    # stop sinking
+    closeAllConnections()
+    
+    # restore original warning mode
+    if(silent)
+      options(warn = oldw)
+    
+    execGRASS("r.mask", flags=c("r"))
+    
+    if(keep_temp == FALSE)
+      execGRASS("g.mremove", rast=paste("*_t,*_t1,*_t2", eha, flowdir, flowacc, stream, stream_horton, elevriv, distriv, mask_corr, svc, sep=","), flags=c("f", "b"))
+    
+    stop(paste(e))  
+  })
         
     
-    
+  if ("river" %in% things2do)
+    tryCatch({
     # RIVER calculations #
     message("\nCalculate river network and morphological parameters...\n")
     
@@ -290,12 +314,36 @@ lump_grass_prep <- function(
     execGRASS("r.mapcalculator", amap=elevriv, outfile=mask_corr, formula="if(isnull(A),null(),1)")
     # set new mask as area is slightly smaller afer r.stream.distance
     execGRASS("r.mask", input=mask_corr, flags=c("o"))
+    # if an error occurs delete all temporary output
+  }, error = function(e) {
     
+    # stop sinking
+    closeAllConnections()
+    
+    # restore original warning mode
+    if(silent)
+      options(warn = oldw)
+    
+    execGRASS("r.mask", flags=c("r"))
+    
+    if(keep_temp == FALSE)
+      execGRASS("g.mremove", rast=paste("*_t,*_t1,*_t2", eha, flowdir, flowacc, stream, stream_horton, elevriv, distriv, mask_corr, svc, sep=","), flags=c("f", "b"))
+    
+    stop(paste(e))  
+  })
 
     
-    
+if ("svc" %in% things2do)
+  tryCatch({
     # SOIL VEGETATION COMPONENTS #
     message("\nCalculate soil vegetation components...\n")
+    
+    # create output directory
+    dir.create(dir_out, recursive=T, showWarnings=F)
+    
+    # check output directory
+    if (!overwrite & file.exists(paste(dir_out,svc_ofile,sep="/"))) 
+      stop(paste0("In output directory '", dir_out, "' the file '", svc_ofile, "' already exists!"))
     
     # check if lcov or soil contains labels and create temporary map without labels if necessary (otherwise, the labels cause problems)
     lens <- sapply(unlist(execGRASS("r.category", map=soil, fs=",", intern=T)), function(x) length(unlist(strsplit(x,","))))
@@ -363,28 +411,6 @@ lump_grass_prep <- function(
     # write output
     write.table(svc_out, paste(dir_out, svc_ofile, sep="/"), quote=F, sep="\t", row.names=F)
 
-
-
-
-    # remove temp files
-    if(keep_temp == FALSE)
-      execGRASS("g.mremove", rast="*_t,*_t1,*_t2", flags=c("f", "b"))
-    
-    message("\nDONE!\n")
-    
-    
-    # stop sinking
-    closeAllConnections()
-    
-    # restore original warning mode
-    if(silent)
-      options(warn = oldw)
-    
-    
-    
-    
-    
-    
     # if an error occurs delete all temporary output
   }, error = function(e) {
     
@@ -403,4 +429,18 @@ lump_grass_prep <- function(
     stop(paste(e))  
   })
   
+  # remove temp files (e.g. "un-labelled" rasters)
+  if(keep_temp == FALSE)
+    execGRASS("g.mremove", rast="*_t,*_t1,*_t2", flags=c("f", "b"))
+  
+  message("\nDONE!\n")
+  
+  
+  # stop sinking
+  closeAllConnections()
+  
+  # restore original warning mode
+  if(silent)
+    options(warn = oldw)
+    
 } # EOF
