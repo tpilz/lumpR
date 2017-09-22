@@ -74,8 +74,8 @@ r.in.gdal input=C:/Users/francke/ttt.tif output=dem15_filled -o
 	#output table with relation svc-id:soil-id_veg-id
 	r.stats svc,soils_aluv,vegetation -n > scv_key.txt
 
-	g.region rast=RMASK save=esera_region
-
+	g.region zoom=RMASK save=esera_region --overwrite #sets a region corresponding to the extent of the area of interest
+	
 #replace NAs in badland
 	r.mapcalc badland_="if(isnull(badland),0,1)"
 	g.remove badland
