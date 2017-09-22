@@ -9,7 +9,8 @@ lump_grass_prep(mask = NULL, dem = NULL, lcov = NULL, soil = NULL,
   flowacc = NULL, stream = NULL, stream_horton = NULL, elevriv = NULL,
   distriv = NULL, mask_corr = NULL, svc = NULL, dir_out = NULL,
   svc_ofile = NULL, eha_thres = NULL, sizefilter = NULL, growrad = NULL,
-  keep_temp = F, overwrite = F, silent = F, addon_path = NULL)
+  keep_temp = F, overwrite = F, silent = F, addon_path = NULL,
+  things2do = c("eha", "river", "svc"))
 }
 \arguments{
 \item{mask}{Mask in GRASS location defining the catchment area. E.g. subbasin raster map.}
@@ -93,6 +94,9 @@ of internally used GRASS functions)? Default: \code{FALSE}.}
 
 \item{addon_path}{Charactering string giving the path to your locally installed
 GRASS add-ons. Must only be given if necessary, see \code{Note}.}
+
+\item{things2do}{\code{c("eha","river","svc")}. Enables the specification of sub-tasks only. \code{"eha"}: do EHA generation, 
+\code{"river"}: calculate river network and morphological parameters, \code{"svc"}: generate SVC map}
 }
 \value{
 Function returns nothing. Output raster files as specified in arguments

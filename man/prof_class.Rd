@@ -7,7 +7,7 @@
 prof_class(catena_file = NULL, catena_head_file = NULL,
   svc_column = "svc", dir_out = "./", luoutfile = "lu.dat",
   tcoutfile = "tc.dat", lucontainstcoutfile = "lucontainstc.dat",
-  tccontainssvcoutfile = "tc_contains_svc.dat",
+  tccontainssvcoutfile = "r_tc_contains_svc.dat",
   terraincomponentsoutfile = "terraincomponents.dat",
   recl_lu = "reclass_lu.txt", saved_clusters = NULL, seed = 1312,
   resolution = NULL, classify_type = " ", max_com_length = NULL,
