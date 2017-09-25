@@ -234,18 +234,6 @@ lump_grass_prep <- function(
     # EHA #
     message("\nCalculate and process EHAs...\n")
     
-    # check of lcov or soil contains labels and create temporary map without labels if necessary
-    lens <- sapply(unlist(execGRASS("r.category", map=soil, fs=",", intern=T)), function(x) length(unlist(strsplit(x,","))))
-    if(any(lens>1)) {
-      execGRASS("r.mapcalculator", amap=soil, outfile=paste0(unlist(strsplit(soil, "@"))[1], "_t"), formula="A*1")
-      soil <- paste0(unlist(strsplit(soil, "@"))[1], "_t")
-    }
-    lens <- sapply(unlist(execGRASS("r.category", map=lcov, fs=",", intern=T)), function(x) length(unlist(strsplit(x,","))))
-    if(any(lens>1)) {
-      execGRASS("r.mapcalculator", amap=lcov, outfile=paste0(unlist(strsplit(lcov, "@"))[1], "_t"), formula="A*1")
-      lcov <- paste0(unlist(strsplit(lcov, "@"))[1], "_t")
-    }
-    
     # calculate EHA etc.
     execGRASS("r.watershed", elevation=dem, threshold=eha_thres, half.basin="eha_t1", stream=stream,
               accumulation="flow_accum_t", drainage=flowdir)
@@ -310,7 +298,20 @@ lump_grass_prep <- function(
     # SOIL VEGETATION COMPONENTS #
     message("\nCalculate soil vegetation components...\n")
     
+    # check if lcov or soil contains labels and create temporary map without labels if necessary (otherwise, the labels cause problems)
+    lens <- sapply(unlist(execGRASS("r.category", map=soil, fs=",", intern=T)), function(x) length(unlist(strsplit(x,","))))
+    if(any(lens>1)) {
+      execGRASS("r.mapcalculator", amap=soil, outfile=paste0(unlist(strsplit(soil, "@"))[1], "_t"), formula="A*1", flags="overwrite")
+      soil <- paste0(unlist(strsplit(soil, "@"))[1], "_t")
+    }
+    lens <- sapply(unlist(execGRASS("r.category", map=lcov, fs=",", intern=T)), function(x) length(unlist(strsplit(x,","))))
+    if(any(lens>1)) {
+      execGRASS("r.mapcalculator", amap=lcov, outfile=paste0(unlist(strsplit(lcov, "@"))[1], "_t"), formula="A*1", flags="overwrite")
+      lcov <- paste0(unlist(strsplit(lcov, "@"))[1], "_t")
+    }
+    
     # create soil vegetation components from soil and landcover/vegetation data
+    execGRASS("g.remove", rast=svc)
     if (!is.null(watermask) & !is.null(imperviousmask)) {
       execGRASS("r.cross", input=paste(soil,lcov,watermask,imperviousmask,sep=","), output=svc)
     } else if (!is.null(watermask) & is.null(imperviousmask)) {
@@ -325,7 +326,7 @@ lump_grass_prep <- function(
     svc_cats <- execGRASS("r.category", map=svc, fs=",", intern=T)
 
     # transformations ...
-    svc_cats_grp <- grep("^0", svc_cats, invert=T, value=T)
+    svc_cats_grp <- grep("^0", svc_cats, invert=T, value=T) #remove zero entries
     svc_cats_sub <- gsub(",|;", "", svc_cats_grp)
     svc_cats_spl <- strsplit(svc_cats_sub, "category|Category")
 
