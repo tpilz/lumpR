@@ -233,7 +233,6 @@ area2catena <- function(
       names(supp_data_classnames) <- supp_qual
     }  
     
-    
     # load quantitative supplemental data
     quant_rast <- NULL # initialise object containing all quantitative raster layers
     for (i in rev(supp_quant)) {
@@ -393,7 +392,9 @@ area2catena <- function(
     
     #generate qualitative-data reclassification file
     #Generate output files for reclassification (input class-IDs vs. internally used IDs)
-    if (grass_files) {
+    #(area2catena creates continuous class numbering; restoring the orginal classes will require these files)
+
+    if (grass_files | "svc" %in% supp_qual) {
       for (i in supp_qual) {
         write(c("new_id", "original_id"),
               file=paste(dir_out, "/reclass_", i, ".txt", sep=""), ncolumns=2, append=F, sep="\t")
