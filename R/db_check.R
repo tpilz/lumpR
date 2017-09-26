@@ -971,6 +971,7 @@ db_check <- function(
       junk <- lapply(dat_all[tbls_changed], function(x) modify_db(con, x))
       # update table meta_info
       write_metainfo(con,
+                     "db_check()",
                      paste(names(which(tbls_changed)), collapse=", "), "various",
                      paste0("Database checked and adjusted using R package lumpR. Applied checks: ", paste(check, collapse=", "), ". Options: ", paste(names(option), option, sep=" = ", collapse=", ")),
                      FALSE)

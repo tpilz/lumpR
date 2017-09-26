@@ -334,7 +334,7 @@ dbCopyTable <- function(con, tab, con_dest) {
 
 
 # function to write into table meta_info
-write_metainfo <- function(con, affected_tbl, affected_col, remarks, verbose) {
+write_metainfo <- function(con, fun, affected_tbl, affected_col, remarks, verbose) {
   meta_dat <- sqlFetch(con, "meta_info")
   if(any(meta_dat$pid)) {
     pid_new <- max(meta_dat$pid) +1
@@ -343,7 +343,7 @@ write_metainfo <- function(con, affected_tbl, affected_col, remarks, verbose) {
   }
   meta_out <- data.frame(pid=pid_new,
                          mod_date=as.POSIXct(Sys.time()),
-                         mod_user=paste0("db_check(), v. ", installed.packages()["lumpR","Version"]),
+                         mod_user=paste0(fun, ", v. ", installed.packages()["lumpR","Version"]),
                          affected_tables=paste(unique(affected_tbl), collapse=", "),
                          affected_columns=affected_col,
                          remarks=remarks)

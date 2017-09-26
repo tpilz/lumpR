@@ -250,6 +250,7 @@ lump_grass_post <- function(
   ### PREPROCESSING ###
   
   # CHECKS #
+  tryCatch(gmeta(), error = function(e) stop("Cannot execute GRASS commands. Maybe you forgot to run initGRASS()?"))
   if(is.null(mask))
     stop("The name of a raster within the mapset of your initialised GRASS session to be used as catchment MASK in GRASS has to be given!")
   if(is.null(dem))
