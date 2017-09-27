@@ -14,34 +14,34 @@ db_wasa_input(dbname, dest_dir = "./", files = c("info.dat",
   verbose = TRUE)
 }
 \arguments{
-\item{dbname}{Name of the data source (DSN) registered at ODBC.}
+\item{dbname}{Name of the data source (DSN) registered as ODBC source.}
 
-\item{dest_dir}{The directory in which the output files (= WASA input files) are
-created. Will be created if it does not exist. Default: \code{./}. Includes the
+\item{dest_dir}{The directory in which the output files (= WASA input files) will be
+written. Will be created if it does not exist. Default: \code{./}. Includes the
 sub-directories 'Hillslope' and 'River'.}
 
 \item{files}{Character vector specifying WASA input files that should be created. 
 See \code{Details}. By default all files will be created.}
 
 \item{overwrite}{\code{logical}. Should existing files in \code{dest_dir} be
-overwriten? Default: \code{FALSE}.}
+overwritten? Default: \code{FALSE}.}
 
 \item{verbose}{\code{logical}. Should detailed information during execution be
 printed? Default: \code{TRUE}.}
 }
 \description{
-Function takes parameters from a parameter database and generates ASCII files
-as input to the WASA hydrological model.
+Function retrieves parameters from a parameter database and generates ASCII files
+as input to the  hydrological model WASA.
 }
 \details{
 Consider function db_check() before running this function to ensure consistency in
-and completeness of data in the database. Otherwise the input files might contain
+and completeness of data in the database. Otherwise, the input files might contain
 errors which might lead to errors or unexpected results during model application.
 
 Note differences in variable notations between parameter database and WASA's
 input files!
 
- Sediment transport specific variables are not yet included.
+ Sediment transport specific variables are not yet included (erosion.ctl).
  
  The following files will be created:
  
@@ -103,7 +103,7 @@ input files!
  Hydraulic conductivity of bedrock in \emph{mm/d}.
  
  \emph{length[m]}\cr
- Mean  slope length in LU in \emph{m}.
+ Mean slope length in LU in \emph{m}.
  
  \emph{meandep[mm]}\cr
  Mean maximum depth of soil zone in \emph{mm}.
@@ -112,7 +112,7 @@ input files!
  Maximum depth of alluvial soil zone in \emph{mm}.
  
  \emph{Riverbed[mm]}\cr
- Depth of River bed below terrain componen in \emph{mm}.
+ Depth of River bed below terrain component in \emph{mm}.
  
  \emph{gwflag[0/1]}\cr
  Groundwater flag for LU. 0: no groundwater, 1: with groundwater. 
@@ -139,7 +139,7 @@ input files!
  
  \emph{position}\cr
  Number indicating the relative position of TC along the hillslope. 1: highland,
- 2: middle, ..., [highest]: downslope.
+ 2: middle, ..., [highest number]: foot slope.
  ATTENTION: Order in WASA input file is reversed in comparison to order within
  database!
  
@@ -166,10 +166,9 @@ input files!
  \bold{do.dat}\cr
  File contains general parameters and control flags for WASA. See file's comments for
  more information. Manual investigation and adjustment after creation is necessary
- (e.g. for input/output locations, start/stop year of simulation etc.). Note that,
+ (e.g. for input/output directories, start/stop year of simulation etc.). Note that,
  depending on your choices, the manual creation of additional input files will
- be necessary. Consult WASA's documentation you should have recieved along with
- the model.
+ be necessary. Consult the WASA's documentation.
  
  \bold{maxdim.dat}\cr
  \emph{Optional} file that contains maximum dimensions of spatial units to

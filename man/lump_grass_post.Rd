@@ -37,7 +37,7 @@ be created with \code{\link[lumpR]{lump_grass_prep}}.}
 
 \item{stream_horton}{Name of Horton stream order raster map in GRASS location. Can
 be created with \code{\link[lumpR]{lump_grass_prep}}. If left empty, the channel length,
-slope and retention times are set to NA.}
+slope and retention times are set to \code{NA}.}
 
 \item{soil_depth}{Name of soil depth [mm] raster map in GRASS location. If \code{NULL}
 (default), \code{na_val} is used.}

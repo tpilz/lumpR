@@ -40,7 +40,7 @@
 #'      be created with \code{\link[lumpR]{lump_grass_prep}}.
 #' @param stream_horton Name of Horton stream order raster map in GRASS location. Can
 #'      be created with \code{\link[lumpR]{lump_grass_prep}}. If left empty, the channel length,
-#'      slope and retention times are set to NA.
+#'      slope and retention times are set to \code{NA}.
 #' @param soil_depth Name of soil depth [mm] raster map in GRASS location. If \code{NULL}
 #'      (default), \code{na_val} is used.
 #' @param sdr Name of sediment delivery ratio [-] raster map in GRASS location. If empty,
@@ -253,6 +253,8 @@ lump_grass_post <- function(
   tryCatch(gmeta(), error = function(e) stop("Cannot execute GRASS commands. Maybe you forgot to run initGRASS()?"))
   if(is.null(mask))
     stop("The name of a raster within the mapset of your initialised GRASS session to be used as catchment MASK in GRASS has to be given!")
+  if(!is.character(mask))
+    stop("The name of a raster to be used as catchment MASK in GRASS must be a string (argument 'mask')!")
   if(is.null(dem))
     stop("The name of a DEM within the mapset of your initialised GRASS session has to be given!")
   if(is.null(subbasin))
