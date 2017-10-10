@@ -7,6 +7,8 @@ ALTER TABLE soil_veg_components CHANGE descr description NVARCHAR(50);
 ALTER TABLE subbasins CHANGE `desc` description NVARCHAR(50);
 ALTER TABLE terrain_components CHANGE descr description NVARCHAR(50);
 ALTER TABLE vegetation CHANGE `desc` description NVARCHAR(50);
+ALTER TABLE landscape_units CHANGE length slopelength DOUBLE;
+ALTER TABLE horizons CHANGE depth thickness DOUBLE;
 
 ALTER TABLE db_version CHANGE `date` date_time DATETIME;
 

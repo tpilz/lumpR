@@ -250,7 +250,7 @@ db_wasa_input <- function(
   db_ver_max <- max(as.integer(sub(".sql", "", sub("update_db_v", "", db_up_files))))
   
   db_ver <- max(sqlFetch(con, "db_version")$version)
-  if(db_ver < db_ver_max) stop(paste0("Database version is prior to version ", db_ver_max, ". Make sure you use the latest database version (consider function db_update())!"))
+  if(db_ver < db_ver_max) stop(paste0("Database version (", db_ver,") is prior to version ", db_ver_max, ". Make sure you use the latest database version (consider function db_update())!"))
   
   if(verbose) message("% OK")
   

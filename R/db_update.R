@@ -70,7 +70,7 @@ db_update <- function(
     stop(paste0("Requested update (", to_ver, ") is greater than newest available database version (", db_ver_max, ")!"))
   
   if(db_ver == db_ver_max)
-    return(message(paste0("Database is up to date (version ", db_ver_max, "). Nothing to do.")))
+    return(message(paste0("Database is up-to-date (version ", db_ver_max, "). Nothing to do.")))
   
   if(db_ver > to_ver)
     stop(paste0("Database (", db_ver, ") is newer than the requested update (", to_ver, "). Nothing to do."))
@@ -83,8 +83,8 @@ db_update <- function(
   {  
     if (toupper(odbcGetInfo(con)["DBMS_Name"]) == "ACCESS") #do workaround for Access
     {
-       warning("It seems like you are using an Access-Database. The 'decription' column of the following tables will change its position. 
-               If you don't like this, you can fix this manually (apparently only in MS ACCESS), but don't have to.
+       warning("It seems like you are using an Access-Database. The columns 'landscape_units.length/slopelength', 'horizons.depth/thickness', and 'description' column of the following tables will change their position and lose their column description. 
+               This is irrelevant, but if prefer you can fix this manually (apparently only in MS ACCESS).
                Affected tables: horizons, landscape_units, particle_classes, soils, soil_veg_components, subbasins, terrain_components, vegetation")
       
        affected_tables= c("horizons","landscape_units","particle_classes","soils","soil_veg_components","subbasins","terrain_components","vegetation")
@@ -107,8 +107,30 @@ db_update <- function(
          
          statement = paste0("ALTER TABLE ", tab," drop [", col_name,"]")
          res <- sqlQuery(con, statement, errors=TRUE)
-         if (length(res)!=0) {warning(res); next}         
+         if (length(res)!=0) {warning(res); next}     
        }
+       #rename "length" to "slopelength"
+       statement = paste0("ALTER TABLE landscape_units add slopelength DOUBLE ;")
+       res <- sqlQuery(con, statement, errors=TRUE)
+       if (length(res)!=0) warning(res)
+       statement = paste0("UPDATE landscape_units set slopelength=length;")
+       res <- sqlQuery(con, statement, errors=TRUE)
+       if (length(res)!=0) warning(res)
+       statement = paste0("ALTER TABLE landscape_units drop [length]")
+       res <- sqlQuery(con, statement, errors=TRUE)
+       if (length(res)!=0) warning(res)
+       
+       #rename "depth" to "thickness"
+       statement = paste0("ALTER TABLE horizons add thickness DOUBLE ;")
+       res <- sqlQuery(con, statement, errors=TRUE)
+       if (length(res)!=0) warning(res)
+       statement = paste0("UPDATE horizons set thickness=depth;")
+       res <- sqlQuery(con, statement, errors=TRUE)
+       if (length(res)!=0) warning(res)
+       statement = paste0("ALTER TABLE horizons drop [depth]")
+       res <- sqlQuery(con, statement, errors=TRUE)
+       if (length(res)!=0) warning(res)
+       
        statement = paste0("INSERT INTO db_version VALUES (
        19,  19, 
       'First version within lumpR R-package', 
@@ -202,8 +224,7 @@ db_update <- function(
         pos <- grep("create", split, ignore.case = T)
         tbl <- split[pos+2]
         if(tbl %in% tbls) {
-          warning(paste0("Table '", tbl, "' already exists when updating to version ", to_ver, " and will not be touched!"))
-          next
+          stop(paste0("Table '", tbl, "' already exists when updating to version ", to_ver, ". Rename / delete manually, and repeat update."))
         }
       }
       
