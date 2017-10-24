@@ -305,6 +305,11 @@ connect_db <- function(dbname) {
   if (con == -1)
     stop(paste0("Could not connect to database '", dbname, "'. Type 'odbcDataSources()' to see the data sources known to ODBC.",
                  " If you want to connect to a MS Access database make sure you are using 32 bit R."))
+  # use PRAGMA for SQLite to enhance speed (at the cost of less data security, for details see https://www.tutorialspoint.com/sqlite/sqlite_pragma.htm)
+  if(grepl("SQLite", odbcGetInfo(con)["DBMS_Name"], ignore.case=T)) {
+    sqlQuery(con, "PRAGMA synchronous = OFF;")
+    sqlQuery(con, "PRAGMA journal_mode = OFF;")
+  }
   return(con)
 } # EOF connect_db
 
