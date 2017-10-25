@@ -49,7 +49,13 @@
 #'      at the beginning of the time series, representing the hypothetical year 1977.
 #'      Just copy the data of 1978.
 #'      
-#' @references Function uses the FORTRAN 77 code developed by \emph{Gerstengarbe et al.}.
+#' @references
+#'      lumpR package introduction with literature study and sensitivity analysis:\cr
+#'      Pilz, T.; Francke, T.; Bronstert, A. (2017): lumpR 2.0.0: an R package facilitating
+#'      landscape discretisation for hillslope-based hydrological models.
+#'      \emph{Geosci. Model Dev.}, 10, 3001-3023, doi: 10.5194/gmd-10-3001-2017
+#'
+#' Function uses the FORTRAN 77 code developed by \emph{Gerstengarbe et al.}.
 #'      The algorithm is described in:
 #'      
 #'      Gerstengarbe & Werner (1999): Estimation of the beginning and end of recurrent

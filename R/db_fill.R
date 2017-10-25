@@ -488,6 +488,11 @@
 #'          
 #' 
 #' @references
+#'      \bold{lumpR paper}\cr
+#'      Pilz, T.; Francke, T.; Bronstert, A. (2017): lumpR 2.0.0: an R package facilitating
+#'      landscape discretisation for hillslope-based hydrological models.
+#'      \emph{Geosci. Model Dev.}, 10, 3001-3023, doi: 10.5194/gmd-10-3001-2017
+#'      
 #'      \bold{Theory of lumpR}\cr
 #'      Francke, T.; Guentner, A.; Mamede, G.; Mueller, E. N. and Bronstert, A (2008):
 #'      Automated catena-based discretization of landscapes for the derivation of

@@ -156,6 +156,12 @@
 #'  Database will only be touched (if \code{fix = TRUE}) after all checks are completed successfully.
 #'  If the function stops with an error during checks, the database will be left unchanged.
 #'  
+#' @references 
+#'      lumpR package introduction with literature study and sensitivity analysis:\cr
+#'      Pilz, T.; Francke, T.; Bronstert, A. (2017): lumpR 2.0.0: an R package facilitating
+#'      landscape discretisation for hillslope-based hydrological models.
+#'      \emph{Geosci. Model Dev.}, 10, 3001-3023, doi: 10.5194/gmd-10-3001-2017
+#'  
 #' @author 
 #'  Tobias Pilz \email{tpilz@@uni-potsdam.de}, Till Francke \email{francke@@uni-potsdam.de}
 

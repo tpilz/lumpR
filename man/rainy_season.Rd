@@ -44,6 +44,11 @@ The first rainy season that can be identified by the function is the one
      Just copy the data of 1978.
 }
 \references{
+lumpR package introduction with literature study and sensitivity analysis:\cr
+     Pilz, T.; Francke, T.; Bronstert, A. (2017): lumpR 2.0.0: an R package facilitating
+     landscape discretisation for hillslope-based hydrological models.
+     \emph{Geosci. Model Dev.}, 10, 3001-3023, doi: 10.5194/gmd-10-3001-2017
+
 Function uses the FORTRAN 77 code developed by \emph{Gerstengarbe et al.}.
      The algorithm is described in:
      
