@@ -64,12 +64,16 @@
 #' @param eha_thres Integer specifying threshold for delineation of \emph{EHA} in cells;
 #'      parameter for GRASS function \emph{r.watershed}. This is a crucial parameter
 #'      affecting the size of delineated hillslopes and the degree of detail of the
-#'      landscape discretisation!
+#'      landscape discretisation! As a rule of thumb, a value 10-100 times smaller
+#'      than \code{thresh_sub} of function \code{\link[lumpR]{calc_subbas}} is usually
+#'      a good choice.
 #' @param sizefilter Integer specifying minimum size of EHAs (in map units)
 #'      not to be removed, smaller EHAs (artefacts) are removed; parameter for
-#'      GRASS function \emph{r.reclass.area}.
+#'      GRASS function \emph{r.reclass.area}. If set to \code{NULL} (default), 
+#'      it will be automatically set to \code{1/10 * eha_thres}.
 #' @param growrad Integer specifying growing radius (in raster cells) to remove
-#'      artefacts in EHA data; parameter for GRASS function \emph{r.grow}.
+#'      artefacts in EHA data; parameter for GRASS function \emph{r.grow}. If set
+#'      to \code{NULL} (default), it will be automatically set to \code{1/5 * eha_thres}.
 #' @param keep_temp \code{logical}. Set to \code{TRUE} if temporary files shall be kept
 #'      in the GRASS location, e.g. for debugging or further analyses. Default: \code{FALSE}.
 #' @param overwrite \code{logical}. Shall output of previous calls of this function be
@@ -164,9 +168,9 @@ lump_grass_prep <- function(
     if(!is.numeric(eha_thres))
       stop("You have to specify eha_thres as a number!")
     if(!is.numeric(sizefilter))
-      stop("You have to specify sizefilter as a number!")
+      sizefilter <- 1/10 * eha_thres
     if(!is.numeric(growrad))
-      stop("You have to specify growrad as a number!")
+      growrad <- 1/5 * eha_thres
   }
   if ("river" %in% things2do)
   {
