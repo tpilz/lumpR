@@ -249,7 +249,7 @@ calc_subbas <- function(
       # set watershed of outlet point as mask
       execGRASS("r.mask", input="basin_outlet_t")
       
-      # the following calculations only make sense if thresh_sub is small enough to produce more than more subbasin
+      # the following calculations only make sense if thresh_sub is small enough to produce more subbasins than determined by drain_points
       no_catch_calc <- length(as.numeric(execGRASS("r.stats", input="basin_calc_t", flags=c("n"), intern=T, ignore.stderr = T)))
       if(no_catch_calc > 1) {
         
@@ -298,9 +298,10 @@ calc_subbas <- function(
         # merge with existing drain points object (snapped points first as there the outlet is identified)
         drain_points_snap <- rbind(drain_points_snap, drain_points_calc)
         
-        # remove mask
-        execGRASS("r.mask", flags=c("r"))
-      }
+      } # more than one subbasin
+      
+      # remove mask
+      execGRASS("r.mask", flags=c("r"))
     }
     
 
