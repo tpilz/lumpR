@@ -67,13 +67,15 @@
 #'      landscape discretisation! As a rule of thumb, a value 10-100 times smaller
 #'      than \code{thresh_sub} of function \code{\link[lumpR]{calc_subbas}} is usually
 #'      a good choice.
-#' @param sizefilter Integer specifying minimum size of EHAs (in map units)
-#'      not to be removed, smaller EHAs (artefacts) are removed; parameter for
+#' @param sizefilter Integer specifying the minimum size of EHAs in hectares.
+#'      Smaller EHAs (possibly artefacts) will be removed. Parameter for
 #'      GRASS function \emph{r.reclass.area}. If set to \code{NULL} (default), 
-#'      it will be automatically set to \code{1/10 * eha_thres}.
+#'      it will be automatically set to a value equivalent to 50 grid cells (ATTENTION:
+#'      meters will be assumed as unit of the GRASS projection!).
 #' @param growrad Integer specifying growing radius (in raster cells) to remove
-#'      artefacts in EHA data; parameter for GRASS function \emph{r.grow}. If set
-#'      to \code{NULL} (default), it will be automatically set to \code{1/5 * eha_thres}.
+#'      holes in the EHA raster resulting from cleaning of artefacts; parameter for
+#'      GRASS function \emph{r.grow}. If set to \code{NULL} (default), it will be
+#'      automatically set to 25 (should be but less than 100 due to long computation times!).
 #' @param keep_temp \code{logical}. Set to \code{TRUE} if temporary files shall be kept
 #'      in the GRASS location, e.g. for debugging or further analyses. Default: \code{FALSE}.
 #' @param overwrite \code{logical}. Shall output of previous calls of this function be
@@ -173,9 +175,9 @@ lump_grass_prep <- function(
     if(!is.numeric(eha_thres))
       stop("You have to specify eha_thres as a number!")
     if(!is.numeric(sizefilter))
-      sizefilter <- 1/10 * eha_thres
+      sizefilter <- 50 * gmeta()$nsres * gmeta()$ewres / 1e4
     if(!is.numeric(growrad))
-      growrad <- 1/5 * eha_thres
+      growrad <- 25
   }
   if ("river" %in% things2do)
   {

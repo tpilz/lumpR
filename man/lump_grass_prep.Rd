@@ -77,14 +77,16 @@ landscape discretisation! As a rule of thumb, a value 10-100 times smaller
 than \code{thresh_sub} of function \code{\link[lumpR]{calc_subbas}} is usually
 a good choice.}
 
-\item{sizefilter}{Integer specifying minimum size of EHAs (in map units)
-not to be removed, smaller EHAs (artefacts) are removed; parameter for
+\item{sizefilter}{Integer specifying the minimum size of EHAs in hectares.
+Smaller EHAs (possibly artefacts) will be removed. Parameter for
 GRASS function \emph{r.reclass.area}. If set to \code{NULL} (default), 
-it will be automatically set to \code{1/10 * eha_thres}.}
+it will be automatically set to a value equivalent to 50 grid cells (ATTENTION:
+meters will be assumed as unit of the GRASS projection!).}
 
 \item{growrad}{Integer specifying growing radius (in raster cells) to remove
-artefacts in EHA data; parameter for GRASS function \emph{r.grow}. If set
-to \code{NULL} (default), it will be automatically set to \code{1/5 * eha_thres}.}
+holes in the EHA raster resulting from cleaning of artefacts; parameter for
+GRASS function \emph{r.grow}. If set to \code{NULL} (default), it will be
+automatically set to 25 (should be but less than 100 due to long computation times!).}
 
 \item{keep_temp}{\code{logical}. Set to \code{TRUE} if temporary files shall be kept
 in the GRASS location, e.g. for debugging or further analyses. Default: \code{FALSE}.}
