@@ -44,18 +44,19 @@ as input for \code{\link[lumpR]{prof_class}}; manual adjustment necessary.}
 
 \item{ridge_thresh}{Integer specifying threshold of flow accumulation, below
 which a cell is considered a start of a flowpath (usually 1 for D8
-flowaccumulation grids).}
+flowaccumulation grids, DEFAULT).}
 
 \item{min_cell_in_slope}{Integer specifying minimum number of cells a hillslope
-area must have, all smaller ones are skipped.}
+area must have, all smaller ones are skipped. Default: 30.}
 
 \item{min_catena_length}{Integer specifying minimum number of sampling points
-(cells) a catena should have. If there are less, the catena is not saved.}
+(cells) a catena should have. If there are less, the catena is not saved.
+Default: 3.}
 
 \item{max_riv_dist}{Integer specifying maximum distance to river [in cells]:
 if the closest cell of an EHA is farther than \code{max_riv_dist}, the EHA
 is skipped, otherwise all distances within the EHA are redurced by the
-distance of the closest cell to river.}
+distance of the closest cell to river. Default: 10.}
 
 \item{plot_catena}{logical; produce plots (scatter, mean catena, etc.) for
 each area / class (written into sub-directory \emph{plots_area2catena}).}
