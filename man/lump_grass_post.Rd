@@ -207,7 +207,9 @@ Prepare GRASS location and necessary raster files in advance (e.g. using
      TODO:\cr
        - check empirical formulas for channel width and channel depth\cr
        - LU parameter estimation\cr
-       - include options to add parameters manually in case data are available
+       - include options to add parameters manually in case data are available\cr
+       - include option to make function more efficient regarding RAM usage (e.g. by
+         wrting/reading temporary raster data to/from disk) at the cost of higher computational burden
 }
 \references{
 Source code based on \code{SHELL} and \code{MATLAB} scripts of Till Francke.

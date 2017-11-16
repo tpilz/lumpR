@@ -77,7 +77,9 @@
 #'      TODO:\cr
 #'        - check empirical formulas for channel width and channel depth\cr
 #'        - LU parameter estimation\cr
-#'        - include options to add parameters manually in case data are available
+#'        - include options to add parameters manually in case data are available\cr
+#'        - include option to make function more efficient regarding RAM usage (e.g. by
+#'          wrting/reading temporary raster data to/from disk) at the cost of higher computational burden
 #'        
 #'        
 #' @details
@@ -319,14 +321,28 @@ lump_grass_post <- function(
     execGRASS("r.mask", input=mask, flags=c("o"))
     
     # load rasters into R
+    dem_rast <- raster(readRAST6(dem))
     accum_rast <- raster(readRAST6(flowacc))
     dir_rast <- raster(readRAST6(flowdir))
     sub_rast <- raster(readRAST6(subbasin))
+    horton_rast <- raster(readRAST6(stream_horton))
     # ... raster values as matrix
+    dem_mat <- getValues(dem_rast, format="matrix")
+    rm(dem_rast)
     sub_mat <- getValues(sub_rast, format="matrix")
+    coords <- xyFromCell(sub_rast, 1:length(sub_rast))
+    rm(sub_rast)
     accum_mat <- getValues(accum_rast, format="matrix")
+    rm(accum_rast)
     dir_mat <- getValues(dir_rast, format="matrix")
-    rm(list="accum_rast","dir_rast","sub_rast")
+    rm(dir_rast)
+    horton_mat <- getValues(horton_rast, format="matrix")
+    rm(horton_rast)
+    gc(); gc()
+    
+    # resolution
+    g_meta <- gmeta()
+    resol <- mean(g_meta$nsres, g_meta$ewres)
     
   }, error = function(e) {
     
@@ -427,47 +443,64 @@ lump_grass_post <- function(
       sub_stats <- matrix(as.numeric(gsub("%", "", unlist(strsplit(sub_stats, split=" +")))), ncol=2, byrow=T,
                           dimnames=list(NULL,c("pid", "area")))
       
-      #sub_stats[,"area"] <- sub_stats[,"areal_fraction"]/100 #convert % to fraction
-      sub_stats[,"area"] <- sub_stats[,"area"]/1e6 #convert m? to km?
+      # convert m2 to km2
+      sub_stats[,"area"] <- round(sub_stats[,"area"]/1e6, 2)
         
       # calculate stats of LUs in each subbasin and subbasin drainage ("drains_to")
       sub_stats <- cbind(sub_stats, na_val, na_val, na_val, na_val, na_val, na_val, na_val)
       colnames(sub_stats)[c(3:9)] <- c("x", "y", "drains_to", "lag_time", "retention", "description", "a_stream_order")
       sub_lu_stats <- NULL
+      s_row <- 0
       for (SUB in sub_stats[,1]) {
         
-        # create temp mask masking all but subbasin SUB
-        execGRASS("r.mapcalculator", amap=subbasin, outfile="MASK_t", formula=paste("if(A==", SUB,",1,null())", sep=""), flags=c("overwrite"))
-        # set temp mask
-        execGRASS("r.mask", input="MASK_t", flags=c("o"))
-        # current row in output object
-        s_row <- which(sub_stats[,"pid"] == SUB)
+        s_row <- s_row +1
+        
+        # bounding box of current subbasin
+        sub_arrind <- which(sub_mat == SUB, arr.ind = T)
+        rmin <- min(sub_arrind[,"row"])
+        rmax <- max(sub_arrind[,"row"])
+        cmin <- min(sub_arrind[,"col"])
+        cmax <- max(sub_arrind[,"col"])
+        
+        # crop raster matrices
+        dem_crop <- dem_mat[rmin:rmax, cmin:cmax]
+        horton_crop <- horton_mat[rmin:rmax, cmin:cmax]
+        sub_crop <- sub_mat[rmin:rmax, cmin:cmax]
+        dir_crop <- dir_mat[rmin:rmax, cmin:cmax]
+        accum_crop <- accum_mat[rmin:rmax, cmin:cmax]
+        
+        # get coordinates of cells
+        coords_crop <- coords[which(t(sub_mat) == SUB),]
+        
+        # set all values not overlapping with the current subbasin to NA
+        na_cells <- which(sub_crop != SUB)
+        sub_crop[na_cells] <- NA
+        dem_crop[na_cells] <- NA
+        horton_crop[na_cells] <- NA
+        dir_crop[na_cells] <- NA
+        accum_crop[na_cells] <- NA
         
     # COORDINATES OF SUBBASIN centroids in GRASS units #
-        sub_centr <- execGRASS("r.volume", data=subbasin, flags=c("f"), intern=TRUE, ignore.stderr = T)
+        sub_centr <- centroid(coords_crop)
         
-        sub_centr <- data.frame(x=as.numeric(strsplit(sub_centr, ":")[[1]][5]), y=as.numeric(strsplit(sub_centr, ":")[[1]][6]))
-        coordinates(sub_centr) <- c("x","y")
-        projection(sub_centr) <- getLocationProj()
-        
-        sub_stats[s_row, "x"] <- coordinates(sub_centr)[,"x"]
-        sub_stats[s_row, "y"] <- coordinates(sub_centr)[,"y"]
+        sub_stats[s_row, "x"] <- round(sub_centr[,"x"])
+        sub_stats[s_row, "y"] <- round(sub_centr[,"y"])
         
     # SUBBASIN drainage #
         sub_stats[s_row,"drains_to"] <- sub_route(SUB,sub_mat,accum_mat,dir_mat) # internal function, see below
     
     # SUBBASIN PARAMETERS #
         # calc main channel length
-        chan_len <- channel_length(SUB,stream_horton, flowdir, flowacc)
+        chan_len <- channel_length(horton_crop, dir_crop, resol)
         
         # calc main channel average slope
-        chan_slope <- channel_slope("stream_main_t", flowacc, dem, chan_len)
+        chan_slope <- channel_slope(horton_crop, accum_crop, dem_crop, chan_len)
     
         # calc main channel width
-        chan_width <- channel_width(flowacc)
+        chan_width <- channel_width(accum_crop, resol)
     
         # calc main channel depth
-        chan_depth <- channel_depth(flowacc)
+        chan_depth <- channel_depth(accum_crop, resol)
     
         # calc flow velocites for bankful, 2/3 and 1/10 filling
         # Manning's n = 0.075 (very weedy reaches, deep pools, or floodways with heavy stand of timber and underbrush) 
@@ -489,17 +522,12 @@ lump_grass_post <- function(
           warning(paste0("Could not calculate finite subbasin parameters for subbasin ", SUB))
     
         # save
-        sub_stats[s_row, "lag_time"] <- flowtime_med
-        sub_stats[s_row, "retention"] <- retention
-    
-        write.table(sub_stats, paste(dir_out, sub_ofile, sep="/"), quote=F, row.names=F, sep="\t")
-        
-        # set basin-wide mask again
-        execGRASS("r.mask", input=mask, flags=c("o"))
-    
-        # remove temp rasters (even if keep_temp because these maps are created during every iteration of this loop)
-        execGRASS("g.mremove", rast="cell_len_t,stream_main_t,flowacc_minmax_t,MASK_t", flags=c("f", "b"), ignore.stderr=T)
-      }
+        sub_stats[s_row, "lag_time"] <- round(flowtime_med, 3)
+        sub_stats[s_row, "retention"] <- round(retention, 3)
+      } # subbasin loop
+      
+      # write output file
+      write.table(sub_stats, paste(dir_out, sub_ofile, sep="/"), quote=F, row.names=F, sep="\t")
       
     } # sub_ofile given?
   
@@ -689,6 +717,19 @@ lump_grass_post <- function(
 
 ### internal functions ###
 
+# CENTROIDS #
+# returns a matrix with x and y value of the centroid of the object given in coords_sub
+centroid <- function(coords_sub) {
+  # convert so sp class
+  coords_sub <- as.data.frame(coords_sub)
+  coordinates(coords_sub) <- c("x", "y")
+  
+  # calculate centroid
+  centr <- gCentroid(coords_sub)
+  centr <- centr@coords
+  return(centr)
+}
+
 # SUBBASIN ROUTING #
 # returns ID of downstream subbasin for the current subbasin 'sub_no'
 # determined from flow accumulation and flow direction map
@@ -697,7 +738,7 @@ sub_route <- function(sub_no,sub_mat,accum_mat,dir_mat) {
   # extract highest flowacc in subbasin sub_no
   sub_ids <- which(sub_mat == sub_no)
   accum_sub <- accum_mat[sub_ids]
-  accum_sub_max <- which(accum_sub == max(accum_sub))
+  accum_sub_max <- which.max(accum_sub)
   
   # extract corresp. flowdir
   dir_sub_out <- dir_mat[sub_ids[accum_sub_max]]
@@ -728,7 +769,7 @@ sub_route <- function(sub_no,sub_mat,accum_mat,dir_mat) {
     } else if (dir_sub_out == 8) { # E
       sub_rowcol_out <- sub_rowcol + c(0,+1)  
     } else {
-      stop(paste("During determining subbasin drainage: Determined flow direction at outlet
+      stop(paste("While determining subbasin drainage: Determined flow direction at outlet
               of subbasin ", sub_no, " has value ", dir_sub_out, " but should be one of {1,2,3,4,5,6,7,8} or a negative number.", sep=""))
     }
     
@@ -751,46 +792,31 @@ sub_route <- function(sub_no,sub_mat,accum_mat,dir_mat) {
 # MAIN CHANNEL LENGTH #
 # returns length of the main channel (largest value in Horton order) in [m]
 # computes main stream temporary raster used in further calculations
-channel_length <- function(sub_no, stream, flowdir, flowacc) {
-  
-  if (is.null(stream) || stream=="") return(NA)
-  # determine resolution of horton stream raster map
-  cmd_out <- execGRASS("r.info", map=stream, flags=c("s"), intern=T)
-  if (identical(attr(cmd_out, "status"), as.integer(1))) return(NA)
-  resol <- as.numeric(unlist(strsplit(cmd_out, "="))[c(2,4)])
-  names(resol) <- unlist(strsplit(cmd_out, "="))[c(1,3)]
+channel_length <- function(horton, flowdir, resol) {
   
   # determine main channel (largest value in Horton stream order)
-  main_chan <- as.numeric(execGRASS("r.stats", input=stream, flags=c("n"), intern=T, ignore.stderr = T))
+  main_chan <- na.exclude(unique(c(horton)))
   
   # if there is no main channel (e.g. in very small reservoir subbasins) assume one cell of main stream
   if (length(main_chan) == 0) {
-    chan_len <- mean(resol)
-    accmax <- max(as.numeric(execGRASS("r.stats", input=flowacc, flags=c("n", "1"), intern=T, ignore.stderr = T))) # max flowacc
-    execGRASS("r.mapcalculator", amap=flowacc, outfile="stream_main_t", 
-              formula=paste0("if(A == ", sprintf(accmax, fmt="%d"), ", 1, null())"))
+    chan_len <- resol
+    # accmax <- max(as.numeric(execGRASS("r.stats", input=flowacc, flags=c("n", "1"), intern=T, ignore.stderr = T))) # max flowacc
+    # execGRASS("r.mapcalculator", amap=flowacc, outfile="stream_main_t", 
+    #           formula=paste0("if(A == ", sprintf(accmax, fmt="%d"), ", 1, null())"))
     warning(paste("Subbasin ", sub_no, " has no main channel. Assume at least one raster cell.", sep=""))
 
   } else {
     
+    # diagonal raster cell length
+    dia <- sqrt(2*resol^2)
+    
+    # determine raster cells of main channel
     max_val <- max(main_chan)
-    expr <- paste0("if(A == ", sprintf(max_val, fmt="%d"), ", A, null())")
-    expr <- gsub("\n|\\s","",expr)
-    execGRASS("r.mapcalculator", amap=stream, outfile="stream_main_t", formula=expr)
+    r_main <- which(horton==max_val)
     
-    # calculate lengths of main stream raster cells
-    dia <- sqrt(sum(resol^2))
-    expr <- paste0("if(isnull(A), null(),
-                    if(B == 4 || B == 8, ",resol["ewres"],", 0)+
-                    if(B == 2 || B == 6, ",resol["nsres"],", 0)+
-                    if(B == 1 || B == 3 || B == 5 || B == 7, ",dia,", 0))")
-    expr <- gsub("\n|\\s","",expr)
-    execGRASS("r.mapcalculator", amap="stream_main_t", bmap=flowdir, outfile="cell_len_t", formula=expr)
-    
-    # calculate total length of main stream channel
-    cmd_out <- execGRASS("r.univar", map="cell_len_t", fs=",", flags=c("t"),intern=T, ignore.stderr = T)
-    cmd_out <- strsplit(cmd_out, ",")
-    chan_len <- as.numeric(cmd_out[[2]][grep("sum$", cmd_out[[1]])])
+    # calculate length of the main channel
+    chanlen_t <- flowdir[r_main] %% 2 == 0 # horizontal/vertical stream
+    chan_len <- length(which(chanlen_t))*resol + length(which(!chanlen_t))*dia
   }
   
   return(chan_len)
@@ -799,22 +825,22 @@ channel_length <- function(sub_no, stream, flowdir, flowacc) {
 
 # MAIN CHANNEL SLOPE #
 # returns average slope of main channel [m/m]
-channel_slope <- function(stream_main, flowacc, dem, chan_len) {  
+channel_slope <- function(horton, accum, dem, chan_len) {  
   if (is.na(chan_len) ) return(NA)
-  # calc min and max flow accumulation of main channel rasters
-  cmd_out <- execGRASS("r.univar", zones=stream_main, map=flowacc, fs=",", flags=c("t"),intern=T, ignore.stderr = T)
-  cmd_out <- strsplit(cmd_out, ",")
-  accum_vals <- as.numeric(cmd_out[[2]][grep("min$|max$", cmd_out[[1]])])
+
+  # determine main channel (largest value in Horton stream order)
+  main_chan <- na.exclude(unique(c(horton)))
+  
+  # determine raster cells of main channel
+  max_val <- max(main_chan)
+  r_main <- which(horton==max_val)
+  
+  # min and max values of flow accumulation within main channel to determin flow direction
+  acc_min <- which.min(accum[r_main])
+  acc_max <- which.max(accum[r_main])
   
   # get dem values for respective raster cells of min and max flowacc
-  expr <- paste("if(A, if(B == ", accum_vals[1], " || B == ", accum_vals[2], ", 1, null())
-               , null())", sep="")
-  expr <- gsub("\n|\\s","",expr)
-  execGRASS("r.mapcalculator", amap=stream_main, bmap=flowacc, outfile="flowacc_minmax_t",
-            formula=expr)
-  cmd_out <- execGRASS("r.univar", zones="flowacc_minmax_t", map=dem, fs=",", flags=c("t"),intern=T, ignore.stderr = T)
-  cmd_out <- strsplit(cmd_out, ",")
-  dem_vals <- as.numeric(cmd_out[[2]][grep("min$|max$", cmd_out[[1]])])
+  dem_vals <- dem[r_main][c(acc_max, acc_min)]
   
   # compute slope [m/m]
   chan_slope <- diff(dem_vals) / chan_len
@@ -829,17 +855,12 @@ channel_slope <- function(stream_main, flowacc, dem, chan_len) {
 # MAIN CHANNEL WIDTH #
 # calculate main channel width based on empirical formula: width[m] = 1.29 * darea[km2] ^ 0.6
 # darea = drainage area determined from maximum flow accumulation and resolution
-channel_width <- function(flowacc) {
+channel_width <- function(accum, resol) {
   # determine maximum flow accumulation
-  cmd_out <- execGRASS("r.univar", map=flowacc, fs=",", flags=c("t"),intern=T, ignore.stderr = T)
-  cmd_out <- strsplit(cmd_out, ",")
-  max_acc <- as.numeric(cmd_out[[2]][grep("max$", cmd_out[[1]])])
+  max_acc <- max(accum, na.rm = T)
   
   # calculate drainage area [km^2]
-  cmd_out <- execGRASS("r.info", map=flowacc, flags=c("s"), intern=T)
-  resol <- as.numeric(unlist(strsplit(cmd_out, "="))[c(2,4)])
-  names(resol) <- unlist(strsplit(cmd_out, "="))[c(1,3)]
-  drain_area <- max_acc * prod(resol) / 1e6
+  drain_area <- max_acc * resol^2 / 1e6
   
   # calculate width according to empirical function
   chan_width <- 1.29 * drain_area^(0.6)
@@ -854,17 +875,12 @@ channel_width <- function(flowacc) {
 # MAIN CHANNEL DEPTH #
 # calculate main channel width based on empirical formula: width[m] = 0.13 * darea[km2] ^ 0.4
 # darea = drainage area determined from maximum flow accumulation and resolution
-channel_depth <- function(flowacc) {
+channel_depth <- function(accum, resol) {
   # determine maximum flow accumulation
-  cmd_out <- execGRASS("r.univar", map=flowacc, fs=",", flags=c("t"),intern=T, ignore.stderr = T)
-  cmd_out <- strsplit(cmd_out, ",")
-  max_acc <- as.numeric(cmd_out[[2]][grep("max$", cmd_out[[1]])])
+  max_acc <- max(accum, na.rm = T)
   
   # calculate drainage area [km^2]
-  cmd_out <- execGRASS("r.info", map=flowacc, flags=c("s"), intern=T)
-  resol <- as.numeric(unlist(strsplit(cmd_out, "="))[c(2,4)])
-  names(resol) <- unlist(strsplit(cmd_out, "="))[c(1,3)]
-  drain_area <- max_acc * prod(resol) / 1e6
+  drain_area <- max_acc * resol^2 / 1e6
   
   # calculate depth according to empirical function
   chan_depth <- 0.13 * drain_area^(0.4)
