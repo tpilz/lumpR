@@ -503,21 +503,22 @@ lump_grass_post <- function(
         sub_stats[s_row, "x"] <- round(sub_centr[,"x"])
         sub_stats[s_row, "y"] <- round(sub_centr[,"y"])
         
-		# convert to decimal degree
-		longlat <- spTransform(sub_centr, "+proj=longlat")
-		sub_stats[s_row, "lon"] <- coordinates(longlat)[,"x"]
-		sub_stats[s_row, "lat"] <- coordinates(longlat)[,"y"]
-		
-		# longitude as decimal degrees west of Greenwich
-		if(sub_stats[s_row, "lon"] < 0)
-			sub_stats[s_row, "lon"] <- -1*sub_stats[s_row, "lon"]
-		else
-			sub_stats[s_row, "lon"] <- 360 - sub_stats[s_row, "lon"]
-			
-	# AVERAGE SUBBASIN ELEVATION TODO: check this #
-		cmd_out <- execGRASS("r.univar", zones=subbasin, map=dem, fs=",", flags=c("t"),intern=T)
-		cmd_out <- strsplit(cmd_out, ",")
-		sub_stats[s_row, "elev"] <- as.numeric(cmd_out[[2]][grep("mean$", cmd_out[[1]])])
+    		# convert to decimal degree
+        sub_centr <- data.frame(x = sub_centr[,"x"], y = sub_centr[,"y"])
+        coordinates(sub_centr) <- c("x", "y")
+        proj4string(sub_centr) <- getLocationProj()
+    		longlat <- spTransform(sub_centr, "+proj=longlat")
+    		sub_stats[s_row, "lon"] <- round(coordinates(longlat)[,"x"], 4)
+    		sub_stats[s_row, "lat"] <- round(coordinates(longlat)[,"y"], 4)
+    		
+    		# longitude as decimal degrees west of Greenwich
+    		if(sub_stats[s_row, "lon"] < 0)
+    			sub_stats[s_row, "lon"] <- -1*sub_stats[s_row, "lon"]
+    		else
+    			sub_stats[s_row, "lon"] <- 360 - sub_stats[s_row, "lon"]
+  			
+  	# AVERAGE SUBBASIN ELEVATION #
+    		sub_stats[s_row, "elev"] <- round(mean(dem_crop, na.rm=T))
         
     # SUBBASIN drainage #
         sub_stats[s_row,"drains_to"] <- sub_route(SUB,sub_mat,accum_mat,dir_mat) # internal function, see below
@@ -557,7 +558,7 @@ lump_grass_post <- function(
         # save
         sub_stats[s_row, "lag_time"] <- round(flowtime_med, 3)
         sub_stats[s_row, "retention"] <- round(retention, 3)
-        sub_stats[s_row, "chan_len"] <- chan_len
+        sub_stats[s_row, "chan_len"] <- round(chan_len)
       } # subbasin loop
       
       # write output file
