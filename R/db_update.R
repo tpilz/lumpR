@@ -32,7 +32,7 @@
 #'   It is planned to add further functionality to this function when the database
 #'   structure is being further developed.
 #'   
-#'   Up to version 21 is relevant for the WASA model. Version 22 and 23 contain exclusive
+#'   Up to version 21 is relevant for the WASA model. Versions 22 to 24 contain exclusive
 #'   adaptions for ECHSE's WASA engine only!
 #'   
 #' @references 
@@ -240,8 +240,8 @@ db_update <- function(
       # check if table to be altered does exist
       if(grepl("alter table", statement, ignore.case = TRUE)) {
         split <- strsplit(statement, "[ ]+")[[1]]
-        pos <- grep("change|modify|alter", split, ignore.case = T)
-        tbl <- split[tail(pos, n=1)-1]
+        pos <- grep("alter", split, ignore.case = T)
+        tbl <- split[pos+2]
         if (!(tbl %in% tbls))
           stop(paste0("Table '", tbl, "' does not exist but is needed to update database to version ", to_ver, "!"))
       }
