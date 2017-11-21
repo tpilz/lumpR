@@ -30,19 +30,10 @@
 #' containing the extracted sub-catchments. Database need to be registered for ODBC
 #' (see \code{Details} of \code{\link[lumpR]{db_create}}).
 #' 
-#' @param ncores Ineger specifying number of cores that shall be used for computation.
-#' Needs package doMC (Linux only) or doParallel for ncores > 1. Default: 1. See Note.
-#' 
 #' @param verbose \code{logical}. Should detailed information during execution be
 #'  printed? Default: \code{TRUE}.
 #'  
 #' @return Function returns nothing. Only the databases are processed.
-#' 
-#' @note Running on multiple CPU cores (option \code{ncores}) does not work properly.
-#' On Linux, just several threads are stared and processed but it is not real parallel
-#' processing, which presumably does not work with ODBC. However, it runs a bit faster
-#' than in serial mode. On Windows, however, my tests with \code{ncores > 1} resulted in errors.
-#' So, if it does not work on your Windows machine neither, set \code{ncores = 1}.
 #' 
 #' @details The function first copies the original databse. Then the upstream subbasins
 #' of the selected outlet subbasin are identified and the copied database is pruned
@@ -51,10 +42,6 @@
 #' Thus, the other tables may contain redundant information which are contained to
 #' limit the processing time and retain the opportunity to (re-)include information
 #' later on.
-#' 
-#' Processing time might be rather long depending on \code{ncores}, the number of
-#' datasets to be processed, the underlying DBMS (sqlite is rather slow), and your
-#' operating system (Windows was always faster in my tests).
 #'  
 #' @author 
 #'  Tobias Pilz \email{tpilz@@uni-potsdam.de}
@@ -63,13 +50,15 @@ db_extract_subcatch <- function(
   dbname = NULL,
   sub_extract = NULL,
   dbname_new = NULL,
-  ncores=1,
   verbose = T
 ) {
   
+  if(verbose) message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+  if(verbose) message("% START db_check()")
+  if(verbose) message("%")
+  
   # CHECKS #
-  if(verbose)
-    message("Checking Arguments and pre-processing databases ...")
+  if(verbose) message("% Checking Arguments and pre-processing databases ...")
   # argument checks
   if(is.null(dbname))
     stop("Argument 'dbname' is undefined!")
@@ -103,41 +92,16 @@ db_extract_subcatch <- function(
   
   # create and connect to databases of dbname_new
   junk <- lapply(dbname_new, db_create)
-  junk <- lapply(dbname_new, db_update)
   con_new <- lapply(dbname_new, connect_db)
   
-  # initialize parallelism
-  if (ncores>1)
-  {  
-    if(suppressPackageStartupMessages(require(doMC)))
-      # register cores
-      registerDoMC(cores=ncores) else
-        if (suppressPackageStartupMessages(require(doParallel)))
-        {
-          cl <- makePSOCKcluster(ncores) #make cluster, so we can explicitly close it later
-          registerDoParallel(cl)
-        } else
-        {
-          warning("No package for parallel backend (doMC, doParallel) found, reverting to single-core mode")
-          ncores=1
-        }
-  }
   
-  if (ncores==1) registerDoSEQ() # specify that %dopar% should run sequentially
-  
-  if(verbose)
-    message(paste0(getDoParWorkers(), " CPU core(s) initialised."))
-  
-  
-  if(verbose)
-    message("OK.")
+  if(verbose) message("% OK")
   
   
   
   # Extract SUBCATCHMENTS #
-  if(verbose) {
-    message("\nLoop over subcatchments to be extracted (this can take some time!) ...")
-  }
+  if(verbose) message("%")
+  if(verbose) message("% Looping over subcatchments to be extracted ...")
   
   # function to read database from connection and store contents on disk
   store_db <- function(con, table, dir) {
@@ -153,12 +117,12 @@ db_extract_subcatch <- function(
   files_save <- sapply(tabs, function(x) store_db(con, x, tmp_dir), simplify = F)
   
   # loop over sub_extract
-  logdata <- foreach(i = seq(1, length(sub_extract)), .errorhandling='remove', .inorder=FALSE) %dopar% {
-    extract_db(sub_extract[i], dbname_new[i], con_new[[i]], files_save)
-  }
+  junk <- lapply(1:length(sub_extract), function(x) extract_db(sub_extract[x], dbname_new[x], con_new[[x]], files_save))
   
   odbcCloseAll()
-  message("\nFinished!")
+  if(verbose) message("%")
+  if(verbose) message("% DONE!")
+  if(verbose) message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
   
 } # EOF main
 
@@ -166,13 +130,18 @@ db_extract_subcatch <- function(
 # internal function for database extraction
 extract_db <- function(sub_extract, dbname_new, con, files_db) {
   
+  # tables that need to appear in new database
+  # make sure that no temporary/redundant (e.g. manually created) tables from parent database are written
+  tables2create <- sqlTables(con)[,"TABLE_NAME"]
+  
   # read in data needed herein
   dat_sub <- read.table(files_db[["subbasins"]], header=T, sep="\t")
   dat_c_lu <- read.table(files_db[["r_subbas_contains_lu"]], header=T, sep="\t")
   
   # fill in temporarily saved tables into database
   files_write <- grep("db_version|meta_info|subbasins|r_subbas_contains_lu", names(files_db), invert = T, value = T)
-  lapply(files_write, function(x) writedb(con, files_db[[x]], x, overwrite=T, verbose=F))
+  files_write <- files_write[which(files_write %in% tables2create)]
+  junk <- lapply(files_write, function(x) writedb(con, files_db[[x]], x, overwrite=T, verbose=F))
   
   # extract relevant subbasins (all upstream of sub_extract[i])
   curr_ids <- sub_extract
@@ -186,36 +155,25 @@ extract_db <- function(sub_extract, dbname_new, con, files_db) {
   dat_sub_up[which(dat_sub_up$pid == sub_extract), "drains_to"] <- 9999
   dat_sub_up$a_stream_order <- NA
   
-  # write data into subbasins table
-  sqlSave(con, dat_sub_up, "subbasins", verbose=F, append=TRUE , test = FALSE,
-          nastring = NULL, fast = TRUE, rownames = FALSE)
-  
   # delete from r_subbas_contains_lu table
   rows_rm <- which(!(dat_c_lu$subbas_id %in% dat_sub_up$pid))
-  sqlSave(con, dat_c_lu[-rows_rm,], "r_subbas_contains_lu", verbose=F, append=TRUE , test = FALSE,
-          nastring = NULL, fast = TRUE, rownames = FALSE)
   
-  # apply db_check() to crop the other (really relevant) tables
-  junk <- capture.output(db_check(dbname_new, check = "delete_obsolete", fix = T, verbose = F))
+  # write data into database
+  files_db_t <- paste(tempdir(), c("subbasins_t.dat", "r_subbas_contains_lu_t.dat"), sep="/")
+  write.table(dat_sub_up, files_db_t[1], sep="\t", quote=F, row.names = F)
+  write.table(dat_c_lu[-rows_rm,], files_db_t[2], sep="\t", quote=F, row.names = F)
+  junk <- lapply(c("subbasins", "r_subbas_contains_lu"), function(x) writedb(con, grep(x, files_db_t, value=T), x, overwrite=T, verbose=F))
   
-  # re-calculate subbasin order
-  junk <- capture.output(db_check(dbname_new, check = "subbasin_order", fix = T, verbose = F))
+  # apply db_check() to crop the other (really relevant) tables and re-calculate subbasin orde
+  junk <- capture.output(db_check(dbname_new, check = c("delete_obsolete", "subbasin_order"),
+                                  option=list(tbls_preserve=c("horizons", "vegetation", "soils", "particle_classes"),
+                                              overwrite=T, update_frac_impervious=F), fix = T, verbose = F))
   
   # update table meta_info
-  meta_dat <- sqlFetch(con, "meta_info")
-  meta_dat <- meta_dat[-c(nrow(meta_dat)-1, nrow(meta_dat)),] # exclude last two db_check()s
-  if(any(meta_dat$pid)) {
-    pid_new <- max(meta_dat$pid) +1
-  } else {
-    pid_new <- 1
-  }
-  meta_out <- data.frame(pid=pid_new,
-                         mod_date=as.POSIXct(Sys.time()),
-                         mod_user=paste0("db_extract_subcatch(), v. ", installed.packages()["lumpR","Version"]),
-                         affected_tables="subbasins, landscape_units, terrain_components, r_subbas_contains_lu, r_lu_contains_tc, r_tc_contains_svc",
-                         affected_columns="various",
-                         remarks=paste0("Database copied from database ", dbname, ", extracted sub-catchment of subbas no. ", sub_extract))
-  meta_out <- rbind(meta_dat, meta_out)
-  sqlQuery(con, "delete from meta_info")
-  write_datetabs(con, meta_out, tab="meta_info", verbose = F)
+  write_metainfo(con,
+                 "db_extract_subcatch()",
+                 "all", "all",
+                 paste0("Extracted the sub-catchment information in this database from parent database ", dbname,
+                        " (includes all prior entries to meta_info)."),
+                 FALSE)
 } # EOF extract_db
