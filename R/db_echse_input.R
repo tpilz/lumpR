@@ -21,6 +21,14 @@
 #' as input to specific model engines of the ECHSE simulation environment.
 #' 
 #' @param dbname Name of the data source (DSN) registered at ODBC.
+#' 
+#' @param start_year First year of the vegetation parameter time series (typically
+#' equal to the simulation period). Only needed if column 'yearm' in table 'rainy_season'
+#' contains values of -1. Otherwise it can be set to \code{NULL} (default).
+#' 
+#' @param end_year Last year of the vegetation parameter time series (typically
+#' equal to the simulation period). Only needed if column 'yearm' in table 'rainy_season'
+#' contains values of -1. Otherwise it can be set to \code{NULL} (default). 
 #'  
 #' @param proj_dir Path to your working directory. Output of this function will
 #'  be written to this location.
@@ -130,6 +138,8 @@
 
 db_echse_input <- function(
   dbname,
+  start_year=NULL,
+  end_year=NULL,
   proj_dir = "./",
   proj_name = "",
   overwrite=F,
@@ -1186,20 +1196,32 @@ db_echse_input <- function(
   
   # prepare external locations file
   extloc_file <- "input_ext_locs.dat"
-  if(!file.exists(paste(proj_dir, proj_name, "data", ts_dir, extloc_file, sep="/")) | overwrite){
-    file.create(paste(proj_dir, proj_name, "data", ts_dir, extloc_file, sep="/"))
-  } else {
+  if(file.exists(paste(proj_dir, proj_name, "data", ts_dir, extloc_file, sep="/")) & !overwrite)
     stop(paste0("File ", extloc_file, " exists!"))
-  }
-  
-  write(file=paste(proj_dir, proj_name, "data", ts_dir, extloc_file, sep="/"), append=T,
-        x=c("object\tvariable\tlocation\tweight"))
   
   # get rainy season data
   dat_rainy <- sqlFetch(con, "rainy_season")
   
-  # prepare as expected by calc_seasonality()
-  dat_rainy_in <- dat_rainy[,c("subbas_id", "yearm", "node1", "node2", "node3", "node4")]
+  # prepare as expected by calc_seasonality() (note: one entry for every vegetation type is needed)
+  dat_rainy_in <- dat_rainy[,!(colnames(dat_rainy) %in% "pid")]
+  dat_rainy_in$subbas_id <- replace(dat_rainy_in$subbas_id, dat_rainy_in$subbas_id == -1, "other")
+  dat_rainy_in$veg_id <- replace(dat_rainy_in$veg_id, dat_rainy_in$veg_id == -1, "other")
+  dat_rainy_in$subveg <- paste(dat_rainy_in$subbas_id, dat_rainy_in$veg_id, sep="_")
+  
+  # replace wildcards for yearm
+  if(any(dat_rainy_in$yearm == -1)) {
+    r_wildc <- which(dat_rainy_in$yearm == -1)
+    if(any(dat_rainy_in$yearm != -1)) {
+      yearmin <- ifelse(is.null(start_year), min(dat_rainy_in$yearm[dat_rainy_in$yearm != -1]), start_year)
+      yearmax <- ifelse(is.null(end_year), max(dat_rainy_in$yearm[dat_rainy_in$yearm != -1]), end_year)
+      years <- yearmin:yearmax
+      dat_rainy_t <- merge(years, dat_rainy_in[which(dat_rainy_in$yearm == -1),])
+      dat_rainy_t$yearm <- dat_rainy_t$x
+      dat_rainy_in <- unique(rbind(dat_rainy_in[which(dat_rainy_in$yearm != -1),], dat_rainy_t[,-which(colnames(dat_rainy_t) == "x")]))
+    } else {
+      dat_rainy_in <- merge(data.frame(yearm=c(start_year:end_year)), dat_rainy_in[,-which(colnames(dat_rainy_in) %in% "yearm")])
+    }
+  }
   
   # get objDecl
   objDecl_dat <- read.table(paste(proj_dir, proj_name, "data", "catchment", objdecl, sep="/"), header=T)
@@ -1208,33 +1230,49 @@ db_echse_input <- function(
   # write external location links; include day of year and hour of day
   veg_vars <- c("cano_height", "rootd", "lai", "alb")
   dat_rainy_expand <- NULL
+  extLink <- NULL
   for (s in unique(dat_rsub$subbas_id)) {
     
-    # SVC
+    # SVCs within this subbasin
     svc <- grep(paste0("^svc_", s, "_"), as.character(objDecl_dat$object), value=T)
     svc_all <- unlist(strsplit(svc, "_"))
     svc_all <- svc_all[seq(5,length(svc_all), by=5)]
     
-    # get all/unique vegetation IDs corresponding to SVCs
+    # get vegetation IDs corresponding to SVCs
     veg_all <- unlist(lapply(svc_all, function(x) dat_svc$veg_id[dat_svc$pid == x]))
+    veg_unique <- unique(veg_all)
+    
+    # location id (combination of subbasin and vegetation type)
+    if(!(s %in% dat_rainy$subbas_id)) {
+      subveg_loc <- paste("other", veg_all, sep="_")
+      r_rainy <- which(dat_rainy_in$subbas_id == "other")
+    } else {
+      subveg_loc <- paste(s, veg_all, sep="_")
+      r_rainy <- which(dat_rainy_in$subbas_id == s)
+    }
     
     # expand dat_rainy for each vegetation type within subbasin s
-    r_rainy <- which(dat_rainy_in$subbas_id == s)
-    dat_rainy_expand_t <- merge(paste(s, veg_all, sep="_"), dat_rainy_in[r_rainy,])
-    dat_rainy_expand_t <- dat_rainy_expand_t[,-2]
-    dat_rainy_expand <- rbind(dat_rainy_expand, dat_rainy_expand_t)
+    dat_rainy_s <- dat_rainy_in[r_rainy,]
+    veg_s_expl <- veg_unique[which(veg_unique %in% dat_rainy_s$veg_id)]
+    veg_s_other <- veg_unique[which(!(veg_unique %in% veg_s_expl))]
+    dat_rainy_expand_t <- do.call("rbind", replicate(length(veg_s_other), dat_rainy_s[which(dat_rainy_s$veg_id == "other"),], simplify = F))
+    dat_rainy_expand_t$veg_id <- veg_s_other
+    dat_rainy_expand_t$subveg <- paste(dat_rainy_expand_t$subbas_id, dat_rainy_expand_t$veg_id, sep="_")
+    dat_rainy_s <- dat_rainy_s[-which(dat_rainy_s$veg_id == "other"),]
+    dat_rainy_expand <- unique(rbind(dat_rainy_expand, dat_rainy_s, dat_rainy_expand_t))
     
     # external location linkage
-    extLink <- data.frame(object=rep(svc, length(veg_vars)+3), 
+    extLink_t <- data.frame(object=rep(svc, length(veg_vars)+3), 
                               variable=c(rep(veg_vars, each=length(svc)), rep(c("doy", "hour", "utc_add"), each=length(svc))),
-                              location=c(rep(paste(s, veg_all, sep="_"), length(veg_vars)), rep(c("any", "dummy", "dummy"), each=length(svc))),
+                              location=c(rep(subveg_loc, length(veg_vars)), rep(c("any", "dummy", "dummy"), each=length(svc))),
                               weight=rep(1, (length(veg_vars)+3)*length(svc)))
-    
-    # write to file
-    write.table(extLink, paste(proj_dir, proj_name, "data", ts_dir, extloc_file, sep="/"), 
-                sep="\t", append=T, row.names = F, col.names = F, quote = F)
+    extLink <- rbind(extLink, extLink_t)
     
   }
+  
+  # write linking file
+  write.table(extLink, paste(proj_dir, proj_name, "data", ts_dir, extloc_file, sep="/"), 
+              sep="\t", row.names = F, col.names = T, quote = F)
   
   # loop over vegetation parameters and create time series
   colnames(dat_veg) <- gsub("root_depth", "rootd", colnames(dat_veg))
@@ -1244,20 +1282,15 @@ db_echse_input <- function(
     # prepare seasonality matrix for calc_seasonality()
     cols <- grep(v, colnames(dat_veg))
     season <- dat_veg[,c(1, cols)]
-    season_in <- NULL
-    for (s in unique(as.character(dat_rainy_expand$x))) {
-      veg <- unlist(strsplit(s, "_"))[2]
-      season_t <- season[which(season$pid == veg),]
-      season_t$pid <- s
-      season_in <- rbind(season_in, season_t)
-    }
+    season_in <- merge(season, dat_rainy_expand[,c("veg_id", "subveg")], by.x = "pid", by.y = "veg_id")
   
     # calculate time series
-    veg_ts <- calc_seasonality(dat_rainy_expand, season_in, timezone = 'UTC')
+    veg_ts <- calc_seasonality(dat_rainy_expand[,c("subveg", "yearm", "node1", "node2", "node3", "node4")],
+                               unique(season_in[,c(6,2:5)]), timezone = 'UTC')
     
     # write into ECHSE time series data file
     write(c("end_of_interval", colnames(veg_ts)), paste(proj_dir, proj_name, "data", ts_dir, paste0("veg_", v, "_data.dat"), sep="/"), sep="\t", ncolumns=ncol(veg_ts)+1) 
-    write.table(veg_ts, paste(proj_dir, proj_name, "data", ts_dir, paste0("veg_", v, "_data.dat"), sep="/"),
+    write.table(round(veg_ts,2), paste(proj_dir, proj_name, "data", ts_dir, paste0("veg_", v, "_data.dat"), sep="/"),
                 sep="\t", quote=F, col.names=F, row.names=format(index(veg_ts), '%Y-%m-%d %H:%M:%S'), append=T)
   
   }

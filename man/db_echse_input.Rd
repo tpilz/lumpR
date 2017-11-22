@@ -4,11 +4,19 @@
 \alias{db_echse_input}
 \title{Create ECHSE input files}
 \usage{
-db_echse_input(dbname, proj_dir = "./", proj_name = "", overwrite = F,
-  verbose = TRUE)
+db_echse_input(dbname, start_year = NULL, end_year = NULL,
+  proj_dir = "./", proj_name = "", overwrite = F, verbose = TRUE)
 }
 \arguments{
 \item{dbname}{Name of the data source (DSN) registered at ODBC.}
+
+\item{start_year}{First year of the vegetation parameter time series (typically
+equal to the simulation period). Only needed if column 'yearm' in table 'rainy_season'
+contains values of -1. Otherwise it can be set to \code{NULL} (default).}
+
+\item{end_year}{Last year of the vegetation parameter time series (typically
+equal to the simulation period). Only needed if column 'yearm' in table 'rainy_season'
+contains values of -1. Otherwise it can be set to \code{NULL} (default).}
 
 \item{proj_dir}{Path to your working directory. Output of this function will
 be written to this location.}
