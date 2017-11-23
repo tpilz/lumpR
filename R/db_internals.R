@@ -283,7 +283,7 @@ filter_small_areas <- function(dat_tbl, thres, fix, verbose) {
     }
   
     # remove datasets and re-calculate areal fractions
-    if(fix) 
+    if(fix & any(rows_rm)) 
     {
       dat_tbl_new <- dat_tbl[-rows_rm,]
       dat_tbl_new <- check_fix_fractions(dat_tbl=dat_tbl_new, fix=TRUE, update_frac_impervious=update_frac_impervious, verbose=FALSE)
