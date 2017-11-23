@@ -396,7 +396,8 @@ db_check <- function(
 ### Assign special areas (water, impervious surfaces)
   if (any(grepl("special_areas", check))) {
     if(verbose) message("%")
-    if(verbose) message("% Define certain SVCs as special areas ...")
+    if(verbose & fix) message("% Define certain SVCs as special areas ...")
+    if(verbose & !fix) message("% Identify special areas in SVCs ...")
     
     # check arguments
     if(!("special_area" %in% names(option)))
@@ -414,68 +415,64 @@ db_check <- function(
     if(any(!(unique(option$special_area$special_id) %in% c(0,1,2))))
       stop("Option 'special_area' vector 'special_id' supports values '0', '1', and '2' only.")
     
-    if(!fix) {
-      message("% -> Running in report mode but nothing to report for this check.")
-    } else {
+    # get SVC data
+    dat_all <- c(dat_all,
+                 read_db_dat(tbl = c("soil_veg_components"), con = con, tbl_exist = names(dat_all), update_frac_impervious=option[["update_frac_impervious"]]))
     
-      # get SVC data
-      dat_all <- c(dat_all,
-                   read_db_dat(tbl = c("soil_veg_components"), con = con, tbl_exist = names(dat_all), update_frac_impervious=option[["update_frac_impervious"]]))
+    svcs_marked <- 0
+    
+    # vegetation
+    if("vegetation" %in% option$special_area$reference_tbl) {
       
-      # vegetation
-      if("vegetation" %in% option$special_area$reference_tbl) {
+      # determine relevant rows and vegetation ids
+      rows_veg <- grep("vegetation", option$special_area$reference_tbl)
+      
+      # loop over rows for vegetation
+      for (r in rows_veg) {
         
-        # determine relevant rows and vegetation ids
-        rows_veg <- grep("vegetation", option$special_area$reference_tbl)
+        # get rows in dat_svc to be adjusted
+        svc_rows_adj <- which(dat_all$soil_veg_components$veg_id == option$special_area$ref_id[r])
         
-        # loop over rows for vegetation
-        for (r in rows_veg) {
+        if(!any(svc_rows_adj)){
+          message(paste0("% -> WARNING: Option 'special_area': Vegetation id ", option$special_area$ref_id[r], " could not be found in column 'veg_id' of table 'soil_veg_components'."))
+          next
+        }
           
-          # get rows in dat_svc to be adjusted
-          svc_rows_adj <- which(dat_all$soil_veg_components$veg_id == option$special_area$ref_id[r])
-          
-          if(!any(svc_rows_adj)){
-            warning(paste0("Option 'special_area': Vegetation id ", option$special_area$ref_id[r], " could not be found in column 'veg_id' of table 'soil_veg_components'."))
-            next
-          }
-            
-          # set special_area flag
-          if (fix) {
-            dat_all$soil_veg_components$special_area[svc_rows_adj] <- option$special_area$special_id[r] 
-            attr(dat_all$soil_veg_components, "altered") <- TRUE
-          }
+        # set special_area flag
+        dat_all$soil_veg_components$special_area[svc_rows_adj] <- option$special_area$special_id[r] 
+        attr(dat_all$soil_veg_components, "altered") <- TRUE
+        svcs_marked <- svcs_marked + length(svc_rows_adj)
+      }
+      
+    } # end vegetation
+    
+    
+    # soils
+    if("soils" %in% option$special_area$reference_tbl) {
+      
+      # determine relevant rows and soil ids
+      rows_soil <- grep("soils", option$special_area$reference_tbl)    
+      
+      # loop over rows for soil
+      for (r in rows_soil) {
+        
+        # get rows in dat_svc to be adjusted
+        svc_rows_adj <- which(dat_all$soil_veg_components$soil_id == option$special_area$ref_id[r])
+        
+        if(!any(svc_rows_adj)){
+          message(paste0("% -> WARNING: Option 'special_area': Soil id ", option$special_area$ref_id[r], " could not be found in column 'soil_id' of table 'soil_veg_components'."))
+          next
         }
         
-      } # end vegetation
+        # set special_area flag
+        dat_all$soil_veg_components$special_area[svc_rows_adj] <- option$special_area$special_id[r]
+        attr(dat_all$soil_veg_components, "altered") <- TRUE
+        svcs_marked <- svcs_marked + length(svc_rows_adj)
+      }
       
-      
-      # soils
-      if("soils" %in% option$special_area$reference_tbl) {
-        
-        # determine relevant rows and soil ids
-        rows_soil <- grep("soils", option$special_area$reference_tbl)    
-        
-        # loop over rows for soil
-        for (r in rows_soil) {
-          
-          # get rows in dat_svc to be adjusted
-          svc_rows_adj <- which(dat_all$soil_veg_components$soil_id == option$special_area$ref_id[r])
-          
-          if(!any(svc_rows_adj)){
-            warning(paste0("Option 'special_area': Soil id ", option$special_area$ref_id[r], " could not be found in column 'soil_id' of table 'soil_veg_components'."))
-            next
-          }
-          
-          # set special_area flag
-          if (fix) {
-            dat_all$soil_veg_components$special_area[svc_rows_adj] <- option$special_area$special_id[r]
-            attr(dat_all$soil_veg_components, "altered") <- TRUE
-          }
-        }
-        
-      } # end soils
-      
-    } # fix?
+    } # end soils
+    
+    if(verbose | !fix) message(paste0("% -> ", svcs_marked, " special area(s) found in SVCs."))
     
     if(verbose) message("% OK")
     checks_done <- checks_done+1
@@ -504,9 +501,9 @@ db_check <- function(
     if (length(rows_contains_water)==0) {
       message("% -> No water-SVCs found, nothing done.")          
     } else {
-      if(!fix)
+      if(!fix) {
         message(paste0("% -> There are ", length(rows_contains_water), " datasets in 'r_tc_contains_svc' identified as water areas"))
-      else {
+      } else {
         message(paste0("% -> There are ", length(rows_contains_water), " datasets going to be removed from 'r_tc_contains_svc' ('fraction' will be updated)"))
       
         # remove water SVCs
