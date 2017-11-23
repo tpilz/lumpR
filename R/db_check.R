@@ -219,6 +219,9 @@ db_check <- function(
   # initialise object where database information will be stored during processing
   dat_all <- NULL
   
+  # initialise variable counting the number of checks handled
+  checks_done <- 0
+  
   
 ###############################################################################
 ### check current db version
@@ -251,6 +254,7 @@ db_check <- function(
     dat_all[c("r_subbas_contains_lu", "r_lu_contains_tc", "r_tc_contains_svc")] <- lapply(dat_all[c("r_subbas_contains_lu", "r_lu_contains_tc", "r_tc_contains_svc")], check_fix_fractions, fix=fix, update_frac_impervious=option[["update_frac_impervious"]], verbose=verbose)
     
     if(verbose) message("% OK")
+    checks_done <- checks_done+1
   } # check fractions
   
     
@@ -274,6 +278,7 @@ db_check <- function(
     dat_all[c("r_subbas_contains_lu", "r_lu_contains_tc", "r_tc_contains_svc")] <- lapply(dat_all[c("r_subbas_contains_lu", "r_lu_contains_tc", "r_tc_contains_svc")], filter_small_areas, thres=thres, fix=fix, verbose=verbose)
     
     if(verbose) message("% OK")
+    checks_done <- checks_done+1
   } # filter small areas
 
 
@@ -383,7 +388,7 @@ db_check <- function(
     } # TC with slope <= 0?
     
     if(verbose) message("% OK")
-    
+    checks_done <- checks_done+1
   } # check tc_slope?
 
 
@@ -473,7 +478,7 @@ db_check <- function(
     } # fix?
     
     if(verbose) message("% OK")
-    
+    checks_done <- checks_done+1
   } # check special_areas
 
 
@@ -514,7 +519,7 @@ db_check <- function(
     } # if water SVCs found
     
     if(verbose) message("% OK")
-    
+    checks_done <- checks_done+1
   } # check remove_water_svc
 
 
@@ -582,7 +587,7 @@ db_check <- function(
     } # if fix
     
     if(verbose) message("% OK")
-    
+    checks_done <- checks_done+1
   } # check compute_rocky_frac
   
 
@@ -627,7 +632,7 @@ db_check <- function(
     } # if any impervious SVC
     
     if(verbose) message("% OK")
-  
+    checks_done <- checks_done+1
   } # check remove_impervious_svc
   
 
@@ -675,7 +680,7 @@ db_check <- function(
     } # if fix
     
     if(verbose) message("% OK")
-    
+    checks_done <- checks_done+1
   } # check proxy_frgw_delay
   
   
@@ -817,7 +822,7 @@ db_check <- function(
     }  # loop chain_list
   
     if(verbose) message("% OK")
-
+    checks_done <- checks_done+1
   } # check delete_obsolete
 
 
@@ -868,6 +873,7 @@ db_check <- function(
       message(paste0("% -> TC(s) ", paste0(names(occ[which(occ > 1)]), collapse=", "), " is/are duplicated and/or part of multiple LUs, which is currently not supported. Duplicate these TCs and assign a different ID for each instance."))
     
     if(verbose) message("% OK")
+    checks_done <- checks_done+1
   }   # check completeness
 
 
@@ -943,7 +949,7 @@ db_check <- function(
     } # modify stream order
     
     if(verbose) message("% OK")
-    
+    checks_done <- checks_done+1
   } # determine subbasin order
 
 
@@ -951,6 +957,10 @@ db_check <- function(
 
 ###############################################################################
 ### POST-PROCESSING
+  
+  if(checks_done != length(check))
+    stop(paste0("Number of processed checks (", checks_done, ") is not equal to the number of specified checks (", length(check), ")! Maybe you misspelled a check? Check your argument 'check' and re-run the function. Database will not be touched."))
+  
   if(fix) {
     if(verbose) message("%")
     if(verbose) message("% Write changes into database and update 'meta_info' (might take a while) ...")
