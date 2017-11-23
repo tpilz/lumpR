@@ -5,7 +5,8 @@
 \title{Create ECHSE input files}
 \usage{
 db_echse_input(dbname, start_year = NULL, end_year = NULL,
-  proj_dir = "./", proj_name = "", overwrite = F, verbose = TRUE)
+  res_hourly = FALSE, tz = NULL, proj_dir = "./", proj_name = "",
+  overwrite = F, verbose = TRUE)
 }
 \arguments{
 \item{dbname}{Name of the data source (DSN) registered at ODBC.}
@@ -17,6 +18,13 @@ contains values of -1. Otherwise it can be set to \code{NULL} (default).}
 \item{end_year}{Last year of the vegetation parameter time series (typically
 equal to the simulation period). Only needed if column 'yearm' in table 'rainy_season'
 contains values of -1. Otherwise it can be set to \code{NULL} (default).}
+
+\item{res_hourly}{\code{logical}. Do you want to run ECHSE in hourly resolution?
+In that case, additional 'vegPar_time_series' files 'utc_add_data.dat' and 'hour_data.dat'
+will be created. Argument \code{tz} needs to be given. Default: \code{FALSE}.}
+
+\item{tz}{Character string with the timezone of your location. Needed to calculate
+'utc_add' if argument \code{res_hourly = TRUE}. Default: \code{NULL}.}
 
 \item{proj_dir}{Path to your working directory. Output of this function will
 be written to this location.}
@@ -83,11 +91,13 @@ The following subdirectories and files within \code{proj_dir}/\code{proj_name}/d
  
  This function creates time series of {juliany day} (or \emph{day of year}) and
  different vegetation specific variables (root depth, canopy height, albedo, and leaf
- area index). Vegetation growth is not explicitly modelled within the WASA engine
- but is deduced from four node points of the variable within a year (see WASA parameter
- database, table 'vegetation') and start and end of the growing season for each year
- estimated from a precipitation time series (see WASA parameter database table 'rainy_season'
- filled via lumpR functions \code{\link[lumpR]{rainy_season}} and \code{\link[lumpR]{calc_seasonality}}).
+ area index). Furthermore, time series of \emph{utc_add} and \emph{hour of day} will
+ be created if argument \code{res_hourly = TRUE}. Vegetation growth is not explicitly
+ modelled within the WASA engine but is deduced from four node points of the variable
+ within a year (see WASA parameter database, table 'vegetation') and start and end of
+ the growing season for each year estimated from a precipitation time series (see WASA
+ parameter database table 'rainy_season' filled via lumpR functions \code{\link[lumpR]{rainy_season}}
+ and \code{\link[lumpR]{calc_seasonality}}) or deviated by other means.
  
  \bold{initials}
  

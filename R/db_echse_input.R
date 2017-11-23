@@ -29,6 +29,13 @@
 #' @param end_year Last year of the vegetation parameter time series (typically
 #' equal to the simulation period). Only needed if column 'yearm' in table 'rainy_season'
 #' contains values of -1. Otherwise it can be set to \code{NULL} (default). 
+#' 
+#' @param res_hourly \code{logical}. Do you want to run ECHSE in hourly resolution?
+#' In that case, additional 'vegPar_time_series' files 'utc_add_data.dat' and 'hour_data.dat'
+#' will be created. Argument \code{tz} needs to be given. Default: \code{FALSE}.
+#' 
+#' @param tz Character string with the timezone of your location. Needed to calculate
+#' 'utc_add' if argument \code{res_hourly = TRUE}. Default: \code{NULL}.
 #'  
 #' @param proj_dir Path to your working directory. Output of this function will
 #'  be written to this location.
@@ -107,11 +114,13 @@
 #'  
 #'  This function creates time series of {juliany day} (or \emph{day of year}) and
 #'  different vegetation specific variables (root depth, canopy height, albedo, and leaf
-#'  area index). Vegetation growth is not explicitly modelled within the WASA engine
-#'  but is deduced from four node points of the variable within a year (see WASA parameter
-#'  database, table 'vegetation') and start and end of the growing season for each year
-#'  estimated from a precipitation time series (see WASA parameter database table 'rainy_season'
-#'  filled via lumpR functions \code{\link[lumpR]{rainy_season}} and \code{\link[lumpR]{calc_seasonality}}).
+#'  area index). Furthermore, time series of \emph{utc_add} and \emph{hour of day} will
+#'  be created if argument \code{res_hourly = TRUE}. Vegetation growth is not explicitly
+#'  modelled within the WASA engine but is deduced from four node points of the variable
+#'  within a year (see WASA parameter database, table 'vegetation') and start and end of
+#'  the growing season for each year estimated from a precipitation time series (see WASA
+#'  parameter database table 'rainy_season' filled via lumpR functions \code{\link[lumpR]{rainy_season}}
+#'  and \code{\link[lumpR]{calc_seasonality}}) or deviated by other means.
 #'  
 #'  \bold{initials}
 #'  
@@ -140,6 +149,8 @@ db_echse_input <- function(
   dbname,
   start_year=NULL,
   end_year=NULL,
+  res_hourly = FALSE,
+  tz = NULL,
   proj_dir = "./",
   proj_name = "",
   overwrite=F,
@@ -1262,10 +1273,16 @@ db_echse_input <- function(
     dat_rainy_expand <- unique(rbind(dat_rainy_expand, dat_rainy_s, dat_rainy_expand_t))
     
     # external location linkage
-    extLink_t <- data.frame(object=rep(svc, length(veg_vars)+3), 
+      extLink_t <- data.frame(object=rep(svc, length(veg_vars)+3), 
+                                variable=c(rep(veg_vars, each=length(svc)), rep(c("doy", "hour", "utc_add"), each=length(svc))),
+                                location=c(rep(subveg_loc, length(veg_vars)), rep(c("any", "dummy", "dummy"), each=length(svc))),
+                                weight=rep(1, (length(veg_vars)+3)*length(svc)))
+    if(res_hourly) {
+      extLink_t <- data.frame(object=rep(svc, length(veg_vars)+3), 
                               variable=c(rep(veg_vars, each=length(svc)), rep(c("doy", "hour", "utc_add"), each=length(svc))),
-                              location=c(rep(subveg_loc, length(veg_vars)), rep(c("any", "dummy", "dummy"), each=length(svc))),
+                              location=c(rep(subveg_loc, length(veg_vars)), rep(c("any", "any", "any"), each=length(svc))),
                               weight=rep(1, (length(veg_vars)+3)*length(svc)))
+    }
     extLink <- rbind(extLink, extLink_t)
     
   }
@@ -1289,7 +1306,7 @@ db_echse_input <- function(
                                unique(season_in[,c(6,2:5)]), timezone = 'UTC')
     
     # write into ECHSE time series data file
-    write(c("end_of_interval", colnames(veg_ts)), paste(proj_dir, proj_name, "data", ts_dir, paste0("veg_", v, "_data.dat"), sep="/"), sep="\t", ncolumns=ncol(veg_ts)+1) 
+    write(c("start_of_interval", colnames(veg_ts)), paste(proj_dir, proj_name, "data", ts_dir, paste0("veg_", v, "_data.dat"), sep="/"), sep="\t", ncolumns=ncol(veg_ts)+1) 
     write.table(round(veg_ts,2), paste(proj_dir, proj_name, "data", ts_dir, paste0("veg_", v, "_data.dat"), sep="/"),
                 sep="\t", quote=F, col.names=F, row.names=format(index(veg_ts), '%Y-%m-%d %H:%M:%S'), append=T)
   
@@ -1300,9 +1317,29 @@ db_echse_input <- function(
   doy_ts <- xts(doys, index(veg_ts))
   colnames(doy_ts) <- "any"
   
-  write(c("end_of_interval", colnames(doy_ts)), paste(proj_dir, proj_name, "data", ts_dir, "doy_data.dat", sep="/"), sep="\t", ncolumns=ncol(doy_ts)+1) 
+  write(c("start_of_interval", colnames(doy_ts)), paste(proj_dir, proj_name, "data", ts_dir, "doy_data.dat", sep="/"), sep="\t", ncolumns=ncol(doy_ts)+1) 
   write.table(doy_ts, paste(proj_dir, proj_name, "data", ts_dir, "doy_data.dat", sep="/"),
               sep="\t", quote=F, col.names=F, row.names=format(index(doy_ts), '%Y-%m-%d %H:%M:%S'), append=T)
+  
+  if(res_hourly) {
+    yearmin <- ifelse(is.null(start_year), min(dat_rainy_in$yearm[dat_rainy_in$yearm != -1]), start_year)
+    yearmax <- ifelse(is.null(end_year), max(dat_rainy_in$yearm[dat_rainy_in$yearm != -1]), end_year)
+    seq_dates <- seq(as.POSIXct(paste(yearmin, "01-01 00:00:00", sep="-"), tz='UTC'), as.POSIXct(paste(yearmax, "12-31 23:59:59", sep="-"), tz='UTC'), by="hour")
+    hours <- as.numeric(format(seq_dates, "%H"))
+    utc_add <- as.numeric(format(seq_dates, "%z", tz=tz))/100
+    hour_ts <- xts(hours, seq_dates)
+    utc_add_ts <- xts(utc_add, seq_dates)
+    utc_add_ts <- c(utc_add_ts[1], utc_add_ts[which(diff(utc_add_ts) != 0)], tail(utc_add_ts, 1))
+    colnames(hour_ts) <- "any"
+    colnames(utc_add_ts) <- "any"
+    
+    write(c("start_of_interval", colnames(hour_ts)), paste(proj_dir, proj_name, "data", ts_dir, "hour_data.dat", sep="/"), sep="\t", ncolumns=ncol(hour_ts)+1) 
+    write.table(hour_ts, paste(proj_dir, proj_name, "data", ts_dir, "hour_data.dat", sep="/"),
+                sep="\t", quote=F, col.names=F, row.names=format(index(hour_ts), '%Y-%m-%d %H:%M:%S'), append=T)
+    write(c("start_of_interval", colnames(utc_add_ts)), paste(proj_dir, proj_name, "data", ts_dir, "utc_add_data.dat", sep="/"), sep="\t", ncolumns=ncol(utc_add_ts)+1) 
+    write.table(utc_add_ts, paste(proj_dir, proj_name, "data", ts_dir, "utc_add_data.dat", sep="/"),
+                sep="\t", quote=F, col.names=F, row.names=format(index(utc_add_ts), '%Y-%m-%d %H:%M:%S'), append=T)
+  }
 
   
   if(verbose) message("% OK")
