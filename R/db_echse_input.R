@@ -1305,6 +1305,12 @@ db_echse_input <- function(
     veg_ts <- calc_seasonality(dat_rainy_expand[,c("subveg", "yearm", "node1", "node2", "node3", "node4")],
                                unique(season_in[,c(6,2:5)]), timezone = 'UTC')
     
+    # hourly resolution: repeat last line for last simulation time step
+    if(res_hourly) {
+      veg_ts <- rbind(veg_ts, tail(veg_ts, 1))
+      index(veg_ts)[nrow(veg_ts)]=index(veg_ts)[nrow(veg_ts)] + 86400
+    }
+    
     # write into ECHSE time series data file
     write(c("start_of_interval", colnames(veg_ts)), paste(proj_dir, proj_name, "data", ts_dir, paste0("veg_", v, "_data.dat"), sep="/"), sep="\t", ncolumns=ncol(veg_ts)+1) 
     write.table(round(veg_ts,2), paste(proj_dir, proj_name, "data", ts_dir, paste0("veg_", v, "_data.dat"), sep="/"),
