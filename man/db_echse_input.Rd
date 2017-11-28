@@ -42,53 +42,53 @@ printed? Default: \code{TRUE}.}
 \value{
 The following subdirectories and files within \code{proj_dir}/\code{proj_name}/data
  will be created:
- 
+
  \bold{catchment}
- 
+
  \emph{objDecl.dat}\cr
  Object declaration table containing all object definitions ,including membership to a specific
  object group for the current model setup.
- 
+
  \emph{objLink.dat}\cr
  Table specifying object relations, i.e. which output of a certain object is the input of
  another object, and the type of the relation. Hereby, \code{forwardType = true} means that
  the source object is simulated before the target object and vice verse if \code{forwardType = false}.
- 
+
  \bold{parameter}
- 
+
  \emph{dummy_fun.dat}\cr
  Dummy parameter function file used as input if no parameter function is given for a specific
  object group.
- 
+
  \emph{dummy_num.dat}\cr
  Dummy parameter file used as input if no parameters are given for a specific object group.
- 
+
  \emph{paramFun_WASA_tc.dat}\cr
  Defines parameter functions for objects of class 'WASA_tc' whereas the specific look-up tables are
  given in the linked files, in this case within subdirectory 'parFun_pos2area'. These are
  relating the relative position along the hillslope of a certain TC within a LU to the
  areal fraction covered.
- 
+
  \emph{paramNum_*.dat}\cr
  Parameter files containing parameter definitions of individual objects of the respective
  object group. Values have been derived from the WASA parameter database (ATTENTION: some
  parameter names have been changed and unit conversions where necessary!). For description
  of parameters see the ECHSE WASA engine documentation.
- 
+
  \emph{SharedParamNum_*.dat}\cr
  Definition of parameter values used by all objects of a specific object group. In this
  case, these are largely default values of choice flags and meteorological parameters which
  might have to be adapted manually, see ECHSE WASA engine documentation.
- 
+
  \bold{vegPar_time_series}
- 
+
  Contains time series files \emph{*_data.dat} of external input/forcing variables related to
  vegetation grwoth. The first column is the time stamp in ISO format and the other columns
  contain the respective variable value at a certain location. The file \emph{input_ext_locs.dat}
  references the external variable to a model object, whereas one object can be referenced
  to different locations with specific weight (summing up to one). \bold{ATTENTION:}
  \emph{input_ext_locs.dat} has to be extended by separately prepared meteorological input!
- 
+
  This function creates time series of {juliany day} (or \emph{day of year}) and
  different vegetation specific variables (root depth, canopy height, albedo, and leaf
  area index). Furthermore, time series of \emph{utc_add} and \emph{hour of day} will
@@ -98,15 +98,15 @@ The following subdirectories and files within \code{proj_dir}/\code{proj_name}/d
  the growing season for each year estimated from a precipitation time series (see WASA
  parameter database table 'rainy_season' filled via lumpR functions \code{\link[lumpR]{rainy_season}}
  and \code{\link[lumpR]{calc_seasonality}}) or deviated by other means.
- 
+
  \bold{initials}
- 
+
  Initial conditions, i.e. initial values of state variables for all objects (\emph{init_scal.dat}
  for scalar and \emph{init_vect.dat} for vectorial state variables).
- 
+
  Currently, soil moisture is set to a value between permanent wilting point and field capacity. Groundwater
  and interception storages are set to zero.
- 
+
  To avoid crude estimates, you can as well use the state outputs of another simulation. In general,
  you should choose an appropriate warm-up period, which is highly catchment dependent(!), and carefully
  examine the development of state variables to reduce uncertainties from initial conditions.
@@ -119,7 +119,7 @@ as input to specific model engines of the ECHSE simulation environment.
 Function creates most of the input files needed for the ECHSE model engine WASA,
  except for meteorological forcing which has to be prepared separately considering
  ECHSE tools, see \url{https://github.com/echse/echse_tools}.
- 
+
  More information about ECHSE, including the source code, documentation, specific model
  engines, and tools for model setup, can be found at \url{https://github.com/echse/}. For
  information on general file structures and how to run and install echse, read the core
@@ -133,7 +133,7 @@ So far, this function is only capable of creating input files for the ECHSE mode
 \references{
 Theoretical description of the \bold{EC}o-\bold{H}ydrological \bold{S}imulation
  \bold{E}nvironment (ECHSE):
- 
+
  Kneis, D. (2015): A lightweight framework for rapid development of object-based
  hydrological model engines. \emph{Environmental Modelling & Software}, 68, 110-121,
  doi: 10.1016/j.envsoft.2015.02.009
