@@ -1305,11 +1305,9 @@ db_echse_input <- function(
     veg_ts <- calc_seasonality(dat_rainy_expand[,c("subveg", "yearm", "node1", "node2", "node3", "node4")],
                                unique(season_in[,c(6,2:5)]), timezone = 'UTC')
 
-    # hourly resolution: repeat last line for last simulation time step
-    if(res_hourly) {
-      veg_ts <- rbind(veg_ts, tail(veg_ts, 1))
-      index(veg_ts)[nrow(veg_ts)]=index(veg_ts)[nrow(veg_ts)] + 86400
-    }
+    # repeat last line for last simulation time step; otherwise ECHSE complains that it cannot find the last time step even if past = false
+    veg_ts <- rbind(veg_ts, tail(veg_ts, 1))
+    index(veg_ts)[nrow(veg_ts)]=index(veg_ts)[nrow(veg_ts)] + 86400
 
     # write into ECHSE time series data file
     write(c("start_of_interval", colnames(veg_ts)), paste(proj_dir, proj_name, "data", ts_dir, paste0("veg_", v, "_data.dat"), sep="/"), sep="\t", ncolumns=ncol(veg_ts)+1)
@@ -1328,6 +1326,7 @@ db_echse_input <- function(
               sep="\t", quote=F, col.names=F, row.names=format(index(doy_ts), '%Y-%m-%d %H:%M:%S'), append=T)
 
   if(res_hourly) {
+    # time series of utc_add and hour of day
     yearmin <- ifelse(is.null(start_year), min(dat_rainy_in$yearm[dat_rainy_in$yearm != -1]), start_year)
     yearmax <- ifelse(is.null(end_year), max(dat_rainy_in$yearm[dat_rainy_in$yearm != -1]), end_year)
     seq_dates <- seq(as.POSIXct(paste(yearmin, "01-01 00:00:00", sep="-"), tz='UTC'), as.POSIXct(paste(yearmax, "12-31 23:59:59", sep="-"), tz='UTC'), by="hour")
@@ -1338,7 +1337,14 @@ db_echse_input <- function(
     utc_add_ts <- c(utc_add_ts[1], utc_add_ts[which(diff(utc_add_ts) != 0)], tail(utc_add_ts, 1))
     colnames(hour_ts) <- "any"
     colnames(utc_add_ts) <- "any"
+    
+    # repeat last line for last simulation time step; otherwise ECHSE complains that it cannot find the last time step even if past = false
+    utc_add_ts <- rbind(utc_add_ts, tail(utc_add_ts, 1))
+    index(utc_add_ts)[nrow(utc_add_ts)] <- index(utc_add_ts)[nrow(utc_add_ts)] + 3600
+    hour_ts <- rbind(hour_ts, tail(hour_ts, 1))
+    index(hour_ts)[nrow(hour_ts)] <- index(hour_ts)[nrow(hour_ts)] + 3600
 
+    # write into files
     write(c("start_of_interval", colnames(hour_ts)), paste(proj_dir, proj_name, "data", ts_dir, "hour_data.dat", sep="/"), sep="\t", ncolumns=ncol(hour_ts)+1)
     write.table(hour_ts, paste(proj_dir, proj_name, "data", ts_dir, "hour_data.dat", sep="/"),
                 sep="\t", quote=F, col.names=F, row.names=format(index(hour_ts), '%Y-%m-%d %H:%M:%S'), append=T)
