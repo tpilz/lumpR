@@ -359,7 +359,7 @@ db_echse_input <- function(
   dat_lu_sel <- data.frame(slopelength=dat_lu[,c("slopelength")])
   dat_rtc_sel <- data.frame(fraction=dat_rtc[,c("fraction")])
   dat_tc_sel <- data.frame(slope=dat_tc[,c("slope")])
-  dat_veg_sel <- dat_veg[,c("crop_makk", "crop_faoref", "intfc", "stomat_r", "min_suction", "max_suction", "wc_etmax", "par_stressHum", "glo_half")]
+  dat_veg_sel <- dat_veg[,c("crop_makk", "crop_faoref", "intfc", "stomat_r", "min_suction", "max_suction", "f_etmax", "par_stressHum", "glo_half")]
 
   # check if all necessary information are given
   if (ifelse(is.data.frame(dat_hor_sel), nrow(dat_hor_sel) == 0, length(dat_hor_sel) == 0) | any(is.na(dat_hor_sel)))
@@ -392,7 +392,7 @@ db_echse_input <- function(
 
   dat_tc_sel$slope <- dat_tc_sel$slope/100 # % -> dimensionless
 
-  names(dat_veg_sel) <- c("crop_makk", "crop_faoref", "intfc", "res_leaf_min", "wstressmin", "wstressmax", "wc_etmax", "par_stressHum", "glo_half")
+  names(dat_veg_sel) <- c("crop_makk", "crop_faoref", "intfc", "res_leaf_min", "wstressmin", "wstressmax", "f_etmax", "par_stressHum", "glo_half")
 
   dat_veg_sel$wstressmin <- dat_veg_sel$wstressmin/100 # hPa -> 100 hPa THAT IS cm -> m of water
   dat_veg_sel$wstressmax <- dat_veg_sel$wstressmax/100 # hPa -> 100 hPa THAT IS cm -> m of water
@@ -527,7 +527,7 @@ db_echse_input <- function(
           if(flag.col.svc==T)
             names(out_dat) <- c("object", "frac_area", "lat", "lon", "elev",
                               "bedrock", "Phil_s", "Phil_a", "Hort_ini", "Hort_end", "Hort_k", "soil_depth", "soil_dens", "slopelength",
-                              "slope", "crop_makk", "crop_faoref", "intfc", "res_leaf_min", "wstressmin", "wstressmax", "wc_etmax", "par_stressHum", "glo_half")
+                              "slope", "crop_makk", "crop_faoref", "intfc", "res_leaf_min", "wstressmin", "wstressmax", "f_etmax", "par_stressHum", "glo_half")
 
           suppressWarnings(write.table(out_dat, file=paste(proj_dir, proj_name, "data", "parameter", objpar_svc, sep="/"),
                       col.names=flag.col.svc, row.names=F, append=T, quote=F, sep="\t"))
