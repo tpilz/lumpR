@@ -1,8 +1,8 @@
 Package: lumpR
 Type: Package
 Title: Landscape Unit Mapping Program for R
-Version: 2.3.3
-Date: 2017-11-17
+Version: 2.4.0
+Date: 2017-12-05
 Authors@R: c(person("Tobias", "Pilz", email="tpilz@uni-potsdam.de", 
 																		role=c("aut", "cre", "cph")),
 							person("Till", "Francke", email="francke@uni-potsdam.de",
