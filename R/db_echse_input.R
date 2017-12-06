@@ -960,6 +960,11 @@ db_echse_input <- function(
       # calculate unit hydrograph/runoff response function (cf. WASA, routing.f90) #
       lag <- dat_sub$lag_time[which(dat_sub$pid == s)] # lag time from database (days)
       ret <- dat_sub$retention[which(dat_sub$pid == s)] # retention time from database (days)
+      # convert into hours in case of hourly resolution
+      if(res_hourly) {
+        lag <- lag * 24
+        ret <- ret * 24
+      }
       uh <- rep(0, length=ceiling(lag+ret)) #  determine length of hydrograph (next integer in units of lag and ret)
       # pre-processing: assumption of triangle hydrograph (see Guentner, 2002), daily model time steps (i.e. unit of lag and ret)
       lag_c <- ceiling(lag) # round to next integer
