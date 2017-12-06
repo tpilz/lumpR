@@ -809,10 +809,10 @@ db_echse_input <- function(
             x=paste(obj_name, "WASA_lu", sep="\t"))
 
       # PARAMETERS #
-      out_dat <- cbind(obj_name, dat_rsub$fraction[r_lusub], dat_lu$frgw_delay[r_lupar]*86400, 1, -9999., -9999.)
+      out_dat <- cbind(obj_name, dat_rsub$fraction[r_lusub], dat_lu$frgw_delay[r_lupar]*86400)
 
       if(flag.col.lu==T)
-        dimnames(out_dat) <- list(NULL, c("object", "frac_area", "ct_index", "str_base", "str_surf", "str_inter"))
+        dimnames(out_dat) <- list(NULL, c("object", "frac_area", "ct_index"))
 
       suppressWarnings(write.table(out_dat, file=paste(proj_dir, proj_name, "data", "parameter", objpar_lu, sep="/"),
                   col.names=flag.col.lu, row.names=F, append=T, quote=F, sep="\t"))
@@ -1136,8 +1136,8 @@ db_echse_input <- function(
 
 
   # LU
-  out_dat <- data.frame(parameter=c("choice_runconc", "choice_gw"),
-                        value=c(2, 0))
+  out_dat <- data.frame(parameter=c("choice_runconc", "choice_gw", "str_surf", "str_inter", "str_base"),
+                        value=c(2, 0, 1, 1, 1))
 
   sharedpar_svc <- "sharedParamNum_WASA_lu.dat"
   if(!file.exists(paste(proj_dir, proj_name, "data", "parameter", sharedpar_svc, sep="/")) | overwrite){
