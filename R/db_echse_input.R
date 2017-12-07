@@ -359,7 +359,7 @@ db_echse_input <- function(
   dat_lu_sel <- data.frame(slopelength=dat_lu[,c("slopelength")])
   dat_rtc_sel <- data.frame(fraction=dat_rtc[,c("fraction")])
   dat_tc_sel <- data.frame(slope=dat_tc[,c("slope")])
-  dat_veg_sel <- dat_veg[,c("crop_makk", "crop_faoref", "intfc", "stomat_r", "min_suction", "max_suction", "f_etmax", "par_stressHum", "glo_half")]
+  dat_veg_sel <- dat_veg[,c("crop_makk", "crop_faoref", "intfc", "stomat_r", "min_suction", "max_suction", "par_stressHum", "glo_half")]
 
   # check if all necessary information are given
   if (ifelse(is.data.frame(dat_hor_sel), nrow(dat_hor_sel) == 0, length(dat_hor_sel) == 0) | any(is.na(dat_hor_sel)))
@@ -392,7 +392,7 @@ db_echse_input <- function(
 
   dat_tc_sel$slope <- dat_tc_sel$slope/100 # % -> dimensionless
 
-  names(dat_veg_sel) <- c("crop_makk", "crop_faoref", "intfc", "res_leaf_min", "wstressmin", "wstressmax", "f_etmax", "par_stressHum", "glo_half")
+  names(dat_veg_sel) <- c("crop_makk", "crop_faoref", "intfc", "res_leaf_min", "wstressmin", "wstressmax", "par_stressHum", "glo_half")
 
   dat_veg_sel$wstressmin <- dat_veg_sel$wstressmin/100 # hPa -> 100 hPa THAT IS cm -> m of water
   dat_veg_sel$wstressmax <- dat_veg_sel$wstressmax/100 # hPa -> 100 hPa THAT IS cm -> m of water
@@ -527,7 +527,7 @@ db_echse_input <- function(
           if(flag.col.svc==T)
             names(out_dat) <- c("object", "frac_area", "lat", "lon", "elev",
                               "bedrock", "Phil_s", "Phil_a", "Hort_ini", "Hort_end", "Hort_k", "soil_depth", "soil_dens", "slopelength",
-                              "slope", "crop_makk", "crop_faoref", "intfc", "res_leaf_min", "wstressmin", "wstressmax", "f_etmax", "par_stressHum", "glo_half")
+                              "slope", "crop_makk", "crop_faoref", "intfc", "res_leaf_min", "wstressmin", "wstressmax", "par_stressHum", "glo_half")
 
           suppressWarnings(write.table(out_dat, file=paste(proj_dir, proj_name, "data", "parameter", objpar_svc, sep="/"),
                       col.names=flag.col.svc, row.names=F, append=T, quote=F, sep="\t"))
@@ -1112,16 +1112,16 @@ db_echse_input <- function(
                                     "# Soil water parameters",
                                     "scale_ks", "scale_ks_a", "scale_ks_b", "Phil_cal", "var1", "var2", "var3", "var4", "var5", "frac1", "frac2", "frac3", "frac4", "frac5",
                                     "# Calibration factors (influencing some of the other parameters by multiplication / summation)",
-                                    "cal_ks", "cal_pores", "cal_resmin", "cal_rootd", "cal_alb", "cal_intfc",
+                                    "cal_ks", "cal_pores", "cal_resmin", "cal_rootd", "cal_alb", "cal_intfc", "cal_etmax", "cal_fcorr", "cal_stresshum", "cal_glohalf",
                                     "# Choices",
                                     "choice_et", "choice_rcs", "choice_roughLen", "choice_plantDispl", "choice_gloradmax",
                                     "choice_inf", "choice_perc", "choice_soilmod",
                                     "# Other",
                                     "na_val", "ode_accuracy", "ode_max_iter", "choice_odesolve"),
-                        value=c("", 2, 10, 2, 0.34, -0.14, 1.35, -0.35, 0.25, 0.50, 0.2, 0.7,
+                        value=c("", 2, 10, 2, 0.34, -0.14, 1, 0, 0.25, 0.50, 0.2, 0.7,
                                 "", 0.5, 25, 0.07, 0.01, 2.5, 26, -1,
                                 "", 15, 0, 0, 0.4, 9999, 9999, 9999, 9999, 9999, 0, 0, 0, 0, 0,
-                                "", 1, 1, 1, 1, 1, 1,
+                                "", 1, 1, 1, 1, 1, 1, 0.65, 0, 1, 1,
                                 "", 13, 2, 2, 2, 1, 3, 2, 1,
                                 "", -9999., 1e-3, 1e5, 36))
 

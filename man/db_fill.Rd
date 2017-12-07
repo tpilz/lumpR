@@ -299,11 +299,6 @@ For each table a single file has to be prepared manually and/or using functions 
    \code{double}. Crop-factor for calculation of pot. evapotransp. after FAO reference method
    (optional) \emph{[-]}.
    
-   \emph{f_etmax}\cr
-   \code{double}. Calibration parameter for empirical et approaches: Fraction of field capacity
-   giving the volumetric water content where et_act equals et_pot, typically [0.5..0.8]
-   (wc_etmax = f_etmax * wc_fk) \emph{[dimensionless]}.
-   
    \emph{par_stressHum}\cr
    \code{double}. Parameter to calculate water vapour deficit stomatal conductance
    stress factor. In WASA it was a hard-coded parameter of value 0.03 \emph{[1/hPa]}.
