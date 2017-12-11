@@ -356,7 +356,7 @@ db_echse_input <- function(
   dat_hor_sel <- dat_hor[,c("soil_id", "position", "thickness", "ks", "suction", "theta_s",
                             "fk", "theta_pwp", "theta_r", "pore_size_i", "bubb_pres")]
   dat_soil_sel <- dat_soil[,c("pid", "bedrock_flag", "Phil_s", "Phil_a", "Hort_ini", "Hort_end", "Hort_k")]
-  dat_lu_sel <- data.frame(slopelength=dat_lu[,c("slopelength")])
+  dat_lu_sel <- data.frame(slopelength=dat_lu[,c("slopelength")], kf_bedrock = dat_lu[,c("kf_bedrock")]/1000/86400)
   dat_rtc_sel <- data.frame(fraction=dat_rtc[,c("fraction")])
   dat_tc_sel <- data.frame(slope=dat_tc[,c("slope")])
   dat_veg_sel <- dat_veg[,c("crop_makk", "crop_faoref", "intfc", "stomat_r", "min_suction", "max_suction", "par_stressHum", "glo_half")]
@@ -522,11 +522,11 @@ db_echse_input <- function(
 
           # svc parameters -> paramNum
           out_dat <- cbind(obj_name, dat_rtc_sel[r_rtcpar,], dat_sub$lat[r_s], dat_sub$lon[r_s], dat_sub$elev[r_s],
-                           dat_soil_sel[r_soil,-1], dat_hor$soil_dens[r_hors][1], dat_lu_sel$slopelength[r_lupar] * dat_rlu$fraction[r_lu][r_lu_order][r_tclu],
+                           dat_soil_sel[r_soil,-1], dat_hor$soil_dens[r_hors][1], dat_lu_sel$kf_bedrock[r_lupar], dat_lu_sel$slopelength[r_lupar] * dat_rlu$fraction[r_lu][r_lu_order][r_tclu],
                            dat_tc_sel$slope[r_tcpar], dat_veg_sel[r_veg,])
           if(flag.col.svc==T)
             names(out_dat) <- c("object", "frac_area", "lat", "lon", "elev",
-                              "bedrock", "Phil_s", "Phil_a", "Hort_ini", "Hort_end", "Hort_k", "soil_depth", "soil_dens", "slopelength",
+                              "bedrock", "Phil_s", "Phil_a", "Hort_ini", "Hort_end", "Hort_k", "soil_depth", "soil_dens", "kf_bedrock", "slopelength",
                               "slope", "crop_makk", "crop_faoref", "intfc", "res_leaf_min", "wstressmin", "wstressmax", "par_stressHum", "glo_half")
 
           suppressWarnings(write.table(out_dat, file=paste(proj_dir, proj_name, "data", "parameter", objpar_svc, sep="/"),
@@ -1112,7 +1112,7 @@ db_echse_input <- function(
                                     "# Soil water parameters",
                                     "scale_ks", "scale_ks_a", "scale_ks_b", "Phil_cal", "var1", "var2", "var3", "var4", "var5", "frac1", "frac2", "frac3", "frac4", "frac5",
                                     "# Calibration factors (influencing some of the other parameters by multiplication / summation)",
-                                    "cal_ks", "cal_pores", "cal_resmin", "cal_rootd", "cal_alb", "cal_intfc", "cal_etmax", "cal_fcorr", "cal_stresshum", "cal_glohalf",
+                                    "cal_ks", "cal_pores", "cal_resmin", "cal_rootd", "cal_alb", "cal_intfc", "cal_etmax", "cal_fcorr", "cal_stresshum", "cal_glohalf", "cal_kfbed",
                                     "# Choices",
                                     "choice_et", "choice_rcs", "choice_roughLen", "choice_plantDispl", "choice_gloradmax",
                                     "choice_inf", "choice_perc", "choice_soilmod",
@@ -1121,7 +1121,7 @@ db_echse_input <- function(
                         value=c("", 2, 10, 2, 0.34, -0.14, 1, 0, 0.25, 0.50, 0.2, 0.7,
                                 "", 0.5, 25, 0.07, 0.01, 2.5, 26, -1,
                                 "", 15, 0, 0, 0.4, 9999, 9999, 9999, 9999, 9999, 0, 0, 0, 0, 0,
-                                "", 1, 1, 1, 1, 1, 1, 0.65, 0, 1, 1,
+                                "", 1, 1, 1, 1, 1, 1, 0.65, 0, 1, 1, 1,
                                 "", 13, 2, 2, 2, 1, 3, 2, 1,
                                 "", -9999., 1e-3, 1e5, 0, 36))
 
