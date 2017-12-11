@@ -1,6 +1,5 @@
  
 ALTER TABLE vegetation ADD COLUMN crop_faoref DOUBLE COMMENT 'Crop-factor for calculation of pot. evapotransp. after FAO reference approach (optional) [-]';
-ALTER TABLE vegetation ADD COLUMN wc_etmax DOUBLE COMMENT 'Parameter giving the volumetric water content where et_act equals et_pot, typically wc_etmax / wc_fk = [0.5..0.8] [m3/m3]';
 ALTER TABLE vegetation ADD COLUMN par_stressHum DOUBLE COMMENT 'Parameter to calculate water vapour deficit stomatal conductance stress factor (in WASA hard-coded as 0.03) [1/hPa]';
 ALTER TABLE vegetation ADD COLUMN glo_half DOUBLE COMMENT 'Solar radiation at which stomatal conductance is half of its maximum (in WASA hard-coded as 100) [W/m2]';
 
