@@ -1253,7 +1253,7 @@ db_echse_input <- function(
     veg_s_expl <- veg_unique[which(veg_unique %in% dat_rainy_s$veg_id)]
     veg_s_other <- veg_unique[which(!(veg_unique %in% veg_s_expl))]
     dat_rainy_expand_t <- do.call("rbind", replicate(length(veg_s_other), dat_rainy_s[which(dat_rainy_s$veg_id == "other"),], simplify = F))
-    dat_rainy_expand_t$veg_id <- veg_s_other
+    dat_rainy_expand_t$veg_id <- rep(veg_s_other, each=nrow(unique(dat_rainy_expand_t)))
     dat_rainy_expand_t$subveg <- paste(dat_rainy_expand_t$subbas_id, dat_rainy_expand_t$veg_id, sep="_")
     dat_rainy_s <- dat_rainy_s[-which(dat_rainy_s$veg_id == "other"),]
     dat_rainy_expand <- unique(rbind(dat_rainy_expand, dat_rainy_s, dat_rainy_expand_t))
