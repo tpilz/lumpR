@@ -108,7 +108,7 @@ disc_wrapper <- function(
     stream=stream,
     points_processed=points_processed,
     # PARAMETERS #
-    outlet=which(drain_points$id == drainp_out_id),
+    outlet=ifelse(is.null(drainp_out_id), 1, ifelse(is.character(drainp_out_id), which(drain_points$id == drainp_out_id), drainp_out_id)),
     thresh_stream=thresh_stream,
     thresh_sub=thresh_sub,
     snap_dist=snap_dist,
