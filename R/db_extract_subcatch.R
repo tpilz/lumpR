@@ -86,7 +86,7 @@ db_extract_subcatch <- function(
   
   db_ver <- max(sqlFetch(con, "db_version")$version)
   if(db_ver < db_ver_max) {
-    odbcClose(con)
+    tryCatch(odbcClose(con), error=function(e){})
     stop(paste0("Database version is prior to version ", db_ver_max, ". Make sure you use the latest database version (consider function db_update())!"))
   }
   

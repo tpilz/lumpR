@@ -1371,7 +1371,7 @@ db_echse_input <- function(
   if(verbose) message("%")
   if(verbose) message("% Close ODBC connection.")
 
-  odbcClose(con)
+  tryCatch(odbcClose(con), error=function(e){})
 
   if(verbose) message("%")
   if(verbose) message("% DONE!")

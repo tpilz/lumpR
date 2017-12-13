@@ -53,7 +53,6 @@ db_create <- function(
 ) {
   
   if(db_ver < 19) {
-    odbcClose(con)
     stop("Argument 'db_ver' less than 19 is not possible.")
   }
   
@@ -108,7 +107,7 @@ db_create <- function(
         res <- sqlQuery(con, s2, errors=F)
         if (res==-1){
           res <- sqlQuery(con, s2, errors = T)
-          odbcClose(con)
+          tryCatch(odbcClose(con), error=function(e){})
           stop(paste0("Error in SQL query execution while deleting table\nerror-message: ", res[1]))
         }  
       } else
@@ -125,7 +124,7 @@ db_create <- function(
       res <- sqlQuery(con, statement, errors=F)
       if (res==-1){
         res <- sqlQuery(con, statement, errors = T)
-        odbcClose(con)
+        tryCatch(odbcClose(con), error=function(e){})
         stop(paste0("Error in SQL query execution while creating db.\nQuery: ", statement,
                     "\nerror-message: ", res[1]))
       }
@@ -141,7 +140,7 @@ db_create <- function(
     res <- sqlQuery(con, s2, errors=F)
     if (res==-1){
       res <- sqlQuery(con, s2, errors = T)
-      odbcClose(con)
+      tryCatch(odbcClose(con), error=function(e){})
       stop(cat(paste0("Error in SQL query execution while deleting table\nerror-message: ", res[1])))
     }
   }
@@ -166,7 +165,7 @@ db_create <- function(
     db_update(dbname, db_ver)
   
   # close connection
-  odbcClose(con)
+  tryCatch(odbcClose(con), error=function(e){})
   
   
 } # EOF

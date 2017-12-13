@@ -999,7 +999,7 @@ db_check <- function(
   if(verbose) message("%")
   if(verbose) message("% All checks completed successfully. Close ODBC connection.")
   
-  odbcClose(con)
+  tryCatch(odbcClose(con), error=function(e){})
   
   if(verbose) message("%")
   if(verbose) message("% DONE!")

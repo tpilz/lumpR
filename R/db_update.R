@@ -192,7 +192,7 @@ db_update <- function(
         # send query to database
         res <- sqlQuery(con, statement, errors=F)
         if (res==-1){
-          odbcClose(con)
+          tryCatch(odbcClose(con), error=function(e){})
           stop("Error in SQL query execution while updating db.")
         }
       }
@@ -250,7 +250,7 @@ db_update <- function(
       res <- sqlQuery(con, statement, errors=F)
       if (res==-1){
           res <- sqlQuery(con, statement, errors = T)
-          odbcClose(con)
+          tryCatch(odbcClose(con), error=function(e){})
           stop(cat(paste0("Error in SQL query execution while updating db.\nQuery: ", statement,
                           "\nerror-message: ", res[1])))
       }
@@ -278,6 +278,6 @@ db_update <- function(
   write_datetabs(con, meta_out, tab="meta_info", verbose=F)
   
   # close connection
-  odbcClose(con)
+  tryCatch(odbcClose(con), error=function(e){})
   
 } # EOF

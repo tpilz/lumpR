@@ -1245,7 +1245,7 @@ db_wasa_input <- function(
   if(verbose) message("%")
   if(verbose) message("% All files written successfully. Closing ODBC connection...")
   
-  odbcClose(con)
+  tryCatch(odbcClose(con), error=function(e){})
   
   if(verbose) message("%")
   if(verbose) message("% DONE!")

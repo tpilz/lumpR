@@ -629,7 +629,7 @@ db_fill <- function(
   if(verbose) message("%")
   if(verbose) message("% All data written successfully. Close ODBC connection.")
   
-  odbcClose(con)
+  tryCatch(odbcClose(con), error=function(e){})
   
   if(verbose) message("%")
   if(verbose) message("% DONE!")
