@@ -220,7 +220,7 @@ db_echse_input <- function(
 ### object declaration, linkage, object-specific parameters and initial conditions
 
   if(verbose) message("%")
-  if(verbose) message("% Calculate object declaration, linkage, object-specific parameters and initial conditions ...")
+  if(verbose) message("% Calculate object declaration, linkage, object-specific parameters and initial conditions (may take some time) ...")
 
   # create files
   objdecl <- "objDecl.dat"
@@ -399,14 +399,20 @@ db_echse_input <- function(
 
   # loop over all data and declare objects
   # first: dummy object
-  write(file=paste(proj_dir, proj_name, "data", "catchment", objdecl, sep="/"), append = T,
-        x=paste("dummy", "dummy", sep="\t"))
+  objdecl_dat <- paste("dummy", "dummy", sep="\t")
+  objlink_dat <- NULL
+  initVect_dat <- NULL
+  initScal_dat <- NULL
+  parfun_svc_dat <- NULL 
+  objpar_svc_dat <- NULL
+  objpar_tc_dat <- NULL
+  parfun_tc_dat <- NULL
+  objpar_lu_dat <- NULL
+  objpar_sub_dat <- NULL
+  objpar_rch_dat <- NULL
+  parfun_rch_dat <- NULL
 
-  flag.col.hor <- T
-  flag.col.svc <- T
-  flag.col.tc <- T
-  flag.col.lu <- T
-  flag.col.sub <- T
+  if(verbose) pb <- txtProgressBar(min = 0, max = length(unique(dat_rsub$subbas_id)), style = 3)
   for (s in unique(dat_rsub$subbas_id)) {
     r_sub <- which(dat_rsub$subbas_id == s)
     r_s <- which(dat_sub$pid == s)
@@ -422,8 +428,7 @@ db_echse_input <- function(
     } else {
       decl_str <- paste(obj_rch_n, "WASA_node_n1", sep="\t")
     }
-    write(file=paste(proj_dir, proj_name, "data", "catchment", objdecl, sep="/"), append = T,
-          x=decl_str)
+    objdecl_dat <- c(objdecl_dat, decl_str)
 
     # if this subbasin contains a reach (not for headwater subbasin), define reach and links
     if (any(sub_upper)) {
@@ -445,15 +450,11 @@ db_echse_input <- function(
         node_n <- 250
       }
       decl_str <- paste(obj_rch_n, paste0("WASA_node_n", node_n), sep="\t")
-      write(file=paste(proj_dir, proj_name, "data", "catchment", objdecl, sep="/"), append = T,
-            x=decl_str)
-
+      objdecl_dat <- c(objdecl_dat, decl_str)
 
       # reach object
       obj_rch <- paste("rch", s, sep="_")
-
-      write(file=paste(proj_dir, proj_name, "data", "catchment", objdecl, sep="/"), append = T,
-            x=paste(obj_rch, "WASA_rch", sep="\t"))
+      objdecl_dat <- c(objdecl_dat, paste(obj_rch, "WASA_rch", sep="\t"))
 
       # LINK #
       # define node to reach relation
@@ -468,8 +469,7 @@ db_echse_input <- function(
       feedb <- T
 
       # write to link file
-      write(file=paste(proj_dir, proj_name, "data", "catchment", objlink, sep="/"), append = T,
-            x=paste(tar_name, tar_var, sour_name, sour_var, feedb, sep="\t", collapse="\n"))
+      objlink_dat <- c(objlink_dat, paste(tar_name, tar_var, sour_name, sour_var, feedb, sep="\t", collapse="\n"))
 
     } # subbasin contains a reach?
 
@@ -502,10 +502,7 @@ db_echse_input <- function(
 
           # DECL #
           obj_name <- paste("svc", s, l, t, svc, sep="_")
-
-          write(file=paste(proj_dir, proj_name, "data", "catchment", objdecl, sep="/"), append = T,
-                x=paste(obj_name, "WASA_svc", sep="\t"))
-
+          objdecl_dat <- c(objdecl_dat, paste(obj_name, "WASA_svc", sep="\t"))
 
 
           # PARAMETERS #
@@ -516,22 +513,18 @@ db_echse_input <- function(
           out_dat <- data.frame(object=obj_name, "function"=names(dat_hor_sel)[-c(1,2)], col_arg="position", col_val=names(dat_hor_sel)[-c(1,2)],
                                 file=parfun_soilpar_file)
           names(out_dat)[2] <- "function"
-          suppressWarnings(write.table(out_dat, file=paste(proj_dir, proj_name, "data", "parameter", parfun_svc, sep="/"),
-                      col.names=flag.col.svc, row.names=F, append=T, quote=F, sep="\t"))
+          parfun_svc_dat <- rbind(parfun_svc_dat, out_dat)
 
 
           # svc parameters -> paramNum
           out_dat <- cbind(obj_name, dat_rtc_sel[r_rtcpar,], dat_sub$lat[r_s], dat_sub$lon[r_s], dat_sub$elev[r_s],
                            dat_soil_sel[r_soil,-1], dat_hor$soil_dens[r_hors][1], dat_lu_sel$kf_bedrock[r_lupar], dat_lu_sel$slopelength[r_lupar] * dat_rlu$fraction[r_lu][r_lu_order][r_tclu],
                            dat_tc_sel$slope[r_tcpar], dat_veg_sel[r_veg,])
-          if(flag.col.svc==T)
-            names(out_dat) <- c("object", "frac_area", "lat", "lon", "elev",
-                              "bedrock", "Phil_s", "Phil_a", "Hort_ini", "Hort_end", "Hort_k", "soil_depth", "soil_dens", "kf_bedrock", "slopelength",
-                              "slope", "crop_makk", "crop_faoref", "intfc", "res_leaf_min", "wstressmin", "wstressmax", "par_stressHum", "glo_half")
+          names(out_dat) <- c("object", "frac_area", "lat", "lon", "elev",
+                            "bedrock", "Phil_s", "Phil_a", "Hort_ini", "Hort_end", "Hort_k", "soil_depth", "soil_dens", "kf_bedrock", "slopelength",
+                            "slope", "crop_makk", "crop_faoref", "intfc", "res_leaf_min", "wstressmin", "wstressmax", "par_stressHum", "glo_half")
 
-          suppressWarnings(write.table(out_dat, file=paste(proj_dir, proj_name, "data", "parameter", objpar_svc, sep="/"),
-                      col.names=flag.col.svc, row.names=F, append=T, quote=F, sep="\t"))
-
+          objpar_svc_dat <- rbind(objpar_svc_dat, out_dat)
 
 
 
@@ -541,17 +534,14 @@ db_echse_input <- function(
                                 variable=rep(c("wc", "w_eta", "mat_pot", "k_u"), each=length(r_hors)),
                                 index=rep( seq(0,length(r_hors)-1), 4),
                                 value=c(dat_hor_sel$wc_fc[r_hors], rep(-9999.,3*length(r_hors))))
-          suppressWarnings(write.table(out_dat, file=paste(proj_dir, proj_name, "data", "initials", initVect, sep="/"),
-                      col.names=F, row.names=F, append=T, quote=F, sep="\t"))
+          initVect_dat <- rbind(initVect_dat, out_dat)
 
           # scal
           out_dat <- data.frame(object=obj_name,
                                 variable=c("runst_surf_sat", "runst_surf_inf", "runst_surf", "runst_sub", "runst_gw",
                                            "v_interc", "s_longrad", "et_p", "et_a", "et_i", "r_interc"),
                                 value=0)
-          suppressWarnings(write.table(out_dat, file=paste(proj_dir, proj_name, "data", "initials", initScal, sep="/"),
-                      col.names=F, row.names=F, append=T, quote=F, sep="\t"))
-
+          initScal_dat <- rbind(initScal_dat, out_dat)
 
 
 
@@ -573,13 +563,8 @@ db_echse_input <- function(
           feedb <- c(F,F)
 
           # write to link file
-          write(file=paste(proj_dir, proj_name, "data", "catchment", objlink, sep="/"), append = T,
-                x=paste(tar_name, tar_var, sour_name, sour_var, feedb, sep="\t", collapse="\n"))
+          objlink_dat <- c(objlink_dat, paste(tar_name, tar_var, sour_name, sour_var, feedb, sep="\t", collapse="\n"))
 
-
-
-
-          flag.col.svc <- F
 
         } # svc loop
 
@@ -618,8 +603,7 @@ db_echse_input <- function(
         }
         # append to object declaration file
         decl_str <- paste(obj_nodetc, paste0("WASA_node_n", node_n), sep="\t")
-        write(file=paste(proj_dir, proj_name, "data", "catchment", objdecl, sep="/"), append = T,
-              x=decl_str)
+        objdecl_dat <- c(objdecl_dat, decl_str)
 
 
         # Link
@@ -662,9 +646,7 @@ db_echse_input <- function(
 
         feedb <- rep(T,length(sour_name))
 
-        write(file=paste(proj_dir, proj_name, "data", "catchment", objlink, sep="/"), append = T,
-              x=paste(tar_name, tar_var, sour_name, sour_var, feedb, sep="\t", collapse="\n"))
-
+        objlink_dat <- c(objlink_dat, paste(tar_name, tar_var, sour_name, sour_var, feedb, sep="\t", collapse="\n"))
 
 
 
@@ -674,20 +656,16 @@ db_echse_input <- function(
         # TC OBJECT #
         # DECL #
         obj_name <- paste("tc", s, l, t, sep="_")
-
-        write(file=paste(proj_dir, proj_name, "data", "catchment", objdecl, sep="/"), append = T,
-              x=paste(obj_name, "WASA_tc", sep="\t"))
+        objdecl_dat <- c(objdecl_dat, paste(obj_name, "WASA_tc", sep="\t"))
 
         # PARAMETERS #
         # numeric
         #out_dat <- cbind(obj_name, dat_rlu$position[r_lu][r_lu_order][r_tclu], length(r_lu))
         out_dat <- cbind(obj_name, r_tclu, length(r_lu)) # reverse definition of TC "position"
 
-        if(flag.col.tc==T)
-          dimnames(out_dat) <- list(NULL, c("object", "position", "no_tc"))
+        dimnames(out_dat) <- list(NULL, c("object", "position", "no_tc"))
 
-        suppressWarnings(write.table(out_dat, file=paste(proj_dir, proj_name, "data", "parameter", objpar_tc, sep="/"),
-                    col.names=flag.col.tc, row.names=F, append=T, quote=F, sep="\t"))
+        objpar_tc_dat <- rbind(objpar_tc_dat, out_dat)
 
         # parameter function
         if(r_tclu == 1) {
@@ -700,10 +678,8 @@ db_echse_input <- function(
                               file=parfun_pos2area_file)
         names(out_dat)[2] <- "function"
 
-        suppressWarnings(write.table(out_dat, file=paste(proj_dir, proj_name, "data", "parameter", parfun_tc, sep="/"),
-                    col.names=flag.col.tc, row.names=F, append=T, quote=F, sep="\t"))
+        parfun_tc_dat <- rbind(parfun_tc_dat, out_dat)
 
-        flag.col.tc <- F
 
         # LINK #
         if(r_tclu == 1) { # upslope TC
@@ -721,9 +697,8 @@ db_echse_input <- function(
                      "run_gw_svc", "sat_svc", "plantwat_svc", "soilwat_svc", "etp_svc", "eta_svc", "eti_svc")
 
         feedb <- rep(T,length(tar_name))
-
-        write(file=paste(proj_dir, proj_name, "data", "catchment", objlink, sep="/"), append = T,
-              x=paste(tar_name, tar_var, sour_name, sour_var, feedb, sep="\t", collapse="\n"))
+        
+        objlink_dat <- c(objlink_dat, paste(tar_name, tar_var, sour_name, sour_var, feedb, sep="\t", collapse="\n"))
 
         # save object name for next loop
         obj_tc_last <- obj_name
@@ -759,8 +734,7 @@ db_echse_input <- function(
       } else if( (length(r_lu) > 200) && (length(r_lu) <= 250) ) {
         node_n <- 250
       }
-      write(file=paste(proj_dir, proj_name, "data", "catchment", objdecl, sep="/"), append = T,
-            x=paste(obj_nodelu, paste0("WASA_node_n", node_n), sep="\t"))
+      objdecl_dat <- c(objdecl_dat, paste(obj_nodelu, paste0("WASA_node_n", node_n), sep="\t"))
 
       # link
       tar_name <- rep(obj_nodelu, each=node_n)
@@ -795,8 +769,7 @@ db_echse_input <- function(
 
       feedb <- rep(T, length(sour_name))
 
-      write(file=paste(proj_dir, proj_name, "data", "catchment", objlink, sep="/"), append = T,
-            x=paste(tar_name, tar_var, sour_name, sour_var, feedb, sep="\t", collapse="\n"))
+      objlink_dat <- c(objlink_dat, paste(tar_name, tar_var, sour_name, sour_var, feedb, sep="\t", collapse="\n"))
 
 
 
@@ -804,28 +777,21 @@ db_echse_input <- function(
 
       # LU OBJECT
       obj_name <- paste("lu", s, l, sep="_")
-
-      write(file=paste(proj_dir, proj_name, "data", "catchment", objdecl, sep="/"), append = T,
-            x=paste(obj_name, "WASA_lu", sep="\t"))
+      objdecl_dat <- c(objdecl_dat, paste(obj_name, "WASA_lu", sep="\t"))
 
       # PARAMETERS #
       out_dat <- cbind(obj_name, dat_rsub$fraction[r_lusub], dat_lu$frgw_delay[r_lupar]*86400)
 
-      if(flag.col.lu==T)
-        dimnames(out_dat) <- list(NULL, c("object", "frac_area", "ct_index"))
+      dimnames(out_dat) <- list(NULL, c("object", "frac_area", "ct_index"))
 
-      suppressWarnings(write.table(out_dat, file=paste(proj_dir, proj_name, "data", "parameter", objpar_lu, sep="/"),
-                  col.names=flag.col.lu, row.names=F, append=T, quote=F, sep="\t"))
+      objpar_lu_dat <- rbind(objpar_lu_dat, out_dat)
 
-      flag.col.lu <- F
 
       # INITIALS #
       out_dat <- data.frame(object=obj_name,
                             variable=c("vol_surf", "vol_inter", "vol_base"),
                             value=0)
-
-      suppressWarnings(write.table(out_dat, file=paste(proj_dir, proj_name, "data", "initials", initScal, sep="/"),
-                  col.names=F, row.names=F, append=T, quote=F, sep="\t"))
+      initScal_dat <- rbind(initScal_dat, out_dat)
 
       # Link
       tar_name <- obj_name
@@ -838,8 +804,7 @@ db_echse_input <- function(
 
       feedb <- T
 
-      write(file=paste(proj_dir, proj_name, "data", "catchment", objlink, sep="/"), append = T,
-            x=paste(tar_name, tar_var, sour_name, sour_var, feedb, sep="\t", collapse="\n"))
+      objlink_dat <- c(objlink_dat, paste(tar_name, tar_var, sour_name, sour_var, feedb, sep="\t", collapse="\n"))
 
     } # lu loop
 
@@ -875,8 +840,7 @@ db_echse_input <- function(
     } else if( (length(r_sub) > 200) && (length(r_sub) <= 250) ) {
       node_n <- 250
     }
-    write(file=paste(proj_dir, proj_name, "data", "catchment", objdecl, sep="/"), append = T,
-          x=paste(obj_nodesu, paste0("WASA_node_n", node_n), sep="\t"))
+    objdecl_dat <- c(objdecl_dat, paste(obj_nodesu, paste0("WASA_node_n", node_n), sep="\t"))
 
     # link
     tar_name <- rep(obj_nodesu, each=node_n)
@@ -916,8 +880,7 @@ db_echse_input <- function(
 
     feedb <- rep(T, length(sour_name))
 
-    write(file=paste(proj_dir, proj_name, "data", "catchment", objlink, sep="/"), append = T,
-          x=paste(tar_name, tar_var, sour_name, sour_var, feedb, sep="\t", collapse="\n"))
+    objlink_dat <- c(objlink_dat, paste(tar_name, tar_var, sour_name, sour_var, feedb, sep="\t", collapse="\n"))
 
 
 
@@ -925,9 +888,7 @@ db_echse_input <- function(
 
     # SUB OBJECT
     obj_name <- paste("sub", s, sep="_")
-
-    write(file=paste(proj_dir, proj_name, "data", "catchment", objdecl, sep="/"), append = T,
-          x=paste(obj_name, "WASA_sub", sep="\t"))
+    objdecl_dat <- c(objdecl_dat, paste(obj_name, "WASA_sub", sep="\t"))
 
     # link
     tar_name <- rep(obj_name, length(obj_nodesu))
@@ -940,18 +901,15 @@ db_echse_input <- function(
 
     feedb <- rep(T, length(sour_name))
 
-    write(file=paste(proj_dir, proj_name, "data", "catchment", objlink, sep="/"), append = T,
-          x=paste(tar_name, tar_var, sour_name, sour_var, feedb, sep="\t", collapse="\n"))
-
+    objlink_dat <- c(objlink_dat, paste(tar_name, tar_var, sour_name, sour_var, feedb, sep="\t", collapse="\n"))
+    
 
     # PARAMETERS #
     out_dat <- cbind(obj_name, dat_sub$area[which(dat_sub$pid == s)])
 
-    if(flag.col.sub==T)
-      dimnames(out_dat) <- list(NULL, c("object", "area"))
+    dimnames(out_dat) <- list(NULL, c("object", "area"))
 
-    suppressWarnings(write.table(out_dat, file=paste(proj_dir, proj_name, "data", "parameter", objpar_sub, sep="/"),
-                                 col.names=flag.col.sub, row.names=F, append=T, quote=F, sep="\t"))
+    objpar_sub_dat <- rbind(objpar_sub_dat, out_dat)
 
 
     # REACH Parameter #
@@ -999,11 +957,9 @@ db_echse_input <- function(
       obj_name <- paste("rch", s, sep="_")
       out_dat <- cbind(obj_name, round(dat_sub$chan_len[which(dat_sub$pid == s)],2), length(uh))
 
-      if(flag.col.sub==T)
-        dimnames(out_dat) <- list(NULL, c("object", "chan_len", "nuh"))
+      dimnames(out_dat) <- list(NULL, c("object", "chan_len", "nuh"))
 
-      suppressWarnings(write.table(out_dat, file=paste(proj_dir, proj_name, "data", "parameter", objpar_rch, sep="/"),
-                                   col.names=flag.col.sub, row.names=F, append=T, quote=F, sep="\t"))
+      objpar_rch_dat <- rbind(objpar_rch_dat, out_dat)
 
 
       # uh paramFun
@@ -1015,23 +971,23 @@ db_echse_input <- function(
                             file=parfun_uh_file)
       names(out_dat)[2] <- "function"
 
-      suppressWarnings(write.table(out_dat, file=paste(proj_dir, proj_name, "data", "parameter", parfun_rch, sep="/"),
-                                   col.names=flag.col.sub, row.names=F, append=T, quote=F, sep="\t"))
+      parfun_rch_dat <- rbind(parfun_rch_dat, out_dat)
 
       # initials
       out_dat <- data.frame(object=obj_name,
                             variable=rep("uh_q", each=length(uh)),
                             index=seq(0,length(uh)-1),
                             value=rep(0.,length(uh)))
-      suppressWarnings(write.table(out_dat, file=paste(proj_dir, proj_name, "data", "initials", initVect, sep="/"),
-                                   col.names=F, row.names=F, append=T, quote=F, sep="\t"))
+      initVect_dat <- rbind(initVect_dat, out_dat)
     }
 
-    flag.col.sub <- F
 
 
 
+    if(verbose) setTxtProgressBar(pb, s)
   } # sub loop
+  
+  if(verbose) close(pb)
 
 
   # LINKS for reaches at the very end (after all runoff contributions have been calculated)
@@ -1054,9 +1010,8 @@ db_echse_input <- function(
       sour_var <- c("q_out", "r_out_total")
 
       feedb <- T
-
-      write(file=paste(proj_dir, proj_name, "data", "catchment", objlink, sep="/"), append = T,
-            x=paste(tar_obj, tar_var, sour_obj, sour_var, feedb, sep="\t", collapse="\n"))
+      
+      objlink_dat <- c(objlink_dat, paste(tar_name, tar_var, sour_name, sour_var, feedb, sep="\t", collapse="\n"))
 
 
       # link: upstream subbasin's outflow into current subbasin
@@ -1069,9 +1024,8 @@ db_echse_input <- function(
       sour_var <- "out"
 
       feedb <- T
-
-      write(file=paste(proj_dir, proj_name, "data", "catchment", objlink, sep="/"), append = T,
-            x=paste(tar_obj, tar_var, sour_obj, sour_var, feedb, sep="\t", collapse="\n"))
+      
+      objlink_dat <- c(objlink_dat, paste(tar_name, tar_var, sour_name, sour_var, feedb, sep="\t", collapse="\n"))
 
     } else {
 
@@ -1085,12 +1039,36 @@ db_echse_input <- function(
       sour_var <- "r_out_total"
 
       feedb <- T
-
-      write(file=paste(proj_dir, proj_name, "data", "catchment", objlink, sep="/"), append = T,
-            x=paste(tar_obj, tar_var, sour_obj, sour_var, feedb, sep="\t", collapse="\n"))
+      
+      objlink_dat <- c(objlink_dat, paste(tar_name, tar_var, sour_name, sour_var, feedb, sep="\t", collapse="\n"))
 
     }
   }
+  
+  
+  # write files
+  write(file=paste(proj_dir, proj_name, "data", "catchment", objdecl, sep="/"), append = T, x=objdecl_dat)
+  write(file=paste(proj_dir, proj_name, "data", "catchment", objlink, sep="/"), append = T, x=objlink_dat)
+  suppressWarnings(write.table(initVect_dat, file=paste(proj_dir, proj_name, "data", "initials", initVect, sep="/"),
+                               col.names=F, row.names=F, append=T, quote=F, sep="\t"))
+  suppressWarnings(write.table(initScal_dat, file=paste(proj_dir, proj_name, "data", "initials", initScal, sep="/"),
+                               col.names=F, row.names=F, append=T, quote=F, sep="\t"))
+  suppressWarnings(write.table(parfun_svc_dat, file=paste(proj_dir, proj_name, "data", "parameter", parfun_svc, sep="/"),
+                               row.names=F, append=F, quote=F, sep="\t"))
+  suppressWarnings(write.table(objpar_svc_dat, file=paste(proj_dir, proj_name, "data", "parameter", objpar_svc, sep="/"),
+                               row.names=F, append=F, quote=F, sep="\t"))
+  suppressWarnings(write.table(objpar_tc_dat, file=paste(proj_dir, proj_name, "data", "parameter", objpar_tc, sep="/"),
+                               row.names=F, append=F, quote=F, sep="\t"))
+  suppressWarnings(write.table(parfun_tc_dat, file=paste(proj_dir, proj_name, "data", "parameter", parfun_tc, sep="/"),
+                               row.names=F, append=F, quote=F, sep="\t"))
+  suppressWarnings(write.table(objpar_lu_dat, file=paste(proj_dir, proj_name, "data", "parameter", objpar_lu, sep="/"),
+                               row.names=F, append=F, quote=F, sep="\t"))
+  suppressWarnings(write.table(objpar_sub_dat, file=paste(proj_dir, proj_name, "data", "parameter", objpar_sub, sep="/"),
+                               row.names=F, append=F, quote=F, sep="\t"))
+  suppressWarnings(write.table(objpar_rch_dat, file=paste(proj_dir, proj_name, "data", "parameter", objpar_rch, sep="/"),
+                               row.names=F, append=F, quote=F, sep="\t"))
+  suppressWarnings(write.table(parfun_rch_dat, file=paste(proj_dir, proj_name, "data", "parameter", parfun_rch, sep="/"),
+                               row.names=F, append=F, quote=F, sep="\t"))
 
 
   if(verbose) message("% OK")
