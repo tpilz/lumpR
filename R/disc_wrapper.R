@@ -37,6 +37,7 @@ disc_wrapper <- function(
   sdr = NULL,
   veg_path = NULL,
   soil_path = NULL,
+  odbc_file = "~/.odbc.ini",
   dbname = NULL,
   db_driver = "SQLITE3",
   db_desc = "lumpR database automatically generated with lumpR::disc_wrapper()",
@@ -278,10 +279,10 @@ disc_wrapper <- function(
   # LINUX ONLY:
   # register database (write into .odbc.ini in your $HOME)
   if(grepl("linux", Sys.info()["sysname"], ignore.case = T)) {
-    odbc_dat <- readLines("~/.odbc.ini")
+    odbc_dat <- readLines(odbc_file)
     if(any(grepl(paste0("[", dbname, "]"), odbc_dat, fixed = T))) {
       
-      if(!overwrite) stop("Database entry already exists in ~/.odbc.ini!")
+      if(!overwrite) stop(paste0("Database entry already exists in ", odbc_file, "!"))
       
       # remove entry
       entry <- grep(paste0("[", dbname, "]"), odbc_dat, fixed = T)
@@ -292,7 +293,7 @@ disc_wrapper <- function(
       }
       r_del <- do.call(c, mapply(seq, entry, entry_end, SIMPLIFY = FALSE))
       odbc_dat <- odbc_dat[-r_del]
-      write(odbc_dat, file="~/.odbc.ini", ncolumns=1, sep="\n")
+      write(odbc_dat, file=odbc_file, ncolumns=1, sep="\n")
     }
     str_odbc <- c(paste0("[", dbname, "]"), # adjust as you like
                   paste0("Description = ", db_desc),
@@ -300,7 +301,7 @@ disc_wrapper <- function(
                   paste0("ServerName = ", db_server), # as needed
                   paste0("Database = ",output_dir, "/dbase.db"), # adjust as you like
                   "")
-    write(str_odbc, file="~/.odbc.ini", ncolumns=1, append=T, sep="\n")
+    write(str_odbc, file=odbc_file, ncolumns=1, append=T, sep="\n")
   }
   
   # create database
