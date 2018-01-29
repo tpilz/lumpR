@@ -947,7 +947,7 @@ db_wasa_input <- function(
     
     ### write output
     writeLines(con=paste(dest_dir, "do.dat", sep="/"),
-               text=c(paste0("v1.33 Parameter specification for the WASA Model (SESAM-Project), generated with R-Package lumpR function db_wasa_input() version ", installed.packages()["lumpR","Version"]),
+               text=c(paste0("Parameter specification for the WASA Model (SESAM-Project), generated with R-Package lumpR function db_wasa_input() version ", installed.packages()["lumpR","Version"]),
                       "path/to/your_input_dir/",
                       "path/to/your_output_dir/",
                       "//tstart (start year of simulation)",
@@ -982,8 +982,8 @@ db_wasa_input <- function(
                       "1\t// type of sediment transport model at the hillslope",
                       "1\t//type of water / sediment model in the river: (1) old routing, (2) Muskingum & ss transport, (3) Muskingum & bedload modelling",
                       "1\t//type of sediment model in the reservoir: choose sediment transport equation (1:Wu et al., 2000; 2:Ashida and Michiue, 1973; 3: Yang, 1973 and 1984; 4: Ackers and White, 1973)",
-                      ".f.\t//load state of storages from files (if present) at start (optional)",
-                      ".f.\t//save state of storages to files after simulation period (optional)"))
+                      ".f. .f.\t//OPTIONAL: load state of storages from files (if present) at start; optional second flag: allows the model to append to existing output files, default is .f. ",
+                      ".f. .t.\t//OPTIONAL: save state of storages to files after simulation period; optional second flag: determines if the model states are saved (and overwritten) at the end of each simulation year, default is .t."))
     
     if(verbose) message("% OK")
     
