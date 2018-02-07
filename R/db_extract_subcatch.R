@@ -157,11 +157,16 @@ extract_db <- function(sub_extract, dbname_new, con, files_db) {
   
   # delete from r_subbas_contains_lu table
   rows_rm <- which(!(dat_c_lu$subbas_id %in% dat_sub_up$pid))
+  if(length(rows_rm) == 0) {
+    dat_c_lu_t <- dat_c_lu
+  } else {
+    dat_c_lu_t <- dat_c_lu[-rows_rm,]
+  }
   
   # write data into database
   files_db_t <- paste(tempdir(), c("subbasins_t.dat", "r_subbas_contains_lu_t.dat"), sep="/")
   write.table(dat_sub_up, files_db_t[1], sep="\t", quote=F, row.names = F)
-  write.table(dat_c_lu[-rows_rm,], files_db_t[2], sep="\t", quote=F, row.names = F)
+  write.table(dat_c_lu_t, files_db_t[2], sep="\t", quote=F, row.names = F)
   junk <- lapply(c("subbasins", "r_subbas_contains_lu"), function(x) writedb(con, grep(x, files_db_t, value=T), x, overwrite=T, verbose=F))
   
   # apply db_check() to crop the other (really relevant) tables and re-calculate subbasin orde
