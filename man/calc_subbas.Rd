@@ -76,7 +76,7 @@ hydrological subbasins for each drainage point using GRASS functions.
 }
 \note{
 Prepare GRASS location and necessary raster files in advance and start
-     GRASS session in R using \code{\link[spgrass6]{initGRASS}}. Location
+     GRASS session in R using \code{\link[rgrass7]{initGRASS}}. Location
      should not contain any maps ending on *_t as these will be removed by
      calling the function to remove temporary maps.
      
@@ -86,7 +86,7 @@ Prepare GRASS location and necessary raster files in advance and start
      
      Check the results (subbasins and snapped points). In case points have been snapped
      to the wrong stream segment, adjust point locations manually in GRASS and re-run
-     the function with the updated locations (use \code{\link[spgrass6]{readVECT6}}
+     the function with the updated locations (use \code{\link[rgrass7]{readVECT}}
      to import the updated drainage points). Also check that calculated subbasins and
      those delineated based on given \code{drain_points} do not interfere (e.g.
      resulting in very small spurious subbasins).
