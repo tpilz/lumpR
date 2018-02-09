@@ -26,10 +26,12 @@ otherwise artefacts close to boundaries may occur.}
 \item{watermask}{Raster in GRASS location masking water surfaces (value '1') from
 other areas (value '0'). Map is used for \code{svc} creation such that a
 \code{svc} is completely covered with water ('special_area' in \code{svc_ofile}
-equal to 1) or contains no water surface. Default: \code{NULL}.}
+equal to 1) or contains no water surface. The map must NOT contain NULL
+values within \code{mask}! Default: \code{NULL}.}
 
 \item{imperviousmask}{The same as for \code{watermask} but for impervious (e.g. urban
-and/or rocky) areas. 'special_area' flag in \code{svc_ofile} equal to 2.}
+and/or rocky) areas. 'special_area' flag in \code{svc_ofile} equal to 2. The map
+must NOT contain NULL values within \code{mask}!}
 
 \item{eha}{Output: Name of Environmental Hillslope Areas (EHA) raster map
 exported into GRASS location.}
@@ -57,8 +59,7 @@ location. Provides the elevations above stream node in units of \code{dem}.}
 \item{distriv}{Output: Name of distance to river raster map exported into GRASS
 location. Provides distances to stream node in number of grid cells.}
 
-\item{mask_corr}{Output: Name of corrected mask (catchment area is slightly
-smaller afer applying \emph{r.stream.distance}).}
+\item{mask_corr}{DEPRECATED! Argument kept for backwards compatibility.}
 
 \item{svc}{Output: Name of Soil Vegetation Components raster map exported into
 GRASS location; cross product of categories of \code{soil} and \code{lcov}.}
@@ -115,15 +116,15 @@ needed for further Landscape Unit deviation.
 }
 \note{
 Prepare GRASS location and necessary raster files in advance and start
-     GRASS session in R using \code{\link[spgrass6]{initGRASS}}.
+     GRASS session in R using \code{\link[rgrass7]{initGRASS}}.
 
      Make sure that the GRASS functions \emph{r.stream.distance} and \emph{r.stream.order}
      are available to your GRASS installation. If not, consider \emph{g.extension} to
      install add-ons. If you installed add-ons locally it might occur that from within R
      the path to add-ons is not recognised. In such a case locate the local installation
-     path (in a GRASS terminal use, e.g., \code{which r.stream.distance}) and specify the
+     path (in a GRASS terminal check \code{g.extension -a} and \code{echo $GRASS_ADDON_BASE}) and specify the
      absolute path to add-ons via argument \code{addon_path}. For more information, see also
-     \url{http://grasswiki.osgeo.org/wiki/AddOns/GRASS_6}.
+     \url{http://grasswiki.osgeo.org/wiki/AddOns/GRASS_7}.
      
      See GRASS documentation for further information on GRASS functions and
      parameters.
