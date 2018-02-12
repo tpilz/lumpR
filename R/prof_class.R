@@ -1,5 +1,5 @@
 # lumpR/prof_class.R
-# Copyright (C) 2014-2017 Tobias Pilz, Till Francke
+# Copyright (C) 2014-2018 Tobias Pilz, Till Francke
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -138,9 +138,14 @@ prof_class <- function(
   plot_silhouette=T
 ) {
   
-  ### PREPROCESSING ###
+### PREPROCESSING ###----------------------------------------------------------
   
-  # CHECKS #
+  if(!silent) message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+  if(!silent) message("% START prof_class()")
+  if(!silent) message("%")
+  if(!silent) message("% Initialise function...")
+
+# checks #---------------------------------------------------------------------
   
   # check output directory
   if (!overwrite & ( file.exists(paste(dir_out,luoutfile,sep="/")) | 
@@ -183,15 +188,18 @@ prof_class <- function(
     options(warn = -1)
   }
   
+  if(!silent) message("% OK")
+  
 
   
-  ### CALCULATIONS ###
+### CALCULATIONS ###-----------------------------------------------------------
   tryCatch(
   {
-    message("START 'prof_class'.")
-    message("")
+    if(!silent) message("%")
+    if(!silent) message("% Load and prepare data...")
     
-    # SETTINGS #
+# import and prepare data #----------------------------------------------------
+    
     # output dir
     dir.create(dir_out, recursive=T, showWarnings=F)
     
@@ -214,7 +222,7 @@ prof_class <- function(
     # relative weight of each attribute (supplemental data) to be used in partition  (terrain component decomposition)
     attr_weights_partition <- headerdat[3,]
     if (attr_weights_partition[1] < 1) {
-      message(paste('Warning: number of TCs will be set to 2 instead of ', attr_weights_partition[1], ' as specified in catena_head_file', sep=""))
+      message(paste('% -> WARNING: number of TCs will be set to 2 instead of ', attr_weights_partition[1], ' as specified in catena_head_file', sep=""))
       attr_weights_partition[1] <- 2
     }
     
@@ -243,8 +251,6 @@ prof_class <- function(
     #   com_length <- -1
     
     # load standard catena data
-    message(' Loading rstats-file...')
-
     stats <- scan(catena_file, nlines = 1, what=numeric(), sep = "\t", quiet = TRUE) #read first line only
     stats <- read.table(file = catena_file, colClasses = c("numeric", rep("NULL", length(stats)-1)), sep = "\t") #read first column only
     
@@ -254,8 +260,7 @@ prof_class <- function(
 
     if (!is.null(eha_subset)) 
     {
-      message('')
-      warning(paste('Using only subset of input catenas.'))
+      if(!silent) message("% -> WARNING: Using only a subset as specified in the argument 'eha_subset'.")
       
       to_do = intersect(eha_subset, p_id_unique)
       if (length(to_do==0))
@@ -314,8 +319,7 @@ prof_class <- function(
        
        
        if (profpoints[i] < 2) { #catena too short, ignore
-         message('')
-         message(paste('profile ', paste(cur_p_id, collapse=", "), ' contains only one point. Skipped.', sep=""))
+         if(!silent) message(paste('% -> WARNING: profile ', paste(cur_p_id, collapse=", "), ' contains only one point. Skipped.', sep=""))
          profs_resampled_stored[i,] = NA
        } 
        
@@ -329,8 +333,7 @@ prof_class <- function(
        # amplitude of profile will be scaled to 1
        d <- max(p_resampled[,1]) 
        if(d==0) {
-         message('')
-         warning(paste('Warning: Profile ', p_id_unique[i], ' has no elevation gain (runs flat)', sep=""))
+         if(!silent) message(paste('% -> WARNING: Profile ', p_id_unique[i], ' has no elevation gain (runs flat)', sep=""))
          p_resampled[,1] <- 0
        } else {
          # normalize profile in elevation (ie. normally, top end at elevation = 1)
@@ -366,8 +369,7 @@ prof_class <- function(
      close(testcon)
      # remove not needed objects to save memory
      rm(list = c("p_supp", "p_resampled", "tt"))
-     message(' ...loaded.')
-    
+     
      #save(file="debug.RData", list = ls(all.names = TRUE)) #for debugging only
      
      
@@ -395,7 +397,14 @@ prof_class <- function(
     }
     
   
-    # CLASSIFICATION loop through all attributes
+    if(!silent) message("% OK.")
+    
+    
+    
+# classification of ehas (clustering) #----------------------------------------
+    if(!silent) message("%")
+    if(!silent) message("% Clustering of EHAs...")
+    
     cidx_save <- list(NULL) # initialise list to store classification results; i.e. a vector assinging each EHA to a cluster class for each attribute
     hc <- 0
     while (iw <= iw_max) {
@@ -431,8 +440,7 @@ prof_class <- function(
           
           cidx_save[[iw]] <- rep(1, n_profs)
           
-          message('')
-          message(paste("skipped '", attr_names[iw], "' (", iw-(iw>2), "/", length(attr_names)-1, ") because number of classes=1", sep=""))
+          if(!silent) message(paste("% -> skipped '", attr_names[iw], "' (", iw-(iw>2), "/", length(attr_names)-1, ") because number of classes=1", sep=""))
           
           if (iw==2) {
             iw <- 4
@@ -443,8 +451,7 @@ prof_class <- function(
           next
         }
         
-        message('')
-        message(paste("successive clustering loop, treating attribute '", attr_names[iw], "' (", iw-(iw>2), "/", length(attr_names)-1, ")", sep="")) 
+        if(!silent) message(paste("% -> successive clustering loop, treating attribute '", attr_names[iw], "' (", iw-(iw>2), "/", length(attr_names)-1, ")", sep="")) 
         hc <- hc+1
       } # end cases of cf_mode 'successive'/'singlerun'
       
@@ -556,13 +563,11 @@ prof_class <- function(
       cidx_save[[iw]] <- cidx
       
       
-      message('')
-      message(paste('profile clustering: fitting index_c = ', round(sqrt(sum(sumd^2)),2), sep=""))
+      if(!silent) message(paste('% -> profile clustering: fitting index_c = ', round(sqrt(sum(sumd^2)),2), sep=""))
       
       
       if (length(unique(cidx)) < nclasses) {
-        message('')
-        message(paste(nclasses-length(unique(cidx)), ' empty clusters produced.', sep=""))
+        if(!silent) message(paste("% -> WARNING: ", nclasses-length(unique(cidx)), ' empty clusters produced.', sep=""))
       } else if (make_plots) {
         # silhouette plot, doesn't work with empty clusters
         if (!is.null(kmeans_out) & plot_silhouette)
@@ -642,15 +647,18 @@ prof_class <- function(
       }       
     } # end key generation
     
-    #-----------end of class key generation
+    if(!silent) message("% OK.")
     
-
     
-    # calculate MEAN CATENA of each class
+    
+# calculation of mean catena for each cluster #--------------------------------
+    if(!silent) message("%")
+    if(!silent) message("% Calculate mean catena for each cluster...")
+    
     unique_classes <- unique(cidx)
     
     if (length(unique_classes)!=nclasses) {
-      warning(paste('Number of generated classes (', length(unique_classes), ') is not not as expected (', nclasses, '). Too few EHAs, too many classes requested, too few differences in EHAs? Please check what happended.'))
+      if(!silent) message(paste('% -> WARNING: Number of generated classes (', length(unique_classes), ') is not not as expected (', nclasses, '). Too few EHAs, too many classes requested, too few differences in EHAs? Please check what happended.'))
       nclasses <- length(unique_classes)
     }
     
@@ -664,8 +672,7 @@ prof_class <- function(
       
       # empty cluster
       if (!any(class_i)) {
-        message('')
-        message(paste('cluster ', i, ' is empty.', sep=""))
+        if(!silent) message(paste('-> WARNING: cluster ', i, ' is empty.', sep=""))
         next
       }
       
@@ -682,8 +689,7 @@ prof_class <- function(
       Y <- sort(dists_class_i)
       ix <- sort(dists_class_i, index.return=T)$ix
       if (cf_mode=='singlerun') {
-        message('')
-        message(paste('three closest catenas to centre of class ', i, ' (ext id): ', p_id_unique[class_i[ix[1:min(3,length(ix))]]], sep=""))
+        if(!silent) message(paste('% -> WARNING: three closest catenas to centre of class ', i, ' (ext id): ', p_id_unique[class_i[ix[1:min(3,length(ix))]]], sep=""))
       }
       
       
@@ -709,8 +715,6 @@ prof_class <- function(
     
     # in reclass files: all other (unclassified) profiles are assigned nodata
     write(file=paste(dir_out,recl_lu,sep="/"), append=T, x="* = NULL")
-    
-    
     
     
     #---------prepare file output luoutfile
@@ -797,15 +801,18 @@ prof_class <- function(
     #---------end prepare file output r_tc_contains_svc
     
     
+    if(!silent) message("% OK.")
     
-    # decomposition into TCs
+    
+    
+# decomposition into TCs #-----------------------------------------------------
+    if(!silent) message("%")
+    if(!silent) message("% Decomposition into TCs...")
+    
     cluster_centers <- matrix(NA, nrow=nclasses, ncol=ncol(profs_resampled_stored)) # initialise matrix for cluster centers for each class
     lu_contains_tc <- NULL
-    message('')
-    message('start decomposition of TCs')
     if (attr_weights_partition[1]==1) {
-      message('')
-      message('only one TC per LU will be produced!')
+      if(!silent) message('% -> NOTE: only one TC per LU will be produced!')
     }
     
     # save original mean_prof (for later plotting only)
@@ -820,8 +827,7 @@ prof_class <- function(
     }  
     # PARTITIONING OF MEAN PROFILE FOR EACH LU #
     for (i in 1:nclasses) {
-      message('')
-      message(paste('partitioning class ', i, ' of ', nclasses, sep=""))
+      if(!silent) message(paste('% -> partitioning class ', i, ' of ', nclasses, sep=""))
       
       # find all profiles belonging to current class
       class_i <- which(cidx==unique_classes[i])
@@ -929,8 +935,7 @@ prof_class <- function(
         qual <- b_part[[1]]
         best_limits <- b_part[[2]]
         
-        message('')
-        message(paste('partition by min variance: ', paste(best_limits, collapse=" "), 
+        if(!silent) message(paste('% -> partition by min variance: ', paste(best_limits, collapse=" "), 
                       '; fitting index_v = ', qual, sep=""))
         
         
@@ -989,14 +994,12 @@ prof_class <- function(
           
           # continuous clustering achieved?
           if (!continuous_clusters) {
-            message('')
-            message('partitioning using cluster analysis failed.')  
+            if(!silent) message('% -> WARNING: partitioning using cluster analysis failed.')  
             best_limits_c[1:(attr_weights_partition[1]-1)] <- 0
           } else {
             # sort limits to ascending order
             best_limits_c <- sort(best_limits_c)
-            message('')
-            message(paste('partition by clustering  : ', paste(best_limits_c, collapse=" "), '; fitting index_c = ', sqrt(sum((fitc)^2)), sep=""))
+            if(!silent) message(paste('% -> partition by clustering  : ', paste(best_limits_c, collapse=" "), '; fitting index_c = ', sqrt(sum((fitc)^2)), sep=""))
             
             # only for drawing - from beginning till end of profile
             best_limits_t <- c(1, best_limits_c, length(mean_prof[i,1:com_length]))
@@ -1178,7 +1181,7 @@ prof_class <- function(
     # cluster centers can be saved for future use (supervised classification, single run only)
     if (classify_type=='save'){
       save('cluster_centers','com_length','datacolumns','attr_names',file=paste(dir_out,saved_clusters,sep="/"));
-      message(paste("\nsaved cluster centers to ", dir_out, "/", saved_clusters, sep=""))
+      if(!silent) message(paste("% -> NOTE: saved cluster centers to ", dir_out, "/", saved_clusters, sep=""))
     }
     
     
@@ -1201,7 +1204,10 @@ prof_class <- function(
       options(warn = oldw)
     
     
-    message('\nDONE!\n')
+    if(!silent) message("% OK.")
+    if(!silent) message('%')
+    if(!silent) message("% DONE!")
+    if(!silent) message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
     
 
     # if an error occurs...
@@ -1223,9 +1229,9 @@ prof_class <- function(
 } # EOF
 
 
-### INTERNAL FUNCTIONS USED BY prof_class ###
+### INTERNAL FUNCTIONS USED BY prof_class ###----------------------------------
 
-# delivers partition quality: sum of weighted variances of subdivisions
+# delivers partition quality: sum of weighted variances of subdivisions #------
 get_part_quality <- function(data_mat, lim) {
   
   # get number of points contained in this data (sub-)set
@@ -1257,7 +1263,7 @@ get_part_quality <- function(data_mat, lim) {
 
 
 
-# partitioning of a hillslope into Terrain Components
+# partitioning of a hillslope into Terrain Components #------------------------
 best_partition <- function(data_mat, no_part) {
   
   n_points_in_data_mat<- length(data_mat)
