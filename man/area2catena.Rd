@@ -13,7 +13,7 @@ area2catena(mask = NULL, flowacc = NULL, eha = NULL, distriv = NULL,
 }
 \arguments{
 \item{mask}{Raster file to be used as MASK in the GRASS location defining the
-area of interest. E.g. \code{mask_corr} of \code{\link[lumpR]{lump_grass_prep}}.}
+area of interest. E.g. \code{basin_out} of \code{\link[lumpR]{calc_subbas}}.}
 
 \item{flowacc}{Name of flow accumulation raster map in GRASS location. Can
 be created with \code{\link[lumpR]{lump_grass_prep}}.}
@@ -86,7 +86,7 @@ Takes raster data from a GRASS location and calculates catena properties.
 \note{
 Prepare GRASS location and necessary raster files in advance (e.g. using
      \code{\link[lumpR]{lump_grass_prep}}) and start GRASS session in R using 
-     \code{\link[spgrass6]{initGRASS}}.
+     \code{\link[rgrass7]{initGRASS}}.
      
      GUIs such as RStudio may not produce some runtime messages (within parallel
      foreach loop).

@@ -1,5 +1,5 @@
 # lumpR/area2catena.R
-# Copyright (C) 2014-2017 Tobias Pilz, Till Francke
+# Copyright (C) 2014-2018 Tobias Pilz, Till Francke
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -20,7 +20,7 @@
 #' Takes raster data from a GRASS location and calculates catena properties.
 #' 
 #' @param mask Raster file to be used as MASK in the GRASS location defining the
-#'      area of interest. E.g. \code{mask_corr} of \code{\link[lumpR]{lump_grass_prep}}.
+#'      area of interest. E.g. \code{basin_out} of \code{\link[lumpR]{calc_subbas}}.
 #' @param flowacc Name of flow accumulation raster map in GRASS location. Can
 #'      be created with \code{\link[lumpR]{lump_grass_prep}}.
 #' @param eha Name of elementary hillslope area raster map in GRASS location.
@@ -69,7 +69,7 @@
 #'  
 #' @note Prepare GRASS location and necessary raster files in advance (e.g. using
 #'      \code{\link[lumpR]{lump_grass_prep}}) and start GRASS session in R using 
-#'      \code{\link[spgrass6]{initGRASS}}.
+#'      \code{\link[rgrass7]{initGRASS}}.
 #'      
 #'      GUIs such as RStudio may not produce some runtime messages (within parallel
 #'      foreach loop).
@@ -130,11 +130,14 @@ area2catena <- function(
   silent=F
 ) {
   
-  ### PREPROCESSING ###
+### PREPROCESSING ###----------------------------------------------------------
   
-  # CLEAN UP AND RUNTIME OPTIONS #  
-
-  # CHECKS #
+  if(!silent) message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+  if(!silent) message("% START area2catena()")
+  if(!silent) message("%")
+  if(!silent) message("% Initialise function...")
+  
+# checks #---------------------------------------------------------------------
   tryCatch(gmeta(), error = function(e) stop("Cannot execute GRASS commands. Maybe you forgot to run initGRASS()?"))
   
   # check output directory
@@ -185,34 +188,36 @@ area2catena <- function(
     options(warn = -1)
   }
   
+  if(!silent) message("% OK")
   
   
   
-  ### CALCULATIONS ###
+  
+### CALCULATIONS ###-----------------------------------------------------------
   tryCatch({
-    message("\nSTART 'area2catena'...\n")
     
-    
-    # LOAD FILES FROM GRASS #
-    message("\nLoad data from GRASS...\n")
+# load files from grass #------------------------------------------------------
+    if(!silent) message("%")
+    if(!silent) message("% Load data from GRASS...")
 
     # set mask to make sure calculations are done exactly within expected area
-    execGRASS("r.mask", input=mask, flags=c("o"))
+    tryCatch(suppressWarnings(execGRASS("r.mask", flags=c("r"))), error=function(e){})
+    cmd_out <- execGRASS("r.mask", raster=mask, intern = T)
     
     # load flow accumulation
-    flowaccum <- readRAST6(flowacc)
+    flowaccum <- readRAST(flowacc)
     flowaccum_rast <- raster(flowaccum)
     
     # load relative elevation
-    relelev <- readRAST6(elevriv)
+    relelev <- readRAST(elevriv)
     relelev_rast <- raster(relelev)
     
     # load distance to river
-    dist2river <- readRAST6(distriv)
+    dist2river <- readRAST(distriv)
     dist2river_rast <- raster(dist2river)
     
     # load EHAs
-    eha_in <- readRAST6(eha)
+    eha_in <- readRAST(eha)
     eha_rast <- raster(eha_in)
     
     # load qualitative supplemental data
@@ -226,7 +231,7 @@ area2catena <- function(
     if (!is.null(supp_qual)) 
     {  
       for (i in supp_qual) {
-        tmp <- raster(readRAST6(i))
+        tmp <- raster(readRAST(i))
         qual_rast <- raster::stack(tmp, qual_rast)
         supp_data_classnames[[i]] <- raster::unique(tmp)
         n_supp_data_qual_classes <- c(n_supp_data_qual_classes, length(raster::unique(tmp)))
@@ -242,7 +247,7 @@ area2catena <- function(
     # load quantitative supplemental data
     quant_rast <- NULL # initialise object containing all quantitative raster layers
     for (i in rev(supp_quant)) {
-      tmp <- raster(readRAST6(i))
+      tmp <- raster(readRAST(i))
       quant_rast <- raster::stack(tmp, quant_rast)
     }
     
@@ -270,19 +275,21 @@ area2catena <- function(
     
     
     if (comp_val) {
-      message("All input data loaded and checked for extent, CRS and resolution successfully.")
-      if(plot_catena) {
-        message(paste0("Plots will be produced and written to '", dir_out, "/plots_area2catena/'."))
+      if(!silent) message("% -> All input data loaded and checked for extent, CRS and resolution successfully.")
+      if(plot_catena & !silent) {
+        message(paste0("% -> Plots will be produced and written to '", dir_out, "/plots_area2catena/'."))
       }
     } else {
       stop("ERROR: Loaded input rasters are not of the same extent, no. of rows/cols, CRS, resolution and/or origin!")
     }
     
+    if(!silent) message("% OK.")
     
     
     
     
-    # PROCESS EHAs #
+    
+# process ehas #---------------------------------------------------------------
     # get resolution of spatial data
     xres <- xres(eha_rast)
     
@@ -291,8 +298,9 @@ area2catena <- function(
     if (!is.null(eha_subset)) eha_ids <- eha_subset
     
     # LOOP over EHAs
-    message(paste("\nProcessing ", length(eha_ids), " EHAs. This might take a while depending on catchment size and number of cpu cores.\n", sep=""))
-    if (!is.null(eha_subset)) message("Note that this is just a subset as specified in the argument 'eha_subset'.\n")
+    if(!silent) message("%")
+    if(!silent) message(paste("% Processing ", length(eha_ids), " EHAs. This might take a while depending on catchment size and number of cpu cores.", sep=""))
+    if (!is.null(eha_subset) & !silent) message("% -> Note that this is just a subset as specified in the argument 'eha_subset'.")
     
     id <- NULL # to remove "R CMD CHECK ..." Note of "no visible binding for global variable 'id'"
   
@@ -326,7 +334,10 @@ area2catena <- function(
                xres,dir_out)
     }
     
-    message("Looping over EHAs completed.\n")
+    if(!silent) message("% OK.")
+# check output #---------------------------------------------------------------
+    if(!silent) message("%")
+    if(!silent) message("% Check and write output...")
     
     if (exists("cl")) #close cluster, if existing
       stopCluster(cl)
@@ -369,7 +380,7 @@ area2catena <- function(
     write.table(logdata, paste(dir_out,catena_out, sep="/"), col.names=F, row.names=F, quote=F, sep="\t")
     
     
-    # WRITE OUTPUT #
+# write output #---------------------------------------------------------------
     # write header file
     write("#This file works as a header to the output of area2catena. Don't add additional headerlines.",
           file=paste(dir_out,catena_head_out, sep="/"), append=F)
@@ -413,19 +424,21 @@ area2catena <- function(
     
     
     # FINAL REPORT #
-    message('')
-    message('All outputs produced.')
-    message('')
-    message(paste(length(eha_ids)-length(which(logdata$error == 2))-length(which(logdata$error == 1)), ' slopes treated', sep=""))
-    message(paste(sum(error_ehas$error == 1), ' slopes skipped that have less than ', min_cell_in_slope, ' cells', sep=""))
-    message(paste(sum(error_ehas$error == 2), ' slopes skipped that are not adjacent to river', sep=""))
-    message(paste(sum(error_ehas$error == 4), ' slopes skipped that have a mean length shorter than ', min_catena_length, sep=""))
-    message(paste(sum(error_ehas$error == 3), ' slopes skipped that have only cells with dist2river=0.', sep=""))
-    message(paste(sum(warn_ehas$error  == 5), ' warnings due to slopes with no flow_accum less than ', ridge_thresh, sep=""))
-    message(paste(sum(warn_ehas$error  == 6), ' warnings due to slopes with NAs in topographics grids', sep=""))
-    message(paste(sum(warn_ehas$error  == 7), ' warnings due to slopes with NAs in auxiliary grids', sep=""))
-    message('')
-    message("DONE!")
+    if(!silent) message("% OK.")
+    if(!silent) message("%")
+    if(!silent) message("% Final report:")
+    if(!silent) message('% -> All outputs produced.')
+    if(!silent) message(paste("% -> ", length(eha_ids)-length(which(logdata$error == 2))-length(which(logdata$error == 1)), ' slopes treated', sep=""))
+    if(!silent) message(paste("% -> ", sum(error_ehas$error == 1), ' slopes skipped that have less than ', min_cell_in_slope, ' cells', sep=""))
+    if(!silent) message(paste("% -> ", sum(error_ehas$error == 2), ' slopes skipped that are not adjacent to river', sep=""))
+    if(!silent) message(paste("% -> ", sum(error_ehas$error == 4), ' slopes skipped that have a mean length shorter than ', min_catena_length, sep=""))
+    if(!silent) message(paste("% -> ", sum(error_ehas$error == 3), ' slopes skipped that have only cells with dist2river=0.', sep=""))
+    if(!silent) message(paste("% -> ", sum(warn_ehas$error  == 5), ' warnings due to slopes with no flow_accum less than ', ridge_thresh, sep=""))
+    if(!silent) message(paste("% -> ", sum(warn_ehas$error  == 6), ' warnings due to slopes with NAs in topographics grids', sep=""))
+    if(!silent) message(paste("% -> ", sum(warn_ehas$error  == 7), ' warnings due to slopes with NAs in auxiliary grids', sep=""))
+    if(!silent) message('%')
+    if(!silent) message("% DONE!")
+    if(!silent) message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
     
     # stop sinking
     closeAllConnections()
@@ -456,7 +469,7 @@ area2catena <- function(
 
 
 
-### Internal Function processing EHA ###
+### INTERNAL FUNCTION: processing EHA ###--------------------------------------
 
 # this function contains the algorithm for the derivation of a representative catena for each EHA
 # as described in Francke et al. (2008)
@@ -467,14 +480,14 @@ eha_calc <- function(curr_id, eha_rast, flowaccum_rast, dist2river_rast, relelev
   
   errcode <- 0
   
-  # EHA: CHECKS and PREPARATIONS #    
+# EHA: CHECKS and PREPARATIONS #-----------------------------------------------
   # determine cell indices of curr_id
   curr_cells <- which(eha_rast@data@values == curr_id)
   
   # determine number of cells in eha and skip processing if less than min_cell_in_slope
   # ERROR CODE 1
   if (length(curr_cells) < min_cell_in_slope) {
-    message(paste('EHA ', curr_id, ' skipped because of low number of cells (', length(curr_cells), ')', sep=""))
+    message(paste('% -> WARNING: EHA ', curr_id, ' skipped because of low number of cells (', length(curr_cells), ')', sep=""))
     return(data.frame(output=t(c(curr_id, rep(NA, sum(n_supp_data_qual_classes) + length(supp_quant) + 4 - 1))), error=1))
   }
   
@@ -487,7 +500,7 @@ eha_calc <- function(curr_id, eha_rast, flowaccum_rast, dist2river_rast, relelev
   
   na_vals = is.na(flowaccum_vals) | is.na(dist2river_vals) | is.na(relelev_vals) #detect NA values
   if (any(na_vals)) {  # cells found with NAs in the mandatory grids
-    warning(paste('EHA ', curr_id, ' has NA cells flowaccum, dist2river or relative_elavation. May be OK for EHAs at divide. Cells ignored.', sep=""))
+    message(paste('% -> WARNING: EHA ', curr_id, ' has NA cells flowaccum, dist2river or relative_elavation. May be OK for EHAs at divide. Cells ignored.', sep=""))
     curr_cells <- curr_cells[!na_vals]
     flowaccum_vals  <- flowaccum_vals [!na_vals]
     dist2river_vals <- dist2river_vals[!na_vals]
@@ -502,14 +515,14 @@ eha_calc <- function(curr_id, eha_rast, flowaccum_rast, dist2river_rast, relelev
     na_vals <- c(na_vals, apply(!is.finite(qual_vals), MARGIN=2, any))
   
   if (any(na_vals)) {  # cells found with NAs in auxiliary grids
-    warning(paste('EHA ', curr_id, ': NAs in the grid(s) ', paste(names(na_vals[na_vals]), collapse=', ') ,'.', sep=""))
+    message(paste('% -> WARNING: EHA ', curr_id, ': NAs in the grid(s) ', paste(names(na_vals[na_vals]), collapse=', ') ,'.', sep=""))
     errcode <- 7
   }
   
   # determine closest distance to river and skip processing if more than max_riv_dist
   # ERROR CODE 2
   if(min(dist2river_vals) > max_riv_dist) {
-    message(paste(curr_id, ' skipped, not adjacent to channel / farther than ', max_riv_dist, ' cells (',min(dist2river_vals),')', sep=""))
+    message(paste("% -> WARNING: EHA ", curr_id, ' skipped, not adjacent to channel / farther than ', max_riv_dist, ' cells (',min(dist2river_vals),')', sep=""))
     return(data.frame(output=t(c(curr_id, rep(NA, sum(n_supp_data_qual_classes) + length(supp_quant) + 4 - 1))), error=2))
   } else {
     dist2river_vals <- dist2river_vals - min(dist2river_vals)
@@ -518,16 +531,16 @@ eha_calc <- function(curr_id, eha_rast, flowaccum_rast, dist2river_rast, relelev
   # test whether only river cells available (all dist2river = 0) and skip eha_clumped if so
   # ERROR CODE 3
   if(max(dist2river_vals) == 0) {
-    message(paste(curr_id, ' skipped because for all cells dist2river=0.', sep=""))
+    message(paste("% -> WARNING: EHA ", curr_id, ' skipped because for all cells dist2river=0.', sep=""))
     return(data.frame(output=t(c(curr_id, rep(NA, sum(n_supp_data_qual_classes) + length(supp_quant) + 4 - 1))), error=3))
   }
   
   
-  # EHA: compute MEAN CATENA LENGTH #
+# EHA: compute MEAN CATENA LENGTH #--------------------------------------------
   # find all cells that are the beginning of a flowpath
   curr_entries <- which(flowaccum_vals<=ridge_thresh)
   if (!any(curr_entries)) {  # no cells found, strange, but try to fix this problem
-    warning(paste('EHA ', curr_id, ' has no cells with flowpath start (below ', ridge_thresh, ')', sep=""))
+    message(paste('% -> WARNING: EHA ', curr_id, ' has no cells with flowpath start (below ', ridge_thresh, ')', sep=""))
     # reduce threshold to minimum flow accumulation found in current slope
     curr_entries <- which(flowaccum_vals <= min(flowaccum_vals))
     errcode <- 5
@@ -539,7 +552,7 @@ eha_calc <- function(curr_id, eha_rast, flowaccum_rast, dist2river_rast, relelev
   # skip very short catenas
   # ERROR CODE 4
   if (mean_length < min_catena_length) {
-    message(paste(curr_id, ' skipped because of low length (', mean_length, ')', sep=""))
+    message(paste("% -> WARNING: EHA ", curr_id, ' skipped because of low length (', mean_length, ')', sep=""))
     return(data.frame(output=t(c(curr_id, rep(NA, sum(n_supp_data_qual_classes) + length(supp_quant) + 4 - 1))), error=4))
   }
   
@@ -556,7 +569,7 @@ eha_calc <- function(curr_id, eha_rast, flowaccum_rast, dist2river_rast, relelev
   }
   
   
-  # EHA: calculate properties (loop over reference points) #
+# EHA: calculate properties (loop over reference points) #---------------------
   # resolution, number of data points describing the mean catena
   res <- ceiling(mean_length)
   
@@ -627,7 +640,7 @@ eha_calc <- function(curr_id, eha_rast, flowaccum_rast, dist2river_rast, relelev
 
           # check averages (should sum up to one for each attribute), SEVERE ERROR CODE 666
           if(sum(supp_attrib_mean[(quant_columns+col_counter+1):(quant_columns+col_counter+n_supp_data_qual_classes[k]),j+1]) < 0.999) {
-            message(paste('For EHA ', curr_id, ' areal fractions of qualitative supplemental attribute ', k, ' does not sum to one for profile point ', j+1, sep=""))
+            message(paste('% -> WARNING: For EHA ', curr_id, ' areal fractions of qualitative supplemental attribute ', k, ' does not sum to one for profile point ', j+1, sep=""))
             return(data.frame(output=t(c(curr_id, rep(NA, sum(n_supp_data_qual_classes) + length(supp_quant) + 4 - 1))), error=666))
           }
           
@@ -645,14 +658,14 @@ eha_calc <- function(curr_id, eha_rast, flowaccum_rast, dist2river_rast, relelev
       
       # if no curr_entries
     } else {
-      message(paste('problems calculating mean catena for ', curr_id, sep=""))
+      message(paste('% -> WARNING: problems calculating mean catena for ', curr_id, sep=""))
       
       # flag indicating that the value for the previous point in the mean catena could not be computed
       if (j!=0) entry_missing <- 1
     } # end if curr_entries
     
     
-    # OUTPUT #
+# OUTPUT #---------------------------------------------------------------------
     # collect logdata, '.combine' arg in 'foreach' command
     out_combined <- rbind(out_combined, 
                           c(c(curr_id, out_x[j+1]+1), 
