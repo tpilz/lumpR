@@ -33,10 +33,10 @@
 #  c) the comments of this script
 #
 # REFERENCES:
-# lumpR Paper (in preparation!): https://github.com/tpilz/lumpr_paper
+# Pilz, T., T. Francke, and A. Bronstert (2017), lumpR: An R package facilitating landscape discretisation for hillslope-based hydrological models, Geosci Model Dev, 10(8), 3001-3023, doi:https://doi.org/10.5194/gmd-10-3001-2017.
 #
 # landscape discretisation algorithm:
-# Francke et al. (2008), Int. J. Geogr. Inf. Sci., 22, 111–132, doi:10.1080/13658810701300873
+# Francke et al. (2008), Int. J. Geogr. Inf. Sci., 22, 111-132, doi:10.1080/13658810701300873
 
 
 
