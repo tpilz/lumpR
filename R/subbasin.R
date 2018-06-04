@@ -121,13 +121,13 @@ calc_subbas <- function(
   
   # CHECKS #
   tryCatch(gmeta(), error = function(e) stop("Cannot execute GRASS commands. Maybe you forgot to run initGRASS()?"))
-  if(is.null(dem))
+  if(is.null(dem) | dem=="")
     stop("The name of a DEM within the mapset of your initialised GRASS session has to be given!")
   if(is.null(drain_points) | !grepl("SpatialPoints", class(drain_points)))
     stop("drain_points has to be given as SpatialPoints* object with at least one catchment outlet point!")
   if(is.null(river) & (is.null(thresh_stream | is.null(stream))))
     stop("If no river object is given, stream as name prefix for the generated stream maps and the parameter thresh_stream have to be specified for internal calculation of the river network!")
-  if(is.null(basin_out))
+  if(is.null(basin_out)  | basin_out=="")
     stop("You have to specify basin_out as name for the subbasin map to be generated!")
   if(is.null(points_processed))
     stop("You have to specify points_processed!")
