@@ -235,6 +235,20 @@ lump_grass_prep <- function(
   }
   
   
+  # remove output of previous function calls if overwrite=T (remove only relevant maps according to things2do)
+  if (overwrite) {
+    if("eha" %in% things2do)
+      cmd_out <- execGRASS("g.remove", type="raster", pattern=paste("*_t,*_t1,*_t2", eha, flowdir, flowacc, stream, sep=","), flags=c("f", "b"), intern=T)
+    if("river" %in% things2do)
+      cmd_out <- execGRASS("g.remove", type="raster", pattern=paste("*_t,*_t1,*_t2", stream_horton, elevriv, distriv, sep=","), flags=c("f", "b"), intern=T)
+    if("svc" %in% things2do)
+      cmd_out <- execGRASS("g.remove", type="raster", pattern=paste("*_t,*_t1,*_t2", svc, sep=","), flags=c("f", "b"), intern=T)
+  } else {
+    # remove temporary maps in any case
+    cmd_out <- execGRASS("g.remove", type="raster", pattern="*_t,*_t1,*_t2", flags=c("f", "b"), intern=T)
+  }
+  
+  
   if(!silent) message("% OK")
 
   
@@ -250,14 +264,6 @@ lump_grass_prep <- function(
       # remove mask if there is any (and ignore error in case there is no mask)
       tryCatch(suppressWarnings(execGRASS("r.mask", flags=c("r"))), error=function(e){})
       
-      # remove output of previous function calls if overwrite=T
-      if (overwrite) {
-        cmd_out <- execGRASS("g.remove", type="raster", pattern=paste("*_t,*_t1,*_t2", eha, flowdir, flowacc, stream, sep=","), flags=c("f", "b"), intern=T)
-      } else {
-        # remove temporary maps in any case
-        cmd_out <- execGRASS("g.remove", type="raster", pattern="*_t,*_t1,*_t2", flags=c("f", "b"), intern=T)
-      }
-      
       # calculate EHA etc.
       cmd_out <- execGRASS("r.watershed", elevation=dem, threshold=eha_thres, half_basin="eha_t1", stream=stream,
                 accumulation="flow_accum_t", drainage=flowdir, flags = c("s"), intern=T)
@@ -272,21 +278,15 @@ lump_grass_prep <- function(
       cmd_out <- execGRASS("r.reclass.area", input="eha_t1", mode="greater", value=sizefilter, output="eha_t2", intern = T)
       
       # grow EHA map to fill gaps resulted from remove of fragments
-      grow_eval <- NULL
       cmd_out <- execGRASS("r.grow", input="eha_t2", output=eha, radius=growrad, intern = T)
       
+      # r.grow converts type CELL to type DCELL; convert back to CELL
+      cmd_out <- execGRASS("r.mapcalc", expression=paste0(eha, "=int(", eha, ")"), flags = "overwrite", intern = T)
+      
       # evaluate growing
-      cmd_out <- execGRASS("r.mapcalc", expression = paste0("grow_eval_t = ", mask, " * isnull(", eha, ")"), flags=c("overwrite"), intern = T)
-      
-      grow_eval2 <- execGRASS("r.stats", input="grow_eval_t", flags=c("n"), intern=TRUE)
-      if (grepl(pattern="[0-9]+.*[\b]+",x=tail(grow_eval2, n=1)))
-        grow_eval2 = grow_eval2[-length(grow_eval2)] #last line contains progress indicator, remove
-      
-      grow_eval2 <- as.numeric(grow_eval2)
-      
-      grow_eval <- c(grow_eval, grow_eval2)
-      
-      if (any(grow_eval==1)) {
+      cmd_out <- execGRASS("r.mapcalc", expression=paste0("grow_eval_t = if(isnull(", eha, "), 1, null())"), flags = "overwrite", intern=TRUE)
+      grow_eval <- execGRASS("r.stats", input="grow_eval_t", flags=c("n"), intern=TRUE)
+      if (length(grow_eval) > 0) {
         stop("There are still gaps in the EHA raster maps after growing. Try to increase growrad and run again.")
       }
       
@@ -321,14 +321,6 @@ lump_grass_prep <- function(
       # set mask
       cmd_out <-tryCatch(suppressWarnings(execGRASS("r.mask", flags=c("r"), intern = T)), error=function(e){})
       cmd_out <- execGRASS("r.mask", raster=mask, intern = T)
-      
-      # remove output of previous function calls if overwrite=T
-      if (overwrite) {
-        cmd_out <- execGRASS("g.remove", type="raster", pattern=paste("*_t,*_t1,*_t2", stream_horton, elevriv, distriv, sep=","), flags=c("f", "b"), intern=T)
-      } else {
-        # remove temporary maps in any case
-        cmd_out <- execGRASS("g.remove", type="raster", pattern="*_t,*_t1,*_t2", flags=c("f", "b"), intern=T)
-      }
     
       # calculate Horton stream order (works only for non-thinned stream segments!)
       cmd_out <- execGRASS("g.region", raster=flowdir, intern = T) # complains about defiation in resolution of flowdir although it is the same as for the region?!
@@ -385,14 +377,6 @@ lump_grass_prep <- function(
       cmd_out <-tryCatch(suppressWarnings(execGRASS("r.mask", flags=c("r"), intern = T)), error=function(e){})
       cmd_out <- execGRASS("r.mask", raster=mask, intern = T)
       
-      # remove output of previous function calls if overwrite=T
-      if (overwrite) {
-        cmd_out <- execGRASS("g.remove", type="raster", pattern=paste("*_t,*_t1,*_t2", svc, sep=","), flags=c("f", "b"), intern=T)
-      } else {
-        # remove temporary maps in any case
-        cmd_out <- execGRASS("g.remove", type="raster", pattern="*_t,*_t1,*_t2", flags=c("f", "b"), intern=T)
-      }
-      
       # create output directory
       dir.create(dir_out, recursive=T, showWarnings=F)
       
@@ -413,15 +397,51 @@ lump_grass_prep <- function(
       }
       
       # create soil vegetation components from soil and landcover/vegetation data
+      # NOTE: categories of soil, lcov, water and impervious only needed to fix r.cross bug
       cmd_out <- execGRASS("g.remove", type="raster", name=svc, flags=c("f", "b"), intern = T)
       if (!is.null(watermask) & !is.null(imperviousmask)) {
         cmd_out <- execGRASS("r.cross", input=paste(soil,lcov,watermask,imperviousmask,sep=","), output=svc, intern = T)
+        cat_labs_soil <- execGRASS("r.stats", input=soil, flags=c("n"), intern=T, ignore.stderr = T)
+        cat_labs_lcov <- execGRASS("r.stats", input=lcov, flags=c("n"), intern=T, ignore.stderr = T)
+        cat_labs_wat <- execGRASS("r.stats", input=watermask, flags=c("n"), intern=T, ignore.stderr = T)
+        cat_labs_imp <- execGRASS("r.stats", input=imperviousmask, flags=c("n"), intern=T, ignore.stderr = T)
       } else if (!is.null(watermask) & is.null(imperviousmask)) {
         cmd_out <- execGRASS("r.cross", input=paste(soil,lcov,watermask,sep=","), output=svc, intern = T)
+        cat_labs_soil <- execGRASS("r.stats", input=soil, flags=c("n"), intern=T, ignore.stderr = T)
+        cat_labs_lcov <- execGRASS("r.stats", input=lcov, flags=c("n"), intern=T, ignore.stderr = T)
+        cat_labs_wat <- execGRASS("r.stats", input=watermask, flags=c("n"), intern=T, ignore.stderr = T)
+        cat_labs_imp <- NULL
       } else if (is.null(watermask) & !is.null(imperviousmask)) {
         cmd_out <- execGRASS("r.cross", input=paste(soil,lcov,imperviousmask,sep=","), output=svc, intern = T) 
+        cat_labs_soil <- execGRASS("r.stats", input=soil, flags=c("n"), intern=T, ignore.stderr = T)
+        cat_labs_lcov <- execGRASS("r.stats", input=lcov, flags=c("n"), intern=T, ignore.stderr = T)
+        cat_labs_imp <- execGRASS("r.stats", input=imperviousmask, flags=c("n"), intern=T, ignore.stderr = T)
+        cat_labs_wat <- NULL
       } else {
         cmd_out <- execGRASS("r.cross", input=paste(soil,lcov,sep=","), output=svc, intern = T)
+        cat_labs_soil <- execGRASS("r.stats", input=soil, flags=c("n"), intern=T, ignore.stderr = T)
+        cat_labs_lcov <- execGRASS("r.stats", input=lcov, flags=c("n"), intern=T, ignore.stderr = T)
+        cat_labs_wat <- NULL
+        cat_labs_imp <- NULL
+      }
+      
+      # check for and correct error in r.cross, see https://lists.osgeo.org/pipermail/grass-user/2018-February/077934.html
+      cmd_out <- execGRASS("r.stats", input=svc, flags=c("n"), intern=T, ignore.stderr = T)
+      if(any(as.numeric(cmd_out) == 0)) {
+        # save category labels
+        cat_labs <- execGRASS("r.category", map=svc, separator=":", intern=T)
+        cat_labs <- strsplit(cat_labs[-1], ":")
+        cat_labs <- lapply(cat_labs, function(x) c(as.numeric(x[1]) +1, x[2]))
+        # add +1 to categories (destroys labels)
+        cmd_out <- execGRASS("r.mapcalc", expression=paste0(svc, "=", svc, "+1"), flags=c("overwrite"), intern=T)
+        # get missing category label
+        cat_lab_miss <- c(1, paste(c("category"), c(cat_labs_soil[1], cat_labs_lcov[1], cat_labs_wat[1], cat_labs_imp[1]), sep=" ", collapse = "; "))
+        # merge to stored labels
+        cat_labs_mod <- sapply(c(list(cat_lab_miss), cat_labs), paste, collapse=":")
+        # write to grass raster
+        write.table(cat_labs_mod, paste(dir_out, "svc_recl_t.txt", sep="/"), sep="\t", quote=F, row.names = F, col.names = F)
+        cmd_out <- execGRASS("r.category", map=svc, separator=":", rules=paste(dir_out, "svc_recl_t.txt", sep="/"), intern = T)
+        file.remove(paste(dir_out, "svc_recl_t.txt", sep="/"))
       }
       
       # categories of SVCs
