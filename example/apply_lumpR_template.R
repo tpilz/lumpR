@@ -33,10 +33,10 @@
 #  c) the comments of this script
 #
 # REFERENCES:
-# lumpR Paper (in preparation!): https://github.com/tpilz/lumpr_paper
+# Pilz, T., T. Francke, and A. Bronstert (2017), lumpR: An R package facilitating landscape discretisation for hillslope-based hydrological models, Geosci Model Dev, 10(8), 3001-3023, doi:https://doi.org/10.5194/gmd-10-3001-2017.
 #
 # landscape discretisation algorithm:
-# Francke et al. (2008), Int. J. Geogr. Inf. Sci., 22, 111–132, doi:10.1080/13658810701300873
+# Francke et al. (2008), Int. J. Geogr. Inf. Sci., 22, 111-132, doi:10.1080/13658810701300873
 
 
 
@@ -85,10 +85,14 @@ write(str_odbc, file="~/.odbc.ini", ncolumns=1, append=T, sep="\n")
 # INPUT #
 # inputs marked MANDATORY have to be given, the rest can be 'NULL' if not available
 
-# watershed outlet (coordinates in projection of GRASS location!) 
-drain_p <- data.frame(utm_x_m=, utm_y_m=)
-# specifiy columns containing coordinates
-coordinates(drain_p) <- c("utm_x_m", "utm_y_m")
+# subbasin outlet points (choose option A or B)
+  #A: manually specify (coordinates in projection of GRASS location!) 
+  drain_p <- data.frame(utm_x_m=c(1,2,3), utm_y_m=c(1,2,3)) #enter your coordinates here
+  coordinates(drain_p) <- c("utm_x_m", "utm_y_m")
+  #B: import from shapefile in GRASS mapset
+  drain_p = readVECT(vname = "subbas_outlets", layer=1) #specify name of point vector containing subbasin coordinates
+  #plot(drain_p)
+  
 
 # DEM raster in GRASS location
 dem <- ""
@@ -242,6 +246,7 @@ ncores <- 1
 thresh_sub <- 5000
   
 # parameter for GRASS function r.watershed. This is a crucial parameter affecting the size of delineated hillslopes - MANDATORY
+# rough guide: eha_thres = 2'000'000/ (dem_res[m])^2
 eha_thres <- 200
   
 # vector with GRASS file names of quantitative supplemental information for LU deviation (adjust no_LUs accordingly)
@@ -263,11 +268,11 @@ no_TCs <- 3
 # Best is to use GRASS 6.4.6 as GRASS 6.4.5 by autumn 2016 suddenly started producing segmentation faults!
 addon_path="/home/tobias/.grass6/addons/" # path to your locally installed GRASS add-ons. Must only be given if necessary, see ?lump_grass_prep
 # initialisation of session
-initGRASS(gisBase="", # path to GRASS installation (use / instead of \ under windows, e.g. "d:/programme/GRASS6.4.3" )
+initGRASS(gisBase="your_path", # path to GRASS installation (use / instead of \ under windows, e.g. "d:/programme/GRASS6.4.3" )
           home=getwd(), # The directory in which to create the .gisrc file
-          location="", # GRASS location
-          mapset="",    # corresp. mapset
-          gisDbase="",  # path to 'grassdata' directory containing the location specified above and all corresp. data
+          location="your_location", # GRASS location
+          mapset="your_mapset",    # corresp. mapset
+          gisDbase="your_gisDbase",  # path to 'grassdata' directory containing the location specified above and all corresp. data
           override=TRUE)
   
   
