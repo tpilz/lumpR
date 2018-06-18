@@ -12,8 +12,8 @@ lump_grass_post(mask = NULL, dem = NULL, recl_lu = NULL, lu = NULL,
   silent = F)
 }
 \arguments{
-\item{mask}{Name of mask raster map masking the study area. E.g. output \code{mask_corr}
-of \code{\link[lumpR]{lump_grass_prep}}.}
+\item{mask}{Name of mask raster map masking the study area. E.g. output \code{basin_out}
+of \code{\link[lumpR]{calc_subbas}}.}
 
 \item{dem}{DEM raster map in GRASS location as used in \code{\link[lumpR]{lump_grass_prep}}.}
 
@@ -219,7 +219,7 @@ using outputs of \code{\link[lumpR]{lump_grass_prep}} and \code{\link[lumpR]{pro
 \note{
 Prepare GRASS location and necessary raster files in advance (e.g. using
      \code{\link[lumpR]{lump_grass_prep}}) and start GRASS session in R using 
-     \code{\link[spgrass6]{initGRASS}}.
+     \code{\link[rgrass7]{initGRASS}}.
      
      TODO:\cr
        - check empirical formulas for channel width and channel depth\cr
