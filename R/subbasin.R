@@ -159,7 +159,7 @@ calc_subbas <- function(
   # CLEAN UP AND RUNTIME OPTIONS #  
   cmd_out <- execGRASS("g.version", intern=TRUE)
   if (cmd_out=="")
-    stop("Couldn't connect to GRASS-session. try removing any open sinks by calling 'sink()' repeatedly. Or restart R.")
+    stop("Couldn't connect to GRASS-session. Try removing any open sinks by calling 'sink()' repeatedly. Or restart R.")
   
    # suppress annoying GRASS outputs 
   tmp_file <- file(tempfile(), open="wt")
@@ -181,7 +181,9 @@ calc_subbas <- function(
     message("\nInitialise function...\n")
     
     # remove mask if there is any
-    suppressWarnings(execGRASS("r.mask", flags=c("r")))
+    a=tryCatch(execGRASS("r.mask", flags=c("r"), intern = TRUE, ignore.stderr = TRUE)
+    , error=function(e){ stop("Couldn't connect to GRASS-session. Try restarting R.")}
+    )
     
     # remove output of previous function calls if overwrite=T
     if (overwrite) {
@@ -221,7 +223,7 @@ calc_subbas <- function(
       river <- paste0(stream, "_vect")
       
     } else {
-      if(!is.null(flowaccum) )
+      if(is.null(flowaccum) )
       {
         message("\nCalculate drainage...\n")
         execGRASS("r.watershed", elevation=dem, drainage="drain_t")
@@ -238,7 +240,53 @@ calc_subbas <- function(
       execGRASS("r.watershed", elevation=dem, basin="basin_calc_t", threshold=thresh_sub)
     }
     
-  ### snap given drainage points to streams
+
+### ensure that given drainage points are NOT precisely at cell centres, because this may cause pathologic
+### cases when snapping to streams (ending up at cell corners instead of cell interior)
+    if (is.null(drain_points$subbas_id)) drain_points$subbas_id=1:nrow(drain_points) #add subbasin_id, if not given
+    drain_points$subbas_id=as.numeric(as.character(drain_points$subbas_id)) #force conversion to numeric
+    if (any(!is.finite(drain_points$subbas_id)))
+        stop("The column 'subbasin_id' in drain_points contains non-numeric entries.")
+    
+    suppressWarnings(writeVECT6(drain_points, "dp_t", v.in.ogr_flags="overwrite"))
+    # WINDOWS PROBLEM: delete temporary file otherwise an error occurs when calling writeVECT or readVECT again with the same (or a similar) file name 
+    if(.Platform$OS.type == "windows") {
+      dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
+      files_del <- grep(substr("dp_t", 1, 8), dir(dir_del), value = T)
+      file.remove(paste(dir_del, files_del, sep="/"))
+    }
+    
+    x <- execGRASS("v.to.rast", input="dp_t", output="dp_t", use="attr", column="subbas_id", flags="overwrite", intern=T)
+    x <- execGRASS("r.to.vect", input="dp_t", output="dp_centered_t", feature="point", flags = "overwrite")
+    drain_points_centered = readVECT(vname = "dp_centered_t", layer=1) #drainage points, moved to centers of raster cells 
+    if(.Platform$OS.type == "windows") {
+      dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
+      files_del <- grep(substr("dp_centered_t", 1, 8), dir(dir_del), value = T)
+      file.remove(paste(dir_del, files_del, sep="/"))
+    }
+    
+    
+    res <- execGRASS("r.info", map=dem, flags=c("s"), intern=TRUE) #determine raster resolution
+    res <- sum(as.numeric(gsub("[a-z]*=", "", res))) / 2
+    
+    #create shifted version of drainage points (shifted by 1/4 of resolution)
+    drain_points_shifted = drain_points@data
+    drain_points_shifted = merge(drain_points_shifted, cbind(subbas_id=drain_points_centered$value, coordinates(drain_points_centered))) #preserve attributes
+    
+    drain_points_shifted [, c("coords.x1","coords.x2")] = drain_points_shifted [, c("coords.x1","coords.x2")] + res/4
+    coordinates(drain_points_shifted) <- c("coords.x1","coords.x2")
+    projection(drain_points_shifted) <- getLocationProj()
+    suppressWarnings(writeVECT6(drain_points_shifted, "dp_shifted_t", v.in.ogr_flags="overwrite"))
+    if(.Platform$OS.type == "windows") {
+      dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
+      files_del <- grep(substr("dp_shifted_t", 1, 8), dir(dir_del), value = T)
+      file.remove(paste(dir_del, files_del, sep="/"))
+    }
+    
+    drain_points = drain_points_shifted
+    rm(list = c("drain_points_shifted", "drain_points_centered")        )
+    
+      ### snap given drainage points to streams
     message("\nSnap given drainage points to streams...\n")
     
     # read stream vector
@@ -257,13 +305,19 @@ calc_subbas <- function(
   
     # snap points to streams
     drain_points_snap <- suppressWarnings(snapPointsToLines(drain_points, streams_vect, maxDist=snap_dist))
+    drain_points_snap$nearest_line_id=NULL #we don't need this and this long filed name causes trouble
+    
     if (length(drain_points_snap) < length(drain_points)) stop("Less points after snapping than in drain_points input!\nComputed stream segments are probably are too coarse. Try a smaller value of thresh_stream to create a fine river network.")
     
-    # df should only contain a cat column
-    drain_points_snap@data <- data.frame(cat=1:nrow(drain_points_snap@data))
+    ## df should only contain a cat column
+    #drain_points_snap@data <- data.frame(cat=1:nrow(drain_points_snap@data))
     
     # export drain_points_snap to GRASS
-    execGRASS("g.remove", vect="drain_points_snap", ignore.stderr = TRUE)
+    cmd_out = execGRASS("g.remove", vect="drain_points_snap", intern = TRUE, ignore.stderr = TRUE)
+    stat = attr(cmd_out, "status")
+    if (!is.null(stat) && stat== 1)
+      stop("Vector map 'drain_points_snap' could not be deleted. Try doing this manually in GRASS (may require restart). In Windows, try killing the process(es) 'dbf.exe' in the TaskManager.")
+    
     suppressWarnings(writeVECT6(drain_points_snap, paste0(points_processed, "_snap"), v.in.ogr_flags="overwrite"))
     # WINDOWS PROBLEM: delete temporary file otherwise an error occurs when calling writeVECT or readVECT again with the same (or a similar) file name 
     if(.Platform$OS.type == "windows") {
@@ -277,6 +331,9 @@ calc_subbas <- function(
     message("\nCalculate catchments for every drainage point...\n")
     
     # watershed for the defined outlet
+    
+    drain_points@data$subbas_id[outlet] 
+    outlet = which(drain_points_snap@data$subbas_id == drain_points@data$subbas_id[outlet]) #update index to outlet, as it order may have changed during previous steps
     outlet_coords <- coordinates(drain_points_snap)[outlet,]
     execGRASS("r.water.outlet", drainage="drain_t", basin=paste0("basin_outlet_t"),
               easting=as.character(outlet_coords[["X"]]), northing=as.character(outlet_coords[["Y"]]), flags="overwrite")
@@ -356,7 +413,7 @@ calc_subbas <- function(
 
       # outlet coordinates
       outlet_coords <- coordinates(drain_points_snap)[p,]
-      
+
       # basin
       execGRASS("r.water.outlet", drainage="drain_t", basin=paste0("basin_", p, "_t"),
                 easting=as.character(outlet_coords[["X"]]), northing=as.character(outlet_coords[["Y"]]), flags="overwrite")
@@ -364,15 +421,15 @@ calc_subbas <- function(
       cmd_out = execGRASS("r.stats", input=paste0("basin_", p, "_t"), flag=c("c","n","quiet"), intern = TRUE)
       ncells = as.numeric(strsplit(cmd_out, split = " ")[[1]][2])
       if (!is.finite(ncells) | ncells < 100)
-        warning(paste0("Number of cells in calculated catchment ",p," is very low (",ncells,"). try using a filled DEM."))
-      
-      
+        warning(paste0("Number of cells in calculated catchment ",p," is very low (",ncells,"). Try using a filled DEM and check outlet points."))
+
+
       # reclass (subbasins gets number of i for crossing later)
       if (!is.null(drain_p$subbas_id[p]))
         id = drain_p$subbas_id[p] else #use specified ID, if available
         id = p
       execGRASS("r.mapcalculator", amap=paste0("basin_", p, "_t"), outfile=paste0("basin_recl_", p, "_t"),
-                formula=paste0("if(A,",p, ")"), flags="overwrite")
+                formula=paste0("if(A,", id, ")"), flags="overwrite")
       
     }
 
@@ -381,10 +438,11 @@ calc_subbas <- function(
     
   ### merge all sub-catchments
     message("\nMerge calculated catchments...\n")
-    
-    # put sub-catchments together
-    subcatch_rasts <- execGRASS("g.mlist", type="rast", pattern=paste0("basin_recl_[0-9]*_t"), intern=T)
 
+    # put sub-catchments together
+    #subcatch_rasts <- execGRASS("g.mlist", type="rast", pattern=paste0("basin_recl_[0-9]*_t"), intern=T)
+    subcatch_rasts <- paste0("basin_recl_",1:no_catch, "_t")
+    
     # if more than one sub-catchment
     if(no_catch > 1) {
       
@@ -419,7 +477,25 @@ calc_subbas <- function(
           }
         }
         
+        # x <- execGRASS("r.patch", input=paste(subcatch_rasts, collapse=","), #r.patch does not work under windows
+        #                output=paste0("basin_cross_", j, "_t"), flags = c("overwrite"), intern=T, ignore.stderr=T)
+        # 
+    
+        # simply adding up does not do the job as intermediate basins will overwrite headwater basins
+        # x <- execGRASS("g.remove", rast="basin_all_t", intern=T, ignore.stderr=T)
+        # x <- execGRASS("g.copy", rast=paste0(subcatch_rasts[1],",", "basin_all_t"), intern=T, ignore.stderr=T)
+        # 
+        # for (j in 2:length(subcatch_rasts))
+        # {
+        #     execGRASS("r.mapcalculator", amap="basin_all_t", bmap=subcatch_rasts[j], outfile=basin_out,
+        #               formula="if(isnull(A),0,A) + if(isnull(B),0,B)", flags = "overwrite")
+        #     x <- execGRASS("g.copy", rast=paste0(basin_out,",", "basin_all_t"), intern=T, ignore.stderr=T)
+        # } 
+          
+        
+        
         # merge cross products
+        execGRASS("g.remove", rast="basin_all_t", ignore.stderr = TRUE)
         cross_rasts <- execGRASS("g.mlist", type="rast", pattern=paste0("basin_cross_[0-9]*_t"), intern=T)
         if(length(cross_rasts) == 1) {
           x <- execGRASS("g.rename", rast=paste(cross_rasts, "basin_all_t", sep=","), intern=T, ignore.stderr=T)
@@ -456,27 +532,51 @@ calc_subbas <- function(
       
       } # end while-loop
       
-      # constrain to catchment of outlet point
-      execGRASS("r.mapcalculator", amap="basin_outlet_t", bmap="basin_all_t", outfile=basin_out,
-            formula="A*B")
+      # clip to catchment of outlet point
+      execGRASS("r.mapcalculator", amap="basin_outlet_t", bmap="basin_all_t", outfile="basin_all2_t",
+            formula="A*B", flags = "overwrite")
+      execGRASS("g.remove", rast="basin_all_t", ignore.stderr = TRUE)
+      execGRASS("g.rename", rast="basin_all2_t,basin_all_t")
       
       
     } else { # only one sub-catchment
       
       if(no_catch == 0)
         stop("Number of identified sub-catchments is zero. Check input data!")
-      
-      # basin_outlet_t is basin_out
-      execGRASS("g.rename", rast=paste("basin_outlet_t", basin_out, sep=","))
     }
 
 
+    #reclass automatically-created subbasin-ids to those that were used originally
+      cmd_out = execGRASS("v.db.addcol", map="drain_points_snap", columns="temp_id integer", ignore.stderr = T, intern = TRUE) #add column for taking up new id
+      stat = attr(cmd_out, "status")
+      if (!is.null(stat) && stat== 1)
+        stop("Could not add column to drain_points_snap.")
+      cmd_out = execGRASS("v.what.rast", raster="basin_all_t", vector="drain_points_snap", column="temp_id" ,intern=T, ignore.stderr = T)
+      stat = attr(cmd_out, "status")
+      if (!is.null(stat) && stat== 1)
+        stop("Could not update column to drain_points_snap.")
+      drain_points = readVECT(vname = "drain_points_snap", layer=1) #re-import vector layer containing new IDs
+      rules=paste0(drain_points$temp_id,"=",drain_points$subbas_id, collapse="\n")
+      tempfile=tempfile()
+      write(rules, file=tempfile)
+      cmd_out = execGRASS("r.reclass", input="basin_all_t", output="basin_all2_t", rules=tempfile, flags="overwrite", intern=T)
+      unlink(tempfile)
+      stat = attr(cmd_out, "status")
+      if (!is.null(stat) && stat== 1)
+        stop("Could not reclassify subbasin-map.")
+
+      execGRASS("r.mapcalculator", amap="basin_all2_t", outfile=basin_out,
+                formula="A", flags="overwrite")
+      
+      
     # set values of zero to NULL
     execGRASS("r.null", map=basin_out, setnull="0")
     
     no_cross <- length(execGRASS("r.stats", input=basin_out, flags=c("n"), intern=T, ignore.stderr = T))
     if(no_catch != no_cross) warning(paste0("\nNumber of categories in ", basin_out, " not equal to number of drainage points!\nThis might be because there are drainage points outside the catchment of the defined outlet or due to small inconsistencies between calculated and manually defined (and snapped) drainage points. However, you should check the output with the GRASS GUI and consider the help pages of this function. 
-                                            Try correcting the drainge points manually by running 'v.digit map=drain_points_snap bgcmd=d.rast stream_accum_rast'"))
+                                            Try correcting the drainage points manually by running 'v.digit map=drain_points_snap bgcmd=d.rast stream_accum_rast'"))
+    
+    
     
     # remove temporary maps
     if(keep_temp == FALSE)

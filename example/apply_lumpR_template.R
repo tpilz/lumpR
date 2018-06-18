@@ -85,7 +85,7 @@ write(str_odbc, file="~/.odbc.ini", ncolumns=1, append=T, sep="\n")
 # INPUT #
 # inputs marked MANDATORY have to be given, the rest can be 'NULL' if not available
 
-# watershed outlet (choose option A or B)
+# subbasin outlet points (choose option A or B)
   #A: manually specify (coordinates in projection of GRASS location!) 
   drain_p <- data.frame(utm_x_m=c(1,2,3), utm_y_m=c(1,2,3)) #enter your coordinates here
   coordinates(drain_p) <- c("utm_x_m", "utm_y_m")
