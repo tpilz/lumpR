@@ -117,7 +117,7 @@ calc_subbas <- function(
   silent=F
 ) {
 
-### PREPROCESSING ###
+### PREPROCESSING ###----------------------------------------------------------
   
   if(!silent) message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
   if(!silent) message("% START calc_subbas()")
@@ -163,7 +163,7 @@ calc_subbas <- function(
   }
   
 
-### CALCULATIONS ###
+### CALCULATIONS ###-----------------------------------------------------------
   tryCatch({
     
     # remove mask if there is any (and ignore error in case there is no mask)
@@ -180,7 +180,7 @@ calc_subbas <- function(
     if(!silent) message("% OK")
     
     
-  ### calc stream segments or use user defined input
+  ### calc stream segments or use user defined input---------------------------
     if(is.null(river)) {
       if(!silent) message("%")
       if(!silent) message("% Calculate drainage and river network...")
@@ -210,7 +210,7 @@ calc_subbas <- function(
     
     
     
-  ### Calculate subbasins without given drainage points (optional)
+  ### Calculate subbasins without given drainage points (optional)-------------
     if(is.numeric(thresh_sub)) {
       if(!silent) message("%")
       if(!silent) message("% Calculate subbasins based on given area threshold...")
@@ -220,7 +220,7 @@ calc_subbas <- function(
       if(!silent) message("% OK")
     }
     
-  ### snap given drainage points to streams
+  ### snap given drainage points to streams------------------------------------
     if(!silent) message("%")
     if(!silent) message("% Snap given drainage points to streams...")
     
@@ -252,7 +252,7 @@ calc_subbas <- function(
     if(!silent) message("% OK")
     
     
-  ### calculate catchments for every drainage point
+  ### calculate catchments for every drainage point----------------------------
     if(!silent) message("%")
     if(!silent) message("% Calculate catchments for every drainage point...")
     
@@ -345,7 +345,7 @@ calc_subbas <- function(
     if(!silent) message("% OK")
   
     
-  ### merge all sub-catchments
+  ### merge all sub-catchments-------------------------------------------------
     if(!silent) message("%")
     if(!silent) message("% Merge calculated catchments...")
     
@@ -395,12 +395,18 @@ calc_subbas <- function(
                     flags = c("overwrite"), intern=T, ignore.stderr=T)
         }
         
+        # check for and correct error in r.cross, see https://lists.osgeo.org/pipermail/grass-user/2018-February/077934.html
+        cmd_out <- execGRASS("r.stats", input="basin_all_t", flags=c("n"), intern=T, ignore.stderr = T)
+        if(any(as.numeric(cmd_out) == 0)) {
+          cmd_out <- execGRASS("r.mapcalc", expression="basin_all_t=basin_all_t+1", flags=c("overwrite"), intern=T)
+        }
+        
         # check size of sub-catcments and identify and remove 'spurious' sub-catchments
         if(rm_spurious>0) {
           # get sub-catcments and sizes (cell counts) and identify spurious ones
           cmd_out <- execGRASS("r.stats", input="basin_all_t", flags=c("n", "c"), intern=T, ignore.stderr = T)
           sub_sizes <- matrix(as.numeric(unlist(strsplit(cmd_out, " "))), ncol=2, byrow=T)
-          sub_sizes <- sub_sizes[-which(sub_sizes[,1] == 0),]
+          #sub_sizes <- sub_sizes[-which(sub_sizes[,1] == 0),]
           sub_rm <- sub_sizes[which(sub_sizes[,2] < rm_spurious*thresh_sub),1]
           if(length(sub_rm)>0) {
             # get number of basin_recl_* to be romved (not identical with raster values of basin_all_t!)
