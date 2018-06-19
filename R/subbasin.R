@@ -74,25 +74,29 @@
 #'      of internally used GRASS functions)? Default: \code{FALSE}.
 #'      
 #'      
-#' @note Prepare GRASS location and necessary raster files in advance and start
+#' @note \bold{Prepare GRASS} location and necessary raster files in advance and start
 #'      GRASS session in R using \code{\link[rgrass7]{initGRASS}}. Location
 #'      should not contain any maps ending on *_t as these will be removed by
 #'      calling the function to remove temporary maps.
 #'      
-#'      You should select your DEM sufficiently large. Otherwise the resulting
+#'      You should select your \bold{DEM sufficiently large}. Otherwise the resulting
 #'      catchment might be truncated or boundaries influence the calculation
 #'      of stream segments.
 #'      
-#'      Check the results (subbasins and snapped points). In case points have been snapped
+#'      \bold{Check the results} (subbasins and snapped points). In case points have been snapped
 #'      to the wrong stream segment, adjust point locations manually in GRASS and re-run
 #'      the function with the updated locations (use \code{\link[rgrass7]{readVECT}}
 #'      to import the updated drainage points). Also check that calculated subbasins and
 #'      those delineated based on given \code{drain_points} do not interfere (e.g.
 #'      resulting in very small spurious subbasins).
 #'      
-#'      Generated raster and vector stream maps might slightly deviate from each other
+#'      Generated raster and vector stream \bold{maps might slightly deviate} from each other
 #'      as the raster map is thinned (GRASS function \emph{r.thin}) prior to conversion
 #'      to a vector map to ensure strictly linear features.
+#'      
+#'      If you run into \bold{memory issues}, consider argument \code{disk_swap} (see also 
+#'      \link[GRASS homepage]{https://grass.osgeo.org/grass74/manuals/r.watershed.html#in-memory-mode-and-disk-swap-mode})
+#'      and see discussion on \link[lumpR's github page]{https://github.com/tpilz/lumpR/issues/16}.
 #'      
 #' @references 
 #'      lumpR package introduction with literature study and sensitivity analysis:\cr
@@ -211,11 +215,16 @@ calc_subbas <- function(
       if(!silent) message("%")
       if(!silent) message("% Calculate drainage and river network...")
       # GRASS watershed calculation #
-      ws_flags = ifelse(disk_swap,c("overwrite","w"),"overwrite") #flags to use for r.watershed
+      # flags to use for r.watershed
+      if(disk_swap) {
+        ws_flags <- c("overwrite","w", "s")
+      } else {
+        ws_flags <- c("overwrite", "s")
+      }
       if(is.null(flowaccum) )
         execGRASS("r.watershed", elevation=dem, accumulation="accum_t", drainage="drain_t", flags = ws_flags)
       # check thresh_stream parameter
-      cmd_out <- execGRASS("r.univar", map="accum_t", fs="comma", flags=c("t"), intern=TRUE, ignore.stderr = TRUE)
+      cmd_out <- execGRASS("r.univar", map="accum_t", separator="comma", flags=c("t"), intern=TRUE, ignore.stderr = TRUE)
 
       cmd_out <- strsplit(cmd_out, ",")
       cmd_cols <- grep("^max$", cmd_out[[1]])
@@ -245,7 +254,7 @@ calc_subbas <- function(
     
     
     
-  ### Calculate subbasins without given drainage points (optional)-------------
+  ### calculate subbasins without given drainage points (optional)-------------
     if(is.numeric(thresh_sub)) {
       if(!silent) message("%")
       if(!silent) message("% Calculate subbasins based on given area threshold...")
@@ -255,55 +264,59 @@ calc_subbas <- function(
       if(!silent) message("% OK")
     }
     
+    
+  ### snap given drainage points to streams------------------------------------
+  if(!silent) message("%")
+  if(!silent) message("% Snap given drainage points to streams...")
+    
 
   ### ensure that given drainage points are NOT precisely at cell centres, because this may cause pathologic
   ### cases when snapping to streams (ending up at cell corners instead of cell interior)
-    if (is.null(drain_points$subbas_id)) drain_points$subbas_id=1:nrow(drain_points) #add subbasin_id, if not given
-    drain_points$subbas_id=as.numeric(as.character(drain_points$subbas_id)) #force conversion to numeric
+    # add data slot and column subbas_id, if not given
+    if(!any(slotNames(drain_points) == "data"))
+      drain_points <- SpatialPointsDataFrame(drain_points, data=data.frame(subbas_id=1:length(drain_points)))
+    if(!any(colnames(drain_points@data) == "subbas_id"))
+      drain_points@data <- cbind(drain_points@data, subbas_id=1:length(drain_points))
+    # force conversion to numeric 
+    drain_points@data$subbas_id=as.numeric(as.character(drain_points@data$subbas_id)) 
     if (any(!is.finite(drain_points$subbas_id)))
         stop("The column 'subbasin_id' in drain_points contains non-numeric entries.")
-    
-    suppressWarnings(writeVECT6(drain_points, "dp_t", v.in.ogr_flags="overwrite"))
+    # write to GRASS
+    suppressWarnings(proj4string(drain_points) <- CRS(getLocationProj()))
+    suppressWarnings(writeVECT(drain_points, "dp_t", v.in.ogr_flags="o"))
     # WINDOWS PROBLEM: delete temporary file otherwise an error occurs when calling writeVECT or readVECT again with the same (or a similar) file name 
     if(.Platform$OS.type == "windows") {
       dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
       files_del <- grep(substr("dp_t", 1, 8), dir(dir_del), value = T)
       file.remove(paste(dir_del, files_del, sep="/"))
     }
-    
-    x <- execGRASS("v.to.rast", input="dp_t", output="dp_t", use="attr", column="subbas_id", flags="overwrite", intern=T)
-    x <- execGRASS("r.to.vect", input="dp_t", output="dp_centered_t", feature="point", flags = "overwrite")
-    drain_points_centered = readVECT(vname = "dp_centered_t", layer=1) #drainage points, moved to centers of raster cells 
+    # move drainage points to centers of raster cells
+    x <- execGRASS("v.to.rast", input="dp_t", output="dp_t", use="attr", attribute_column="subbas_id", flags="overwrite", intern=T)
+    x <- execGRASS("r.to.vect", input="dp_t", output="dp_centered_t", type="point", flags = "overwrite")
+    drain_points_centered <- readVECT(vname = "dp_centered_t", layer=1)
+    colnames(drain_points_centered@data) <- c("subbas_id", "value")
     if(.Platform$OS.type == "windows") {
       dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
       files_del <- grep(substr("dp_centered_t", 1, 8), dir(dir_del), value = T)
       file.remove(paste(dir_del, files_del, sep="/"))
     }
     
+    # determine raster resolution
+    res <- gmeta()
+    res <- sum(c(res$nsres, res$ewres)) / 2
     
-    res <- execGRASS("r.info", map=dem, flags=c("s"), intern=TRUE) #determine raster resolution
-    res <- sum(as.numeric(gsub("[a-z]*=", "", res))) / 2
-    
-    #create shifted version of drainage points (shifted by 1/4 of resolution)
-    drain_points_shifted = drain_points@data
-    drain_points_shifted = merge(drain_points_shifted, cbind(subbas_id=drain_points_centered$value, coordinates(drain_points_centered))) #preserve attributes
-    
-    drain_points_shifted [, c("coords.x1","coords.x2")] = drain_points_shifted [, c("coords.x1","coords.x2")] + res/4
-    coordinates(drain_points_shifted) <- c("coords.x1","coords.x2")
-    projection(drain_points_shifted) <- getLocationProj()
-    suppressWarnings(writeVECT6(drain_points_shifted, "dp_shifted_t", v.in.ogr_flags="overwrite"))
+    # create shifted version of drainage points (shifted by 1/4 of resolution)
+    drain_points_shifted <- drain_points_centered
+    drain_points_shifted@coords <- drain_points_shifted@coords + res/4
+    suppressWarnings(writeVECT(drain_points_shifted, "dp_shifted_t", v.in.ogr_flags="o"))
     if(.Platform$OS.type == "windows") {
       dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
       files_del <- grep(substr("dp_shifted_t", 1, 8), dir(dir_del), value = T)
       file.remove(paste(dir_del, files_del, sep="/"))
     }
     
-    drain_points = drain_points_shifted
-    rm(list = c("drain_points_shifted", "drain_points_centered")        )
-    
-    ### snap given drainage points to streams
-    if(!silent) message("%")
-    if(!silent) message("% Snap given drainage points to streams...")
+    drain_points <- drain_points_shifted
+    rm(drain_points_shifted, drain_points_centered)
     
     # read stream vector
     cmd_out = execGRASS("v.info", map=river, intern=TRUE, ignore.stderr = TRUE)
@@ -311,7 +324,7 @@ calc_subbas <- function(
     if (!is.null(stat) && stat== 1)
       stop("River vector map ",river, " not found")
     
-    streams_vect <- readVECT6(river)
+    streams_vect <- readVECT(river)
     # WINDOWS PROBLEM: delete temporary file otherwise an error occurs when calling writeVECT or readVECT again with the same (or a similar) file name 
     if(.Platform$OS.type == "windows") {
       dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
@@ -324,9 +337,6 @@ calc_subbas <- function(
     drain_points_snap$nearest_line_id=NULL #we don't need this and this long filed name causes trouble
     
     if (length(drain_points_snap) < length(drain_points)) stop("Less points after snapping than in drain_points input!\nComputed stream segments are probably are too coarse. Try a smaller value of thresh_stream to create a fine river network.")
-    
-    ## df should only contain a cat column
-    #drain_points_snap@data <- data.frame(cat=1:nrow(drain_points_snap@data))
     
     # export drain_points_snap to GRASS
     suppressWarnings(writeVECT(drain_points_snap, paste0(points_processed, "_snap"), v.in.ogr_flags = "o"))
@@ -344,10 +354,8 @@ calc_subbas <- function(
     if(!silent) message("%")
     if(!silent) message("% Calculate catchments for every drainage point...")
     
-    # watershed for the defined outlet
-    
-    drain_points@data$subbas_id[outlet] 
-    outlet = which(drain_points_snap@data$subbas_id == drain_points@data$subbas_id[outlet]) #update index to outlet, as it order may have changed during previous steps
+    # update index to outlet, as its order may have changed during previous steps
+    outlet <- which(drain_points_snap@data$subbas_id == drain_points@data$subbas_id[outlet])
     outlet_coords <- coordinates(drain_points_snap)[outlet,]
 
     cmd_out <- execGRASS("r.water.outlet", input="drain_t", output=paste0("basin_outlet_t"), coordinates=outlet_coords, intern = T)
@@ -408,6 +416,10 @@ calc_subbas <- function(
         # write to GRASS location
         writeVECT(drain_points_calc, paste0(points_processed, "_calc"), ignore.stderr = T, v.in.ogr_flags = "o")
         
+        # df should only contain a cat column
+        drain_points_snap@data <- data.frame(cat=1:nrow(drain_points_snap@data))
+        suppressWarnings(proj4string(drain_points_snap) <- CRS(getLocationProj()))
+        
         # merge with existing drain points object (snapped points first as there the outlet is identified)
         drain_points_snap <- rbind(drain_points_snap, drain_points_calc)
         
@@ -417,10 +429,10 @@ calc_subbas <- function(
       cmd_out <- execGRASS("r.mask", flags=c("r"), intern = T)
     }
     
-    if (any(duplicated(drain_p$subbas_id))) 
+    if (any(duplicated(drain_points@data$subbas_id))) 
     {  
       warning("Duplicated subbas_id in drainage points. Ignoring IDs, using row numbers instead.")
-      drain_p$subbas_id=NULL 
+      drain_points@data$subbas_id=NULL 
     }
     # loop over drainage points of subbasins TODO: This step is slow!
     for (p in 1:length(drain_points_snap)) {
@@ -438,9 +450,11 @@ calc_subbas <- function(
 
 
       # reclass (subbasins gets number of i for crossing later)
-      if (!is.null(drain_p$subbas_id[p]))
-        id = drain_p$subbas_id[p] else #use specified ID, if available
+      if (!is.na(drain_points@data$subbas_id[p])) {
+        id = drain_points@data$subbas_id[p]
+      } else { #use specified ID, if available
         id = p
+      }
       cmd_out <- execGRASS("r.mapcalc", expression=paste0("basin_recl_", p, "_t = if(basin_", p, "_t,", id, ")"), intern=T)
       
     }
@@ -567,27 +581,28 @@ calc_subbas <- function(
 
 
 
-    #reclass automatically-created subbasin-ids to those that were used originally
-      cmd_out = execGRASS("v.db.addcolumn", map=drain_points_snap, columns="temp_id integer", ignore.stderr = T, intern = TRUE) #add column for taking up new id
-      stat = attr(cmd_out, "status")
-      if (!is.null(stat) && stat== 1)
-        stop(paste("Could not add column to", drain_points_snap, ".", sep=" "))
-      cmd_out = execGRASS("v.what.rast", raster="basin_all_t", map=drain_points_snap, column="temp_id" ,intern=T, ignore.stderr = T)
-      stat = attr(cmd_out, "status")
-      if (!is.null(stat) && stat== 1)
-        stop("Could not update column to drain_points_snap.")
-      drain_points = readVECT(vname = drain_points_snap, layer=1) #re-import vector layer containing new IDs
-      rules=paste0(drain_points$temp_id,"=",drain_points$subbas_id, collapse="\n")
-      tempfile=tempfile()
-      write(rules, file=tempfile)
-      cmd_out = execGRASS("r.reclass", input="basin_all_t", output="basin_all2_t", rules=tempfile, flags="overwrite", intern=T)
-      unlink(tempfile)
-      stat = attr(cmd_out, "status")
-      if (!is.null(stat) && stat== 1)
-        stop("Could not reclassify subbasin-map.")
-
-      execGRASS("g.rename", raster=paste("basin_all2_t", basin_out, sep=","))
-      
+    # TODO: Only works for special cases where all subbasin-ids were pre-specified. Needs to be generalised!
+    # # reclass automatically-created subbasin-ids to those that were used originally
+    # cmd_out = execGRASS("v.db.addcolumn", map=paste0(points_processed, "_snap"), columns="temp_id integer", ignore.stderr = T, intern = TRUE) #add column for taking up new id
+    # stat = attr(cmd_out, "status")
+    # if (!is.null(stat) && stat== 1)
+    #   stop(paste("Could not add column to", drain_points_snap, ".", sep=" "))
+    # cmd_out = execGRASS("v.what.rast", raster="basin_all_t", map=paste0(points_processed, "_snap"), column="temp_id" ,intern=T, ignore.stderr = T)
+    # stat = attr(cmd_out, "status")
+    # if (!is.null(stat) && stat== 1)
+    #   stop("Could not update column to drain_points_snap.")
+    # drain_points = readVECT(vname = paste0(points_processed, "_snap"), layer=1) #re-import vector layer containing new IDs
+    # rules <- paste0(drain_points$temp_id,"=",drain_points$subbas_id, collapse="\n")
+    # tempfile=tempfile()
+    # write(rules, file=tempfile)
+    # cmd_out = execGRASS("r.reclass", input="basin_all_t", output="basin_all2_t", rules=tempfile, flags="overwrite", intern=T)
+    # unlink(tempfile)
+    # stat = attr(cmd_out, "status")
+    # if (!is.null(stat) && stat== 1)
+    #   stop("Could not reclassify subbasin-map.")
+    # 
+    # execGRASS("g.rename", raster=paste("basin_all2_t", basin_out, sep=","))
+    
       
     # set values of zero to NULL
     execGRASS("r.null", map=basin_out, setnull="0")

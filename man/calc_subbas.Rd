@@ -86,25 +86,29 @@ Takes DEM from a GRASS location and a file of drainage locations to calculate
 hydrological subbasins for each drainage point using GRASS functions.
 }
 \note{
-Prepare GRASS location and necessary raster files in advance and start
+\bold{Prepare GRASS} location and necessary raster files in advance and start
      GRASS session in R using \code{\link[rgrass7]{initGRASS}}. Location
      should not contain any maps ending on *_t as these will be removed by
      calling the function to remove temporary maps.
      
-     You should select your DEM sufficiently large. Otherwise the resulting
+     You should select your \bold{DEM sufficiently large}. Otherwise the resulting
      catchment might be truncated or boundaries influence the calculation
      of stream segments.
      
-     Check the results (subbasins and snapped points). In case points have been snapped
+     \bold{Check the results} (subbasins and snapped points). In case points have been snapped
      to the wrong stream segment, adjust point locations manually in GRASS and re-run
      the function with the updated locations (use \code{\link[rgrass7]{readVECT}}
      to import the updated drainage points). Also check that calculated subbasins and
      those delineated based on given \code{drain_points} do not interfere (e.g.
      resulting in very small spurious subbasins).
      
-     Generated raster and vector stream maps might slightly deviate from each other
+     Generated raster and vector stream \bold{maps might slightly deviate} from each other
      as the raster map is thinned (GRASS function \emph{r.thin}) prior to conversion
      to a vector map to ensure strictly linear features.
+     
+     If you run into \bold{memory issues}, consider argument \code{disk_swap} (see also 
+     \link[GRASS homepage]{https://grass.osgeo.org/grass74/manuals/r.watershed.html#in-memory-mode-and-disk-swap-mode})
+     and see discussion on \link[lumpR's github page]{https://github.com/tpilz/lumpR/issues/16}.
 }
 \references{
 lumpR package introduction with literature study and sensitivity analysis:\cr
