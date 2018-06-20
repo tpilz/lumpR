@@ -319,11 +319,7 @@ calc_subbas <- function(
     rm(drain_points_shifted, drain_points_centered)
     
     # read stream vector
-    cmd_out = execGRASS("v.info", map=river, intern=TRUE, ignore.stderr = TRUE)
-    stat = attr(cmd_out, "status")
-    if (!is.null(stat) && stat== 1)
-      stop("River vector map ",river, " not found")
-    
+    check_vector(river)
     streams_vect <- readVECT(river)
     # WINDOWS PROBLEM: delete temporary file otherwise an error occurs when calling writeVECT or readVECT again with the same (or a similar) file name 
     if(.Platform$OS.type == "windows") {

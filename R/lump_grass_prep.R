@@ -172,6 +172,7 @@ lump_grass_prep <- function(
   {
     if(is.null(dem))
       stop("The name of a DEM within the mapset of your initialised GRASS session has to be given!")
+    check_raster(dem, "dem")
     if(is.null(eha))
       stop("A name for the calculated EHA raster map within the mapset of your initialised GRASS session has to be given!")
     if(is.null(flowdir))
@@ -203,8 +204,10 @@ lump_grass_prep <- function(
   {
     if(is.null(lcov))
       stop("The name of a landcover / vegetation raster map within the mapset of your initialised GRASS session has to be given!")
+    check_raster(lcov, "lcov")
     if(is.null(soil))
       stop("The name of a soil raster map within the mapset of your initialised GRASS session has to be given!")
+    check_raster(soil, "soil")
     if(is.null(svc))
       stop("A name for the calculated soil-vegetation-components raster map within the mapset of your initialised GRASS session has to be given!")
     if(is.null(svc_ofile))
@@ -373,6 +376,8 @@ lump_grass_prep <- function(
 # svc #------------------------------------------------------------------------
   if ("svc" %in% things2do) {
     tryCatch({
+      #check existence of input rasters
+
       if(!silent) message("%")
       if(!silent) message("% Calculate soil vegetation components...")
       
@@ -383,6 +388,8 @@ lump_grass_prep <- function(
       # create output directory
       dir.create(dir_out, recursive=T, showWarnings=F)
       
+    
+
       # check output directory
       if (!overwrite & file.exists(paste(dir_out,svc_ofile,sep="/"))) 
         stop(paste0("In output directory '", dir_out, "' the file '", svc_ofile, "' already exists!"))
@@ -532,3 +539,18 @@ lump_grass_prep <- function(
     options(warn = oldw)
     
 } # EOF
+
+
+check_raster <- function(map, argument_name="") { #check existence of raster map
+  cmd_out <-tryCatch(suppressWarnings(execGRASS("r.info", map=map, intern = T)), error=function(e){})
+  stat = attr(cmd_out, "status")
+  if (!is.null(stat) && stat== 1)
+    stop(paste0("Raster map '", map, "' not found", ifelse(argument_name=="", ".", paste0(" (argument '", argument_name,"')."))))
+}
+
+check_vector <- function(map, parameter_name="") { #check existence of vector map
+  cmd_out <-tryCatch(suppressWarnings(execGRASS("v.info", map=map, intern = T)), error=function(e){})
+  stat = attr(cmd_out, "status")
+  if (!is.null(stat) && stat== 1)
+    stop(paste0("Vector map '", map, "' not found", ifelse(argument_name=="", ".", paste0(" (argument '", argument_name,"')."))))
+}
