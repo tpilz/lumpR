@@ -84,7 +84,7 @@
 #'      Default: \code{FALSE}.
 #' @param silent \code{logical}. Shall the function be silent (also suppressing warnings
 #'      of internally used GRASS functions)? Default: \code{FALSE}.
-#' @param addon_path Charactering string giving the path to your locally installed
+#' @param addon_path Character string giving the path to your locally installed
 #'      GRASS add-ons. Must only be given if necessary, see \code{Note}.
 #' @param things2do \code{c("eha","river","svc")}. Enables the specification of sub-tasks only. \code{"eha"}: do EHA generation, 
 #' \code{"river"}: calculate river network and morphological parameters, \code{"svc"}: generate SVC map 
@@ -99,8 +99,8 @@
 #'      are available to your GRASS installation. If not, consider \emph{g.extension} to
 #'      install add-ons. If you installed add-ons locally it might occur that from within R
 #'      the path to add-ons is not recognised. In such a case locate the local installation
-#'      path (in a GRASS terminal check \code{g.extension -a} and \code{echo $GRASS_ADDON_BASE}) and specify the
-#'      absolute path to add-ons via argument \code{addon_path}. For more information, see also
+#'      path (in a GRASS terminal check \code{g.extension -a}, \code{echo $GRASS_ADDON_BASE} and \code{which r.stream.distance} / \code{where r.stream.distance}, and specify the
+#'      absolute path to add-ons via argument \code{addon_path}. In Windows, replace backslahes for slashes. For more information, see also
 #'      \url{http://grasswiki.osgeo.org/wiki/AddOns/GRASS_7}.
 #'      
 #'      See GRASS documentation for further information on GRASS functions and
@@ -216,8 +216,9 @@ lump_grass_prep <- function(
 
   
   # add slash to end of addon_path if necessary
+  
   if(!is.null(addon_path))
-    if(substr(addon_path, nchar(addon_path), nchar(addon_path)) != "/")
+      if((addon_path!="") & substr(addon_path, nchar(addon_path), nchar(addon_path)) != "/")
       addon_path <- paste0(addon_path, "/")
     
     
@@ -324,7 +325,9 @@ lump_grass_prep <- function(
     
       # calculate Horton stream order (works only for non-thinned stream segments!)
       cmd_out <- execGRASS("g.region", raster=flowdir, intern = T) # complains about defiation in resolution of flowdir although it is the same as for the region?!
-      cmd_out <- execGRASS(paste0(addon_path, "r.stream.order"), stream_rast=stream, direction=flowdir, horton=stream_horton, intern = T)
+      tryCatch(execGRASS(paste0(addon_path, "r.stream.order"), stream_rast=stream, direction=flowdir, horton=stream_horton, flags = "overwrite")
+                   , error=function(e){ stop("Couldn't find r.stream.order. Check extensions and 'addon_path' (see help for details).")}
+        )
       
       # calculate distance to river and relative elevation for each cell
       cmd_out <- execGRASS(paste0(addon_path, "r.stream.distance"), stream_rast=stream, direction=flowdir, elevation=dem,
