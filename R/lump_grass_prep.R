@@ -376,7 +376,6 @@ lump_grass_prep <- function(
 # svc #------------------------------------------------------------------------
   if ("svc" %in% things2do) {
     tryCatch({
-      #check existence of input rasters
 
       if(!silent) message("%")
       if(!silent) message("% Calculate soil vegetation components...")
@@ -384,6 +383,26 @@ lump_grass_prep <- function(
       # set mask
       cmd_out <-tryCatch(suppressWarnings(execGRASS("r.mask", flags=c("r"), intern = T)), error=function(e){})
       cmd_out <- execGRASS("r.mask", raster=mask, intern = T)
+      
+      #check existence of NULLs in input data
+      cmd_out <- execGRASS("r.stats", input=paste0(soil,",MASK"), flags="quiet", separator="", intern=T)
+      if(any(grepl(cmd_out, pattern = "^\\*[0-9]")))
+        stop("Raster map '", soil,"' contains NULL values within 'mask' which is not allowed! For small patches, consider r.grow.")
+      
+      cmd_out <- execGRASS("r.stats", input=paste0(lcov,",MASK"), flags="quiet", separator="", intern=T)
+      if(any(grepl(cmd_out, pattern = "^\\*[0-9]")))
+        stop("Raster map '", lcov,"' contains NULL values within 'mask' which is not allowed! For small patches, consider r.grow.")
+      
+      if (!is.null(imperviousmask))
+        cmd_out <- execGRASS("r.stats", input=paste0(imperviousmask,",MASK"), flags="quiet", separator="", intern=T)
+      if(any(grepl(cmd_out, pattern = "^\\*[0-9]")))
+        stop("Raster map '", imperviousmask,"' contains NULL values within 'mask' which is not allowed! For small patches, consider r.grow.")
+      
+      if (!is.null(watermask))
+        cmd_out <- execGRASS("r.stats", input=paste0(watermask,",MASK"), flags="quiet", separator="", intern=T)
+      if(any(grepl(cmd_out, pattern = "^\\*[0-9]")))
+        stop("Raster map '", watermask,"' contains NULL values within 'mask' which is not allowed! For small patches, consider r.grow.")
+      
       
       # create output directory
       dir.create(dir_out, recursive=T, showWarnings=F)
