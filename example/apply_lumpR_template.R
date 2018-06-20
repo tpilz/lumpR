@@ -59,7 +59,7 @@ if("lumpR" %in% rownames(installed.packages())) {
 
 
 
-### SETTINGS ###
+### SETTINGS ####
 
 # switch to specified working directory
 setwd("~/lumpR_test/") #use "/" instead of "\" in Windows
@@ -263,12 +263,11 @@ no_LUs <- c(3, 3, 10, 3, 3)
 no_TCs <- 3
 
 
-# GRASS #
-# ATTENTION: GRASS 6.4 is needed, not compatible to GRASS 7!
-# Best is to use GRASS 6.4.6 as GRASS 6.4.5 by autumn 2016 suddenly started producing segmentation faults!
-addon_path="/home/tobias/.grass6/addons/" # path to your locally installed GRASS add-ons. Must only be given if necessary, see ?lump_grass_prep
+# GRASS ####
+# ATTENTION: GRASS 7 is needed, not compatible to GRASS 6.x!
+addon_path="/home/tobias/.grass7/addons/" # path to your locally installed GRASS add-ons. Must only be given if necessary, see ?lump_grass_prep
 # initialisation of session
-initGRASS(gisBase="your_path", # path to GRASS installation (use / instead of \ under windows, e.g. "d:/programme/GRASS6.4.3" )
+initGRASS(gisBase="your_path", # path to GRASS installation (use / instead of \ under windows, e.g. "d:/programme/GRASS7" )
           home=getwd(), # The directory in which to create the .gisrc file
           location="your_location", # GRASS location
           mapset="your_mapset",    # corresp. mapset
@@ -285,7 +284,7 @@ initGRASS(gisBase="your_path", # path to GRASS installation (use / instead of \ 
 
 
       
-# SUBBASIN DELINEATION #
+# SUBBASIN DELINEATION ####
 # define projection of drainage point(s) (use projection of GRASS location)
 projection(drain_p) <- getLocationProj()
 
@@ -313,7 +312,7 @@ calc_subbas(
       
       
       
-# PREPROCESSING AND HILLSLOPE DEVIATION #
+# PREPROCESSING AND HILLSLOPE DELINEATION ####
 ?lump_grass_prep # read the documentation!
 lump_grass_prep(
   # INPUT #
@@ -347,7 +346,7 @@ lump_grass_prep(
       
       
       
-# CALCULATE MEAN CATENA FOR HILLSLOPES #
+# CALCULATE MEAN CATENA FOR HILLSLOPES ####
 # Part of algorithm described by Francke et al. (2008)
 ?area2catena # read the documentation!
 area2catena(
@@ -385,7 +384,7 @@ writeLines(header_dat,paste(getwd(), catena_head_out, sep="/"))
 
 
 
-# CATENA CLASSIFICATION INTO LANDSCAPE UNITS AND TERRAIN COMPONENTS #
+# CATENA CLASSIFICATION INTO LANDSCAPE UNITS AND TERRAIN COMPONENTS ####
 # Part of algorithm described by Francke et al. (2008)
 # get resolution (mean between x and y resolution)
 res <- execGRASS("r.info", map=dem, flags=c("s"), intern=TRUE)
@@ -420,7 +419,7 @@ prof_class(
 
 
 
-# POST PROCESSING #
+# POST PROCESSING ####
 ?lump_grass_post # read the documentation!
 lump_grass_post(
 # INPUT #
@@ -450,7 +449,7 @@ silent = silent
 
 
 
-# DATABASE #
+# DATABASE ####
 # rainy_season not included within this example
 
 # create database
