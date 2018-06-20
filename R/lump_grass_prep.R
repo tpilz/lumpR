@@ -282,7 +282,7 @@ lump_grass_prep <- function(
       cmd_out <- execGRASS("r.reclass.area", input="eha_t1", mode="greater", value=sizefilter, output="eha_t2", intern = T)
       
       # grow EHA map to fill gaps resulted from remove of fragments
-      cmd_out <- execGRASS("r.grow", input="eha_t2", output="eha_t3", radius=growrad, intern = T)
+      cmd_out <- execGRASS("r.grow", input="eha_t2", output="eha_t3", radius=growrad, flags="overwrite", intern = T)
       
       # r.grow converts type CELL to type DCELL; convert back to CELL
       cmd_out <- execGRASS("r.mapcalc", expression=paste0(eha, " = int(eha_t3)"), flags = "overwrite", intern = T)
