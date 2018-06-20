@@ -282,18 +282,16 @@ lump_grass_prep <- function(
       cmd_out <- execGRASS("r.reclass.area", input="eha_t1", mode="greater", value=sizefilter, output="eha_t2", intern = T)
       
       # grow EHA map to fill gaps resulted from remove of fragments
-      cmd_out <- execGRASS("r.grow", input="eha_t2", output=eha, radius=growrad, intern = T)
+      cmd_out <- execGRASS("r.grow", input="eha_t2", output="eha_t3", radius=growrad, intern = T)
       
       # r.grow converts type CELL to type DCELL; convert back to CELL
-      cmd_out <- execGRASS("r.mapcalc", expression=paste0(eha, "=int(", eha, ")"), flags = "overwrite", intern = T)
+      cmd_out <- execGRASS("r.mapcalc", expression=paste0(eha, " = int(eha_t3)"), flags = "overwrite", intern = T)
       
       # evaluate growing
-      cmd_out <- execGRASS("r.mapcalc", expression=paste0("grow_eval_t = if(isnull(", eha, "), 1, null())"), flags = "overwrite", intern=TRUE)
-      grow_eval <- execGRASS("r.stats", input="grow_eval_t", flags=c("n"), intern=TRUE)
-      if (length(grow_eval) > 0) {
-        stop("There are still gaps in the EHA raster maps after growing. Try to increase growrad and run again.")
-      }
-      
+      cmd_out <- execGRASS("r.stats", input=paste0(eha,",",mask), flags="quiet", separator="", intern=T)
+      if(any(grepl(cmd_out, pattern = "^\\*[0-9]")))
+        stop("There are still gaps in the EHA raster map after growing. Try to increase growrad and run again.")
+
       if(!silent) message("% OK")
       # if an error occurs delete all temporary output
     }, error = function(e) {
@@ -559,17 +557,3 @@ lump_grass_prep <- function(
     
 } # EOF
 
-
-check_raster <- function(map, argument_name="") { #check existence of raster map
-  cmd_out <-tryCatch(suppressWarnings(execGRASS("r.info", map=map, intern = T)), error=function(e){})
-  stat = attr(cmd_out, "status")
-  if (!is.null(stat) && stat== 1)
-    stop(paste0("Raster map '", map, "' not found", ifelse(argument_name=="", ".", paste0(" (argument '", argument_name,"')."))))
-}
-
-check_vector <- function(map, parameter_name="") { #check existence of vector map
-  cmd_out <-tryCatch(suppressWarnings(execGRASS("v.info", map=map, intern = T)), error=function(e){})
-  stat = attr(cmd_out, "status")
-  if (!is.null(stat) && stat== 1)
-    stop(paste0("Vector map '", map, "' not found", ifelse(argument_name=="", ".", paste0(" (argument '", argument_name,"')."))))
-}
