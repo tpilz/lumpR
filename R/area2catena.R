@@ -175,6 +175,33 @@ area2catena <- function(
   if(is.null(catena_head_out))
     stop("A name for the meta-information file has to be given!")
   
+  check_raster(mask,"mask")
+  check_raster(flowacc,"flowacc")
+  check_raster(eha,"eha")
+  check_raster(distriv,"distriv")
+  check_raster(elevriv,"elevriv")
+  
+  cur_mapset = execGRASS("g.mapset", flags="p", intern=TRUE) #determine name of current mapset
+  #check existence of supplementary information maps
+  if (length(supp_qual)==0) supp_qual=NULL else
+    for (i in supp_qual) 
+    {
+      raster_name=i
+      if (!grepl(raster_name, pattern = "@"))
+      raster_name = paste0(raster_name,"@", cur_mapset) #
+      check_raster(raster_name, paste0("supp_qual[",i,"]"))
+    }
+      
+  if (length(supp_quant)==0) supp_quant=NULL else
+    for (i in supp_quant) 
+      for (i in supp_qual) 
+      {
+        raster_name=i
+        if (!grepl(raster_name, pattern = "@"))
+          raster_name = paste0(raster_name,"@", cur_mapset) #
+        check_raster(i,paste0("supp_quant[",i,"]"))
+      }
+       
   
   # suppress annoying GRASS outputs
   tmp_file <- file(tempfile(), open="wt")
@@ -220,18 +247,22 @@ area2catena <- function(
     eha_in <- readRAST(eha)
     eha_rast <- raster(eha_in)
     
+    
     # load qualitative supplemental data
     qual_rast <- NULL # initialise object containing all qualitative raster layers
     supp_data_classnames <- NULL # initialise object containing different classnames per attribute
     n_supp_data_qual_classes <- NULL # initialise object containing number of classes per attribute
     if (!is.null(supp_qual)) 
       supp_qual=supp_qual[supp_qual!=""]
-    
-    if (length(supp_qual)==0) supp_qual=NULL
+  
     if (!is.null(supp_qual)) 
     {  
       for (i in supp_qual) {
-        tmp <- raster(readRAST(i))
+        raster_name=i
+        if (!grepl(raster_name, pattern = "@"))
+          raster_name = paste0(raster_name,"@", cur_mapset) #add mapset name, unless already given. Otherwise, strange errors may occur when the same raster exists in PERMANENT
+        tmp <- readRAST(raster_name)
+        tmp <- raster(tmp)
         qual_rast <- raster::stack(tmp, qual_rast)
         supp_data_classnames[[i]] <- raster::unique(tmp)
         n_supp_data_qual_classes <- c(n_supp_data_qual_classes, length(raster::unique(tmp)))
