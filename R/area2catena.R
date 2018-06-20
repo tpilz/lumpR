@@ -185,13 +185,8 @@ area2catena <- function(
   #check existence of supplementary information maps
   if (length(supp_qual)==0) supp_qual=NULL else
     for (i in supp_qual) 
-    {
-      raster_name=i
-      if (!grepl(raster_name, pattern = "@"))
-      raster_name = paste0(raster_name,"@", cur_mapset) #
-      check_raster(raster_name, paste0("supp_qual[",i,"]"))
-    }
-      
+       check_raster(i, paste0("supp_qual[",i,"]"))
+    
   if (length(supp_quant)==0) supp_quant=NULL else
     for (i in supp_quant) 
       for (i in supp_qual) 
@@ -278,7 +273,11 @@ area2catena <- function(
     # load quantitative supplemental data
     quant_rast <- NULL # initialise object containing all quantitative raster layers
     for (i in rev(supp_quant)) {
-      tmp <- raster(readRAST(i))
+      raster_name=i
+      if (!grepl(raster_name, pattern = "@"))
+        raster_name = paste0(raster_name,"@", cur_mapset) #add mapset name, unless already given. Otherwise, strange errors may occur when the same raster exists in PERMANENT
+      tmp <- readRAST(raster_name)
+      tmp <- raster(tmp)
       quant_rast <- raster::stack(tmp, quant_rast)
     }
     
