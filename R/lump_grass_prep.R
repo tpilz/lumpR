@@ -460,7 +460,10 @@ lump_grass_prep <- function(
         cat_labs <- strsplit(cat_labs[-1], ":")
         cat_labs <- lapply(cat_labs, function(x) c(as.numeric(x[1]) +1, x[2]))
         # add +1 to categories (destroys labels)
-        cmd_out <- execGRASS("r.mapcalc", expression=paste0(svc, "=", svc, "+1"), flags=c("overwrite"), intern=T)
+        cmd_out <- execGRASS("r.mapcalc", expression=paste0("svc_t = ", svc, "+1"), flags=c("overwrite"), intern=T)
+        cmd_out <- execGRASS("g.remove", type="raster", name=svc, flags=c("f", "b"), intern = T)
+        cmd_out <- execGRASS("g.rename", raster=paste0("svc_t,",svc), intern = T)
+        
         # get missing category label
         cat_lab_miss <- c(1, paste(c("category"), c(cat_labs_soil[1], cat_labs_lcov[1], cat_labs_wat[1], cat_labs_imp[1]), sep=" ", collapse = "; "))
         # merge to stored labels
