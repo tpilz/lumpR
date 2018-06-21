@@ -191,7 +191,6 @@ area2catena <- function(
     for (i in supp_quant) 
         check_raster(i,paste0("supp_quant[",i,"]"))
 
-  
   # suppress annoying GRASS outputs
   tmp_file <- file(tempfile(), open="wt")
   sink(tmp_file, type="output")
@@ -537,7 +536,7 @@ res = try( #catch unexpected errors
   dist2river_vals <- dist2river_rast[curr_cells]
   relelev_vals    <- relelev_rast   [curr_cells]
   if(!is.null(quant_rast)) quant_vals <- raster::extract(quant_rast, curr_cells)
-  if(!is.null(qual_rast)) qual_vals <- raster::extract(qual_rast, curr_cells)
+  if(!is.null(qual_rast))  qual_vals  <- raster::extract(qual_rast,  curr_cells)
   
   na_vals = is.na(flowaccum_vals) | is.na(dist2river_vals) | is.na(relelev_vals) #detect NA values
   if (any(na_vals)) {  # cells found with NAs in the mandatory grids
@@ -551,14 +550,16 @@ res = try( #catch unexpected errors
   
   na_vals <- NULL
   if(!is.null(quant_rast))
-    na_vals <- c(na_vals, apply(!is.finite(quant_vals), MARGIN=2, any))
+    na_vals <-            apply(!is.finite(quant_vals), MARGIN=2, sum)
   if(!is.null(qual_rast))
-    na_vals <- c(na_vals, apply(!is.finite(qual_vals), MARGIN=2, any))
+    na_vals <- c(na_vals, apply(!is.finite(qual_vals), MARGIN=2, sum))
   
-  if (any(na_vals)) {  # cells found with NAs in auxiliary grids
-    message(paste('% -> WARNING: EHA ', curr_id, ': NAs in the grid(s) ', paste(names(na_vals[na_vals]), collapse=', ') ,'.', sep=""))
+  if (any(na_vals>0)) {  # cells found with NAs in auxiliary grids
+    message(paste('% -> WARNING: EHA ', curr_id, ': NAs or zeros in the grid(s) ', paste(names(na_vals[na_vals]), collapse=', ') ,' (max. ', max(na_vals), ' values).', sep=""))
     errcode <- 7
     browser()
+    
+    plot
   }
   
   # determine closest distance to river and skip processing if more than max_riv_dist
