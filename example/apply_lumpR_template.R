@@ -40,7 +40,7 @@
 
 
 
-### INSTALLATION ###
+### INSTALLATION ####
 
 # you will need devtools to install lumpR from github!
 if("lumpR" %in% rownames(installed.packages())) {
@@ -387,8 +387,8 @@ writeLines(header_dat,paste(getwd(), catena_head_out, sep="/"))
 # CATENA CLASSIFICATION INTO LANDSCAPE UNITS AND TERRAIN COMPONENTS ####
 # Part of algorithm described by Francke et al. (2008)
 # get resolution (mean between x and y resolution)
-res <- execGRASS("r.info", map=dem, flags=c("s"), intern=TRUE)
-res <- sum(as.numeric(gsub("[a-z]*=", "", res))) / 2
+res <- execGRASS("r.info", map=dem, flags=c("g"), intern=TRUE)
+res <- sum(as.numeric(gsub("[a-z]*=", "", grep("nsres|ewres", res, value = T)))) / 2
 
 ?prof_class # read the documentation!
 prof_class(

@@ -557,9 +557,6 @@ res = try( #catch unexpected errors
   if (any(na_vals>0)) {  # cells found with NAs in auxiliary grids
     message(paste('% -> WARNING: EHA ', curr_id, ': NAs or zeros in the grid(s) ', paste(names(na_vals[na_vals]), collapse=', ') ,' (max. ', max(na_vals), ' values).', sep=""))
     errcode <- 7
-    browser()
-    
-    plot
   }
   
   # determine closest distance to river and skip processing if more than max_riv_dist
@@ -684,7 +681,6 @@ res = try( #catch unexpected errors
           # check averages (should sum up to one for each attribute), SEVERE ERROR CODE 666
           if(sum(supp_attrib_mean[(quant_columns+col_counter+1):(quant_columns+col_counter+n_supp_data_qual_classes[k]),j+1]) < 0.999) {
             message(paste('% -> WARNING: For EHA ', curr_id, ' areal fractions of qualitative supplemental attribute ', k, ' does not sum to one for profile point ', j+1, sep=""))
-            browser()
             if (plot_catena) dev.off()
             return(data.frame(output=t(c(curr_id, rep(NA, sum(n_supp_data_qual_classes) + length(supp_quant) + 4 - 1))), error=666))
           }
