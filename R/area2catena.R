@@ -183,20 +183,14 @@ area2catena <- function(
   
   cur_mapset = execGRASS("g.mapset", flags="p", intern=TRUE) #determine name of current mapset
   #check existence of supplementary information maps
-  if (length(supp_qual)==0) supp_qual=NULL else
-    for (i in supp_qual) 
-       check_raster(i, paste0("supp_qual[",i,"]"))
+   if (length(supp_qual)==0) supp_qual=NULL else
+     for (i in supp_qual) 
+        check_raster(i, paste0("supp_qual[",i,"]"))
     
   if (length(supp_quant)==0) supp_quant=NULL else
     for (i in supp_quant) 
-      for (i in supp_qual) 
-      {
-        raster_name=i
-        if (!grepl(raster_name, pattern = "@"))
-          raster_name = paste0(raster_name,"@", cur_mapset) #
         check_raster(i,paste0("supp_quant[",i,"]"))
-      }
-       
+
   
   # suppress annoying GRASS outputs
   tmp_file <- file(tempfile(), open="wt")
@@ -254,10 +248,16 @@ area2catena <- function(
     {  
       for (i in supp_qual) {
         raster_name=i
-        if (!grepl(raster_name, pattern = "@"))
+        if (!grepl(raster_name, pattern = "@")) #expand raster name because of bug in readRAST 
+        {  
           raster_name = paste0(raster_name,"@", cur_mapset) #add mapset name, unless already given. Otherwise, strange errors may occur when the same raster exists in PERMANENT
+          name_expanded = TRUE #indicate that 
+        }  else name_expanded = FALSE
         tmp <- readRAST(raster_name)
         tmp <- raster(tmp)
+        if (name_expanded) #"de-expand" name, if expanded before
+          tmp@data@names = sub(x = tmp@data@names, pattern = paste0("\\.", cur_mapset), repl="")
+        
         qual_rast <- raster::stack(tmp, qual_rast)
         supp_data_classnames[[i]] <- raster::unique(tmp)
         n_supp_data_qual_classes <- c(n_supp_data_qual_classes, length(raster::unique(tmp)))
@@ -274,10 +274,16 @@ area2catena <- function(
     quant_rast <- NULL # initialise object containing all quantitative raster layers
     for (i in rev(supp_quant)) {
       raster_name=i
-      if (!grepl(raster_name, pattern = "@"))
+      if (!grepl(raster_name, pattern = "@")) #expand raster name because of bug in readRAST 
+      {  
         raster_name = paste0(raster_name,"@", cur_mapset) #add mapset name, unless already given. Otherwise, strange errors may occur when the same raster exists in PERMANENT
+        name_expanded = TRUE #indicate that 
+      }  else name_expanded = FALSE
       tmp <- readRAST(raster_name)
       tmp <- raster(tmp)
+      if (name_expanded) #"de-expand" name, if expanded before
+        tmp@data@names = sub(x = tmp@data@names, pattern = paste0("\\.", cur_mapset), repl="")
+      
       quant_rast <- raster::stack(tmp, quant_rast)
     }
     
@@ -373,7 +379,7 @@ area2catena <- function(
       stopCluster(cl)
     
     # check if anything was produced (if NULL an unexpected error might have occured)
-    if(is.null(logdata))
+    if(is.null(logdata) || (nrow(logdata)==0))
       stop("Error: No valid EHAs remaining after processing. Something's fishy, check the warnings, eha_subset and coverage of the layers.")
     
     # check for severe errors
@@ -390,7 +396,8 @@ area2catena <- function(
     erroneous <- (logdata$error > 0 & logdata$error < 5)
     error_ehas <- logdata[erroneous, c(1,ncol(logdata))]
     
-    logdata <- logdata[(logdata$error == 0 | logdata$error == 5 | logdata$error == 6 | logdata$error == 7), -ncol(logdata)] #keep only valid rows
+    
+    logdata <- logdata[(logdata$error %in% c(0, warn_ehas$error)), -ncol(logdata)] #keep only valid rows and those with warnings
     
     # check for NAs
     if(any(is.na(logdata))) {
@@ -510,7 +517,10 @@ eha_calc <- function(curr_id, eha_rast, flowaccum_rast, dist2river_rast, relelev
   
   errcode <- 0
   
-# EHA: CHECKS and PREPARATIONS #-----------------------------------------------
+res = try( #catch unexpected errors
+  {  
+
+    # EHA: CHECKS and PREPARATIONS #-----------------------------------------------
   # determine cell indices of curr_id
   curr_cells <- which(eha_rast@data@values == curr_id)
   
@@ -518,7 +528,8 @@ eha_calc <- function(curr_id, eha_rast, flowaccum_rast, dist2river_rast, relelev
   # ERROR CODE 1
   if (length(curr_cells) < min_cell_in_slope) {
     message(paste('% -> WARNING: EHA ', curr_id, ' skipped because of low number of cells (', length(curr_cells), ')', sep=""))
-    return(data.frame(output=t(c(curr_id, rep(NA, sum(n_supp_data_qual_classes) + length(supp_quant) + 4 - 1))), error=1))
+    errcode <- 1
+    return(data.frame(output=t(c(curr_id, rep(NA, sum(n_supp_data_qual_classes) + length(supp_quant) + 4 - 1))), error=errcode))
   }
   
   # extract values out of raster objects into ordinary vectors to save time (internal calls to raster objects take time)
@@ -530,7 +541,7 @@ eha_calc <- function(curr_id, eha_rast, flowaccum_rast, dist2river_rast, relelev
   
   na_vals = is.na(flowaccum_vals) | is.na(dist2river_vals) | is.na(relelev_vals) #detect NA values
   if (any(na_vals)) {  # cells found with NAs in the mandatory grids
-    message(paste('% -> WARNING: EHA ', curr_id, ' has NA cells flowaccum, dist2river or relative_elavation. May be OK for EHAs at divide. Cells ignored.', sep=""))
+    message(paste('% -> WARNING: EHA ', curr_id, " has NA cells in rasters 'flowacc', 'distriv' or 'elevriv'. May be OK for EHAs at divide. Cells ignored.", sep=""))
     curr_cells <- curr_cells[!na_vals]
     flowaccum_vals  <- flowaccum_vals [!na_vals]
     dist2river_vals <- dist2river_vals[!na_vals]
@@ -547,6 +558,7 @@ eha_calc <- function(curr_id, eha_rast, flowaccum_rast, dist2river_rast, relelev
   if (any(na_vals)) {  # cells found with NAs in auxiliary grids
     message(paste('% -> WARNING: EHA ', curr_id, ': NAs in the grid(s) ', paste(names(na_vals[na_vals]), collapse=', ') ,'.', sep=""))
     errcode <- 7
+    browser()
   }
   
   # determine closest distance to river and skip processing if more than max_riv_dist
@@ -671,6 +683,8 @@ eha_calc <- function(curr_id, eha_rast, flowaccum_rast, dist2river_rast, relelev
           # check averages (should sum up to one for each attribute), SEVERE ERROR CODE 666
           if(sum(supp_attrib_mean[(quant_columns+col_counter+1):(quant_columns+col_counter+n_supp_data_qual_classes[k]),j+1]) < 0.999) {
             message(paste('% -> WARNING: For EHA ', curr_id, ' areal fractions of qualitative supplemental attribute ', k, ' does not sum to one for profile point ', j+1, sep=""))
+            browser()
+            if (plot_catena) dev.off()
             return(data.frame(output=t(c(curr_id, rep(NA, sum(n_supp_data_qual_classes) + length(supp_quant) + 4 - 1))), error=666))
           }
           
@@ -716,4 +730,11 @@ eha_calc <- function(curr_id, eha_rast, flowaccum_rast, dist2river_rast, relelev
   # output aggregation by foreach loop via .combine method
   return(data.frame(output=out_combined, error=errcode))
   
+}, silent=TRUE) #end of try
+
+if (class(res)=="try-error")  #unexpected error
+{  
+  print(paste0("Unexpected error: ", attr(res, "condition")))
+  return(data.frame(output=t(c(curr_id, rep(NA, sum(n_supp_data_qual_classes) + length(supp_quant) + 4 - 1))), error=666))
+}  
 } # EOF
