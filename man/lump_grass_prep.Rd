@@ -99,7 +99,7 @@ Default: \code{FALSE}.}
 \item{silent}{\code{logical}. Shall the function be silent (also suppressing warnings
 of internally used GRASS functions)? Default: \code{FALSE}.}
 
-\item{addon_path}{Charactering string giving the path to your locally installed
+\item{addon_path}{Character string giving the path to your locally installed
 GRASS add-ons. Must only be given if necessary, see \code{Note}.}
 
 \item{things2do}{\code{c("eha","river","svc")}. Enables the specification of sub-tasks only. \code{"eha"}: do EHA generation, 
@@ -122,8 +122,8 @@ Prepare GRASS location and necessary raster files in advance and start
      are available to your GRASS installation. If not, consider \emph{g.extension} to
      install add-ons. If you installed add-ons locally it might occur that from within R
      the path to add-ons is not recognised. In such a case locate the local installation
-     path (in a GRASS terminal check \code{g.extension -a} and \code{echo $GRASS_ADDON_BASE}) and specify the
-     absolute path to add-ons via argument \code{addon_path}. For more information, see also
+     path (in a GRASS terminal check \code{g.extension -a}, \code{echo $GRASS_ADDON_BASE} and \code{which r.stream.distance} / \code{where r.stream.distance}, and specify the
+     absolute path to add-ons via argument \code{addon_path}. In Windows, replace backslahes for slashes. For more information, see also
      \url{http://grasswiki.osgeo.org/wiki/AddOns/GRASS_7}.
      
      See GRASS documentation for further information on GRASS functions and

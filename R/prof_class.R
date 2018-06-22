@@ -63,6 +63,8 @@
 #'      time and memory. Default: \code{FALSE}.
 #' @param eha_subset NULL or integer vector with subset of EHA ids that shall
 #'      be processed (for debugging and testing).
+#' @param eha_blacklist NULL or integer vector with subset of EHA ids that will
+#'      be excluded (use this for manual exclusion of strange profiles).
 #' @param overwrite \code{logical}. Shall output of previous calls of this function be
 #'      deleted? If \code{FALSE} the function returns an error if output already exists.
 #'      Default: \code{FALSE}.
@@ -133,6 +135,7 @@ prof_class <- function(
   com_length=NULL,
   make_plots=F,
   eha_subset=NULL,
+  eha_blacklist=NULL,
   overwrite=F,
   silent=F,
   plot_silhouette=T
@@ -263,11 +266,19 @@ prof_class <- function(
     if (!is.null(eha_subset)) 
     {
       if(!silent) message("% -> WARNING: Using only a subset as specified in the argument 'eha_subset'.")
-      p_id_unique = p_id_unique[p_id_unique %in% eha_subset]
+      p_id_unique = intersect(p_id_unique, eha_subset)
       if (length(p_id_unique)==0)
-          stop("Specified eha_subset not found.")
+        stop("Specified 'eha_subset' not found.")
     } 
-
+    
+    if (!is.null(eha_blacklist)) 
+    {
+      if(!silent) message("% -> WARNING: Excluding a subset as specified in the argument 'eha_blacklist'.")
+      p_id_unique = setdiff(p_id_unique, eha_blacklist)
+      if (length(p_id_unique)==0)
+        stop("No profiles remaining after exclusion. Check 'eha_blacklist'")
+    } 
+    
     n_profs = length(p_id_unique)
     
     
