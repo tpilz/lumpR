@@ -948,11 +948,11 @@ prof_class <- function(
         }
         
 
-        # decomposition using standard deviation
-        # quality and  best limits of partitioning
+        # decomposition using min variance
+        
         b_part <- best_partition(pdata, attr_weights_partition[1])
-        qual <- b_part[[1]]
-        best_limits <- b_part[[2]]
+        qual <- b_part[[1]] # partitioning quality
+        best_limits <- b_part[[2]]  # best limits of partitioning
         
         if(!silent) message(paste('% -> partition by min variance: ', paste(best_limits, collapse=" "), 
                       '; fitting index_v = ', qual, sep=""))
@@ -1307,7 +1307,7 @@ best_partition <- function(data_mat, no_part) {
     } # end loop over data_mat
     
     # return the best limitation found and its quality
-    return(list(best_lim_qual, best_limit))  
+    return(c(best_lim_qual, best_limit))  
     
   } else {
     
@@ -1317,8 +1317,8 @@ best_partition <- function(data_mat, no_part) {
     for (ii in 1:(n_points_in_data_mat-no_part-2)) {
       # get best partitioning inside the remaining part - the returned quality value is not used
       bp <- best_partition(data_mat[ii:n_points_in_data_mat], no_part-1)
-      lim_qual <- bp[[1]]
-      best_limits <- bp[[2]]
+      lim_qual <- bp[1]
+      best_limits <- bp[2:(no_part-1)]
       
       # with a limit at ii, the rest is best partitioned as contained in best_limits
       this_i_best_limits <- c(ii, best_limits+ii-1)
@@ -1335,7 +1335,7 @@ best_partition <- function(data_mat, no_part) {
       
     }
     # return the best limitation found and its quality
-    return(list(best_lim_qual, bl))
+    return(c(best_lim_qual, bl))
     
   } # end if no_part==2
 } # EOF
