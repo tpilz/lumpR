@@ -78,12 +78,12 @@
 #' @note Function uses output of \code{\link[lumpR]{area2catena}}. However, no GRASS
 #'      session needs to be started in this case.
 #'      
-#'      After applying \code{recl_lu} the resulting landscape units raster map in your GRASS
+#'      After applying \code{recl_lu}, the resulting landscape units raster map in your GRASS
 #'      location might show gaps depending on the number of generated landscape units
 #'      as each landscape unit refers to the representative EHA. The gaps can be filled
 #'      with GRASS function \code{r.grow}.
 #'      
-#'  @details This function first resamples the catenas derived from \code{\link[lumpR]{area2catena}}
+#' @details This function first resamples the catenas derived from \code{\link[lumpR]{area2catena}}
 #'      to a common length (\code{com_length} or the median number of support points
 #'      of all catenas but not more than \code{max_com_length}). Second, k-means clustering
 #'      is employed to group the catenas into representative \emph{Landscape Units}
@@ -254,23 +254,23 @@ prof_class <- function(
     stats <- scan(catena_file, nlines = 1, what=numeric(), sep = "\t", quiet = TRUE) #read first line only
     stats <- read.table(file = catena_file, colClasses = c("numeric", rep("NULL", length(stats)-1)), sep = "\t") #read first column only
     
-    p_id = stats[,1]
+    
+    profpoints <- table(stats[,1])  #count number of points of each catena
+    p_id_unique = unique(stats[,1]) #get unique IDs  
     rm(stats)
-    p_id_unique = unique(p_id) #get unique IDs
+    
 
     if (!is.null(eha_subset)) 
     {
       if(!silent) message("% -> WARNING: Using only a subset as specified in the argument 'eha_subset'.")
-      
-      to_do = intersect(eha_subset, p_id_unique)
-      if (length(to_do==0))
+      p_id_unique = p_id_unique[p_id_unique %in% eha_subset]
+      if (length(p_id_unique)==0)
           stop("Specified eha_subset not found.")
-      n_profs = length(to_do)
-    } else
+    } 
+
     n_profs = length(p_id_unique)
     
-    profpoints <- table(p_id)  #count number of points of each catena
-    rm(p_id)
+    
     
     # use the median of sampling points as the desired common length of profiles
     if (classify_type != 'load') {  
@@ -303,29 +303,37 @@ prof_class <- function(
      if(!silent) #for printing progress indicator
        pb <- txtProgressBar(min = 0, max = length(p_id_unique), style = 3)
 
-     for (i in 1:length(p_id_unique))
+     i=0 #counter for valid profiles read
+     total_read = 0 #counter for total profiles read
+     while (i < length(p_id_unique))
      {
-       
+       i=i+1
        if (!silent) #next progress message
          setTxtProgressBar(pb, i)
        
        cur_p_id = p_id_unique[i] #id of profile to be loaded
+       p_pos = which(names(profpoints)==cur_p_id) #position of current profile in list
        
-       tt = scan(file=testcon, what=numeric(), nlines = profpoints[i], quiet = TRUE) #read single profile
-       tt = matrix(tt, nrow = c(profpoints[i]), byrow = TRUE) #reshape matrix
+       skiplines = sum(profpoints[(total_read+1) : p_pos]) -  profpoints[p_pos] #compute number of lines to skip to reach the next selected profile
+       tt = readLines(con = testcon, n = skiplines)
 
+       tt = scan(file=testcon, what=numeric(), nlines = profpoints[p_pos], quiet = TRUE) #read single profile
+       tt = matrix(tt, nrow = c(profpoints[p_pos]), byrow = TRUE) #reshape matrix
+       total_read = p_pos  #we are now just at the desired profile
+       
+       if (any(tt[,1]!= cur_p_id)) stop(paste0("Format error in ",catena_file))
        if (make_plots) 
          lines(tt[,2]*resolution, tt[,3])
        
        
-       if (profpoints[i] < 2) { #catena too short, ignore
+       if (profpoints[p_pos] < 2) { #catena too short, ignore
          if(!silent) message(paste('% -> WARNING: profile ', paste(cur_p_id, collapse=", "), ' contains only one point. Skipped.', sep=""))
          profs_resampled_stored[i,] = NA
        } 
        
        
          
-       p_resampled <- apply(tt[,-(1:2)], MARGIN = 2, FUN=function(y) approx(x = tt[,2]-1, y, xout = 0:(com_length-1)/(com_length-1)*(profpoints[i]-1))$y)
+       p_resampled <- apply(tt[,-(1:2)], MARGIN = 2, FUN=function(y) approx(x = tt[,2]-1, y, xout = 0:(com_length-1)/(com_length-1)*(profpoints[p_pos]-1))$y)
 
        # set foot of profile to zero elevation
        p_resampled[,1] = p_resampled[,1] - p_resampled[1,1]
@@ -333,14 +341,14 @@ prof_class <- function(
        # amplitude of profile will be scaled to 1
        d <- max(p_resampled[,1]) 
        if(d==0) {
-         if(!silent) message(paste('% -> WARNING: Profile ', p_id_unique[i], ' has no elevation gain (runs flat)', sep=""))
+         if(!silent) message(paste('% -> WARNING: Profile ', cur_p_id, ' has no elevation gain (runs flat)', sep=""))
          p_resampled[,1] <- 0
        } else {
          # normalize profile in elevation (ie. normally, top end at elevation = 1)
          p_resampled[,1] <- p_resampled[,1] / d
        }
        
-       prof_length = (profpoints[i]-1) * resolution #compute original length of catena
+       prof_length = (profpoints[p_pos]-1) * resolution #compute original length of catena
        prof_height = max(tt[,3]) - tt[1,3] #compute original elevation gain of catena
        
        # append the dimension components, unweighted
@@ -357,7 +365,7 @@ prof_class <- function(
            if (make_plots)
              dev.off() #close PDF output
            na_attributes = names(datacolumns[-(1:3)])[unique(sapply (X = which(all_na), function(x) min(which(cumsum(datacolumns[-(1:3)]) >= x))))] #names of attributes with all NAs
-           stop(paste0("Error: EHA ", p_id_unique[i]," has only NAs for attribute(s) ", paste0(na_attributes, collapse=", "),". Most likely a result of insufficient map coverage. Fix coverage, remove this attribute or replace NAs manually."))
+           stop(paste0("Error: EHA ", cur_p_id," has only NAs for attribute(s) ", paste0(na_attributes, collapse=", "),". Most likely a result of insufficient map coverage. Fix coverage, remove this attribute or replace NAs manually."))
          }
          profs_resampled_stored[i,(com_length+3):(com_length+2+com_length*n_supp_data_columns)] <- as.vector(p_resampled[,-1])
        }     
@@ -397,7 +405,7 @@ prof_class <- function(
     }
     
   
-    if(!silent) message("% OK.")
+    if(!silent) message(paste0("% OK, ",length(p_id_unique)," profiles loaded."))
     
     
     
@@ -1217,7 +1225,9 @@ prof_class <- function(
    
      # stop sinking
      closeAllConnections()
-   
+      
+     if (make_plots) dev.off() #close open devices
+     
      # restore original warning mode
      if(silent)
        options(warn = oldw)
