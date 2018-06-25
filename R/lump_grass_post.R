@@ -351,13 +351,13 @@ lump_grass_post <- function(
     check_raster(stream_horton,"stream_horton")
     
     # load rasters into R
-    dem_rast <- raster(read_raster(dem))
-    accum_rast <- raster(read_raster(flowacc))
-    dir_rast <- raster(read_raster(flowdir))
+    dem_rast <- read_raster(dem)
+    accum_rast <- read_raster(flowacc)
+    dir_rast <- read_raster(flowdir)
     cur_mapset = execGRASS("g.mapset", flags="p", intern=TRUE) #determine name of current mapset
     
-    sub_rast <- raster(read_raster(subbasin))
-    horton_rast <- raster(read_raster(stream_horton))
+    sub_rast <- read_raster(subbasin)
+    horton_rast <- read_raster(stream_horton)
     # ... raster values as matrix
     dem_mat <- getValues(dem_rast, format="matrix")
     rm(dem_rast)
@@ -411,8 +411,7 @@ lump_grass_post <- function(
       cmd_out=execGRASS("r.reclass", input=eha, output=lu, rules=recl_lu, intern = TRUE)
       if(!is.null(attr(cmd_out, "status")))
          stop(paste0("Could not reclass '",eha,"' into '",lu,"'"))
-      browser()
-      
+
       # growing radius (parameter for r.grow)
       GROWRAD <- 20
 
@@ -631,6 +630,9 @@ lump_grass_post <- function(
       if(!silent) message("% Calculate LU statistics...")
       
       sub_lu_stats_t <- execGRASS("r.stats", input=paste0(subbasin,",",lu), flags=c("n", "c"), intern=TRUE, ignore.stderr = T)
+      if(!is.null(attr(sub_lu_stats_t, "status")))
+        stop(paste0("Could not access lu-map '",lu,"'."))
+      
       if (grepl(pattern="[0-9]+.*[\b]+",x=tail(sub_lu_stats_t, n=1))) #check if last line contains progress indicator, remove
       sub_lu_stats_t = sub_lu_stats_t[-length(sub_lu_stats_t)] 
       
