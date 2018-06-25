@@ -415,7 +415,8 @@ lump_grass_post <- function(
       
       # growing radius (parameter for r.grow)
       GROWRAD <- 20
-        
+
+      if (fill_holes)        
       while (TRUE)
       {        
         # look for empty patches
@@ -423,15 +424,16 @@ lump_grass_post <- function(
         
         na_eval <- execGRASS("r.stats", input=paste0("grow_eval_t"), flags=c("n", "p"), intern=TRUE, ignore.stderr = T)
         
-        if (length(na_eval)==0 | !fill_holes) {  
-          cmd_out=execGRASS("g.remove", type="raster", name="grow_eval_t", intern=TRUE)
-          break #no empty patches found  
-        }
+        if (length(na_eval)==0 ) break #no empty patches found  
         
-        if (grepl(pattern="[0-9]+.*[\b]+",x=tail(na_eval, n=1)))
-          na_eval = na_eval[-length(na_eval)] #last line contains progress indicator, remove
+        # if (grepl(pattern="[0-9]+.*[\b]+",x=tail(na_eval, n=1)))
+        #   na_eval = na_eval[-length(na_eval)] #last line contains progress indicator, remove
+         
+        na_line=grepl(na_eval, pattern = "^1 .*\\%$")
         
-        na_res <- strsplit(x=na_eval, split=" +")  
+        if (!na_line) break #no empty patches found  
+        
+        na_res <- strsplit(x=na_eval[na_line], split=" +")  
         if(!silent) message(paste0("% -> ", tail(unlist(na_res),1), " NAs in LU-map '", lu,"'"))
         
         # otherwise grow LU map to fill gaps 
@@ -448,6 +450,8 @@ lump_grass_post <- function(
         # 
         # x=execGRASS("g.remove", type="raster", name="tt_eha_grown", intern=TRUE)
       } # while true (grow-loop)
+      
+      cmd_out=execGRASS("g.remove", type="raster", name="grow_eval_t", intern=TRUE)
       
       if(!silent) message("% OK")
       
