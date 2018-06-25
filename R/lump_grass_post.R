@@ -343,12 +343,21 @@ lump_grass_post <- function(
     if(!silent) message("%")
     if(!silent) message("% Prepare output and import GRASS data...")
     
+    #check existence of raster maps
+    check_raster(mask,"mask")
+    check_raster(flowacc,"flowacc")
+    check_raster(flowdir,"flowdir")
+    check_raster(subbasin,"subbasin")
+    check_raster(stream_horton,"stream_horton")
+    
     # load rasters into R
-    dem_rast <- raster(readRAST(dem))
-    accum_rast <- raster(readRAST(flowacc))
-    dir_rast <- raster(readRAST(flowdir))
-    sub_rast <- raster(readRAST(subbasin))
-    horton_rast <- raster(readRAST(stream_horton))
+    dem_rast <- raster(read_raster(dem))
+    accum_rast <- raster(read_raster(flowacc))
+    dir_rast <- raster(read_raster(flowdir))
+    cur_mapset = execGRASS("g.mapset", flags="p", intern=TRUE) #determine name of current mapset
+    
+    sub_rast <- raster(read_raster(subbasin))
+    horton_rast <- raster(read_raster(stream_horton))
     # ... raster values as matrix
     dem_mat <- getValues(dem_rast, format="matrix")
     rm(dem_rast)
