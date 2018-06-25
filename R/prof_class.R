@@ -842,7 +842,7 @@ prof_class <- function(
     for (i in 1:nclasses) {
       class_i <- which(cidx==unique_classes[i])
       curr_lu_key <- unique(cidx[class_i])
-      lu_labels=c(lu_labels, curr_lu_key)
+      lu_labels=c(lu_labels, curr_lu_key) #ii
     }  
     # PARTITIONING OF MEAN PROFILE FOR EACH LU #
     for (i in 1:nclasses) {
@@ -893,10 +893,7 @@ prof_class <- function(
         cluster_centers[i,] <- c(mean_prof[i,1:(com_length+2)], tmp_v) 
       } # end if classify_type==save
       
-      
-      
-      
-      
+
       # TERRAIN COMPONENTS
       # get exact horizontal resolution for exact plotting
       dx <- xvec[com_length]/(com_length-1)
@@ -927,7 +924,7 @@ prof_class <- function(
         
         # if supplemental data is present
         # TODO: to be tested
-        if (exists("supp_data") && sum(attr_weights_partition[4:length(attr_weights_partition)])) {
+        if (exists("supp_data") && any(attr_weights_partition[4:length(attr_weights_partition)]>0)) {
           supp_data_weighted <- NULL
           # weigh supplemental information according to weighting factors given
           for (jj in 4:length(datacolumns)) {
@@ -942,17 +939,18 @@ prof_class <- function(
           # data that is given to partitioning algorithm
           pdata <- c(prof_slopes, supp_data_weighted)
         } else {
-          # only the slope data that is given to partitioning algorithm
+          # only the slope data is given to partitioning algorithm
           supp_data_weighted <- 0
           pdata <- prof_slopes
         }
         
 
         # decomposition using min variance
-        
+      #  browser()
+       # b_part_new <- best_partition_new(pdata, attr_weights_partition[1])
         b_part <- best_partition(pdata, attr_weights_partition[1])
-        qual <- b_part[[1]] # partitioning quality
-        best_limits <- b_part[[2]]  # best limits of partitioning
+        qual <- b_part[1] # partitioning quality
+        best_limits <- b_part[-1]  # best limits of partitioning
         
         if(!silent) message(paste('% -> partition by min variance: ', paste(best_limits, collapse=" "), 
                       '; fitting index_v = ', qual, sep=""))
@@ -1238,7 +1236,6 @@ prof_class <- function(
      closeAllConnections()
       
      if (make_plots) dev.off() #close open devices
-     
      # restore original warning mode
      if(silent)
        options(warn = oldw)
@@ -1253,13 +1250,12 @@ prof_class <- function(
 ### INTERNAL FUNCTIONS USED BY prof_class ###----------------------------------
 
 # delivers partition quality: sum of weighted variances of subdivisions #------
-get_part_quality <- function(data_mat, lim) {
+get_part_quality <- function(data_mat, lim, cur_best=Inf) {
   
   # get number of points contained in this data (sub-)set
   n_points_in_data_mat <- length(data_mat)
   
   qual <- 0
-  
   lim <- c(1, lim, n_points_in_data_mat+1)
   
   # function get_part_quality() in original matlab script
@@ -1276,7 +1272,9 @@ get_part_quality <- function(data_mat, lim) {
     # factor for weighting the variance of this subdivisions in the overall variance
     wf <- (part_end-part_start)
     # sum up weighted variances of subdivisions
-    qual <- qual + wf*var(data_mat[part_start:part_end]) 
+    w_var = wf*var(data_mat[part_start:part_end]) 
+    qual = qual + w_var
+    if (qual >= cur_best) break #the current best is already reached or exceed, don't look any further
   }
   
   return(qual)
@@ -1285,19 +1283,20 @@ get_part_quality <- function(data_mat, lim) {
 
 
 # partitioning of a hillslope into Terrain Components #------------------------
-best_partition <- function(data_mat, no_part) {
+best_partition <- function(data_mat, no_part, cur_best=Inf) {
   
   n_points_in_data_mat<- length(data_mat)
   
   # partition the vector in 2 only subdivisions
   if (no_part==2) {
     # initial value for loop
-    best_lim_qual <- Inf
+    best_lim_qual <- cur_best
+    best_limit = 1
     startat <- 1
     
     for (jj in startat:n_points_in_data_mat) {
       # get quality of this subdivision
-      lim_qual <- get_part_quality(data_mat,jj)
+      lim_qual <- get_part_quality(data_mat, jj, best_lim_qual)
       
       # this subdivision is better than the previous best
       if (lim_qual < best_lim_qual) {
@@ -1312,20 +1311,22 @@ best_partition <- function(data_mat, no_part) {
   } else {
     
     # initial value for loop
-    best_lim_qual <- Inf
+    best_lim_qual <- Inf #cur_best
+    bl = 1 #default: nothing better found
     
     for (ii in 1:(n_points_in_data_mat-no_part-2)) {
       # get best partitioning inside the remaining part - the returned quality value is not used
-      bp <- best_partition(data_mat[ii:n_points_in_data_mat], no_part-1)
+      bp <- best_partition(data_mat[ii:n_points_in_data_mat], no_part-1, best_lim_qual)
       lim_qual <- bp[1]
+      if (lim_qual > best_lim_qual) next #no use searching any further
       best_limits <- bp[2:(no_part-1)]
       
       # with a limit at ii, the rest is best partitioned as contained in best_limits
       this_i_best_limits <- c(ii, best_limits+ii-1)
       
       # get the overall quality of this partitioning
-      lim_qual <- get_part_quality(data_mat, this_i_best_limits)
-      
+      lim_qual <- get_part_quality(data_mat, this_i_best_limits, best_lim_qual)
+
       # this subdivision is better than the previous best
       if (lim_qual < best_lim_qual) {
         # set new best subdivision
@@ -1339,3 +1340,96 @@ best_partition <- function(data_mat, no_part) {
     
   } # end if no_part==2
 } # EOF
+
+best_partition_new <- function(data_vec, no_parts, start=NULL)
+{
+  shift_break = function(breaks, break_no, n_points_in_data_vec)
+  {
+    no_parts=length(breaks)+1
+    if (breaks[break_no] < n_points_in_data_vec - (no_parts-1-break_no) ) #shifting possible?
+      breaks[break_no:(no_parts-1)] = breaks[break_no] + (1:(no_parts-break_no)) else
+      breaks=NA  #end reached
+    return(breaks)    
+  }   
+ 
+  best_lim_qual=Inf
+  
+  variances = array(NA, no_parts)
+  n_points_in_data_vec <- length(data_vec)
+  breaks = 1:(no_parts-1)
+  
+  active_break = no_parts-1 #start shifting here
+  turnover=FALSE
+  
+  if (!is.null(start)) breaks=start
+ 
+  #browser()
+  
+
+  while (TRUE)
+  {
+    #shift active break
+    breaks_new = shift_break(breaks, break_no=active_break, n_points_in_data_vec = n_points_in_data_vec )
+    if (is.na(breaks_new[1]))
+    {
+      if (active_break == 1)  {       
+        break
+        } else   #no previous break to shift, all done
+        active_break=active_break-1 #shift previous break
+        turnover=TRUE #remember to change to back next break after next iteration
+        variances[active_break:(no_parts-1)]=NA #demark variances that need updating
+        next
+    } else
+    breaks=breaks_new
+    variances[active_break]=NA #from here, new calculation of variance is necessary
+    if (turnover) active_break = no_parts-1  #back to shifting last break
+    stepup_again=0
+    
+    #update highest missing variance until rest
+    start_part=min(which(is.na(variances)))  #no need to update all values, some did not change
+    qual=sum(variances[1:(start_part-1)], na.rm=TRUE)
+    lim <- c(1, breaks, n_points_in_data_vec+1)
+    for (iii in start_part:(length(lim)-1)) {
+    
+      part_start <- lim[iii] # start index of current partition
+      part_end <- max(part_start,lim[iii+1]-1) # end index of current partition
+      
+      if (part_start==part_end) {
+        variances[iii]=0
+        next       # this CAN be done because the variance in a subsection that contains only one point is zero
+        # it MUST be done because the var() function doesn't work as intended with one column matrices
+      }
+      
+      # factor for weighting the variance of this subdivisions in the overall variance
+      wf <- (part_end-part_start)
+      # sum up weighted variances of subdivisions
+      variances[iii] = wf*var(data_vec[part_start:part_end]) 
+      qual = qual + variances[iii]
+      if (qual >= best_lim_qual) 
+      {  
+        active_break=min(active_break, iii)
+        #browser()
+        break #abort, if already worse than current best and modify this break
+      }  
+    }
+    #browser()
+    if (qual < best_lim_qual) { #new optimun found
+      # set new best subdivision
+      best_lim_qual <- qual
+      bl <- breaks
+    }
+    
+  }
+  return(c(best_lim_qual, bl))
+
+}
+
+# 
+# 
+# 
+# system.time({ıb2=best_partition(vec, 5)})
+# 
+# b2
+# 
+# get_part_quality(vec, b2)
+# get_part_quality(vec, a[-1])
