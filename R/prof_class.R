@@ -923,12 +923,13 @@ prof_class <- function(
         
         
         # if supplemental data is present
-        # TODO: to be tested
+        # TODO: to be tested: supp_data does not exist yet/anymore! this should use mean_supp_data (?)
+        #if (n_suppl_attributes>0) && any(attr_weights_partition[4:length(attr_weights_partition)]>0)) 
         if (exists("supp_data") && any(attr_weights_partition[4:length(attr_weights_partition)]>0)) {
           supp_data_weighted <- NULL
           # weigh supplemental information according to weighting factors given
           for (jj in 4:length(datacolumns)) {
-            # if an attribute is not be weighted with 0, we can as well skip it
+            # if an attribute is to be weighted with 0, we can as well skip it
             if (attr_weights_partition[jj]==0) next
             
             attr_start_column <- sum(datacolumns[4:(jj-1)])+1
@@ -946,9 +947,9 @@ prof_class <- function(
         
 
         # decomposition using min variance
-      #  browser()
-       # b_part_new <- best_partition_new(pdata, attr_weights_partition[1])
-        b_part <- best_partition(pdata, attr_weights_partition[1])
+        #browser()
+        b_part <- best_partition_new(pdata, attr_weights_partition[1])
+        #b_part <- best_partition(pdata, attr_weights_partition[1])
         qual <- b_part[1] # partitioning quality
         best_limits <- b_part[-1]  # best limits of partitioning
         
