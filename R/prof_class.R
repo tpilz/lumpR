@@ -924,9 +924,11 @@ prof_class <- function(
         
         # if supplemental data is present
         # TODO: to be tested: supp_data does not exist yet/anymore! this should use mean_supp_data (?)
-        #if (n_suppl_attributes>0) && any(attr_weights_partition[4:length(attr_weights_partition)]>0)) 
-        if (exists("supp_data") && any(attr_weights_partition[4:length(attr_weights_partition)]>0)) {
+        if (n_suppl_attributes>0 && any(attr_weights_partition[4:length(attr_weights_partition)]>0)) 
+        #if (exists("supp_data") && any(attr_weights_partition[4:length(attr_weights_partition)]>0)) 
+        {
           supp_data_weighted <- NULL
+          supp_data_weighted <- array(0, dim(mean_supp_data))
           # weigh supplemental information according to weighting factors given
           for (jj in 4:length(datacolumns)) {
             # if an attribute is to be weighted with 0, we can as well skip it
@@ -935,21 +937,33 @@ prof_class <- function(
             attr_start_column <- sum(datacolumns[4:(jj-1)])+1
             attr_end_column <- attr_start_column+datacolumns[jj]-1
             
-            supp_data_weighted <- c(supp_data_weighted, supp_data[attr_start_column:attr_end_column,]*attr_weights_partition[jj]/(attr_end_column-attr_start_column+1))
+            supp_data_weighted[attr_start_column:attr_end_column,] <- mean_supp_data[attr_start_column:attr_end_column,]*attr_weights_partition[jj]/(attr_end_column-attr_start_column+1) 
           }  
           # data that is given to partitioning algorithm
-          pdata <- c(prof_slopes, supp_data_weighted)
+         # browser()
+          #remove columns without variability to conserve space and computation time
+          to_keep=rep(TRUE, nrow(supp_data_weighted))
+          for (jj in 1:nrow(supp_data_weighted)) 
+            to_keep[jj] =  any(supp_data_weighted[jj,1] != supp_data_weighted[jj,]) #check if this row contains different values
+          supp_data_weighted = supp_data_weighted[to_keep,]  
+          #browser()
+          pdata <- rbind(prof_slopes, supp_data_weighted)
         } else {
           # only the slope data is given to partitioning algorithm
           supp_data_weighted <- 0
-          pdata <- prof_slopes
+          pdata <- matrix(prof_slopes,nrow = 1)
         }
         
 
         # decomposition using min variance
         #browser()
         b_part <- best_partition_new(pdata, attr_weights_partition[1])
-        #b_part <- best_partition(pdata, attr_weights_partition[1])
+        #pdata[-1,]=0
+        #b_part <- best_partition_new(pdata, attr_weights_partition[1])
+        #b_part <- best_partition_new(pdata[1,,drop=FALSE], attr_weights_partition[1])
+        #b_part <- best_partition_new(pdata[1,,drop=FALSE], attr_weights_partition[1])
+        
+
         qual <- b_part[1] # partitioning quality
         best_limits <- b_part[-1]  # best limits of partitioning
         
@@ -1254,7 +1268,8 @@ prof_class <- function(
 get_part_quality <- function(data_mat, lim, cur_best=Inf) {
   
   # get number of points contained in this data (sub-)set
-  n_points_in_data_mat <- length(data_mat)
+  #n_points_in_data_mat <- length(data_mat)
+  n_points_in_data_mat <- ncol(data_mat) #mat
   
   qual <- 0
   lim <- c(1, lim, n_points_in_data_mat+1)
@@ -1273,7 +1288,8 @@ get_part_quality <- function(data_mat, lim, cur_best=Inf) {
     # factor for weighting the variance of this subdivisions in the overall variance
     wf <- (part_end-part_start)
     # sum up weighted variances of subdivisions
-    w_var = wf*var(data_mat[part_start:part_end]) 
+    #w_var = wf*var(data_mat[part_start:part_end]) 
+    w_var = wf*sum(apply(data_mat[,part_start:part_end, drop=FALSE], MAR=1, FUN = var)) #mat
     qual = qual + w_var
     if (qual >= cur_best) break #the current best is already reached or exceed, don't look any further
   }
@@ -1286,7 +1302,8 @@ get_part_quality <- function(data_mat, lim, cur_best=Inf) {
 # partitioning of a hillslope into Terrain Components #------------------------
 best_partition <- function(data_mat, no_part, cur_best=Inf) {
   
-  n_points_in_data_mat<- length(data_mat)
+  #n_points_in_data_mat<- length(data_mat)
+  n_points_in_data_mat <- ncol(data_mat) #mat
   
   # partition the vector in 2 only subdivisions
   if (no_part==2) {
@@ -1317,7 +1334,8 @@ best_partition <- function(data_mat, no_part, cur_best=Inf) {
     
     for (ii in 1:(n_points_in_data_mat-no_part-2)) {
       # get best partitioning inside the remaining part - the returned quality value is not used
-      bp <- best_partition(data_mat[ii:n_points_in_data_mat], no_part-1, best_lim_qual)
+      #bp <- best_partition(data_mat[ii:n_points_in_data_mat], no_part-1, best_lim_qual)
+       bp <- best_partition(data_mat[,ii:n_points_in_data_mat, drop=FALSE], no_part-1, best_lim_qual) #mat
       lim_qual <- bp[1]
       if (lim_qual > best_lim_qual) next #no use searching any further
       best_limits <- bp[2:(no_part-1)]
@@ -1342,12 +1360,12 @@ best_partition <- function(data_mat, no_part, cur_best=Inf) {
   } # end if no_part==2
 } # EOF
 
-best_partition_new <- function(data_vec, no_parts, start=NULL)
+best_partition_new <- function(data_mat, no_parts, start=NULL)
 {
-  shift_break = function(breaks, break_no, n_points_in_data_vec)
+  shift_break = function(breaks, break_no, n_points_in_data_mat)
   {
     no_parts=length(breaks)+1
-    if (breaks[break_no] < n_points_in_data_vec - (no_parts-1-break_no) ) #shifting possible?
+    if (breaks[break_no] < n_points_in_data_mat - (no_parts-1-break_no) ) #shifting possible?
       breaks[break_no:(no_parts-1)] = breaks[break_no] + (1:(no_parts-break_no)) else
       breaks=NA  #end reached
     return(breaks)    
@@ -1356,7 +1374,7 @@ best_partition_new <- function(data_vec, no_parts, start=NULL)
   best_lim_qual=Inf
   
   variances = array(NA, no_parts)
-  n_points_in_data_vec <- length(data_vec)
+  n_points_in_data_mat <- ncol(data_mat)
   breaks = 1:(no_parts-1)
   
   active_break = no_parts-1 #start shifting here
@@ -1370,7 +1388,7 @@ best_partition_new <- function(data_vec, no_parts, start=NULL)
   while (TRUE)
   {
     #shift active break
-    breaks_new = shift_break(breaks, break_no=active_break, n_points_in_data_vec = n_points_in_data_vec )
+    breaks_new = shift_break(breaks, break_no=active_break, n_points_in_data_mat = n_points_in_data_mat )
     if (is.na(breaks_new[1]))
     {
       if (active_break == 1)  {       
@@ -1389,7 +1407,7 @@ best_partition_new <- function(data_vec, no_parts, start=NULL)
     #update highest missing variance until rest
     start_part=min(which(is.na(variances)))  #no need to update all values, some did not change
     qual=sum(variances[1:(start_part-1)], na.rm=TRUE)
-    lim <- c(1, breaks, n_points_in_data_vec+1)
+    lim <- c(1, breaks, n_points_in_data_mat+1)
     for (iii in start_part:(length(lim)-1)) {
     
       part_start <- lim[iii] # start index of current partition
@@ -1404,7 +1422,7 @@ best_partition_new <- function(data_vec, no_parts, start=NULL)
       # factor for weighting the variance of this subdivisions in the overall variance
       wf <- (part_end-part_start)
       # sum up weighted variances of subdivisions
-      variances[iii] = wf*var(data_vec[part_start:part_end]) 
+      variances[iii] = wf*sum(apply(data_mat[,part_start:part_end, drop=FALSE], MAR=1, FUN = var))
       qual = qual + variances[iii]
       if (qual >= best_lim_qual) 
       {  
