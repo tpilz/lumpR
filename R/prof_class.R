@@ -923,9 +923,7 @@ prof_class <- function(
         
         
         # if supplemental data is present
-        # TODO: to be tested: supp_data does not exist yet/anymore! this should use mean_supp_data (?)
         if (n_suppl_attributes>0 && any(attr_weights_partition[4:length(attr_weights_partition)]>0)) 
-        #if (exists("supp_data") && any(attr_weights_partition[4:length(attr_weights_partition)]>0)) 
         {
           supp_data_weighted <- NULL
           supp_data_weighted <- array(0, dim(mean_supp_data))
@@ -940,13 +938,11 @@ prof_class <- function(
             supp_data_weighted[attr_start_column:attr_end_column,] <- mean_supp_data[attr_start_column:attr_end_column,]*attr_weights_partition[jj]/(attr_end_column-attr_start_column+1) 
           }  
           # data that is given to partitioning algorithm
-         # browser()
           #remove columns without variability to conserve space and computation time
           to_keep=rep(TRUE, nrow(supp_data_weighted))
           for (jj in 1:nrow(supp_data_weighted)) 
             to_keep[jj] =  any(supp_data_weighted[jj,1] != supp_data_weighted[jj,]) #check if this row contains different values
           supp_data_weighted = supp_data_weighted[to_keep,]  
-          #browser()
           pdata <- rbind(prof_slopes, supp_data_weighted)
         } else {
           # only the slope data is given to partitioning algorithm
@@ -956,13 +952,7 @@ prof_class <- function(
         
 
         # decomposition using min variance
-        #browser()
         b_part <- best_partition_new(pdata, attr_weights_partition[1])
-        #pdata[-1,]=0
-        #b_part <- best_partition_new(pdata, attr_weights_partition[1])
-        #b_part <- best_partition_new(pdata[1,,drop=FALSE], attr_weights_partition[1])
-        #b_part <- best_partition_new(pdata[1,,drop=FALSE], attr_weights_partition[1])
-        
 
         qual <- b_part[1] # partitioning quality
         best_limits <- b_part[-1]  # best limits of partitioning
@@ -1268,8 +1258,7 @@ prof_class <- function(
 get_part_quality <- function(data_mat, lim, cur_best=Inf) {
   
   # get number of points contained in this data (sub-)set
-  #n_points_in_data_mat <- length(data_mat)
-  n_points_in_data_mat <- ncol(data_mat) #mat
+  n_points_in_data_mat <- ncol(data_mat) 
   
   qual <- 0
   lim <- c(1, lim, n_points_in_data_mat+1)
@@ -1288,8 +1277,7 @@ get_part_quality <- function(data_mat, lim, cur_best=Inf) {
     # factor for weighting the variance of this subdivisions in the overall variance
     wf <- (part_end-part_start)
     # sum up weighted variances of subdivisions
-    #w_var = wf*var(data_mat[part_start:part_end]) 
-    w_var = wf*sum(apply(data_mat[,part_start:part_end, drop=FALSE], MAR=1, FUN = var)) #mat
+    w_var = wf*sum(apply(data_mat[,part_start:part_end, drop=FALSE], MAR=1, FUN = var)) 
     qual = qual + w_var
     if (qual >= cur_best) break #the current best is already reached or exceed, don't look any further
   }
@@ -1302,8 +1290,7 @@ get_part_quality <- function(data_mat, lim, cur_best=Inf) {
 # partitioning of a hillslope into Terrain Components #------------------------
 best_partition <- function(data_mat, no_part, cur_best=Inf) {
   
-  #n_points_in_data_mat<- length(data_mat)
-  n_points_in_data_mat <- ncol(data_mat) #mat
+  n_points_in_data_mat <- ncol(data_mat) 
   
   # partition the vector in 2 only subdivisions
   if (no_part==2) {
@@ -1334,8 +1321,7 @@ best_partition <- function(data_mat, no_part, cur_best=Inf) {
     
     for (ii in 1:(n_points_in_data_mat-no_part-2)) {
       # get best partitioning inside the remaining part - the returned quality value is not used
-      #bp <- best_partition(data_mat[ii:n_points_in_data_mat], no_part-1, best_lim_qual)
-       bp <- best_partition(data_mat[,ii:n_points_in_data_mat, drop=FALSE], no_part-1, best_lim_qual) #mat
+      bp <- best_partition(data_mat[,ii:n_points_in_data_mat, drop=FALSE], no_part-1, best_lim_qual) 
       lim_qual <- bp[1]
       if (lim_qual > best_lim_qual) next #no use searching any further
       best_limits <- bp[2:(no_part-1)]
@@ -1382,8 +1368,6 @@ best_partition_new <- function(data_mat, no_parts, start=NULL)
   
   if (!is.null(start)) breaks=start
  
-  #browser()
-  
 
   while (TRUE)
   {
@@ -1427,11 +1411,9 @@ best_partition_new <- function(data_mat, no_parts, start=NULL)
       if (qual >= best_lim_qual) 
       {  
         active_break=min(active_break, iii)
-        #browser()
         break #abort, if already worse than current best and modify this break
       }  
     }
-    #browser()
     if (qual < best_lim_qual) { #new optimun found
       # set new best subdivision
       best_lim_qual <- qual
