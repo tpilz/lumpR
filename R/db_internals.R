@@ -145,7 +145,7 @@ writedb <- function(con, file, table, overwrite, verbose) {
         
           )
     {
-      browser()
+      #browser()
       #dat[,colname]=NA #set optional columns to NA to bypass later error message
       #if (grepl(table_desc[table_desc[,"COLUMN_NAME"]==colname, "TYPE_NAME"], pattern = "VARCHAR")) #set missing values
         dat[,colname]="" #else 
@@ -160,12 +160,11 @@ writedb <- function(con, file, table, overwrite, verbose) {
   # remove unnecessary columns if available
   rm_cols <- which(!(colnames(dat) %in% cols))
   if (any(rm_cols))
-    dat <- dat[-rm_cols]
+    dat <- dat[,-rm_cols]
   
   # delete existing values in table values
   if (overwrite)
-    sqlQuery(con, paste0("delete from ", table))
-  
+    res <- sqlQuery(con, paste0("delete from ", table),errors = T) #ignore errors, because emptying empty tables in MSAccess causes errors
   # write values into table; in case of an error write a more meaningful error message
   tryCatch(
 {

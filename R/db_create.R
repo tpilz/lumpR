@@ -22,7 +22,7 @@
 #' for modelling applications with the WASA model.
 #'
 #' @param dbname Name of the data source (DSN) registered at ODBC. See \code{Details}.
-#' @param overwrite  \code{logical}. Overwrite any tables already existing in db. Default: FALSE. For TRUE, only overwrites tables not included in \emph{keep_tables}
+#' @param overwrite  \code{c(NULL,"drop","empty")}. Overwrite and re-create (\code{"drop"}) or empty  (\code{"empty"}) any tables already existing in db. Default: NULL. In any case, tables included in \emph{keep_tables} remain untouched.
 #' @param keep_tables Vector of type \code{character}. Preserves the specified tables, if existing. Overrides \emph{overwrite}. Default: NULL.
 #' @param db_ver \code{numeric}. If \code{Inf} (default) the database will be updated
 #' to the latest version calling \code{\link[lumpR]{db_update}} internally. Otherwise, the
@@ -49,7 +49,7 @@
 #'  Tobias Pilz \email{tpilz@@uni-potsdam.de}, Till Francke \email{francke@@uni-potsdam.de}
 #' 
 db_create <- function(
-  dbname, overwrite=FALSE, keep_tables=NULL, db_ver=Inf
+  dbname, overwrite=NULL, keep_tables=NULL, db_ver=Inf
 ) {
   
   if(db_ver < 19) {
@@ -74,7 +74,7 @@ db_create <- function(
   scriptparts <- strsplit(script, ";")[[1]]
   scriptparts <- scriptparts[-length(scriptparts)]
   
-  if (!overwrite) 
+  if (is.null(overwrite)) 
     keep_tables = sqlTables(con)$TABLE_NAME #keep all existing tables
   
   # loop over queries
@@ -98,27 +98,42 @@ db_create <- function(
     # adjust to specific SQL dialects
     statement <- sql_dialect(con, statement)
 
-    skip=FALSE
+    skip=TRUE
     if(is_create_statement & tablename %in% sqlTables(con)$TABLE_NAME) 
     {
-      if (overwrite & !(tablename %in% keep_tables)) #delete existing table
+      if (!is.null(overwrite) &  !(tablename %in% keep_tables)) #delete / empty existing table
       {
-        s2 = paste0("drop table ", tablename,";")
-        res <- sqlQuery(con, s2, errors=F)
-        if (res==-1){
-          res <- sqlQuery(con, s2, errors = T)
-          tryCatch(odbcClose(con), error=function(e){})
-          stop(paste0("Error in SQL query execution while deleting table\nerror-message: ", res[1]))
+        if (overwrite %in% c("drop","empty"))
+        {
+          if (overwrite=="drop")
+          {  
+            s2 = paste0("drop table ", tablename,";")
+            skip = FALSE
+          }  
+          if (overwrite=="empty")
+          {  
+            s2 = paste0("DELETE FROM ", tablename,";")
+            message(paste0("Found existing table ", tablename, ", emptying..."))
+            #browser()
+          }
+          res <- sqlQuery(con, s2, errors=F)
+          if (res==-1 & overwrite!="empty"){ #emptying an empty table throws an error in MS Access, so ignore it
+            res <- sqlQuery(con, s2, errors = T)
+            tryCatch(odbcClose(con), error=function(e){})
+            stop(paste0("Error in SQL query execution while deleting (from) table\nerror-message: ", res[1]))
+            }
         }  
-      } else
-        skip = TRUE
+      } 
     }  
-    if (!is_create_statement & (tablename %in% keep_tables)) #don't alter tables that ere to be kept
-     skip = TRUE
+
+    if (!is_create_statement & (tablename %in% keep_tables)) #don't alter tables that are to be kept
+      skip = TRUE
     
-    if (skip)
-      message(paste0("Found existing table ", tablename, ", preserved. Use overwrite=TRUE to clean it."))
+    
+    if (skip & !is.null(overwrite) & (overwrite!="empty"))    
+      message(paste0("Found existing table ", tablename, ", preserved. Use overwrite=... to drop or empty it."))
     else
+    if (!skip)
     {  
       # create table in database if it does not yet exist
       res <- sqlQuery(con, statement, errors=F)
