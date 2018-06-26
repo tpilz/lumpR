@@ -483,11 +483,11 @@ file.copy(paste(soil_path, "r_soil_contains_particles.dat", sep="/"), "r_soil_co
 # lumpR output and manually prepared information (e.g. soil parameters) to database
 ?db_fill
 db_fill(dbname=dbname,
-        tables = c("r_subbas_contains_lu", "subbasins",
+        tables = c("subbasins", "r_subbas_contains_lu", 
                    "landscape_units", "r_lu_contains_tc", "terrain_components", "r_tc_contains_svc",
                    "vegetation", "soils", "horizons", "soil_veg_components",
                    "particle_classes", "r_soil_contains_particles"),
-        dat_files=c("lu_stats.txt", "sub_stats.txt",
+        dat_files=c("sub_stats.txt", "lu_stats.txt", 
                     "lu_db.dat", "lucontainstc.dat", "terraincomponents.dat", "r_tc_contains_svc.dat",
                     "vegetation.dat", "soil.dat", "horizons.dat", "soil_vegetation_components.dat",
                     "particle_classes.dat", "r_soil_contains_particles.dat"), 
