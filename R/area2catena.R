@@ -242,28 +242,18 @@ area2catena <- function(
     n_supp_data_qual_classes <- NULL # initialise object containing number of classes per attribute
     if (!is.null(supp_qual)) 
       supp_qual=supp_qual[supp_qual!=""]
-  
+    
     if (!is.null(supp_qual)) 
     {  
       for (i in supp_qual) {
-        raster_name=i
-        if (!grepl(raster_name, pattern = "@")) #expand raster name because of bug in readRAST 
-        {  
-          raster_name = paste0(raster_name,"@", cur_mapset) #add mapset name, unless already given. Otherwise, strange errors may occur when the same raster exists in PERMANENT
-          name_expanded = TRUE #indicate that 
-        }  else name_expanded = FALSE
-        tmp <- readRAST(raster_name)
-        tmp <- raster(tmp)
-        if (name_expanded) #"de-expand" name, if expanded before
-          tmp@data@names = sub(x = tmp@data@names, pattern = paste0("\\.", cur_mapset), repl="")
-        
+        tmp <- read_raster(i)
         qual_rast <- raster::stack(tmp, qual_rast)
         supp_data_classnames[[i]] <- raster::unique(tmp)
         n_supp_data_qual_classes <- c(n_supp_data_qual_classes, length(raster::unique(tmp)))
       }
       
       # convert (at) symbol to point (in case input comes from another GRASS mapset; readRAST6() converts it to point implicitly which causes errors during later processing)
-      supp_qual <- gsub("@", ".", supp_qual)
+      supp_qual <- gsub("[-+*/@.?!]", ".", supp_qual)
       
       names(n_supp_data_qual_classes) <- supp_qual
       names(supp_data_classnames) <- supp_qual
@@ -272,22 +262,12 @@ area2catena <- function(
     # load quantitative supplemental data
     quant_rast <- NULL # initialise object containing all quantitative raster layers
     for (i in rev(supp_quant)) {
-      raster_name=i
-      if (!grepl(raster_name, pattern = "@")) #expand raster name because of bug in readRAST 
-      {  
-        raster_name = paste0(raster_name,"@", cur_mapset) #add mapset name, unless already given. Otherwise, strange errors may occur when the same raster exists in PERMANENT
-        name_expanded = TRUE #indicate that 
-      }  else name_expanded = FALSE
-      tmp <- readRAST(raster_name)
-      tmp <- raster(tmp)
-      if (name_expanded) #"de-expand" name, if expanded before
-        tmp@data@names = sub(x = tmp@data@names, pattern = paste0("\\.", cur_mapset), repl="")
-      
+      tmp <- read_raster(i)
       quant_rast <- raster::stack(tmp, quant_rast)
     }
     
     # convert (at) symbol to point (in case input comes from another GRASS mapset; readRAST6() converts it to point implicitly which causes errors during later processing)
-    supp_quant <- gsub("@", ".", supp_quant)
+    supp_quant <- gsub("[-+*/@.?!]", ".", supp_quant)
     
     if(exists("tmp"))
       rm(list=c("tmp"))
@@ -384,6 +364,9 @@ area2catena <- function(
     # check for severe errors
     if(any(logdata$error == 666))
       stop("Error: A problem occurred when averaging qualitative supplemental information. Check your data and contact the package author(s) if the problem remains.")
+    
+    if(any(logdata$error == 999))
+      stop("Error: An unexpected error occurred in the EHA processing loop. Check your data and contact the package author(s) if the problem remains.")
     
     
     
@@ -622,7 +605,8 @@ res = try( #catch unexpected errors
   supp_attrib_mean <- matrix(NA, nrow=length(supp_quant)+sum(n_supp_data_qual_classes), ncol=res+1) # init. matrix of mean supplemental information
   density <- array(NA, res+1) # initialise vector for density values
   entry_missing <- 0 # flag indicating that the value for the previous point in the mean catena could not be computed
-  out_combined <- NULL # combined output of one catena    
+  out_combined <- NULL # combined output of one catena 
+  
   # loop over data points of mean catena
   for (j in 0:res) {
     # point number in catena output
@@ -732,6 +716,6 @@ res = try( #catch unexpected errors
 if (class(res)=="try-error")  #unexpected error
 {  
   print(paste0("Unexpected error: ", attr(res, "condition")))
-  return(data.frame(output=t(c(curr_id, rep(NA, sum(n_supp_data_qual_classes) + length(supp_quant) + 4 - 1))), error=666))
+  return(data.frame(output=t(c(curr_id, rep(NA, sum(n_supp_data_qual_classes) + length(supp_quant) + 4 - 1))), error=999))
 }  
 } # EOF
