@@ -296,6 +296,8 @@ lump_grass_post <- function(
     stop("A name for needed flow accumulation raster map within the mapset of your initialised GRASS session has to be given!")
   if(is.null(lu))
     stop("A name for the landscape units raster map to be generated (recl_lu = NULL) or already within the mapset of your initialised GRASS session has to be given")
+  if(!is.null(recl_lu) && !file.exists(recl_lu))
+    stop(paste0("Could not find file '",recl_lu,"' (argument 'recl_lu')"))
   
   
   # suppress annoying GRASS outputs
@@ -430,7 +432,7 @@ lump_grass_post <- function(
          
         na_line=grepl(na_eval, pattern = "^1 .*\\%$")
         
-        if (!na_line) break #no empty patches found  
+        if (!any(na_line)) break #no empty patches found  
         
         na_res <- strsplit(x=na_eval[na_line], split=" +")  
         if(!silent) message(paste0("% -> ", tail(unlist(na_res),1), " NAs in LU-map '", lu,"'"))
