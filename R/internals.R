@@ -20,6 +20,8 @@ read_raster <- function(raster_name) {
   #read raster from GRASS-location
   #if raster exist bith in local mapset and PERMANENT, force the reading of the local version, otherwise readRAST fails
   cur_mapset = execGRASS("g.mapset", flags="p", intern=TRUE) #determine name of current mapset
+  # mapset name in R (meta symbols replaced by ".")
+  cur_mapset_r = gsub("[-+*/@.?!]", ".", cur_mapset)
   if (!grepl(raster_name, pattern = "@")) #expand raster name because of bug in readRAST 
   {  
     raster_name = paste0(raster_name,"@", cur_mapset) #add mapset name, unless already given. Otherwise, strange errors may occur when the same raster exists in PERMANENT
@@ -28,6 +30,6 @@ read_raster <- function(raster_name) {
   tmp <- readRAST(raster_name)
   tmp <- raster(tmp)
   if (name_expanded) #"de-expand" name, if expanded before
-    tmp@data@names = sub(x = tmp@data@names, pattern = paste0("\\.", cur_mapset), repl="")
+    tmp@data@names = sub(x = tmp@data@names, pattern = paste0("\\.", cur_mapset_r), repl="")
   return(tmp)
 }
