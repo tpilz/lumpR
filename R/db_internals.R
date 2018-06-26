@@ -182,7 +182,10 @@ write_datetabs <- function(con, dat, tab, verbose) {
     # apply statement
     res <- sqlQuery(con, statement, errors=F)
     if (res==-1)
-      stop(paste0("Error in SQL query execution while writing into table '",tab,"'."))
+    {  
+      res <- sqlQuery(con, statement, errors=T)
+      stop(paste0("Error in SQL query execution while writing into table '",tab,"': ", res))
+    }  
   }
   
   if(verbose) message(paste0("% -> Updated table '",tab,"'."))

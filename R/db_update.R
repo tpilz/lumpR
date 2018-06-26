@@ -220,7 +220,7 @@ db_update <- function(
     for(i in seq(along=scriptparts)){
       
       statement <- scriptparts[i]
-      
+      if (!any(grepl(x = scriptparts[i], pattern = "[^ \t]"))) next #skip empty lines
       # adjust to specific SQL dialects
       statement <- sql_dialect(con, statement)
       
@@ -275,7 +275,7 @@ db_update <- function(
                          affected_tables="See lumpRs source database/update_db_v*.sql.",
                          affected_columns="See lumpRs source database/update_db_v*.sql.",
                          remarks=paste0("Database updated from version ", db_ver_init, " to version ", db_ver, "."))
-  write_datetabs(con, meta_out, tab="meta_info", verbose=F)
+  write_datetabs(con, dat = meta_out, tab="meta_info", verbose=F)
   
   # close connection
   tryCatch(odbcClose(con), error=function(e){})
