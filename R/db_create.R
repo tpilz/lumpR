@@ -161,11 +161,12 @@ db_create <- function(
   write_datetabs(con, meta_out, tab="meta_info", verbose=F)
   
   # update database if desired
+  # close connection
+  tryCatch(odbcClose(con), error=function(e){})
+  
   if (db_ver > 19)
     db_update(dbname, db_ver)
   
-  # close connection
-  tryCatch(odbcClose(con), error=function(e){})
   
   
 } # EOF

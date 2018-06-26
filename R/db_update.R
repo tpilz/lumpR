@@ -73,20 +73,34 @@ db_update <- function(
   db_ver_init <- db_ver
   
   if (checkOnly)
+  {  
+    tryCatch(odbcClose(con), error=function(e){})
     return(db_ver)
-  
+  }
+    
   if(to_ver > db_ver_max)
+  {  
+    tryCatch(odbcClose(con), error=function(e){})  
     stop(paste0("Requested update (", to_ver, ") is greater than newest available database version (", db_ver_max, ")!"))
+  }
   
   if(db_ver == db_ver_max)
+  {  
+    tryCatch(odbcClose(con), error=function(e){})
     return(message(paste0("Database is up-to-date (version ", db_ver_max, "). Nothing to do.")))
+  }
   
   if(db_ver > to_ver)
+  {  
+    tryCatch(odbcClose(con), error=function(e){})
     stop(paste0("Database (", db_ver, ") is newer than the requested update (", to_ver, "). Nothing to do."))
+  }
   
   if(db_ver < 18)
+  {  
+    tryCatch(odbcClose(con), error=function(e){})
     stop("Database needs to be at least version 18 for updating. Do manual updates first (see db_version.txt in lumpR's source directory 'example/make_wasa_input/').")
-  
+  }
   
   if(db_ver == 18) #ver 18 -> 19
   {  
