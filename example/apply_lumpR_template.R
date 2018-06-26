@@ -119,6 +119,7 @@ river <- NULL
 veg_path <- ""
 
 # path to prepared soil parameter tables 'horizons.dat, 'particle_classes.dat', 'r_soil_contains_particles.dat', and 'soil.dat' in WASA format - MANDATORY
+# can be generated with package SoilDataPrep (https://github.com/SophiaUP/SoilDataPrep)
 soil_path <- ""
 
 

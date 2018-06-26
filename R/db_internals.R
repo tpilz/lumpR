@@ -132,9 +132,30 @@ writedb <- function(con, file, table, overwrite, verbose) {
   dat <- read.table(file, header=T, sep="\t")
   
   # check structure
-  cols <- sqlColumns(con, table)$COLUMN_NAME
-  if (any(!(cols %in% colnames(dat)))) 
-    stop(paste0("File '", file, "' does not contain the required columns (", paste(cols, collapse=", "), ")."))
+  table_desc = sqlColumns(con, table) #get table description
+  cols <- table_desc$COLUMN_NAME
+  
+  missing_cols = setdiff(cols, colnames(dat))
+  
+  for(colname in missing_cols)
+  {
+    if (grepl(colname, pattern = "^a_") |
+        (table=="soils" & colname %in% c("description", "Phil_s", "Phil_a", "Hort_ini", "Hort_end", "Hort_k")) |
+        (table=="horizons" & colname %in% c("shrinks", "description", "soil_dens"))
+        
+          )
+    {
+      browser()
+      #dat[,colname]=NA #set optional columns to NA to bypass later error message
+      #if (grepl(table_desc[table_desc[,"COLUMN_NAME"]==colname, "TYPE_NAME"], pattern = "VARCHAR")) #set missing values
+        dat[,colname]="" #else 
+        #dat[,colname]=NA
+      missing_cols = missing_cols[missing_cols!=colname] #remove frfom list of missing columns
+    }
+  }  
+    
+  if (length(missing_cols)>0) 
+    stop(paste0("File '", file, "' does not contain some required columns (", paste(missing_cols, collapse=", "), ")."))
   
   # remove unnecessary columns if available
   rm_cols <- which(!(colnames(dat) %in% cols))
@@ -151,8 +172,8 @@ writedb <- function(con, file, table, overwrite, verbose) {
   sqlSave(channel=con, tablename = table, dat=dat, verbose=F, 
           append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
 }, error = function(e) {
-  stop(paste0("An error occured when writing into table '", table, "'. ",
-              "All values written until error occurence will be kept in the database! ",
+  stop(paste0("An error occurred when writing into table '", table, "'. ",
+              "All values written until error occurrence will be kept in the database! ",
               "There might be a problem with the input data structure (e.g. gaps), ",
               "duplicate entries or entries that already exist in the database table. ",
               "Error message of the writing function: ", e))
