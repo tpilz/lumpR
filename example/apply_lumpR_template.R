@@ -548,7 +548,6 @@ db_check(dbname,
 
 db_check(dbname,
          check=c("completeness"),
-         fix=T,
          verbose=T)
 
 db_check(dbname,
