@@ -145,12 +145,10 @@ writedb <- function(con, file, table, overwrite, verbose) {
         
           )
     {
-      #browser()
-      #dat[,colname]=NA #this does not work with MS Access
       if (grepl(table_desc[table_desc[,"COLUMN_NAME"]==colname, "TYPE_NAME"], pattern = "VARCHAR")) #set missing values
-        dat[,colname]="" else 
-        dat[,colname]=0
-      missing_cols = missing_cols[missing_cols!=colname] #remove from list of missing columns
+        dat[,colname]=as.character(NA) else 
+        dat[,colname]=as.numeric(NA)
+        missing_cols = missing_cols[missing_cols!=colname] #remove from list of missing columns
     }
   }  
     
