@@ -562,7 +562,8 @@ db_wasa_input(dbname = dbname,
               files=c("info.dat", "River/routing.dat", "River/response.dat", "Hillslope/hymo.dat",
                       "Hillslope/soter.dat", "Hillslope/terrain.dat", "Hillslope/soil_vegetation.dat",
                       "Hillslope/soil.dat", "Hillslope/vegetation.dat", "Hillslope/svc_in_tc.dat",
-                      "do.dat", "maxdim.dat", "part_class.dat", "Hillslope/soil_particles.dat", "Hillslope/svc.dat"),
+                      "do.dat", "maxdim.dat", "part_class.dat", "Hillslope/soil_particles.dat", 
+                      "Hillslope/rainy_season.dat", "Hillslope/x_seasons.dat", "Hillslope/svc.dat"),
               overwrite = overwrite, verbose=T)
       
 # adjust model input data to your needs ...
