@@ -851,14 +851,16 @@ db_check <- function(
           dat_nex <- dat_all[[nex_table]][[table_chain$key2prev[i+1]]]
           dat_nex <- dat_nex[which(dat_nex != -1)]
           
+          dat_cur = unique(dat_cur) #simplify further treatment, no need to consider duplicates
+          dat_nex = unique(dat_nex)
           if(length(dat_cur) > 0 & length(dat_nex) > 0) {
             # identify excessive datasets
-            dat_excess <- list(cur=which(!(dat_cur %in% dat_nex)),
-                               nex=which(!(dat_nex %in% dat_cur)))
+            dat_excess <- list(cur=setdiff(dat_cur, dat_nex),
+                               nex=setdiff(dat_nex, dat_cur) )
             
             if(any(sapply(dat_excess, any))) {
-              if(any(dat_excess$cur)) message(paste0("% -> WARNING: Table '", cur_table, "' contains ", length(dat_excess$cur), " dataset(s) not referenced in '", nex_table, "'"))
-              if(any(dat_excess$nex)) message(paste0("% -> WARNING: Table '", nex_table, "' contains ", length(dat_excess$nex), " dataset(s) not referenced in '", cur_table, "'"))
+              if(any(dat_excess$cur)) message(paste0("% -> WARNING: Table '", cur_table, "' contains ", length(dat_excess$cur), " dataset(s) not referenced in '", nex_table, "': ", paste(dat_excess$cur[1:min(10, length(dat_excess$cur))], collapse=", ")))
+              if(any(dat_excess$nex)) message(paste0("% -> WARNING: Table '", nex_table, "' contains ", length(dat_excess$nex), " dataset(s) not referenced in '", cur_table, "': ", paste(dat_excess$nex[1:min(10, length(dat_excess$nex))], collapse=", ")))
             } else if(verbose)
               message(paste0("% -> All datasets of '", cur_table,"' appear in referenced '", nex_table, "' and vice versa"))
           } else if(verbose)
