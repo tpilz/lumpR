@@ -159,6 +159,14 @@
 #'  
 #'  Database will only be touched (if \code{fix = TRUE}) after all checks are completed successfully.
 #'  If the function stops with an error during checks, the database will be left unchanged.
+#'
+#' @examples  
+#' \dontrun{
+#' db_check(dbname,
+#' check=c("subbasin_order"),
+#' fix=TRUE,
+#' verbose=T, option=list(overwrite=FALSE))
+#' }
 #'  
 #' @references 
 #'      lumpR package introduction with literature study and sensitivity analysis:\cr

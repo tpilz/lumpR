@@ -156,6 +156,16 @@ In case the default value of option \emph{'update_frac_impervious'} shall NOT be
  Database will only be touched (if \code{fix = TRUE}) after all checks are completed successfully.
  If the function stops with an error during checks, the database will be left unchanged.
 }
+\examples{
+ 
+\dontrun{
+db_check(dbname,
+check=c("subbasin_order"),
+fix=TRUE,
+verbose=T, option=list(overwrite=FALSE))
+}
+ 
+}
 \references{
 lumpR package introduction with literature study and sensitivity analysis:\cr
      Pilz, T.; Francke, T.; Bronstert, A. (2017): lumpR 2.0.0: an R package facilitating
