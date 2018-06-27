@@ -421,7 +421,8 @@ modify_db <- function(con, dat_tbl) {
     horizons="pid",
     particle_classes="class_id",
     r_soil_contains_particles=c("soil_id", "class_id"),
-    rainy_season="pid"
+    rainy_season="pid",
+    x_seasons="pid"
   )
   
   # check if table has been modified, otherwise return an flag (-1)

@@ -2,7 +2,7 @@
 % Please edit documentation in R/db_check.R
 \name{db_check}
 \alias{db_check}
-\title{Check parameter database for consistency}
+\title{Check and modify parameter database for consistency}
 \usage{
 db_check(dbname, check = c("check_fix_fractions", "filter_small_areas",
   "tc_slope", "special_areas", "remove_water_svc", "compute_rocky_frac",
@@ -12,7 +12,7 @@ db_check(dbname, check = c("check_fix_fractions", "filter_small_areas",
   tbls_preserve = NULL), fix = F, verbose = TRUE)
 }
 \arguments{
-\item{dbname}{Name of the data source (DSN) registered at ODBC.}
+\item{dbname}{Name of the data source (DSN) registered as ODBC-source.}
 
 \item{check}{Character vector specifying what shall be checked. See \code{Details}.}
 
@@ -20,11 +20,12 @@ db_check(dbname, check = c("check_fix_fractions", "filter_small_areas",
 for the different options and their meaning.}
 
 \item{fix}{\code{logical}. If \code{FALSE} (the \code{default}) a report of the
-selected checks will be created. The database will not be touched. If \code{TRUE}
-canges to the database according to the selected checks will be made.}
+selected checks will be created. The database will not be modified. If \code{TRUE},
+changes to the database according to the selected checks will be made.
+WARNING: \code{fix = TRUE} may irrevocably modify your database. If in doubt, make a backup before.}
 
 \item{verbose}{\code{logical}. Should detailed information during execution be
-printed? When \code{TRUE} (the \code{default}) output of writing updated values
+printed? When \code{TRUE} (the \code{default}), output of writing updated values
 into database can be rather long so you might want to direct output into an
 external log file. Always set to \code{TRUE} if \code{fix = FALSE}.}
 }
@@ -33,9 +34,9 @@ Function includes several options to check and correct the parameter database fo
 and consistency.
 }
 \details{
-The following checks are currently included and can be specified via argument \code{checks}.
- Execute checks in pre-defined order as some checks build upon each other and
- lead to erroneous results when interchanged. However, some checks might be
+The following checks / modifications are currently included and can be specified via argument \code{checks}.
+ Execute checks in pre-defined order as some steps build upon each other and
+ lead to erroneous results when interchanged. However, some steps might be
  unnecessary for your purpose and can be left out.
  
  \bold{check_fix_fractions}\cr
@@ -69,8 +70,10 @@ The following checks are currently included and can be specified via argument \c
  threshold = 0.01 and slope = 0.1 \%.
  
  \bold{special_areas}\cr
+ (This check is unnecessary if you specified \code{watermask}) and \code{imperviousmask} in the workflow before)
  Define certain Soil-Vegetation Components as special areas via column 'special_area'
- in table 'soil_veg_components' inferred from table 'vegetation' and/or 'soils'. 
+ in table 'soil_veg_components' inferred from table 'vegetation' and/or 'soils'. This columns is 
+ necessary for \bold{remove_water_svc} and \bold{compute_rocky_frac} to work.
  Currently values '0' for an ordinary SVC, '1' for water areas, and '2' for
  impervious surfaces are supported.\cr
  \emph{Option: 'special_area'}\cr
@@ -109,17 +112,18 @@ The following checks are currently included and can be specified via argument \c
  in table 'soil_veg_components' column 'special_area' is equal to 2.\cr
  \emph{Option: 'update_frac_impervious'}\cr
  Value of type \code{logical}:\cr
- F (default): Areal fractions will not be updated. I.e., the sum of 'fraction' for a specific
+ FALSE (default): Areal fractions will not be updated. I.e., the sum of 'fraction' for a specific
  'tc_id' plus 'frac_rocky' of table 'terrain_components' of that specific TC (calculated by
  check 'compute_rocky_frac') sums up to unity. This is a requirement of the WASA-SED model.\cr
- T: Areal fractions will be updated such that 'fraction' for a specific 'tc_id' sums to unity.
+ TRUE: Areal fractions will be updated such that 'fraction' for a specific 'tc_id' sums to unity.
  
  \bold{proxy_frgw_delay}\cr
  Estimate storage coefficient for groundwater delay ('frgw_delay') in \emph{days}
  for each LU based on a proxy and manually specified total mean groundwater delay
  in \emph{days}. The proxy is estimated from average slope length, slope and rocky
- fraction according to empirical formula: \code{proxy = slopelength * (1 - frac_rocky)
- / slope}. And finally: \code{frgw_delay = proxy * total_mean_delay / mean(proxy)}.
+ fraction according to empirical formulas:\cr
+  \code{proxy = slopelength * (1 - frac_rocky) / slope}. and \cr
+  \code{frgw_delay = proxy * total_mean_delay / mean(proxy)}.
  Existing values of 'frgw_delay' will be overwritten.\cr
  \emph{Option: 'total_mean_delay'}\cr
  Total mean groundwater delay in \emph{days} estimated a priori for the whole
