@@ -217,7 +217,7 @@ calc_subbas <- function(
       # GRASS watershed calculation #
       # flags to use for r.watershed
       if(disk_swap) {
-        ws_flags <- c("overwrite","w", "s")
+        ws_flags <- c("overwrite","m", "s")
       } else {
         ws_flags <- c("overwrite", "s")
       }
