@@ -1,5 +1,5 @@
 # lumpR/reservoir_strategic.R (built upon former LUMP/wasa_reservoir_par.R)
-# Copyright (C) 2015-2017 Tobias Pilz
+# Copyright (C) 2015-2018 Tobias Pilz
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -147,7 +147,12 @@ reservoir_strategic <- function(
   silent=F
 ) {
   
-### PREPROCESSING ###
+### PREPROCESSING ###----------------------------------------------------------
+  
+  if(!silent) message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+  if(!silent) message("% START reservoir_strategic()")
+  if(!silent) message("%")
+  if(!silent) message("% Initialise function...")
   
   # CHECKS #
   
@@ -175,13 +180,11 @@ reservoir_strategic <- function(
   
   
   
-### CALCULATIONS ###
+### CALCULATIONS ###-----------------------------------------------------------
   tryCatch({
     
-    message("\nInitialise function...\n")
-    
     # remove mask if there is any
-    x <- suppressWarnings(execGRASS("r.mask", flags=c("r"), intern=T))
+    tryCatch(suppressWarnings(execGRASS("r.mask", flags=c("r"))), error=function(e){})
     
     # create output dir
     dir.create(dir_out, recursive=T, showWarnings=F)
@@ -191,7 +194,7 @@ reservoir_strategic <- function(
       stop(paste0("Output file ", reservoir_file, " already exists in ", dir_out, "!"))
     
     # get reservoir data
-    res <- readVECT6(res_vect)
+    res <- readVECT(res_vect)
     
     # make sure column names are in in lowercase only
     colnames(res@data) <- tolower(colnames(res@data))
@@ -205,12 +208,14 @@ reservoir_strategic <- function(
       stop(paste0("Check attribute table of 'res_vect', column(s) ", paste(cols_mandatory[!chk_cols], collapse=", "), " could not be found!"))
     
     # get subbasin values
-    sub_rast <- raster(readRAST6(subbasin))
+    sub_rast <- raster(readRAST(subbasin))
     
     
-
     
-    message("\nAssignment of reservoirs to subbasins...\n")
+    
+    if(!silent) message("% OK")
+    if(!silent) message("%")
+    if(!silent) message("% Assignment of reservoirs to subbasins...")
 
     # get subbasin no for each outlet point
     res_sub_all <- extract(sub_rast, res, df=T)
@@ -229,7 +234,9 @@ reservoir_strategic <- function(
     
     
     
-    message("\nPrepare and write output...\n")
+    if(!silent) message("% OK")
+    if(!silent) message("%")
+    if(!silent) message("% Prepare and write output...")
     # sort data for writing output
     res_dat_sort <- data.frame(res_dat_all$sub_id_new,
                       res_dat_all$minlevel,
@@ -266,7 +273,10 @@ reservoir_strategic <- function(
     
     
     
-    message("\nFinished.\n")
+    if(!silent) message("% OK")
+    if(!silent) message("%")
+    if(!silent) message("% DONE!")
+    if(!silent) message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
     
     
     # stop sinking
