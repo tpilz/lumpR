@@ -1,5 +1,5 @@
 # lumpR/reservoir_lumped.R
-# Copyright (C) 2016-2017 Tobias Pilz
+# Copyright (C) 2016-2018 Tobias Pilz
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -165,7 +165,12 @@ reservoir_lumped <- function(
   silent=F
 ) {
   
-### PREPROCESSING ###
+### PREPROCESSING ###----------------------------------------------------------
+  
+  if(!silent) message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+  if(!silent) message("% START reservoir_lumped()")
+  if(!silent) message("%")
+  if(!silent) message("% Initialise function...")
   
   # CHECKS #
   
@@ -228,14 +233,11 @@ reservoir_lumped <- function(
   
   
   
-### CALCULATIONS ###
+### CALCULATIONS ###-----------------------------------------------------------
   tryCatch({
     
-    
-    message("\nInitialise function...\n")
-    
-    # remove mask if there is any
-    x <- suppressWarnings(execGRASS("r.mask", flags=c("r"), intern=T))
+    # remove mask if there is any (and ignore error in case there is no mask)
+    tryCatch(suppressWarnings(execGRASS("r.mask", flags=c("r"))), error=function(e){})
     
     # create output dir
     dir.create(dir_out, recursive=T, showWarnings=F)
@@ -248,22 +250,25 @@ reservoir_lumped <- function(
     
     # remove output of previous function calls if overwrite=T
     if (overwrite) {
-      execGRASS("g.mremove", rast=paste0("*_t"), vect=paste0("*_t,", res_vect_class), flags=c("f", "b"))
+      cmd_out <- execGRASS("g.remove", type="raster,vector", pattern=paste0("*_t,", res_vect_class), flags=c("f", "b"), intern=T)
     } else {
       # remove temporary maps in any case
-      execGRASS("g.mremove", rast="*_t", vect="*_t", flags=c("f", "b"))
+      cmd_out <- execGRASS("g.remove", type="raster,vector", pattern="*_t", flags=c("f", "b"), intern=T)
     }
+    
+    if(!silent) message("% OK")
     
       
     
-    # GROUP RESERVOIRS INTO SIZE CLASSES #
-    message("\nReservoir calculations...\n")
+    # GROUP RESERVOIRS INTO SIZE CLASSES #-------------------------------------
+    if(!silent) message("%")
+    if(!silent) message("% Reservoir calculations...")
     
     # calculate parameter vol_max if not given
     if(is.null(res_param$vol_max)) {
       if(is.null(res_param$area_max)) {
         # area_max is also not given, i.e. calculate vol_max based on quantiles of sizes given in GRASS data
-        res_lump <- readVECT6(res_vect)
+        res_lump <- readVECT(res_vect)
         # WINDOWS PROBLEM: delete temporary file otherwise an error occurs when calling writeVECT or readVECT again with the same (or a similar) file name 
         if(.Platform$OS.type == "windows") {
           dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
@@ -292,11 +297,11 @@ reservoir_lumped <- function(
     }
     
     # read subbasin and reservoir data
-    sub_dat <- suppressWarnings(readRAST6(sub_rast))
+    sub_dat <- suppressWarnings(readRAST(sub_rast))
     subbas_all <- na.omit(unique(sub_dat@data))
     projection(sub_dat) <- getLocationProj()
     if(!exists("res_lump")) {
-      res_lump <- suppressWarnings(readVECT6(res_vect))
+      res_lump <- suppressWarnings(readVECT(res_vect))
       # WINDOWS PROBLEM: delete temporary file otherwise an error occurs when calling writeVECT or readVECT again with the same (or a similar) file name 
       if(.Platform$OS.type == "windows") {
         dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
@@ -339,13 +344,17 @@ reservoir_lumped <- function(
     lake_number <- rbind(lake_number, sub_miss)
     lake_number <- lake_number[order(as.numeric(rownames(lake_number))),]
  
+    if(!silent) message("% OK")
     
-    # CREATE OUTPUT FILES #
-    message("\nCreate output files...\n")
+    
+    
+    # CREATE OUTPUT FILES #----------------------------------------------------
+    if(!silent) message("%")
+    if(!silent) message("% Create output files...")
     
     # res_vect_class
     if(!is.null(res_vect_class)) {
-      writeVECT6(res_lump[-r_nares,], res_vect_class)
+      writeVECT(res_lump[-r_nares,], res_vect_class)
       # WINDOWS PROBLEM: delete temporary file otherwise an error occurs when calling writeVECT or readVECT again with the same (or a similar) file name 
       if(.Platform$OS.type == "windows") {
         dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
@@ -376,12 +385,13 @@ reservoir_lumped <- function(
     
     # remove temporary maps
     if(keep_temp == FALSE)
-      execGRASS("g.mremove", rast="*_t", flags=c("f"))
+      execGRASS("g.remove", type="raster,vector", pattern="*_t", flags=c("f"))
     
     
-    
-    message("\nFinished.\n")
-    
+    if(!silent) message("% OK")
+    if(!silent) message("%")
+    if(!silent) message("% DONE!")
+    if(!silent) message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
     
     # stop sinking
     closeAllConnections()
@@ -404,10 +414,11 @@ reservoir_lumped <- function(
     if(silent)
       options(warn = oldw)
     
-    execGRASS("r.mask", flags=c("r"))
+    # remove mask if there is any (and ignore error in case there is no mask)
+    cmd_out <-tryCatch(suppressWarnings(execGRASS("r.mask", flags=c("r"), intern = T)), error=function(e){})
     
     if(keep_temp == FALSE)
-        execGRASS("g.mremove", rast=paste0("*_t"), vect=paste0(res_vect_class), flags=c("f", "b"))
+      cmd_out <- execGRASS("g.remove", type="raster,vector", pattern=paste0("*_t,", res_vect_class), flags=c("f", "b"), intern = T)
     
     stop(paste(e))  
   })
