@@ -87,10 +87,11 @@ reservoir_outlet <- function(
     
     # remove output of previous function calls if overwrite=T
     if (overwrite) {
-      x <- execGRASS("g.mremove", rast=paste0("*_t,",flowacc), vect=paste0("*_t,", outlets_vect), flags=c("f", "b"), intern=T)
+      cmd_out <- execGRASS("g.remove", type="raster", pattern=paste("*_t", flowacc, sep=","), flags=c("f", "b"), intern=T)
+      cmd_out <- execGRASS("g.remove", type="vector", pattern=paste("*_t", outlets_vect, sep=","), flags=c("f", "b"), intern=T)
     } else {
       # remove temporary maps in any case
-      x <- execGRASS("g.mremove", rast="*_t", vect="*_t", flags=c("f", "b"), intern=T)
+      cmd_out <- execGRASS("g.remove", type="raster", pattern="*_t", flags=c("f", "b"), intern=T)
     }
     
     
