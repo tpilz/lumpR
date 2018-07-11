@@ -331,19 +331,19 @@ calc_subbas <- function(
     # snap points to streams
     drain_points_snap <- suppressWarnings(snapPointsToLines(drain_points, streams_vect, maxDist=snap_dist))
     drain_points_snap$nearest_line_id=NULL #we don't need this and this long filed name causes trouble
-    
-    if (length(drain_points_snap) < length(drain_points)) stop("Less points after snapping than in drain_points input!\nComputed stream segments are probably are too coarse. Try a smaller value of thresh_stream to create a fine river network.")
-    
+       
     # export drain_points_snap to GRASS
     suppressWarnings(writeVECT(drain_points_snap, paste0(points_processed, "_snap"), v.in.ogr_flags = "o"))
-    # WINDOWS PROBLEM: delete temporary file otherwise an error occurs when calling writeVECT or readVECT again with the same (or a similar) file name 
+    # WINDOWS PROBLEM: delete temporary file otherwise an error occurs when calling writeVECT or readVECT again with the same (or a similar) file name
     if(.Platform$OS.type == "windows") {
       dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
       files_del <- grep(substr(paste0(points_processed, "_snap"), 1, 8), dir(dir_del), value = T)
       file.remove(paste(dir_del, files_del, sep="/"))
     }
     
-    if(!silent) message("% OK")
+    if (length(drain_points_snap) < length(drain_points)) stop("Less points after snapping than in drain_points input!\nComputed stream segments are probably too coarse. Try a smaller value of thresh_stream to create a fine river network.")
+    
+    if(!silent) message("% OK") 
     
     
   ### calculate catchments for every drainage point----------------------------
