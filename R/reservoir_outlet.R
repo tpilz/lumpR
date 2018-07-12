@@ -136,8 +136,13 @@ reservoir_outlet <- function(
     } else
     check_raster(flowacc,"flowacc")
     
-    # make sure flowacc is integer
-    x <- execGRASS("r.mapcalc", expression=paste0("accum_t = round(", flowacc, ")"), flags=c("overwrite"), intern=T)
+    # check if flowacc is integer
+    cmd_out <- execGRASS("r.info", map=flowacc, flags="g", intern=T)
+    type_line=which(grepl(cmd_out, pattern = "datatype=")) #search for line holding data type
+    data_type=strsplit(cmd_out[type_line], split = "=")[[1]][2]
+    if (data_type=="CELL") #if flowaccum is already integer, use it. Otherwise, create interger variant
+      x <- execGRASS("g.copy", raster=paste0(flowacc,",accum_t"), flags=c("overwrite"), intern=T) else
+      x <- execGRASS("r.mapcalc", expression=paste0("accum_t = round(", flowacc, ")"), flags=c("overwrite"), intern=T)
     
     # convert reservoir vector to raster
     x <- execGRASS("v.to.rast", input=res_vct, output="res_rast_t", use="cat", intern=T)
@@ -200,7 +205,7 @@ reservoir_outlet <- function(
     if(.Platform$OS.type == "windows") {
       dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
       files_del <- grep(substr(res_vct, 1, 8), dir(dir_del), value = T)
-      file.remove(paste(dir_del, files_del, sep="/"))
+      file.remove(paste(dir_del, files_del, sep="/"), showWarnings=FALSE)
     }
     
     # assign reservoir table to outlet locations table
