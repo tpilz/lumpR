@@ -242,14 +242,14 @@ lump_grass_prep <- function(
   # remove output of previous function calls if overwrite=T (remove only relevant maps according to things2do)
   if (overwrite) {
     if("eha" %in% things2do)
-      cmd_out <- execGRASS("g.remove", type="raster", pattern=paste("*_t,*_t1,*_t2", eha, flowdir, flowacc, stream, sep=","), flags=c("f", "b"), intern=T)
+      cmd_out <- execGRASS("g.remove", type="raster", pattern=paste("*_t,*_t1,*_t2,*_t3", eha, flowdir, flowacc, stream, sep=","), flags=c("f", "b"), intern=T)
     if("river" %in% things2do)
-      cmd_out <- execGRASS("g.remove", type="raster", pattern=paste("*_t,*_t1,*_t2", stream_horton, elevriv, distriv, sep=","), flags=c("f", "b"), intern=T)
+      cmd_out <- execGRASS("g.remove", type="raster", pattern=paste("*_t,*_t1,*_t2,*_t3", stream_horton, elevriv, distriv, sep=","), flags=c("f", "b"), intern=T)
     if("svc" %in% things2do)
-      cmd_out <- execGRASS("g.remove", type="raster", pattern=paste("*_t,*_t1,*_t2", svc, sep=","), flags=c("f", "b"), intern=T)
+      cmd_out <- execGRASS("g.remove", type="raster", pattern=paste("*_t,*_t1,*_t2,*_t3", svc, sep=","), flags=c("f", "b"), intern=T)
   } else {
     # remove temporary maps in any case
-    cmd_out <- execGRASS("g.remove", type="raster", pattern="*_t,*_t1,*_t2", flags=c("f", "b"), intern=T)
+    cmd_out <- execGRASS("g.remove", type="raster", pattern="*_t,*_t1,*_t2,*_t3", flags=c("f", "b"), intern=T)
   }
   
   
@@ -307,7 +307,7 @@ lump_grass_prep <- function(
       cmd_out <-tryCatch(suppressWarnings(execGRASS("r.mask", flags=c("r"), intern = T)), error=function(e){})
       
       if(keep_temp == FALSE)
-        cmd_out <- execGRASS("g.remove", type="raster", pattern=paste("*_t,*_t1,*_t2", eha, flowdir, flowacc, stream, sep=","), flags=c("f", "b"), intern=T)
+        cmd_out <- execGRASS("g.remove", type="raster", pattern=paste("*_t,*_t1,*_t2,*_t3", eha, flowdir, flowacc, stream, sep=","), flags=c("f", "b"), intern=T)
       
       stop(paste(e))  
     })
@@ -364,7 +364,7 @@ lump_grass_prep <- function(
       cmd_out <-tryCatch(suppressWarnings(execGRASS("r.mask", flags=c("r"), intern = T)), error=function(e){})
       
       if(keep_temp == FALSE)
-        cmd_out <- execGRASS("g.remove", type="raster", pattern=paste("*_t,*_t1,*_t2", stream_horton, elevriv, distriv, sep=","), flags=c("f", "b"), intern=T)
+        cmd_out <- execGRASS("g.remove", type="raster", pattern=paste("*_t,*_t1,*_t2,*_t3", stream_horton, elevriv, distriv, sep=","), flags=c("f", "b"), intern=T)
       
       stop(paste(e)) 
     })
@@ -535,7 +535,7 @@ lump_grass_prep <- function(
       cmd_out <-tryCatch(suppressWarnings(execGRASS("r.mask", flags=c("r"), intern = T)), error=function(e){})
       
       if(keep_temp == FALSE)
-        cmd_out <- execGRASS("g.remove", type="raster", pattern=paste("*_t,*_t1,*_t2", svc, sep=","), flags=c("f", "b"), intern = T)
+        cmd_out <- execGRASS("g.remove", type="raster", pattern=paste("*_t,*_t1,*_t2,*_t3", svc, sep=","), flags=c("f", "b"), intern = T)
       
       stop(paste(e))  
     })
@@ -544,7 +544,7 @@ lump_grass_prep <- function(
   
   # remove temp files (e.g. "un-labelled" rasters)
   if(keep_temp == FALSE)
-    cmd_out <- execGRASS("g.remove", type="raster", pattern=paste("*_t,*_t1,*_t2", sep=","), flags=c("f", "b"), intern = T)
+    cmd_out <- execGRASS("g.remove", type="raster", pattern=paste("*_t,*_t1,*_t2,*_t3", sep=","), flags=c("f", "b"), intern = T)
   
   if(!silent) message("%")
   if(!silent) message("% DONE!")
