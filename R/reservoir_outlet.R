@@ -88,6 +88,7 @@ reservoir_outlet <- function(
     stop("Couldn't connect to GRASS-session. Try removing any open sinks by calling 'sink()' repeatedly. Or restart R.")
   
   check_raster(dem,"dem")
+  check_vector(res_vct, "res_vct")
   
   # suppress annoying GRASS outputs 
   tmp_file <- file(tempfile(), open="wt")

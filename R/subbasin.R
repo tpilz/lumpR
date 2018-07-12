@@ -321,7 +321,7 @@ calc_subbas <- function(
     rm(drain_points_shifted, drain_points_centered)
     
     # read stream vector
-    check_vector(river)
+    check_vector(river, "river")
     streams_vect <- readVECT(river)
     # WINDOWS PROBLEM: delete temporary file otherwise an error occurs when calling writeVECT or readVECT again with the same (or a similar) file name 
     if(.Platform$OS.type == "windows") {
