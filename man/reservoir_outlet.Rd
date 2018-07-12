@@ -5,7 +5,7 @@
 \title{Determine outlet coordinates of reservoirs}
 \usage{
 reservoir_outlet(flowacc = NULL, dem = NULL, res_vct = NULL,
-  outlets_vect = NULL, keep_temp = FALSE, overwrite = FALSE)
+  outlets_vect = NULL, keep_temp = FALSE, overwrite = FALSE, silent = F)
 }
 \arguments{
 \item{flowacc}{Flow accumulation raster in GRASS location used for determination
@@ -28,6 +28,9 @@ in the GRASS location, e.g. for debugging or further analyses. Default: \code{FA
 \item{overwrite}{\code{logical}. Shall output of previous calls of this function be
 deleted? If \code{FALSE} the function returns an error if output already exists.
 Default: \code{FALSE}.}
+
+\item{silent}{\code{logical}. Shall the function be silent (also suppressing warnings
+of internally used GRASS functions)? Default: \code{FALSE}.}
 }
 \value{
 \code{SpatialPoints} object containing outlet position for each reservoir
