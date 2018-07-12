@@ -17,7 +17,7 @@ flow accumulation if no flow accumulation raster is given. Default: \code{NULL}.
 
 \item{res_vct}{Reservoir vector file in GRASS location. For each polygon coordinates
 of the outlet (cell with highest flow accumulation) are determined. Needs
-at least the column \code{name} as reservoir identifier.}
+at least the columns \code{name} (character) and \code{res_id} (integer) as reservoir identifier.}
 
 \item{outlets_vect}{Output: Name of vector file of outlet locations to be exported
 to GRASS location. If \code{NULL} (default), nothing is exported to GRASS.}
@@ -43,7 +43,7 @@ polygon.
 }
 \note{
 Prepare GRASS location and necessary files in advance and start GRASS
-     session in R using \code{\link[spgrass6]{initGRASS}}. Location should not
+     session in R using \code{\link[rgrass7]{initGRASS}}. Location should not
      contain any maps ending on *_t as these will be removed by calling the
      function to remove temporary maps.
      
@@ -51,6 +51,8 @@ Prepare GRASS location and necessary files in advance and start GRASS
      to GRASS location. Due to small projection inaccuracies between the DEM / flow
      accumulation raster and the reservoir vector file, calculated outlet locations
      might more or less deviate from true locations!
+
+     Can be run before \code{\link[lumpR]{reservoir_strategic}}.
 }
 \author{
 Tobias Pilz \email{tpilz@uni-potsdam.de}

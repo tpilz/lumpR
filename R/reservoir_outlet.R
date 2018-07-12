@@ -30,7 +30,7 @@
 #'  
 #' @param res_vct Reservoir vector file in GRASS location. For each polygon coordinates
 #'      of the outlet (cell with highest flow accumulation) are determined. Needs
-#'      at least the column \code{name} as reservoir identifier.
+#'      at least the columns \code{name} (character) and \code{res_id} (integer) as reservoir identifier.
 #'      
 #' @param outlets_vect Output: Name of vector file of outlet locations to be exported
 #'      to GRASS location. If \code{NULL} (default), nothing is exported to GRASS.
@@ -47,7 +47,7 @@
 #'      polygon and vector file \code{outlets_vect} exported to GRASS location.
 #'      
 #' @note Prepare GRASS location and necessary files in advance and start GRASS
-#'      session in R using \code{\link[spgrass6]{initGRASS}}. Location should not
+#'      session in R using \code{\link[rgrass7]{initGRASS}}. Location should not
 #'      contain any maps ending on *_t as these will be removed by calling the
 #'      function to remove temporary maps.
 #'      
@@ -56,6 +56,8 @@
 #'      accumulation raster and the reservoir vector file, calculated outlet locations
 #'      might more or less deviate from true locations!
 #'
+#'      Can be run before \code{\link[lumpR]{reservoir_strategic}}. 
+
 #' @author Tobias Pilz \email{tpilz@@uni-potsdam.de}
 
 reservoir_outlet <- function(
@@ -89,6 +91,14 @@ reservoir_outlet <- function(
   
   check_raster(dem,"dem")
   check_vector(res_vct, "res_vct")
+  
+  #check for necessary columns in vector file
+  cmd_out <- execGRASS("v.info", map=res_vct, flags=c("c", "e"), intern=T)
+  if (!any(grepl(cmd_out, pattern="INTEGER\\|res_id")))
+    stop(paste0("Reservoir vector file '",res_vct,"' has no column 'res_id' (INTEGER), please add it."))
+  if (!any(grepl(cmd_out, pattern="CHARACTER\\|name")))
+    stop(paste0("Reservoir vector file '",res_vct,"' has no column 'name' (CHARACTER), please add it."))
+  
   
   # suppress annoying GRASS outputs 
   tmp_file <- file(tempfile(), open="wt")
@@ -144,81 +154,34 @@ reservoir_outlet <- function(
       x <- execGRASS("g.copy", raster=paste0(flowacc,",accum_t"), flags=c("overwrite"), intern=T) else
       x <- execGRASS("r.mapcalc", expression=paste0("accum_t = round(", flowacc, ")"), flags=c("overwrite"), intern=T)
     
-    # convert reservoir vector to raster
-    x <- execGRASS("v.to.rast", input=res_vct, output="res_rast_t", use="cat", intern=T)
+    x <- execGRASS("g.copy", vector=paste0(res_vct,",resv_t"), flags=c("overwrite"), intern=T) #working copy of reservoir outlines
+
+    #find maximum value of flowaccumulation for each reservoir - this should be the outlet
+    x <- execGRASS("v.rast.stats", map="resv_t", raster=flowacc, method="max", column_prefix="fa", intern=TRUE)
     
-    # calculate accumulation for reservoir zones
-    x <- execGRASS("r.mapcalc", expression=paste0("accum_res_t = if(res_rast_t,", flowacc, ")"), intern=T)
+    #convert map of max_flow_accum values to raster
+    x <- execGRASS("v.to.rast", input="resv_t", output="max_flowaccum_t", use="attr", attribute_column="fa_maximum", flags="overwrite", intern=TRUE)
     
+    #intersect map of flowaccum and max values of flowaccum to precisely locate cells
+    x <- execGRASS("r.mapcalc",  expression="outlet_cells_t=if(accum_t==max_flowaccum_t,1,null())", flags="overwrite", intern=TRUE)
     
-    # crossproduct of accum_res_t and res_rast_t to have both cats as labels in one raster file
-    x <- execGRASS("r.cross", input="res_rast_t,accum_res_t", output="cross_t", intern=T)
+    #convert outlet points to vector
+    x <- execGRASS("r.to.vect", input="outlet_cells_t", type="point", output=outlets_vect, flags="overwrite", intern=TRUE)
     
-    # NOTE: categories needed to fix r.cross bug
-    cat_res <- execGRASS("r.stats", input="res_rast_t", flags=c("n"), intern=T, ignore.stderr = T)
-    cat_acc <- execGRASS("r.stats", input="accum_res_t", flags=c("n"), intern=T, ignore.stderr = T)
+    #add subbasin-ID to outlet cells
+    x <- execGRASS("v.db.addcolumn", map=outlets_vect, columns="res_id int,name VARCHAR(30)", intern=TRUE) 
+    x <- execGRASS("v.what.vect", map=outlets_vect, column="res_id", query_map="resv_t", query_column="res_id", intern=TRUE)  
+    x <- execGRASS("v.what.vect", map=outlets_vect, column="name",   query_map="resv_t", query_column="name", intern=TRUE)  
     
-    # check for and correct error in r.cross, see https://lists.osgeo.org/pipermail/grass-user/2018-February/077934.html
-    cmd_out <- execGRASS("r.stats", input="cross_t", flags=c("n"), intern=T, ignore.stderr = T)
-    if(any(as.numeric(cmd_out) == 0)) {
-      # save category labels
-      cat_labs <- execGRASS("r.category", map="cross_t", separator=":", intern=T)
-      cat_labs <- strsplit(cat_labs[-1], ":")
-      cat_labs <- lapply(cat_labs, function(x) c(as.numeric(x[1]) +1, x[2]))
-      # add +1 to categories (destroys labels)
-      cmd_out <- execGRASS("r.mapcalc", expression="cross_t=cross_t+1", flags=c("overwrite"), intern=T)
-      # get missing category label
-      cat_lab_miss <- c(1, paste(c("category"), c(cat_res[1], cat_acc[1]), sep=" ", collapse = "; "))
-      # merge to stored labels
-      cat_labs_mod <- sapply(c(list(cat_lab_miss), cat_labs), paste, collapse=":")
-      # write to grass raster
-      write.table(cat_labs_mod, paste(tempdir(), "recl_t.txt", sep="/"), sep="\t", quote=F, row.names = F, col.names = F)
-      cmd_out <- execGRASS("r.category", map="cross_t", separator=":", rules=paste(tempdir(), "recl_t.txt", sep="/"), intern = T)
-      file.remove(paste(tempdir(), "recl_t.txt", sep="/"))
-    }
-    
-    
-    # get statistics into R (accumulation with coordinates of pixels for every reservoir)
-    cmd_out <- execGRASS("r.stats", input="cross_t", flags=c("n", "g", "l"), intern = T, ignore.stderr = T)
-    cmd_out <- gsub("category |;", "", cmd_out, ignore.case = T)
-    cmd_out <- strsplit(cmd_out, " ")
-    accums <- do.call(rbind, cmd_out)[,-3]
-    mode(accums) <- "numeric"
-    colnames(accums) <- c("x", "y", "cat", "accum")
-    accums <- as.data.frame(accums)
-    
-    # get highest accumulation value for every reservoir
-    accum_max <- do.call(rbind,lapply(split(accums,accums$cat),function(chunk) chunk[which.max(chunk$accum),]))
-    
-    
-    if(!silent) message("% OK")
-    if(!silent) message("%")
-    if(!silent) message("% Compile output...")
-    
-    # to SPDF
-    coordinates(accum_max) <- c("x", "y")
-    accum_max_spdf <- SpatialPointsDataFrame(coordinates(accum_max), data = data.frame(cat=accum_max@data$cat), proj4string = CRS(getLocationProj()))
-    
-    # load reservoirs from GRASS
-    suppressWarnings(res_polygon <- readVECT(res_vct, ignore.stderr = T))
-    # WINDOWS PROBLEM: delete temporary file otherwise an error occurs when calling writeVECT or readVECT again with the same (or a similar) file name 
-    if(.Platform$OS.type == "windows") {
-      dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
-      files_del <- grep(substr(res_vct, 1, 8), dir(dir_del), value = T)
-      file.remove(paste(dir_del, files_del, sep="/"), showWarnings=FALSE)
-    }
-    
-    # assign reservoir table to outlet locations table
-    res_out <- sp::merge(accum_max_spdf, res_polygon@data, by="cat")
-    suppressWarnings(proj4string(res_out) <- CRS(getLocationProj()))
-    
-    # put into GRASS
-    suppressWarnings(writeVECT(res_out, outlets_vect, v.in.ogr_flags = c("overwrite", "o"), ignore.stderr = T))
+
+    # load reservoir outlet points from GRASS
+    suppressWarnings(res_out <- readVECT(outlets_vect, ignore.stderr = T))
     # WINDOWS PROBLEM: delete temporary file otherwise an error occurs when calling writeVECT or readVECT again with the same (or a similar) file name 
     if(.Platform$OS.type == "windows") {
       dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
       files_del <- grep(substr(outlets_vect, 1, 8), dir(dir_del), value = T)
-      file.remove(paste(dir_del, files_del, sep="/"))
+      if (length(files_del)>0)
+      a=file.remove(paste(dir_del, files_del, sep="/"), showWarnings=FALSE)
     }
     
     

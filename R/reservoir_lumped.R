@@ -51,7 +51,7 @@
 #'      of internally used GRASS functions)? Default: \code{FALSE}.
 #' 
 #' @note Prepare GRASS location and necessary spatial objects in advance and start
-#'      GRASS session in R using \code{\link[spgrass6]{initGRASS}}.
+#'      GRASS session in R using \code{\link[rgrass7]{initGRASS}}.
 #'      
 #'      Points in \code{res_vect} not overlapping with any \code{sub_rast} will be
 #'      silently removed during processing!
