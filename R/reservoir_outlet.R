@@ -87,6 +87,8 @@ reservoir_outlet <- function(
   if (cmd_out=="")
     stop("Couldn't connect to GRASS-session. Try removing any open sinks by calling 'sink()' repeatedly. Or restart R.")
   
+  check_raster(dem,"dem")
+  
   # suppress annoying GRASS outputs 
   tmp_file <- file(tempfile(), open="wt")
   sink(tmp_file, type="output")
@@ -130,7 +132,8 @@ reservoir_outlet <- function(
     if (is.null(flowacc) & !is.null(dem)) {
       flowacc <- "accum_t"
       x <- execGRASS("r.watershed", elevation=dem, accumulation=flowacc, flags="s", intern=T)
-    }
+    } else
+    check_raster(flowacc,"flowacc")
     
     # make sure flowacc is integer
     x <- execGRASS("r.mapcalc", expression=paste0("accum_t = round(", flowacc, ")"), flags=c("overwrite"), intern=T)
