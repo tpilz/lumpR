@@ -264,7 +264,8 @@ db_wasa_input <- function(
   dir.create(dest_dir, recursive=T, showWarnings = F)
   dir.create(paste(dest_dir, "River", sep="/"), recursive=T, showWarnings = F)
   dir.create(paste(dest_dir, "Hillslope", sep="/"), recursive=T, showWarnings = F)
-
+  dir.create(paste(dest_dir, "Reservoir", sep="/"), recursive=T, showWarnings = F)
+  
   if(verbose) message("%")
   if(verbose) message(paste0("% Output will be written to ", dest_dir))
     
@@ -1303,6 +1304,114 @@ db_wasa_input <- function(
     if(verbose) message("% OK")
     } 
   } # Hillslope/x_seasons.dat
+  
+  ###############################################################################
+  ### Hillslope/soil_particles.dat
+  if("Hillslope/soil_particles.dat" %in% files) {
+    if(verbose) message("%")
+    if(verbose) message("% Create Hillslope/soil_particles.dat ...")
+    
+    # create file
+    if(!file.exists(paste(dest_dir, "Hillslope/soil_particles.dat", sep="/")) | overwrite){
+      file.create(paste(dest_dir, "Hillslope/soil_particles.dat", sep="/"))
+    } else {
+      stop("File 'Hillslope/soil_particles.dat' exists!")
+    }
+    
+    # write header
+    writeLines(con=paste(dest_dir, "Hillslope/soil_particles.dat", sep="/"),
+               text=c("Particle size distribution of topmost horizons of soils",
+                      "soil_id\tpart_class_id\tfraction[-]"))
+    
+    # get data
+    dat_all <- c(dat_all,
+                 read_db_dat(tbl = c("soil_veg_components", "r_tc_contains_svc", "r_soil_contains_particles"),
+                             con = con,
+                             tbl_exist = names(dat_all), update_frac_impervious=F))
+    
+    # only soil types occurring in soil_veg_components and r_tc_contains_svc will be considered
+    dat_contains_part <- dat_all$r_soil_contains_particles
+    dat_svc <- dat_all$soil_veg_components
+    r_svc_out <- which(!(dat_svc$pid %in% dat_all$r_tc_contains_svc$svc_id))
+    if(any(r_svc_out))
+      dat_svc <- dat_svc[-r_svc_out,]
+    
+    r_soil_out <- which(!(dat_contains_part$soil_id %in% dat_svc$soil_id))
+    if(any(r_soil_out)) {
+      warning(paste0("Soil types ", paste0(unique(dat_contains_part$soil_id[r_soil_out]), collapse=", "), " from table 'r_soil_contains_particles' are not in table 'soil_veg_components', or the respective SVCs are not in 'r_tc_contains_svc', and will be ignored."))
+      dat_contains_part <- dat_contains_part[-r_soil_out,]
+    }
+    
+    frac_sums <- round(tapply(dat_contains_part$fraction, dat_contains_part$soil_id, sum),3)
+    if(any(frac_sums != 1))
+      stop("Could not successfully write file Hillslope/soil_particles.dat. In table 'r_soil_contains_particles' not all fractions sum up to 1.")
+    
+    # write output
+    write.table(dat_contains_part, paste(dest_dir, "Hillslope/soil_particles.dat", sep="/"), append=T,
+                quote=F, sep="\t", row.names=F, col.names=F)
+    
+    if(verbose) message("% OK")
+    
+  } # Hillslope/soil_particles.dat
+  
+  
+  ### Reservoir/reservoir.dat
+  if("Reservoir/reservoir.dat" %in% files) {
+    if(verbose) message("%")
+    if(verbose) message("% Create Reservoir/reservoir.dat ...")
+    
+    # create file
+    if(!file.exists(paste0(dest_dir, "/Reservoir/reservoir.dat")) | overwrite){
+      file.create(paste0(dest_dir, "/Reservoir/reservoir.dat"))
+    } else {
+      stop("File 'Reservoir/reservoir.dat' exists!")
+    }
+    
+    # prepare output file
+    header_str <- "Subasin-ID, minlevel[m], maxlevel[m], vol0([1000m**3]; unknown=-999), storcap[1000m**3], damflow[m**3/s], damq_frac[-], withdrawal[m**3/s], damyear[YYYY], maxdamarea[ha], damdead[1000m**3], damalert[1000m**3], dama[-], damb[-], qoutlet[m**3/s], fvol_bottom[-], fvol_over[-], damc[-], damd[-], elevbottom[m]"
+
+    write(file=paste0(dest_dir, "/Reservoir/reservoir.dat"),
+          x=c("Specification of reservoir parameters", header_str))
+
+
+    # get data
+    dat_all <- c(dat_all,
+                 read_db_dat(tbl = c("reservoirs_strategic"),
+                             con = con,
+                             tbl_exist = names(dat_all), update_frac_impervious=FALSE))
+    
+    dat_all[["reservoirs_strategic"]] = dat_all[["reservoirs_strategic"]][, c("pid", 
+                          "minlevel",
+                          "maxlevel",
+                          "vol0",
+                          "storecap",
+                          "damflow",
+                          "damq_frac",
+                          "withdrawal",
+                          "damyear",
+                          "maxdamarea",
+                          "damdead",
+                          "damalert",
+                          "dama",
+                          "damb",
+                          "q_outlet",
+                          "fvol_botm",
+                          "fvol_over",
+                          "damc",
+                          "damd",
+                          "elevbottom")]
+    
+    
+    # write output
+    # write data
+    write.table(dat_all[["reservoirs_strategic"]], paste0(dest_dir, "/Reservoir/reservoir.dat"), append=T, quote=F,
+                sep="\t", row.names=F, col.names=F)
+    
+    
+    if(verbose) message("% OK")
+    
+  } # reservoir/reservoir.dat
+  
   
   
 

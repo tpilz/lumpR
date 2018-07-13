@@ -281,18 +281,6 @@ reservoir_strategic <- function(
     write.table(res_dat, paste(dir_out,reservoir_file,sep="/"), append=F, quote=F,
                 sep="\t", row.names=F, col.names=T)
     
-    
-    # # prepare output file
-    # header_str <- "Subasin-ID, minlevel[m], maxlevel[m], vol0([1000m**3]; unknown=-999), storcap[1000m**3], damflow[m**3/s], damq_frac[-], withdrawal[m**3/s], damyear[YYYY], maxdamarea[ha], damdead[1000m**3], damalert[1000m**3], dama[-], damb[-], qoutlet[m**3/s], fvol_bottom[-], fvol_over[-], damc[-], damd[-], elevbottom[m]"
-    # 
-    # write(file=paste(dir_out,reservoir_file,sep="/"),
-    #       x=c("Specification of reservoir parameters", header_str))
-    # 
-    # # write data
-    # write.table(res_dat_sort, paste(dir_out,reservoir_file,sep="/"), append=T, quote=F,
-    #             sep="\t", row.names=F, col.names=F)
-    # 
-    
 
     if(!silent) message("% OK")
     if(!silent) message("%")

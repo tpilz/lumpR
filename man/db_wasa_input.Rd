@@ -10,8 +10,8 @@ db_wasa_input(dbname, dest_dir = "./", files = c("info.dat",
   "Hillslope/soil_vegetation.dat", "Hillslope/soil.dat",
   "Hillslope/vegetation.dat", "Hillslope/svc_in_tc.dat", "do.dat", "maxdim.dat",
   "part_class.dat", "Hillslope/soil_particles.dat",
-  "Hillslope/rainy_season.dat", "Hillslope/x_seasons.dat", "Hillslope/svc.dat"),
-  overwrite = F, verbose = TRUE)
+  "Hillslope/rainy_season.dat", "Hillslope/x_seasons.dat", "Hillslope/svc.dat",
+  "Reservoir/reservoir.dat"), overwrite = F, verbose = TRUE)
 }
 \arguments{
 \item{dbname}{Name of the data source (DSN) registered as ODBC source.}
@@ -21,7 +21,7 @@ written. Will be created if it does not exist. Default: \code{./}. Will include 
 sub-directories 'Hillslope' and 'River'.}
 
 \item{files}{Character vector specifying WASA input files that should be created. 
-See \code{Details}. By default all files will be created.}
+See \code{Details}. By default, all files will be created.}
 
 \item{overwrite}{\code{logical}. Should existing files in \code{dest_dir} be
 overwritten? Default: \code{FALSE}.}
@@ -195,6 +195,9 @@ input files!
   parameters. Mandatory for WASA's sediment module and/or saving/loading of model
   states. See doc of \code{\link[lumpR]{db_fill}} (-> 'soil_veg_components') for
   description of header.
+ 
+ #'   \bold{Reservoir/reservoir.dat}\cr
+  \emph{Optional} file defining properties of strategic reservoirs.
 }
 \references{
 lumpR package introduction with literature study and sensitivity analysis:\cr
