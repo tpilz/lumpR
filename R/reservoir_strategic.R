@@ -15,10 +15,10 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-#' Generation of WASA parameter file reservoir.dat
+#' Assemble of reservoir parameter file for WASA for import into database with \code{\link[lumpR]{db_fill}} 
 #' 
-#' Function generates the WASA parameter file reservoir.dat from a pre-processed
-#' reservoir vector file stored in a GRASS location.
+#' Function generates the reservoir parameter file from a pre-processed
+#' reservoir vector map and optional supplemental parameter file.
 #' 
 #' @param res_vect Name of reservoir vector map in GRASS location. Should be point
 #'      instead of polygon feature (i.e. reservoir outlet locations; consider function
@@ -26,6 +26,8 @@
 #'      see \code{Details}.
 #' @param subbasin Subbasin raster map in GRASS location. Can be created with
 #'      \code{\link[lumpR]{calc_subbas}}.
+#' @param res_file tab-delimited file containing reservoir properties (fields see details) and key "res_id". 
+#'       If set to NULL, these attributes must be given via the attribute table of \code{res_vect}
 #' @param dir_out Character string specifying output directory (will be created if it
 #'      does not yet exist).
 #' @param reservoir_file Output: WASA file of parameters for the strategic reservoirs
@@ -38,7 +40,7 @@
 #'      
 #' @details For each reservoir that should be modelled explicitly within WASA the
 #'      following information need to be collected and written into the vector file's
-#'      attrbute table (order is not important):
+#'      attribute table or \code{res_file} (column order is not important):
 #'      
 #'      \emph{name}\cr
 #'      Reservoir identifier, e.g. the name of the reservoir.
@@ -139,15 +141,19 @@ reservoir_strategic <- function(
   ### INPUT ###
   res_vect=NULL,
   subbasin=NULL,
+  res_file=NULL,
   ### OUTPUT ###
   dir_out="./",
-  reservoir_file="reservoir.dat",
+  reservoir_file="reservoir.txt",
   ### PARAMETER ###
   overwrite=F,
   silent=F
 ) {
   
 ### PREPROCESSING ###----------------------------------------------------------
+  
+  check_raster(subbasin,"subbasin")
+  check_vector(res_vect,"res_vect")
   
   if(!silent) message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
   if(!silent) message("% START reservoir_strategic()")
@@ -193,11 +199,27 @@ reservoir_strategic <- function(
     if (!overwrite & (file.exists(paste(dir_out,reservoir_file,sep="/"))) )
       stop(paste0("Output file ", reservoir_file, " already exists in ", dir_out, "!"))
     
+    if(!silent) message("%")
+    if(!silent) message("% Assignment of reservoirs to subbasins...")
+    
+     #add subbasin-ID to reservoirs 
+    x <- execGRASS("v.db.addcolumn", map=res_vect, columns="subbas_id int", intern=TRUE) 
+    x <- execGRASS("v.what.rast", map=res_vect, column="subbas_id", raster=subbasin, intern=TRUE)  
+    
+    
     # get reservoir data
     res <- readVECT(res_vect)
     
+    if (!is.null(res_file))
+    {  
+      res_params = read.table(res_file, header=TRUE, sep="\t")
+      if (!any(names(res_params)=="res_id")) stop(paste0("Reservoir file ", res_file, " must contain the column 'res_id'."))
+      if (!any(names(res@data)  =="res_id")) stop(paste0("Reservoir vector ", res_vect, " must contain the column 'res_id'."))
+    }
+      
     # make sure column names are in in lowercase only
     colnames(res@data) <- tolower(colnames(res@data))
+    res@data = merge(res@data, res_params, by="res_id")
     
     # check existence of necessary columns in attribute table
     cols_mandatory <- c("name", "minlevel", "maxlevel", "vol0", "storecap", "damflow", "damq_frac", 
@@ -205,74 +227,70 @@ reservoir_strategic <- function(
                         "q_outlet", "fvol_botm", "fvol_over", "damc", "damd", "elevbottom")
     chk_cols <- grepl(paste(colnames(res@data), collapse="|^"), cols_mandatory)
     if(any(!chk_cols))
-      stop(paste0("Check attribute table of 'res_vect', column(s) ", paste(cols_mandatory[!chk_cols], collapse=", "), " could not be found!"))
-    
-    # get subbasin values
-    sub_rast <- raster(readRAST(subbasin))
-    
-    
+      stop(paste0("Check attribute table of 'res_vect' or provide 'res_file', column(s) ", paste(cols_mandatory[!chk_cols], collapse=", "), " could not be found!"))
     
     
     if(!silent) message("% OK")
-    if(!silent) message("%")
-    if(!silent) message("% Assignment of reservoirs to subbasins...")
-
-    # get subbasin no for each outlet point
-    res_sub_all <- extract(sub_rast, res, df=T)
-    names(res_sub_all)[2] <- "sub_id_new"
     
-    # check for duplicates (multiple outlet points per subbasin)
-    dupl <- duplicated(res_sub_all[[2]], incomparables=c(NA))
+    # check for duplicates (multiple reservoirs  per subbasin)
+    dupl <- duplicated(res@data$subbas_id, incomparables=c(NA))
     if (any(dupl))
-      stop(paste0("Subbasin(s) no. ", paste(unique(res_sub_all[dupl,"sub_id_new"]), collapse=", "), " contain(s) multiple strategic reservoirs!"))
+      stop(paste0("Subbasin(s) no. ", paste(unique(res@data$subbas_id[dupl]), collapse=", "), " contain(s) multiple strategic reservoirs! Remove reservoirs or redefine subcatchments."))
     
+    outside <- is.na(res@data$subbas_id)
+    if (any(outside))
+      warning(paste0("Subbasin(s) no. ", paste(unique(res@data$subbas_id[outside]), collapse=", "), " are outside the defined subcatchments."))
+    
+
     # combine subbasin information with reservoir parameter data
     res_dat <- res@data
-    outlet_dat <- cbind(res@data$name, res_sub_all)
-    outlet_dat <- na.omit(outlet_dat) # remove reservoirs outside study area
-    res_dat_all <- merge(res_dat, outlet_dat, by.x="name", by.y=1)
     
-    
-    
+    res_dat <- res_dat[!is.na(res_dat$subbas_id),] # remove reservoirs outside study area
+
     if(!silent) message("% OK")
     if(!silent) message("%")
     if(!silent) message("% Prepare and write output...")
     # sort data for writing output
-    res_dat_sort <- data.frame(res_dat_all$sub_id_new,
-                      res_dat_all$minlevel,
-                      res_dat_all$maxlevel,
-                      res_dat_all$vol0,
-                      res_dat_all$storecap,
-                      res_dat_all$damflow,
-                      res_dat_all$damq_frac,
-                      res_dat_all$withdrawal,
-                      res_dat_all$damyear,
-                      res_dat_all$maxdamarea,
-                      res_dat_all$damdead,
-                      res_dat_all$damalert,
-                      res_dat_all$dama,
-                      res_dat_all$damb,
-                      res_dat_all$q_outlet,
-                      res_dat_all$fvol_botm,
-                      res_dat_all$fvol_over,
-                      res_dat_all$damc,
-                      res_dat_all$damd,
-                      res_dat_all$elevbottom)
+    res_dat = res_dat[sort.int(res_dat$subbas_id, index.return = TRUE)$ix,] #sort by subbasin-id
     
-    # prepare output file
-    header_str <- "Subasin-ID, minlevel[m], maxlevel[m], vol0([1000m**3]; unknown=-999), storcap[1000m**3], damflow[m**3/s], damq_frac[-], withdrawal[m**3/s], damyear[YYYY], maxdamarea[ha], damdead[1000m**3], damalert[1000m**3], dama[-], damb[-], qoutlet[m**3/s], fvol_bottom[-], fvol_over[-], damc[-], damd[-], elevbottom[m]"
+    #order and select columns
+    res_dat = res_dat[, c("subbas_id",
+    "minlevel",
+    "maxlevel",
+    "vol0",
+    "storecap",
+    "damflow",
+    "damq_frac",
+    "withdrawal",
+    "damyear",
+    "maxdamarea",
+    "damdead",
+    "damalert",
+    "dama",
+    "damb",
+    "q_outlet",
+    "fvol_botm",
+    "fvol_over",
+    "damc",
+    "damd",
+    "elevbottom")]
     
-    write(file=paste(dir_out,reservoir_file,sep="/"),
-          x=c("Specification of reservoir parameters", header_str))
-    
-    # write data
-    write.table(res_dat_sort, paste(dir_out,reservoir_file,sep="/"), append=T, quote=F,
-                sep="\t", row.names=F, col.names=F)
+    write.table(res_dat, paste(dir_out,reservoir_file,sep="/"), append=F, quote=F,
+                sep="\t", row.names=F, col.names=T)
     
     
+    # # prepare output file
+    # header_str <- "Subasin-ID, minlevel[m], maxlevel[m], vol0([1000m**3]; unknown=-999), storcap[1000m**3], damflow[m**3/s], damq_frac[-], withdrawal[m**3/s], damyear[YYYY], maxdamarea[ha], damdead[1000m**3], damalert[1000m**3], dama[-], damb[-], qoutlet[m**3/s], fvol_bottom[-], fvol_over[-], damc[-], damd[-], elevbottom[m]"
+    # 
+    # write(file=paste(dir_out,reservoir_file,sep="/"),
+    #       x=c("Specification of reservoir parameters", header_str))
+    # 
+    # # write data
+    # write.table(res_dat_sort, paste(dir_out,reservoir_file,sep="/"), append=T, quote=F,
+    #             sep="\t", row.names=F, col.names=F)
+    # 
     
-    
-    
+
     if(!silent) message("% OK")
     if(!silent) message("%")
     if(!silent) message("% DONE!")

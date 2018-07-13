@@ -2,10 +2,11 @@
 % Please edit documentation in R/reservoir_strategic.R
 \name{reservoir_strategic}
 \alias{reservoir_strategic}
-\title{Generation of WASA parameter file reservoir.dat}
+\title{Assemble of reservoir parameter file for WASA for import into database with \code{\link[lumpR]{db_fill}}}
 \usage{
-reservoir_strategic(res_vect = NULL, subbasin = NULL, dir_out = "./",
-  reservoir_file = "reservoir.dat", overwrite = F, silent = F)
+reservoir_strategic(res_vect = NULL, subbasin = NULL, res_file = NULL,
+  dir_out = "./", reservoir_file = "reservoir.txt", overwrite = F,
+  silent = F)
 }
 \arguments{
 \item{res_vect}{Name of reservoir vector map in GRASS location. Should be point
@@ -15,6 +16,9 @@ see \code{Details}.}
 
 \item{subbasin}{Subbasin raster map in GRASS location. Can be created with
 \code{\link[lumpR]{calc_subbas}}.}
+
+\item{res_file}{tab-delimited file containing reservoir properties (fields see details) and key "res_id". 
+If set to NULL, these attributes must be given via the attribute table of \code{res_vect}}
 
 \item{dir_out}{Character string specifying output directory (will be created if it
 does not yet exist).}
@@ -30,13 +34,13 @@ Default: \code{FALSE}.}
 of internally used GRASS functions)? Default: \code{FALSE}.}
 }
 \description{
-Function generates the WASA parameter file reservoir.dat from a pre-processed
-reservoir vector file stored in a GRASS location.
+Function generates the reservoir parameter file from a pre-processed
+reservoir vector map and optional supplemental parameter file.
 }
 \details{
 For each reservoir that should be modelled explicitly within WASA the
      following information need to be collected and written into the vector file's
-     attrbute table (order is not important):
+     attribute table or \code{res_file} (column order is not important):
      
      \emph{name}\cr
      Reservoir identifier, e.g. the name of the reservoir.
@@ -112,9 +116,9 @@ In output file \code{reservoir_file} order of subbasin IDs needs to be compliant
      Otherwise WASA will terminate with an error.
      
      If you applied \code{\link[lumpR]{reservoir_outlet}} using the outlet locations
-     of strategic reservoirs as drainage points it might be necessary to use
+     of strategic reservoirs as drainage points, it might be necessary to use
      locations of the function's output \code{points_processed} instead of the
-     true reservoir outlet locations as otherwise the reservoirs might assigned to
+     true reservoir outlet locations as otherwise the reservoirs might get assigned to
      the wrong subbasins!
 }
 \references{
