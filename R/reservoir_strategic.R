@@ -152,6 +152,7 @@ reservoir_strategic <- function(
   
 ### PREPROCESSING ###----------------------------------------------------------
   
+  tryCatch(gmeta(), error = function(e) stop("Cannot execute GRASS commands. Maybe you forgot to run initGRASS()?"))
   check_raster(subbasin,"subbasin")
   check_vector(res_vect,"res_vect")
   
@@ -253,8 +254,9 @@ reservoir_strategic <- function(
     # sort data for writing output
     res_dat = res_dat[sort.int(res_dat$subbas_id, index.return = TRUE)$ix,] #sort by subbasin-id
     
+    names(res_dat)[names(res_dat)=="subbas_id"]="pid"
     #order and select columns
-    res_dat = res_dat[, c("subbas_id",
+    res_dat = res_dat[, c("pid", "res_id",
                           "name",
     "minlevel",
     "maxlevel",

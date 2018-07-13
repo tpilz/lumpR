@@ -1,6 +1,6 @@
 CREATE TABLE reservoirs_strategic (
-	pid INT AUTO_INCREMENT NOT NULL COMMENT 'row counter',
-	subbas_id INT NOT NULL COMMENT 'foreign key to subbas',
+	pid INT AUTO_INCREMENT NOT NULL COMMENT 'foreign key to subbas',
+	res_id INT NOT NULL COMMENT 'foreign key to subbas',
 	name NVARCHAR(20) NOT NULL COMMENT 'reservoir name (optional)',
 	minlevel double COMMENT 'Initial minimum level [m]',
 	maxlevel double COMMENT 'Maximum water level [m]',
