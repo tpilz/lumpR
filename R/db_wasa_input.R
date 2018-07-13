@@ -27,7 +27,7 @@
 #' sub-directories 'Hillslope' and 'River'.
 #' 
 #' @param files Character vector specifying WASA input files that should be created. 
-#' See \code{Details}. By default all files will be created.
+#' See \code{Details}. By default, all files will be created.
 #' 
 #' @param overwrite \code{logical}. Should existing files in \code{dest_dir} be
 #' overwritten? Default: \code{FALSE}.
@@ -199,6 +199,9 @@
 #'   states. See doc of \code{\link[lumpR]{db_fill}} (-> 'soil_veg_components') for
 #'   description of header.
 #'  
+#'  #'   \bold{Reservoir/reservoir.dat}\cr
+#'   \emph{Optional} file defining properties of strategic reservoirs.
+#'   
 #' @references 
 #'      lumpR package introduction with literature study and sensitivity analysis:\cr
 #'      Pilz, T.; Francke, T.; Bronstert, A. (2017): lumpR 2.0.0: an R package facilitating
@@ -215,7 +218,7 @@ db_wasa_input <- function(
           "Hillslope/soter.dat", "Hillslope/terrain.dat", "Hillslope/soil_vegetation.dat",
           "Hillslope/soil.dat", "Hillslope/vegetation.dat", "Hillslope/svc_in_tc.dat",
           "do.dat", "maxdim.dat", "part_class.dat", "Hillslope/soil_particles.dat",
-          "Hillslope/rainy_season.dat", "Hillslope/x_seasons.dat", "Hillslope/svc.dat"),
+          "Hillslope/rainy_season.dat", "Hillslope/x_seasons.dat", "Hillslope/svc.dat", "Reservoir/reservoir.dat"),
   overwrite=F,
   verbose = TRUE
 ) {

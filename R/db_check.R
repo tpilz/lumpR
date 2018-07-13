@@ -705,7 +705,7 @@ db_check <- function(
     dat_all <- c(dat_all,
                  read_db_dat(tbl = c("subbasins", "landscape_units", "terrain_components", "soil_veg_components",
                                      "vegetation", "soils", "horizons", "particle_classes", "rainy_season",
-                                     "r_subbas_contains_lu",  "r_lu_contains_tc", "r_tc_contains_svc", "r_soil_contains_particles"),
+                                     "r_subbas_contains_lu",  "r_lu_contains_tc", "r_tc_contains_svc", "r_soil_contains_particles", "reservoirs_strategic"),
                              con = con, tbl_exist = names(dat_all), update_frac_impervious=option[["update_frac_impervious"]]))
     
     # database tables
@@ -762,11 +762,17 @@ db_check <- function(
         c (table = "rainy_season",    key2prev="veg_id", key2next="")
       ))
     
+    table_chain8= data.frame(stringsAsFactors = FALSE,      #scheme of table relations (7)
+       rbind(
+         c (table = "subbasins",           key2prev=""      , key2next="pid"),
+         c (table = "reservoirs_strategic",    key2prev="pid", key2next="")
+       ))
+    
     wildcard_fields = list(  #tables with wildcard values ("-1") need to be considered
       rainy_season = c("subbas_id", "veg_id"),
       x_seasons     = c("subbas_id", "svc_id")
     )
-    chain_list = list(table_chain1, table_chain2, table_chain3, table_chain4, table_chain5, table_chain6, table_chain7) #list of all relation chains that need to be checked
+    chain_list = list(table_chain1, table_chain2, table_chain3, table_chain4, table_chain5, table_chain6, table_chain7, table_chain8) #list of all relation chains that need to be checked
   }
     
 ###############################################################################
@@ -844,7 +850,7 @@ db_check <- function(
 
     for (table_chain in chain_list)
     {  
-      # check that all tables in table_chain are in the database to avaoid conflicts with optional tables
+      # check that all tables in table_chain are in the database to avoid conflicts with optional tables
       if(any(!(table_chain$table %in% tbl_db)))
         next
       else {
