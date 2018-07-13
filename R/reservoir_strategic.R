@@ -255,6 +255,7 @@ reservoir_strategic <- function(
     
     #order and select columns
     res_dat = res_dat[, c("subbas_id",
+                          "name",
     "minlevel",
     "maxlevel",
     "vol0",
