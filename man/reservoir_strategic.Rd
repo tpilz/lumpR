@@ -112,9 +112,9 @@ In output file \code{reservoir_file} order of subbasin IDs needs to be compliant
      Otherwise WASA will terminate with an error.
      
      If you applied \code{\link[lumpR]{reservoir_outlet}} using the outlet locations
-     of strategic reservoirs as drainage points it might be necessary to use
+     of strategic reservoirs as drainage points, it might be necessary to use
      locations of the function's output \code{points_processed} instead of the
-     true reservoir outlet locations as otherwise the reservoirs might assigned to
+     true reservoir outlet locations as otherwise the reservoirs might get assigned to
      the wrong subbasins!
 }
 \references{
