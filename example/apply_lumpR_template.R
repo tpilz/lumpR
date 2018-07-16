@@ -444,8 +444,19 @@ silent = silent
 )
 
 
+#generate reservoir parameterisation
+  #find reservoir outlets
+  x = reservoir_outlet(flowacc = flowacc, dem = dem, res_vct = "reservoirs", outlets_vect = "res_outlets", keep_temp = TRUE, overwrite = TRUE) 
+  
+  #generate reservoir parameter file for later import into db
+  reservoir_strategic(res_vect = "res_outlets", res_file="reservoir_pars.csv", reservoir_file = "reservoir.txt", dir_out = getwd(), overwrite = TRUE, subbasin = subbas)
 
-# DATABASE #
+  #find reservoir outlets
+  reservoir_lumped(res_vect = "res_small", subbas = subbas, res_vect_class = "res_small_2", dir_out =  paste0("wasa_input/Reservoir/",getwd()), overwrite = TRUE)
+  
+
+
+# DATABASE ####
 # rainy_season not included within this example
 
 # create database
@@ -478,14 +489,14 @@ file.copy(paste(soil_path, "r_soil_contains_particles.dat", sep="/"), "r_soil_co
 # lumpR output and manually prepared information (e.g. soil parameters) to database
 ?db_fill
 db_fill(dbname=dbname,
-        tables = c("r_subbas_contains_lu", "subbasins",
+        tables = c("subbasins", "r_subbas_contains_lu", 
                    "landscape_units", "r_lu_contains_tc", "terrain_components", "r_tc_contains_svc",
-                   "vegetation", "soils", "horizons", "soil_veg_components",
-                   "particle_classes", "r_soil_contains_particles"),
-        dat_files=c("lu_stats.txt", "sub_stats.txt",
-                    "lu_db.dat", "lucontainstc.dat", "terraincomponents.dat", "tc_contains_svc.dat",
-                    "vegetation.dat", "soil.dat", "horizons.dat", "soil_vegetation_components.dat",
-                    "particle_classes.dat", "r_soil_contains_particles.dat"), 
+                   "soils", "horizons", "soil_veg_components",
+                   "particle_classes", "r_soil_contains_particles", "reservoirs_strategic"),
+        dat_files=c("sub_stats.txt", "lu_stats.txt", 
+                    "lu_db.dat", "lucontainstc.dat", "terraincomponents.dat", "r_tc_contains_svc.dat",
+                    "soil.dat", "horizons.dat", "soil_vegetation_components.dat",
+                    "particle_classes.dat", "r_soil_contains_particles.dat", "reservoir.txt"), 
         dat_dir=getwd(),
         overwrite=T, verbose=T)
 
@@ -558,7 +569,9 @@ db_wasa_input(dbname = dbname,
               files=c("info.dat", "River/routing.dat", "River/response.dat", "Hillslope/hymo.dat",
                       "Hillslope/soter.dat", "Hillslope/terrain.dat", "Hillslope/soil_vegetation.dat",
                       "Hillslope/soil.dat", "Hillslope/vegetation.dat", "Hillslope/svc_in_tc.dat",
-                      "do.dat", "maxdim.dat", "part_class.dat", "Hillslope/soil_particles.dat", "Hillslope/svc.dat"),
+                      "do.dat", "maxdim.dat", "part_class.dat", "Hillslope/soil_particles.dat", 
+                      "Hillslope/rainy_season.dat", "Hillslope/x_seasons.dat", "Hillslope/svc.dat",
+                      "Reservoir/reservoir.dat"),
               overwrite = overwrite, verbose=T)
       
 # adjust model input data to your needs ...

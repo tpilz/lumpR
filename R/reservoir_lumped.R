@@ -20,12 +20,12 @@
 #' a pre-processed reservoir vector and a subbasin raster file stored in a GRASS
 #' location.
 #' 
-#' @param res_vect Name of reservoir vector map in GRASS location. Should be point
-#'      instead of polygon feature (i.e. reservoir outlet locations; consider function
-#'      \code{\link[lumpR]{reservoir_outlet}})! Needs at least
-#'      either column 'volume' with information on volume in [m^3] or column 'area'
-#'      with information on lake area in [m^2] in the attribute table.
-#' @param sub_rast Name of subbasin raster map in GRASS location. Can be created with
+#' @param res_vect Name of reservoir vector map in GRASS location. Can be point
+#'      or polygon feature (i.e. reservoir outlet centroids).
+#'      If it has the columns 'volume' with information on volume in [m^3] or column 'area'
+#'      with information on lake area in [m^2], these will be used for coumputation. 
+#'      If none is encountered, 'area' can be generated from the area of the polygons, if present.
+#' @param subbas Name of subbasin raster map in GRASS location. Can be created with
 #'      \code{\link[lumpR]{calc_subbas}}.
 #' @param res_vect_class Output: Name for the vector reservoir map to be created in GRASS
 #'      location. As \code{res_vect} with information of area or volume (which is missing),
@@ -53,7 +53,7 @@
 #' @note Prepare GRASS location and necessary spatial objects in advance and start
 #'      GRASS session in R using \code{\link[rgrass7]{initGRASS}}.
 #'      
-#'      Points in \code{res_vect} not overlapping with any \code{sub_rast} will be
+#'      Points in \code{res_vect} not overlapping with any \code{subbas} will be
 #'      silently removed during processing!
 #'      
 #' @details This function creates WASA input files needed to run the model
@@ -145,7 +145,7 @@
 reservoir_lumped <- function(
   # INPUT #
   res_vect=NULL,
-  sub_rast=NULL,
+  subbas=NULL,
   # OUTPUT #
   res_vect_class=NULL,
   dir_out="./",
@@ -167,6 +167,8 @@ reservoir_lumped <- function(
   
 ### PREPROCESSING ###----------------------------------------------------------
   
+  check_raster(subbas,"subbas")
+  check_vector(res_vect,"res_vect")
   if(!silent) message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
   if(!silent) message("% START reservoir_lumped()")
   if(!silent) message("%")
@@ -179,11 +181,13 @@ reservoir_lumped <- function(
   # spatial input from GRASS location
   if(is.null(res_vect))
     stop("The name of a reservoir vector file 'res_vect' within the mapset of your initialised GRASS session has to be given!")
-  if(is.null(sub_rast))
-    stop("The name of a subbasin raster file 'sub_rast' within the mapset of your initialised GRASS session has to be given!")
+  if(is.null(subbas))
+    stop("The name of a subbasin raster file 'subbas' within the mapset of your initialised GRASS session has to be given!")
   if(is.null(res_vect_class))
+  {
     warning("Classified reservoir point vector file 'res_vect_class' will NOT be created!")
-  
+    res_vect_class = paste0(res_vect,"_t")
+  }
   # check 'res_param'
   if(!is.data.frame(res_param))
     stop("'res_param' has to be a data.frame!")
@@ -202,16 +206,28 @@ reservoir_lumped <- function(
   if(is.null(res_param$damd_hrr))
     stop("'res_param' needs column 'damd_hrr' to be given!")
   
+  #check type of input vector
+  cmd_out <- execGRASS("v.info", map=res_vect, flags="t", intern=TRUE) 
+  is_point_map = !any(cmd_out == "points=0") #is this is a point vector (instead of polygons)?
   # check that reservoir vector file has column 'volume' or 'area'
   cmd_out <- execGRASS("v.info", map=res_vect, flags=c("c"), intern=T, ignore.stderr = T)
   cmd_out <- unlist(strsplit(cmd_out, "|", fixed=T))
   ncols <- grep("area|volume", cmd_out, value = T)
-  if(length(ncols) == 0)
-    stop("Attribute table of input vector 'res_vect' needs column 'area' (in m^2) OR (preferrably) 'volume' (in m^3)!")
-  if(length(ncols) == 2)
-    cols <- "volume"
-  else
-    cols <- ncols
+  
+  if (!"area" %in% ncols) #no area column found
+  {  
+    if(is_point_map)
+    {  
+      if (!"volume" %in% ncols) #no area column found
+        stop("Attribute table of input vector 'res_vect' needs column 'area' (in m^2) OR (preferrably) 'volume' (in m^3)!") 
+    } else  {  #this is a vector map
+        if(!silent) message("% No area information found in attribute table, using area of polygons instead...")
+    }  
+  }
+  # if(length(ncols) == 2)
+  #   cols <- "volume"
+  # else
+  #   cols <- ncols
   
   
   # CLEAN UP AND RUNTIME OPTIONS # 
@@ -258,7 +274,56 @@ reservoir_lumped <- function(
     
     if(!silent) message("% OK")
     
-      
+          
+    if (!is_point_map) #is this a point-vector file? If not, convert to points
+    {
+      #check for 'area field'
+      cmd_out <- execGRASS("v.info", map=res_vect, flags=c("c", "e"), intern=T)
+      if (!any(grepl(cmd_out, pattern="\\|area"))) #add area column
+      {  
+        res_lump <- readVECT(res_vect)
+        projection(res_lump) <- getLocationProj()
+        
+        res_lump@data$t_id = 1:nrow(res_lump@data) #create temporary ID
+        # WINDOWS PROBLEM: delete temporary file otherwise an error occurs when calling writeVECT or readVECT again with the same (or a similar) file name 
+        if(.Platform$OS.type == "windows") {
+          dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
+          files_del <- grep(substr(res_vect, 1, 8), dir(dir_del), value = T)
+          if (length(files_del)>0)
+          file.remove(paste(dir_del, files_del, sep="/"), showWarnings=FALSE)
+        }
+        get.area <- function(polygon) {
+          row <- data.frame(id=polygon@ID, area=polygon@area, stringsAsFactors=FALSE)
+          return(row)
+        }
+        areas <- do.call(rbind,lapply(res_lump@polygons, get.area))
+        res_lump@data  <- merge(res_lump@data, areas, by.x="t_id", by.y="id")  # append area column to plt.data
+        res_lump@data$t_id = NULL #discard temporary ID
+        res_lump@data$cat = NULL #discard internal GRASS ID that will be re-generated anyway
+        writeVECT(SDF = res_lump, vname="t_t", v.in.ogr_flags=c("o","overwrite"))
+      } else x <- execGRASS("g.copy", input=res_vect, output="t_t", flags="overwrite", intern=TRUE)           
+                
+        #x <- execGRASS("v.centroids", input=res_vect, output="t_t", flags="overwrite", intern=TRUE) 
+        #x <- execGRASS("g.copy", vector=paste0(res_vect,",",res_vect_class), flags="overwrite", intern=TRUE) 
+        x <- execGRASS("v.type", input="t_t", output=res_vect_class, from_type="centroid", to_type="point", flags="overwrite", intern=TRUE) 
+    
+        #x <- execGRASS("v.type", input=res_vect, output=res_vect_class, from_type="area", to_type="point", flags="overwrite", intern=TRUE) 
+    } else
+    x <- execGRASS("g.copy", input=res_vect, output=res_vect_class, flags="overwrite", intern=TRUE)       
+    
+    #add subbasin-ID to reservoirs ####
+    x <- execGRASS("v.db.addcolumn", map=res_vect_class, columns="subbas_id int", intern=TRUE) 
+    x <- execGRASS("v.what.rast", map=res_vect_class, column="subbas_id", raster=subbas, intern=TRUE)  
+    
+    res_lump <- readVECT(res_vect_class, type = "point") #re-load from GRASS
+    projection(res_lump) <- getLocationProj()
+    # WINDOWS PROBLEM: delete temporary file otherwise an error occurs when calling writeVECT or readVECT again with the same (or a similar) file name 
+    if(.Platform$OS.type == "windows") {
+      dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
+      files_del <- grep(substr(res_vect, 1, 8), dir(dir_del), value = T)
+      if (length(files_del)>0)
+        file.remove(paste(dir_del, files_del, sep="/"), showWarnings=FALSE)
+    }
     
     # GROUP RESERVOIRS INTO SIZE CLASSES #-------------------------------------
     if(!silent) message("%")
@@ -268,15 +333,18 @@ reservoir_lumped <- function(
     if(is.null(res_param$vol_max)) {
       if(is.null(res_param$area_max)) {
         # area_max is also not given, i.e. calculate vol_max based on quantiles of sizes given in GRASS data
-        res_lump <- readVECT(res_vect)
+        res_lump <- readVECT(res_vect_class, type="point")
         # WINDOWS PROBLEM: delete temporary file otherwise an error occurs when calling writeVECT or readVECT again with the same (or a similar) file name 
         if(.Platform$OS.type == "windows") {
           dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
-          files_del <- grep(substr(res_vect, 1, 8), dir(dir_del), value = T)
-          file.remove(paste(dir_del, files_del, sep="/"))
+          files_del <- grep(substr(res_vect_class, 1, 8), dir(dir_del), value = T)
+          if (length(files_del)>0)
+            file.remove(paste(dir_del, files_del, sep="/"), showWarnings=FALSE)
         }
         if("volume" %in% ncols) {
-          quants <- quantile(res_lump@data[,cols], probs=c(.2,1))
+          if (!"volume" %in% names(res_lump@data)) #no area column found
+            stop("Column 'area' not found in generated vector '", res_vect_class,"' something went wrong in the previous steps!") 
+          quants <- quantile(res_lump@data[,"volume"], probs=c(.2,1))
           classes <- exp(approx(log(quants), n = length(res_param$class))$y)
           res_param$vol_max <- classes
           if("area" %in% ncols) {
@@ -286,7 +354,9 @@ reservoir_lumped <- function(
           } else
             res_param$area_max <- molle_a(res_param$alpha_Molle, res_param$damk_Molle, classes)
         } else {
-          quants <- quantile(res_lump@data[,cols], probs=c(.2,1))
+          if (!"area" %in% names(res_lump@data)) #no area column found
+            stop("Column 'area' not found in generated vector '", res_vect_class,"' something went wrong in the previous steps!") 
+          quants <- quantile(res_lump@data[,"area"], probs=c(.2,1))
           classes <- exp(approx(log(quants), n = length(res_param$class))$y)
           res_param$area_max <- classes
           res_param$vol_max <- molle_v(res_param$alpha_Molle, res_param$damk_Molle, res_param$area_max)
@@ -296,50 +366,31 @@ reservoir_lumped <- function(
         res_param$vol_max <- molle_v(res_param$alpha_Molle, res_param$damk_Molle, res_param$area_max)
     }
     
-    # read subbasin and reservoir data
-    sub_dat <- suppressWarnings(readRAST(sub_rast))
-    subbas_all <- na.omit(unique(sub_dat@data))
-    projection(sub_dat) <- getLocationProj()
-    if(!exists("res_lump")) {
-      res_lump <- suppressWarnings(readVECT(res_vect))
-      # WINDOWS PROBLEM: delete temporary file otherwise an error occurs when calling writeVECT or readVECT again with the same (or a similar) file name 
-      if(.Platform$OS.type == "windows") {
-        dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
-        files_del <- grep(substr(res_vect, 1, 8), dir(dir_del), value = T)
-        file.remove(paste(dir_del, files_del, sep="/"))
-      }
-    }
-    projection(res_lump) <- getLocationProj()
-    
-    # determine which reservoirs are in which subbasin
-    sub_contains <- over(res_lump, sub_dat)
-    res_lump$sub_id <- sub_contains[[1]]
-    # omit NAs (i.e., reservoirs not in any subbasin / outside of watershed)
-    r_nares <- which(is.na(sub_contains))
-    
     # determine size class for each reservoir
-    if(cols == "volume")
-      res_lump$size_class <- cut(res_lump$volume, c(0, res_param$vol_max), labels=res_param$class)
+    if("volume" %in% ncols)
+      res_lump$size_class <- as.integer(cut(res_lump$volume, c(0, res_param$vol_max), labels=res_param$class))
     else 
-      res_lump$size_class <- cut(res_lump$area, c(0, res_param$area_max), labels=res_param$class)
+      res_lump$size_class <- as.integer(cut(res_lump$area, c(0, res_param$area_max), labels=res_param$class))
     
     # calculate volume for reservoirs if it does not exist
-    if(cols != "volume")
+    if((!"volume" %in% names(res_lump@data)))
       for(i in 1:nrow(res_lump))
         res_lump$volume[i] <- molle_v(res_param$alpha_Molle[res_lump$size_class[i]],
                                       res_param$damk_Molle[res_lump$size_class[i]],
                                       res_lump$area[i])
     
     # get information of maximum volume for each subbasin - size class combination
-    lake_maxvol <- tapply(res_lump$volume, list(sub_id=res_lump$sub_id, size_class=res_lump$size_class), max)
+    lake_maxvol <- tapply(res_lump$volume, list(sub_id=res_lump$subbas_id, size_class=res_lump$size_class), max)
     lake_maxvol[which(is.na(lake_maxvol))] <- 0
-    sub_miss <- subbas_all[[1]][which(!(subbas_all[[1]] %in% as.numeric(rownames(lake_maxvol))))]
+    #add missing subbasins without small reservoirs, if any
+    subbas_all <- execGRASS("r.stats", input=subbas, flags=c("n","quiet"), intern=TRUE) 
+    sub_miss <- subbas_all[which(!(subbas_all %in% as.numeric(rownames(lake_maxvol))))]
     sub_miss <- matrix(0, nrow = length(sub_miss), ncol=nrow(res_param), dimnames = list(sub_miss, NULL))
     lake_maxvol <- rbind(lake_maxvol, sub_miss)
     lake_maxvol <- lake_maxvol[order(as.numeric(rownames(lake_maxvol))),]
     
     # get information of number of reservoirs for each subbasin - size class combination
-    lake_number <- tapply(res_lump$volume, list(sub_id=res_lump$sub_id, size_class=res_lump$size_class), length)
+    lake_number <- tapply(res_lump$volume, list(sub_id=res_lump$subbas_id, size_class=res_lump$size_class), length)
     lake_number[which(is.na(lake_number))] <- 0
     lake_number <- rbind(lake_number, sub_miss)
     lake_number <- lake_number[order(as.numeric(rownames(lake_number))),]
@@ -354,7 +405,8 @@ reservoir_lumped <- function(
     
     # res_vect_class
     if(!is.null(res_vect_class)) {
-      writeVECT(res_lump[-r_nares,], res_vect_class)
+      writeVECT(SDF = res_lump, vname=res_vect_class, v.in.ogr_flags=c("o","overwrite"))
+      
       # WINDOWS PROBLEM: delete temporary file otherwise an error occurs when calling writeVECT or readVECT again with the same (or a similar) file name 
       if(.Platform$OS.type == "windows") {
         dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))

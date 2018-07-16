@@ -4,7 +4,7 @@
 \alias{reservoir_lumped}
 \title{Generation of WASA parameter files for simulation of lumped reservoirs}
 \usage{
-reservoir_lumped(res_vect = NULL, sub_rast = NULL, res_vect_class = NULL,
+reservoir_lumped(res_vect = NULL, subbas = NULL, res_vect_class = NULL,
   dir_out = "./", lake_file = "lake.dat",
   lakenum_file = "lake_number.dat", lakemaxvol_file = "lake_maxvol.dat",
   res_param = data.frame(class = 1:5, f_vol_init = 0.2, class_change = 0,
@@ -12,13 +12,13 @@ reservoir_lumped(res_vect = NULL, sub_rast = NULL, res_vect_class = NULL,
   damd_hrr = 1.5), keep_temp = F, overwrite = F, silent = F)
 }
 \arguments{
-\item{res_vect}{Name of reservoir vector map in GRASS location. Should be point
-instead of polygon feature (i.e. reservoir outlet locations; consider function
-\code{\link[lumpR]{reservoir_outlet}})! Needs at least
-either column 'volume' with information on volume in [m^3] or column 'area'
-with information on lake area in [m^2] in the attribute table.}
+\item{res_vect}{Name of reservoir vector map in GRASS location. Can be point
+or polygon feature (i.e. reservoir outlet centroids).
+If it has the columns 'volume' with information on volume in [m^3] or column 'area'
+with information on lake area in [m^2], these will be used for coumputation. 
+If none is encountered, 'area' can be generated from the area of the polygons, if present.}
 
-\item{sub_rast}{Name of subbasin raster map in GRASS location. Can be created with
+\item{subbas}{Name of subbasin raster map in GRASS location. Can be created with
 \code{\link[lumpR]{calc_subbas}}.}
 
 \item{res_vect_class}{Output: Name for the vector reservoir map to be created in GRASS
@@ -124,7 +124,7 @@ This function creates WASA input files needed to run the model
 Prepare GRASS location and necessary spatial objects in advance and start
      GRASS session in R using \code{\link[rgrass7]{initGRASS}}.
      
-     Points in \code{res_vect} not overlapping with any \code{sub_rast} will be
+     Points in \code{res_vect} not overlapping with any \code{subbas} will be
      silently removed during processing!
 }
 \references{
