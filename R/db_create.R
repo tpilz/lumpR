@@ -124,13 +124,15 @@ db_create <- function(
             }
         }  
       } 
-    }  
+    } else {
+      skip <- FALSE
+    } 
 
     if (!is_create_statement & (tablename %in% keep_tables)) #don't alter tables that are to be kept
       skip = TRUE
     
     
-    if (skip & !is.null(overwrite) & (overwrite!="empty"))    
+    if (skip & !is.null(overwrite) && (overwrite!="empty"))    
       message(paste0("Found existing table ", tablename, ", preserved. Use overwrite=... to drop or empty it."))
     else
     if (!skip)
