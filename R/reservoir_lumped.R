@@ -21,9 +21,9 @@
 #' location.
 #' 
 #' @param res_vect Name of reservoir vector map in GRASS location. Can be point
-#'      or polygon feature (i.e. reservoir outlet centroids).
+#'      or polygon feature (e.g. reservoir centroids).
 #'      If it has the columns 'volume' with information on volume in [m^3] or column 'area'
-#'      with information on lake area in [m^2], these will be used for coumputation. 
+#'      with information on lake area in [m^2], these will be used for computation. 
 #'      If none is encountered, 'area' can be generated from the area of the polygons, if present.
 #' @param subbas Name of subbasin raster map in GRASS location. Can be created with
 #'      \code{\link[lumpR]{calc_subbas}}.
@@ -301,7 +301,7 @@ reservoir_lumped <- function(
         res_lump@data$t_id = NULL #discard temporary ID
         res_lump@data$cat = NULL #discard internal GRASS ID that will be re-generated anyway
         writeVECT(SDF = res_lump, vname="t_t", v.in.ogr_flags=c("o","overwrite"))
-      } else x <- execGRASS("g.copy", input=res_vect, output="t_t", flags="overwrite", intern=TRUE)           
+      } else x <- execGRASS("g.copy", vector=paste(res_vect,"t_t", sep=","), flags="overwrite", intern=TRUE)           
                 
         #x <- execGRASS("v.centroids", input=res_vect, output="t_t", flags="overwrite", intern=TRUE) 
         #x <- execGRASS("g.copy", vector=paste0(res_vect,",",res_vect_class), flags="overwrite", intern=TRUE) 
@@ -309,7 +309,7 @@ reservoir_lumped <- function(
     
         #x <- execGRASS("v.type", input=res_vect, output=res_vect_class, from_type="area", to_type="point", flags="overwrite", intern=TRUE) 
     } else
-    x <- execGRASS("g.copy", input=res_vect, output=res_vect_class, flags="overwrite", intern=TRUE)       
+    x <- execGRASS("g.copy", vector=paste(res_vect,res_vect_class, sep=","), flags="overwrite", intern=TRUE)       
     
     #add subbasin-ID to reservoirs ####
     x <- execGRASS("v.db.addcolumn", map=res_vect_class, columns="subbas_id int", intern=TRUE) 

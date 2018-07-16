@@ -13,9 +13,9 @@ reservoir_lumped(res_vect = NULL, subbas = NULL, res_vect_class = NULL,
 }
 \arguments{
 \item{res_vect}{Name of reservoir vector map in GRASS location. Can be point
-or polygon feature (i.e. reservoir outlet centroids).
+or polygon feature (e.g. reservoir centroids).
 If it has the columns 'volume' with information on volume in [m^3] or column 'area'
-with information on lake area in [m^2], these will be used for coumputation. 
+with information on lake area in [m^2], these will be used for computation. 
 If none is encountered, 'area' can be generated from the area of the polygons, if present.}
 
 \item{subbas}{Name of subbasin raster map in GRASS location. Can be created with
