@@ -196,7 +196,7 @@ input files!
   states. See doc of \code{\link[lumpR]{db_fill}} (-> 'soil_veg_components') for
   description of header.
  
- #'   \bold{Reservoir/reservoir.dat}\cr
+  \bold{Reservoir/reservoir.dat}\cr
   \emph{Optional} file defining properties of strategic reservoirs.
 }
 \references{

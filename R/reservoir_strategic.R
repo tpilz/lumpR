@@ -23,15 +23,17 @@
 #' @param res_vect Name of reservoir vector map in GRASS location. Should be point
 #'      instead of polygon feature (i.e. reservoir outlet locations; consider function
 #'      \code{\link[lumpR]{reservoir_outlet}})! For mandatory columns in attribute table
-#'      see \code{Details}.
+#'      see \code{Details}. In any case, column \code{subbas_id} containing the subbasin
+#'      ID derived from \code{subbasin} will be added to the attribute table.
 #' @param subbasin Subbasin raster map in GRASS location. Can be created with
 #'      \code{\link[lumpR]{calc_subbas}}.
 #' @param res_file tab-delimited file containing reservoir properties (fields see details) and key "res_id". 
 #'       If set to NULL, these attributes must be given via the attribute table of \code{res_vect}
 #' @param dir_out Character string specifying output directory (will be created if it
 #'      does not yet exist).
-#' @param reservoir_file Output: WASA file of parameters for the strategic reservoirs
-#'      assigned to subbasins.
+#' @param reservoir_file Output: File of parameters for the strategic reservoirs
+#'      assigned to subbasins. To be filled into a database using \code{\link[lumpR]{db_fill}}.
+#'      This file is \bold{NOT} directly compatible with WASA-SED!
 #' @param overwrite \code{logical}. Shall output of previous calls of this function be
 #'      deleted? If \code{FALSE} the function returns an error if output already exists.
 #'      Default: \code{FALSE}.
@@ -40,10 +42,15 @@
 #'      
 #' @details For each reservoir that should be modelled explicitly within WASA the
 #'      following information need to be collected and written into the vector file's
-#'      attribute table or \code{res_file} (column order is not important):
+#'      attribute table or \code{res_file}. Column order is not important. Additional
+#'      columns can be given but will be ignored:
+#'      
+#'      \emph{res_id}\cr
+#'      Unique numeric reservoir identifier (if \code{res_file} is given, it also needs to be
+#'      defined in the vector file's attribute table!).
 #'      
 #'      \emph{name}\cr
-#'      Reservoir identifier, e.g. the name of the reservoir.
+#'      OPTIONAL: name of the reservoir. Will be filled with \code{<NA>} if not given.
 #' 
 #'      \emph{minlevel}\cr
 #'      Initial minimum level in the reservoir [m]. Value varies because of sediment
@@ -110,9 +117,10 @@
 #'      \emph{elevbottom}\cr
 #'      Bottom outlet elevation of the reservoir [m].
 #'      
-#' @note In output file \code{reservoir_file} order of subbasin IDs needs to be compliant
-#'      with order in hymo.dat, i.e. some manual post-processing might be necessary!
-#'      Otherwise WASA will terminate with an error.
+#'      The output file \code{reservoir_file} contains the additional column \emph{pid}
+#'      which is the corresponding subbasin ID determined from input \code{subbasin}.
+#'      
+#' @note 
 #'      
 #'      If you applied \code{\link[lumpR]{reservoir_outlet}} using the outlet locations
 #'      of strategic reservoirs as drainage points, it might be necessary to use
@@ -203,7 +211,7 @@ reservoir_strategic <- function(
     if(!silent) message("%")
     if(!silent) message("% Assignment of reservoirs to subbasins...")
     
-     #add subbasin-ID to reservoirs 
+    #  #add subbasin-ID to reservoirs 
     x <- execGRASS("v.db.addcolumn", map=res_vect, columns="subbas_id int", intern=TRUE) 
     x <- execGRASS("v.what.rast", map=res_vect, column="subbas_id", raster=subbasin, intern=TRUE)  
     
@@ -211,27 +219,26 @@ reservoir_strategic <- function(
     # get reservoir data
     res <- readVECT(res_vect)
     
+    # make sure column names are in in lowercase only
+    colnames(res@data) <- tolower(colnames(res@data))
+    if (!any(names(res@data)  =="res_id")) stop(paste0("Reservoir vector ", res_vect, " must contain the column 'res_id'."))
+    
+    # merge data from res_file if available
     if (!is.null(res_file))
     {  
       res_params = read.table(res_file, header=TRUE, sep="\t")
+      colnames(res_params) <- tolower(colnames(res_params))
       if (!any(names(res_params)=="res_id")) stop(paste0("Reservoir file ", res_file, " must contain the column 'res_id'."))
-      if (!any(names(res@data)  =="res_id")) stop(paste0("Reservoir vector ", res_vect, " must contain the column 'res_id'."))
+      res@data = merge(res@data, res_params, by="res_id")
     }
-      
-    # make sure column names are in in lowercase only
-    colnames(res@data) <- tolower(colnames(res@data))
-    res@data = merge(res@data, res_params, by="res_id")
     
     # check existence of necessary columns in attribute table
-    cols_mandatory <- c("name", "minlevel", "maxlevel", "vol0", "storecap", "damflow", "damq_frac", 
+    cols_mandatory <- c("minlevel", "maxlevel", "vol0", "storecap", "damflow", "damq_frac", 
                         "withdrawal", "damyear", "maxdamarea", "damdead", "damalert", "dama", "damb", 
                         "q_outlet", "fvol_botm", "fvol_over", "damc", "damd", "elevbottom")
     chk_cols <- grepl(paste(colnames(res@data), collapse="|^"), cols_mandatory)
     if(any(!chk_cols))
       stop(paste0("Check attribute table of 'res_vect' or provide 'res_file', column(s) ", paste(cols_mandatory[!chk_cols], collapse=", "), " could not be found!"))
-    
-    
-    if(!silent) message("% OK")
     
     # check for duplicates (multiple reservoirs  per subbasin)
     dupl <- duplicated(res@data$subbas_id, incomparables=c(NA))
@@ -242,11 +249,15 @@ reservoir_strategic <- function(
     if (any(outside))
       warning(paste0("Subbasin(s) no. ", paste(unique(res@data$subbas_id[outside]), collapse=", "), " are outside the defined subcatchments."))
     
+    # add name columns if it does not yet exist
+    if(!("name" %in% colnames(res@data))) {
+      res@data <- cbind(res@data, name=NA)
+    }
 
     # combine subbasin information with reservoir parameter data
     res_dat <- res@data
-    
     res_dat <- res_dat[!is.na(res_dat$subbas_id),] # remove reservoirs outside study area
+    
 
     if(!silent) message("% OK")
     if(!silent) message("%")
@@ -256,8 +267,7 @@ reservoir_strategic <- function(
     
     names(res_dat)[names(res_dat)=="subbas_id"]="pid"
     #order and select columns
-    res_dat = res_dat[, c("pid", "res_id",
-                          "name",
+    res_dat = res_dat[, c("pid", "res_id", "name",
     "minlevel",
     "maxlevel",
     "vol0",

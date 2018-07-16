@@ -533,6 +533,85 @@ For each table a single file has to be prepared manually and/or using functions 
    
    \emph{node4}\cr
    \code{integer}. DOY of end of main phase of vegetation degradation.
+   
+   
+ \bold{reservoirs_strategic}\cr
+ Strategic reservoir parameters. Fill in output of \code{\link[lumpR]{reservoir_strategic}}.
+ 
+   \emph{pid}\cr
+   ID of the corresponding subbasin.
+ 
+     \emph{res_id}\cr
+     Unique numeric reservoir identifier (if \code{res_file} is given, it also needs to be
+     defined in the vector file's attribute table!).
+     
+     \emph{name}\cr
+     OPTIONAL: name of the reservoir. Will be filled with \code{<NA>} if not given.
+
+     \emph{minlevel}\cr
+     Initial minimum level in the reservoir [m]. Value varies because of sediment
+     accumulation.
+     
+     \emph{maxlevel}\cr
+     Maximum water level in the reservoir [m].
+     
+     \emph{vol0}\cr
+     Initial volume of the reservoir [10^3 m^3]. Value varies because of sediment
+     accumulation. Set to '-999' if information is not available.
+     
+     \emph{storecap}\cr
+     Initial storage capacity of the reservoir [10^3 m^3]. Value varies because of
+     sediment accumulation.
+     
+     \emph{damflow}\cr
+     Target outflow discharge of the reservoir (90 \% reliability) [m^3/s].
+     
+     \emph{damq_frac}\cr
+     Fraction of Q90 released from the reservoir in regular years [-].
+     
+     \emph{withdrawal}\cr
+     Water withdrawal discharge from the reservoir to supply the water use sectors 
+     [m^3/s]. Outflow discharge through the dam is not considered.
+     
+     \emph{damyear}\cr
+     Year of construction of the dam (YYYY).
+     
+     \emph{maxdamarea}\cr
+     Initial maximum area of the reservoir [ha]. Value varies because of sediment
+     accumulation.
+     
+     \emph{damdead}\cr
+     Initial dead volume of the reservoir [10^3 m^3]. Value varies because of
+     sediment accumulation.
+     
+     \emph{damalert}\cr
+     Initial alert volume of the reservoir [10^3 m^3]. Value varies because of
+     sediment accumulation.
+     
+     \emph{dama, damb}\cr
+     Parameters of the area-volume relationship in the reservoir:
+     area = dama * Vol^damb [-]. Values of reservoir area and volume are
+     expressed in m^2 and m^3, respectively.
+     
+     \emph{q_outlet}\cr
+     Maximum outflow discharge released through the bottom outlets of the
+     reservoir [m^3/s].
+     
+     \emph{fvol_botm}\cr
+     Fraction of storage capacity that indicates the minimum storage volume for
+     sediment release through the bottom outlets of the reservoir [-].
+     
+     \emph{fvol_over}\cr
+     Fraction of storage capacity that indicates the minimum storage volume for
+     water release through the spillway of the reservoir [-].
+     
+     \emph{damc, damd}\cr
+     Parameters of the spillway rating curve of the reservoir: Qout = damc * Hv^damd
+     [-]. Values of water height over the spillway and overflow discharges are
+     expressed in m and m^3/s, respectively.
+     
+     \emph{elevbottom}\cr
+     Bottom outlet elevation of the reservoir [m].
 }
 \references{
 \bold{lumpR paper}\cr
