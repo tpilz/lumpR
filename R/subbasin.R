@@ -296,7 +296,7 @@ calc_subbas <- function(
     x <- execGRASS("v.to.rast", input="dp_t", output="dp_t", use="attr", attribute_column="subbas_id", flags="overwrite", intern=T)
     x <- execGRASS("r.to.vect", input="dp_t", output="dp_centered_t", type="point", flags = "overwrite")
     drain_points_centered <- readVECT(vname = "dp_centered_t", layer=1)
-    colnames(drain_points_centered@data) <- c("subbas_id", "value")
+    colnames(drain_points_centered@data) <- c("cat","subbas_id")
     if(.Platform$OS.type == "windows") {
       dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
       files_del <- grep(substr("dp_centered_t", 1, 8), dir(dir_del), value = T)
@@ -317,7 +317,7 @@ calc_subbas <- function(
       file.remove(paste(dir_del, files_del, sep="/"))
     }
     
-    drain_points <- drain_points_shifted
+    #drain_points <- drain_points_shifted
     rm(drain_points_shifted, drain_points_centered)
     
     # read stream vector
