@@ -30,10 +30,10 @@
 #'  
 #' @param res_vct Reservoir vector file in GRASS location. For each polygon coordinates
 #'      of the outlet (cell with highest flow accumulation) are determined. Needs
-#'      at least the columns \code{name} (character) and \code{res_id} (integer) as reservoir identifier.
+#'      at least the column \code{res_id} (integer) as reservoir identifier.
 #'      
 #' @param outlets_vect Output: Name of vector file of outlet locations to be exported
-#'      to GRASS location. If \code{NULL} (default), nothing is exported to GRASS.
+#'      to GRASS location.
 #'      
 #' @param keep_temp \code{logical}. Set to \code{TRUE} if temporary files shall be kept
 #'      in the GRASS location, e.g. for debugging or further analyses. Default: \code{FALSE}.
@@ -89,15 +89,21 @@ reservoir_outlet <- function(
   if (cmd_out=="")
     stop("Couldn't connect to GRASS-session. Try removing any open sinks by calling 'sink()' repeatedly. Or restart R.")
   
-  check_raster(dem,"dem")
+  # check arguments and input
+  if(is.null(flowacc) & is.null(dem))
+    stop("Either argument 'dem' or 'flowacc' has to be specified!")
+  if(!is.null(dem)) check_raster(dem,"dem")
+  if(!is.null(flowacc)) check_raster(flowacc,"flowacc")
   check_vector(res_vct, "res_vct")
+  if(is.null(outlets_vect))
+    stop("Argument 'outlets_vect' needs to be specified!")
   
   #check for necessary columns in vector file
   cmd_out <- execGRASS("v.info", map=res_vct, flags=c("c", "e"), intern=T)
   if (!any(grepl(cmd_out, pattern="INTEGER\\|res_id")))
     stop(paste0("Reservoir vector file '",res_vct,"' has no column 'res_id' (INTEGER), please add it."))
-  if (!any(grepl(cmd_out, pattern="CHARACTER\\|name")))
-    stop(paste0("Reservoir vector file '",res_vct,"' has no column 'name' (CHARACTER), please add it."))
+  # if (!any(grepl(cmd_out, pattern="CHARACTER\\|name")))
+  #   stop(paste0("Reservoir vector file '",res_vct,"' has no column 'name' (CHARACTER), please add it."))
   
   
   # suppress annoying GRASS outputs 
@@ -116,15 +122,8 @@ reservoir_outlet <- function(
   
   tryCatch({
     
-    # Check arguments
-    if (is.null(flowacc) & is.null(dem))
-      stop("'flowacc' and 'dem' are NULL. One of it must be specified (non-NULL)!")
     # remove mask if any
     tryCatch(suppressWarnings(execGRASS("r.mask", flags=c("r"))), error=function(e){})
-    
-    if(is.null(res_vct))
-      stop("You have to specify res_vct, the name of the reservoir vector file in the GRASS location to be used as input!")
-
     
     # remove output of previous function calls if overwrite=T
     if (overwrite) {
@@ -140,11 +139,10 @@ reservoir_outlet <- function(
     if(!silent) message("% Determine highest flow accumulation value for each reservoir...")
     
     # GRASS calculation of flow accumulation
-    if (is.null(flowacc) & !is.null(dem)) {
+    if (is.null(flowacc)) {
       flowacc <- "accum_t"
       x <- execGRASS("r.watershed", elevation=dem, accumulation=flowacc, flags="s", intern=T)
-    } else
-    check_raster(flowacc,"flowacc")
+    }
     
     # check if flowacc is integer
     cmd_out <- execGRASS("r.info", map=flowacc, flags="g", intern=T)
@@ -169,9 +167,9 @@ reservoir_outlet <- function(
     x <- execGRASS("r.to.vect", input="outlet_cells_t", type="point", output=outlets_vect, flags="overwrite", intern=TRUE)
     
     #add subbasin-ID to outlet cells
-    x <- execGRASS("v.db.addcolumn", map=outlets_vect, columns="res_id int,name VARCHAR(30)", intern=TRUE) 
+    x <- execGRASS("v.db.addcolumn", map=outlets_vect, columns="res_id int", intern=TRUE) 
     x <- execGRASS("v.what.vect", map=outlets_vect, column="res_id", query_map="resv_t", query_column="res_id", intern=TRUE)  
-    x <- execGRASS("v.what.vect", map=outlets_vect, column="name",   query_map="resv_t", query_column="name", intern=TRUE)  
+    #x <- execGRASS("v.what.vect", map=outlets_vect, column="name",   query_map="resv_t", query_column="name", intern=TRUE)  
     
 
     # load reservoir outlet points from GRASS

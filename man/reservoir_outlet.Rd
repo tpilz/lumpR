@@ -17,10 +17,10 @@ flow accumulation if no flow accumulation raster is given. Default: \code{NULL}.
 
 \item{res_vct}{Reservoir vector file in GRASS location. For each polygon coordinates
 of the outlet (cell with highest flow accumulation) are determined. Needs
-at least the columns \code{name} (character) and \code{res_id} (integer) as reservoir identifier.}
+at least the column \code{res_id} (integer) as reservoir identifier.}
 
 \item{outlets_vect}{Output: Name of vector file of outlet locations to be exported
-to GRASS location. If \code{NULL} (default), nothing is exported to GRASS.}
+to GRASS location.}
 
 \item{keep_temp}{\code{logical}. Set to \code{TRUE} if temporary files shall be kept
 in the GRASS location, e.g. for debugging or further analyses. Default: \code{FALSE}.}
