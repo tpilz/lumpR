@@ -71,6 +71,11 @@
 #'      \code{\link[lumpR]{lump_grass_prep}}) and start GRASS session in R using 
 #'      \code{\link[rgrass7]{initGRASS}}.
 #'      
+#'      \bold{IMPORTANT:} Herein, when specifying the GRASS input maps, please do
+#'      explicitly refer to the mapset if it is different from the mapset given in
+#'      initGRASS() (even PERMANENT!), as otherwise internally used readRAST() command
+#'      resulted in errors under Windows. 
+#'      
 #'      GUIs such as RStudio may not produce some runtime messages (within parallel
 #'      foreach loop).
 #'      
