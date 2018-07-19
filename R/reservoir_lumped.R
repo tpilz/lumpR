@@ -277,6 +277,8 @@ reservoir_lumped <- function(
           
     if (!is_point_map) #is this a point-vector file? If not, convert to points
     {
+      if(!silent) message("%")
+      if(!silent) message("% Argument 'res_vect' detected as polygon map. Derive centroids as points...")
       #check for 'area field'
       cmd_out <- execGRASS("v.info", map=res_vect, flags=c("c", "e"), intern=T)
       if (!any(grepl(cmd_out, pattern="\\|area"))) #add area column
@@ -308,8 +310,17 @@ reservoir_lumped <- function(
         x <- execGRASS("v.type", input="t_t", output=res_vect_class, from_type="centroid", to_type="point", flags="overwrite", intern=TRUE) 
     
         #x <- execGRASS("v.type", input=res_vect, output=res_vect_class, from_type="area", to_type="point", flags="overwrite", intern=TRUE) 
+        
+        if(!silent) message("% OK")
+        
     } else
     x <- execGRASS("g.copy", vector=paste(res_vect,res_vect_class, sep=","), flags="overwrite", intern=TRUE)       
+    
+    
+    
+    # GROUP RESERVOIRS INTO SIZE CLASSES #-------------------------------------
+    if(!silent) message("%")
+    if(!silent) message("% Reservoir calculations...")
     
     #add subbasin-ID to reservoirs ####
     x <- execGRASS("v.db.addcolumn", map=res_vect_class, columns="subbas_id int", intern=TRUE) 
@@ -324,10 +335,6 @@ reservoir_lumped <- function(
       if (length(files_del)>0)
         file.remove(paste(dir_del, files_del, sep="/"), showWarnings=FALSE)
     }
-    
-    # GROUP RESERVOIRS INTO SIZE CLASSES #-------------------------------------
-    if(!silent) message("%")
-    if(!silent) message("% Reservoir calculations...")
     
     # calculate parameter vol_max if not given
     if(is.null(res_param$vol_max)) {
