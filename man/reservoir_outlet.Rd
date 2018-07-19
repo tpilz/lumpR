@@ -33,8 +33,8 @@ Default: \code{FALSE}.}
 of internally used GRASS functions)? Default: \code{FALSE}.}
 }
 \value{
-\code{SpatialPoints} object containing outlet position for each reservoir
-     polygon and vector file \code{outlets_vect} exported to GRASS location.
+Function returns nothing. \bold{WARNING:} Up to version 2.5.0 this function
+returned a \code{SpatialPoints} object with the outlet coordinates.
 }
 \description{
 Takes a flow accumulation raster (or DEM for computation) and reservoir vector

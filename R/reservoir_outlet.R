@@ -43,8 +43,8 @@
 #' @param silent \code{logical}. Shall the function be silent (also suppressing warnings
 #'      of internally used GRASS functions)? Default: \code{FALSE}.
 #'      
-#' @return \code{SpatialPoints} object containing outlet position for each reservoir
-#'      polygon and vector file \code{outlets_vect} exported to GRASS location.
+#' @return Function returns nothing. \bold{WARNING:} Up to version 2.5.0 this function
+#' returned a \code{SpatialPoints} object with the outlet coordinates.
 #'      
 #' @note Prepare GRASS location and necessary files in advance and start GRASS
 #'      session in R using \code{\link[rgrass7]{initGRASS}}. Location should not
@@ -171,17 +171,6 @@ reservoir_outlet <- function(
     x <- execGRASS("v.what.vect", map=outlets_vect, column="res_id", query_map="resv_t", query_column="res_id", intern=TRUE)  
     #x <- execGRASS("v.what.vect", map=outlets_vect, column="name",   query_map="resv_t", query_column="name", intern=TRUE)  
     
-
-    # load reservoir outlet points from GRASS
-    suppressWarnings(res_out <- readVECT(outlets_vect, ignore.stderr = T))
-    # WINDOWS PROBLEM: delete temporary file otherwise an error occurs when calling writeVECT or readVECT again with the same (or a similar) file name 
-    if(.Platform$OS.type == "windows") {
-      dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
-      files_del <- grep(substr(outlets_vect, 1, 8), dir(dir_del), value = T)
-      if (length(files_del)>0)
-      a=file.remove(paste(dir_del, files_del, sep="/"), showWarnings=FALSE)
-    }
-    
     
     # delete temp
     if(keep_temp == FALSE)
@@ -199,9 +188,6 @@ reservoir_outlet <- function(
     # restore original warning mode
     if(silent)
       options(warn = oldw)
-    
-    # return spatial object
-    return(res_out)
     
   
   # exception handling
