@@ -51,6 +51,11 @@
 #'      contain any maps ending on *_t as these will be removed by calling the
 #'      function to remove temporary maps.
 #'      
+#'      Attribute table of \code{res_vct} must be stored in a SQL database to copy
+#'      the attribute table to \code{outlets_vect}. Furthermore, \code{res_vct}
+#'      must not contain a column \code{cat_new} as this will be the new identifier
+#'      column for \code{outlets_vect}.
+#'      
 #'      Check the results by investigating vector file with outlet points written
 #'      to GRASS location. Due to small projection inaccuracies between the DEM / flow
 #'      accumulation raster and the reservoir vector file, calculated outlet locations
@@ -164,13 +169,17 @@ reservoir_outlet <- function(
     x <- execGRASS("r.mapcalc",  expression="outlet_cells_t=if(accum_t==max_flowaccum_t,1,null())", flags="overwrite", intern=TRUE)
     
     #convert outlet points to vector
-    x <- execGRASS("r.to.vect", input="outlet_cells_t", type="point", output=outlets_vect, flags="overwrite", intern=TRUE)
+    x <- execGRASS("r.to.vect", input="outlet_cells_t", type="point", output=outlets_vect, flags=c("overwrite", "t"), intern=TRUE)
     
     #add subbasin-ID to outlet cells
+    x <- execGRASS("v.db.addtable", map=outlets_vect, key = "cat_new", intern=TRUE) 
     x <- execGRASS("v.db.addcolumn", map=outlets_vect, columns="res_id int", intern=TRUE) 
     x <- execGRASS("v.what.vect", map=outlets_vect, column="res_id", query_map="resv_t", query_column="res_id", intern=TRUE)  
     #x <- execGRASS("v.what.vect", map=outlets_vect, column="name",   query_map="resv_t", query_column="name", intern=TRUE)  
     
+    # preserve attribute table of res_vct
+    x <- execGRASS("v.db.dropcolumn", map = "resv_t", columns = "fa_maximum", intern=T)
+    x <- execGRASS("v.db.join", map = outlets_vect, column = "res_id", other_table = "resv_t", other_column = "res_id", intern=T)
     
     # delete temp
     if(keep_temp == FALSE)

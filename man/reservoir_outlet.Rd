@@ -47,6 +47,11 @@ Prepare GRASS location and necessary files in advance and start GRASS
      contain any maps ending on *_t as these will be removed by calling the
      function to remove temporary maps.
      
+     Attribute table of \code{res_vct} must be stored in a SQL database to copy
+     the attribute table to \code{outlets_vect}. Furthermore, \code{res_vct}
+     must not contain a column \code{cat_new} as this will be the new identifier
+     column for \code{outlets_vect}.
+     
      Check the results by investigating vector file with outlet points written
      to GRASS location. Due to small projection inaccuracies between the DEM / flow
      accumulation raster and the reservoir vector file, calculated outlet locations
