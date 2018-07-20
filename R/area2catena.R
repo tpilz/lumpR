@@ -36,7 +36,10 @@
 #' @param dir_out Character string specifying output directory (will be created;
 #'      nothing will be overwritten).
 #' @param catena_out Output: Name of output file containing mean catena information
-#'      as input for \code{\link[lumpR]{prof_class}}.
+#'      as input for \code{\link[lumpR]{prof_class}}. To save computation time and
+#'      memory in cases of large catchments and/or high resolution, specify a file
+#'      name with ending \code{*.RData}. In such a case, a compressed RData file will be
+#'      written instead of a text file. 
 #' @param catena_head_out Output: Name of output header file containing meta-information
 #'      as input for \code{\link[lumpR]{prof_class}}; manual adjustment necessary.
 #' @param ridge_thresh Integer specifying threshold of flow accumulation, below
@@ -74,7 +77,13 @@
 #'      \bold{IMPORTANT:} Herein, when specifying the GRASS input maps, please do
 #'      explicitly refer to the mapset if it is different from the mapset given in
 #'      initGRASS() (even PERMANENT!), as otherwise internally used readRAST() command
-#'      resulted in errors under Windows. 
+#'      resulted in errors under Windows.
+#'      
+#'      In case of \bold{long computation times or memory issues}, try \code{plot_catena = FALSE}
+#'      and specify an RData file as \code{catena_out}. Furthermore, make sure your
+#'      raster maps are not overly large (i.e. containing lots of NULL values around
+#'      the region of interest) and are of type \code{CELL} (i.e. integer) where it makes
+#'      sense (check with \code{r.info} in GRASS).
 #'      
 #'      GUIs such as RStudio may not produce some runtime messages (within parallel
 #'      foreach loop).
@@ -395,16 +404,18 @@ area2catena <- function(
     
     
     
-    # write output
+# write output #---------------------------------------------------------------
     #out_pre <- mapply(logdata[,c(3:length(logdata))], FUN=function(x) formatC(x, format="f", digits=3))
     #out_fmt <- cbind(logdata[,c(1,2)], out_pre)
     #format output to reasonable number of digits
     logdata <- round(logdata,3)
   
-    write.table(logdata, paste(dir_out,catena_out, sep="/"), col.names=F, row.names=F, quote=F, sep="\t")
+    if(grepl(".RData$", catena_out)) {
+      save(logdata, file=paste(dir_out,catena_out, sep="/"))
+    } else {
+      write.table(logdata, paste(dir_out,catena_out, sep="/"), col.names=F, row.names=F, quote=F, sep="\t")
+    }
     
-    
-# write output #---------------------------------------------------------------
     # write header file
     write("#This file works as a header to the output of area2catena. Don't add additional headerlines.",
           file=paste(dir_out,catena_head_out, sep="/"), append=F)
@@ -435,7 +446,7 @@ area2catena <- function(
     #Generate output files for reclassification (input class-IDs vs. internally used IDs)
     #(area2catena creates continuous class numbering; restoring the orginal classes will require these files)
 
-    if (grass_files | "svc" %in% supp_qual) {
+    if (grass_files | any(grepl("svc", supp_qual))) {
       for (i in supp_qual) {
         write(c("new_id", "original_id"),
               file=paste(dir_out, "/reclass_", i, ".txt", sep=""), ncolumns=2, append=F, sep="\t")

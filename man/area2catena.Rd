@@ -37,7 +37,10 @@ supplemental raster maps in GRASS location; leave empty if you have none.}
 nothing will be overwritten).}
 
 \item{catena_out}{Output: Name of output file containing mean catena information
-as input for \code{\link[lumpR]{prof_class}}.}
+as input for \code{\link[lumpR]{prof_class}}. To save computation time and
+memory in cases of large catchments and/or high resolution, specify a file
+name with ending \code{*.RData}. In such a case, a compressed RData file will be
+written instead of a text file.}
 
 \item{catena_head_out}{Output: Name of output header file containing meta-information
 as input for \code{\link[lumpR]{prof_class}}; manual adjustment necessary.}
@@ -91,7 +94,13 @@ Prepare GRASS location and necessary raster files in advance (e.g. using
      \bold{IMPORTANT:} Herein, when specifying the GRASS input maps, please do
      explicitly refer to the mapset if it is different from the mapset given in
      initGRASS() (even PERMANENT!), as otherwise internally used readRAST() command
-     resulted in errors under Windows. 
+     resulted in errors under Windows.
+     
+     In case of \bold{long computation times or memory issues}, try \code{plot_catena = FALSE}
+     and specify an RData file as \code{catena_out}. Furthermore, make sure your
+     raster maps are not overly large (i.e. containing lots of NULL values around
+     the region of interest) and are of type \code{CELL} (i.e. integer) where it makes
+     sense (check with \code{r.info} in GRASS).
      
      GUIs such as RStudio may not produce some runtime messages (within parallel
      foreach loop).
