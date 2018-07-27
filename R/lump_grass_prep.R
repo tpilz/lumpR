@@ -419,7 +419,7 @@ lump_grass_prep <- function(
       }
       lens <- sapply(unlist(execGRASS("r.category", map=lcov, separator=",", intern=T)), function(x) length(unlist(strsplit(x,","))))
       if(any(lens>1)) {
-        cmd_out <- execGRASS("r.mapcalc", expression=paste0(paste0(unlist(strsplit(lcov, "@"))[1], "_t"), "= ", soil, "*1"), intern = T)
+        cmd_out <- execGRASS("r.mapcalc", expression=paste0(paste0(unlist(strsplit(lcov, "@"))[1], "_t"), "= ", lcov, "*1"), intern = T)
         lcov <- paste0(unlist(strsplit(lcov, "@"))[1], "_t")
       }
       
