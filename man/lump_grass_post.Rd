@@ -221,6 +221,11 @@ Prepare GRASS location and necessary raster files in advance (e.g. using
      \code{\link[lumpR]{lump_grass_prep}}) and start GRASS session in R using 
      \code{\link[rgrass7]{initGRASS}}.
      
+     \bold{IMPORTANT:} Herein, when specifying the GRASS input maps, please do
+     explicitly refer to the mapset if it is different from the mapset given in
+     initGRASS() (even PERMANENT!), as otherwise internally used readRAST() command
+     resulted in errors under Windows. 
+     
      TODO:\cr
        - check empirical formulas for channel width and channel depth\cr
        - LU parameter estimation\cr

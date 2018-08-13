@@ -1,5 +1,5 @@
 # lumpR/reservoir_lumped.R
-# Copyright (C) 2016-2018 Tobias Pilz
+# Copyright (C) 2016-2018 Tobias Pilz, Till Francke
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -55,6 +55,11 @@
 #'      
 #'      Points in \code{res_vect} not overlapping with any \code{subbas} will be
 #'      silently removed during processing!
+#'      
+#'      Polygons overlapping over various subbasins will be classified to the subbasin
+#'      containing the polygon's centroid. If that occurrs frequently, you should
+#'      consider running \code{\link[rgrass7]{reservoir_outlet}} in advance where
+#'      reservoir outlet locations are estimated instead of using the centroid.
 #'      
 #' @details This function creates WASA input files needed to run the model
 #'      with option \code{doacudes}.
@@ -140,7 +145,7 @@
 #'      \emph{Serie Hydrologia}, 25, SUDENE / ORSTOM, Recife, Brazil, in Portuguese.
 #'      
 #' 
-#' @author Tobias Pilz \email{tpilz@@uni-potsdam.de}
+#' @author Tobias Pilz \email{tpilz@@uni-potsdam.de}, Till Francke \email{francke@@uni-potsdam.de}
 
 reservoir_lumped <- function(
   # INPUT #
@@ -277,6 +282,8 @@ reservoir_lumped <- function(
           
     if (!is_point_map) #is this a point-vector file? If not, convert to points
     {
+      if(!silent) message("%")
+      if(!silent) message("% Argument 'res_vect' detected as polygon map. Derive centroids as points...")
       #check for 'area field'
       cmd_out <- execGRASS("v.info", map=res_vect, flags=c("c", "e"), intern=T)
       if (!any(grepl(cmd_out, pattern="\\|area"))) #add area column
@@ -308,8 +315,17 @@ reservoir_lumped <- function(
         x <- execGRASS("v.type", input="t_t", output=res_vect_class, from_type="centroid", to_type="point", flags="overwrite", intern=TRUE) 
     
         #x <- execGRASS("v.type", input=res_vect, output=res_vect_class, from_type="area", to_type="point", flags="overwrite", intern=TRUE) 
+        
+        if(!silent) message("% OK")
+        
     } else
     x <- execGRASS("g.copy", vector=paste(res_vect,res_vect_class, sep=","), flags="overwrite", intern=TRUE)       
+    
+    
+    
+    # GROUP RESERVOIRS INTO SIZE CLASSES #-------------------------------------
+    if(!silent) message("%")
+    if(!silent) message("% Reservoir calculations...")
     
     #add subbasin-ID to reservoirs ####
     x <- execGRASS("v.db.addcolumn", map=res_vect_class, columns="subbas_id int", intern=TRUE) 
@@ -324,10 +340,6 @@ reservoir_lumped <- function(
       if (length(files_del)>0)
         file.remove(paste(dir_del, files_del, sep="/"), showWarnings=FALSE)
     }
-    
-    # GROUP RESERVOIRS INTO SIZE CLASSES #-------------------------------------
-    if(!silent) message("%")
-    if(!silent) message("% Reservoir calculations...")
     
     # calculate parameter vol_max if not given
     if(is.null(res_param$vol_max)) {

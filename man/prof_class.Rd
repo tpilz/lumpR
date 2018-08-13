@@ -88,7 +88,8 @@ Default: \code{FALSE}.}
 
 \item{plot_silhouette}{\code{logical}. Shall a silhouette plot (illustrating the clustering
 process) be generated? Consumes much memory and processing time and should be disabled,
-if a memory error is thrown. Default: \code{TRUE}.}
+if a memory error is thrown. Will be \code{FALSE} if \code{make_plots = FALSE}.
+Default: \code{TRUE}.}
 }
 \value{
 Function returns nothing. Output files are written into output directory
@@ -117,6 +118,9 @@ Function uses output of \code{\link[lumpR]{area2catena}}. However, no GRASS
      location might show gaps depending on the number of generated landscape units
      as each landscape unit refers to the representative EHA. The gaps can be filled
      with GRASS function \code{r.grow}.
+     
+     In case of \bold{long computation times or memory issues}, try \code{make_plots = FALSE}
+     and specify an RData file as \code{catena_file} (already in \code{\link[lumpR]{area2catena}}).
 }
 \references{
 Source code based on \code{SHELL} and \code{MATLAB} scripts of Till Francke.

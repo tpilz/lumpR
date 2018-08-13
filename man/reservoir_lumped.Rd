@@ -126,6 +126,11 @@ Prepare GRASS location and necessary spatial objects in advance and start
      
      Points in \code{res_vect} not overlapping with any \code{subbas} will be
      silently removed during processing!
+     
+     Polygons overlapping over various subbasins will be classified to the subbasin
+     containing the polygon's centroid. If that occurrs frequently, you should
+     consider running \code{\link[rgrass7]{reservoir_outlet}} in advance where
+     reservoir outlet locations are estimated instead of using the centroid.
 }
 \references{
 lumpR package introduction with literature study and sensitivity analysis:\cr
@@ -147,5 +152,5 @@ lumpR package introduction with literature study and sensitivity analysis:\cr
      \emph{Serie Hydrologia}, 25, SUDENE / ORSTOM, Recife, Brazil, in Portuguese.
 }
 \author{
-Tobias Pilz \email{tpilz@uni-potsdam.de}
+Tobias Pilz \email{tpilz@uni-potsdam.de}, Till Francke \email{francke@uni-potsdam.de}
 }

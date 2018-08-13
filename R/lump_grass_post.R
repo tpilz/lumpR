@@ -74,6 +74,11 @@
 #'      \code{\link[lumpR]{lump_grass_prep}}) and start GRASS session in R using 
 #'      \code{\link[rgrass7]{initGRASS}}.
 #'      
+#'      \bold{IMPORTANT:} Herein, when specifying the GRASS input maps, please do
+#'      explicitly refer to the mapset if it is different from the mapset given in
+#'      initGRASS() (even PERMANENT!), as otherwise internally used readRAST() command
+#'      resulted in errors under Windows. 
+#'      
 #'      TODO:\cr
 #'        - check empirical formulas for channel width and channel depth\cr
 #'        - LU parameter estimation\cr
@@ -299,6 +304,17 @@ lump_grass_post <- function(
   if(!is.null(recl_lu) && !file.exists(recl_lu))
     stop(paste0("Could not find file '",recl_lu,"' (argument 'recl_lu')"))
   
+  #check existence of raster maps
+  check_raster(mask,"mask")
+  check_raster(dem,"dem")
+  if(is.null(recl_lu)) check_raster(lu,"lu")
+  check_raster(subbasin,"subbasin")
+  check_raster(eha,"eha")
+  check_raster(flowacc,"flowacc")
+  check_raster(flowdir,"flowdir")
+  check_raster(stream_horton,"stream_horton")
+  if(!is.null(soil_depth)) check_raster(soil_depth,"soil_depth")
+  if(!is.null(sdr)) check_raster(sdr,"sdr")
   
   # suppress annoying GRASS outputs
   tmp_file <- file(tempfile(), open="wt")
@@ -344,13 +360,6 @@ lump_grass_post <- function(
   tryCatch({
     if(!silent) message("%")
     if(!silent) message("% Prepare output and import GRASS data...")
-    
-    #check existence of raster maps
-    check_raster(mask,"mask")
-    check_raster(flowacc,"flowacc")
-    check_raster(flowdir,"flowdir")
-    check_raster(subbasin,"subbasin")
-    check_raster(stream_horton,"stream_horton")
     
     # load rasters into R
     dem_rast <- read_raster(dem)

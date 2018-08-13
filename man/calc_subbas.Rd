@@ -18,9 +18,11 @@ close to boundaries may occur.}
 
 \item{drain_points}{\code{SpatialPoints} object containing drainage locations in
 units of and compliant with the projection of your respective GRASS location.
-Can be e.g. be imported from GRASS with
-drain_points = readVECT(vname = "subbas_outlets", layer=1)
-At least the watershed drainage point has to be given. If it contains the attribute 'subbas_id', this will be used for numbering the subbasins.}
+Can, e.g., be imported from GRASS with
+drain_points = readVECT(vname = "subbas_outlets", layer=1).
+At least the watershed drainage point has to be given. If it contains column
+'subbas_id' in the attribute table, this will be used for numbering the subbasins.
+IDs of additionally delineated subbasins (if \code{thresh_sub != NULL}) will be appended.}
 
 \item{river}{River vector map in GRASS location if available. If set to \code{NULL}
 (default value) river network will be calculated by GRASS function \emph{r.watershed}.}

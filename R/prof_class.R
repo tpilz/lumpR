@@ -72,7 +72,8 @@
 #'      Default: \code{FALSE}.
 #' @param plot_silhouette \code{logical}. Shall a silhouette plot (illustrating the clustering
 #'      process) be generated? Consumes much memory and processing time and should be disabled,
-#'      if a memory error is thrown. Default: \code{TRUE}.
+#'      if a memory error is thrown. Will be \code{FALSE} if \code{make_plots = FALSE}.
+#'      Default: \code{TRUE}.
 #'      
 #' @return Function returns nothing. Output files are written into output directory
 #'      as specified in arguments.
@@ -84,6 +85,9 @@
 #'      location might show gaps depending on the number of generated landscape units
 #'      as each landscape unit refers to the representative EHA. The gaps can be filled
 #'      with GRASS function \code{r.grow}.
+#'      
+#'      In case of \bold{long computation times or memory issues}, try \code{make_plots = FALSE}
+#'      and specify an RData file as \code{catena_file} (already in \code{\link[lumpR]{area2catena}}).
 #'      
 #' @details This function first resamples the catenas derived from \code{\link[lumpR]{area2catena}}
 #'      to a common length (\code{com_length} or the median number of support points
@@ -254,9 +258,13 @@ prof_class <- function(
     #   com_length <- -1
     
     # load standard catena data
-    stats <- scan(catena_file, nlines = 1, what=numeric(), sep = "\t", quiet = TRUE) #read first line only
-    stats <- read.table(file = catena_file, colClasses = c("numeric", rep("NULL", length(stats)-1)), sep = "\t") #read first column only
-    
+    if(grepl(".RData$", catena_file)) {
+      load(catena_file)
+      stats <- logdata[,1,drop=F]
+    } else {
+      stats <- scan(catena_file, nlines = 1, what=numeric(), sep = "\t", quiet = TRUE) #read first line only
+      stats <- read.table(file = catena_file, colClasses = c("numeric", rep("NULL", length(stats)-1)), sep = "\t") #read first column only
+    }
     
     profpoints <- table(stats[,1])  #count number of points of each catena
     p_id_unique = unique(stats[,1]) #get unique IDs  
@@ -310,7 +318,8 @@ prof_class <- function(
            main="Original catenas", xlab="horizontal length [m]", ylab="elevation [m]")
     }
   #read and resample profiles (done at the same time to avoid duplicates in memory)
-     testcon <- file(catena_file,open="r")
+    # TODO: This mess needs to be improved!
+     if(!grepl(".RData$", catena_file)) testcon <- file(catena_file,open="r")
      if(!silent) #for printing progress indicator
        pb <- txtProgressBar(min = 0, max = length(p_id_unique), style = 3)
 
@@ -326,10 +335,14 @@ prof_class <- function(
        p_pos = which(names(profpoints)==cur_p_id) #position of current profile in list
        
        skiplines = sum(profpoints[(total_read+1) : p_pos]) -  profpoints[p_pos] #compute number of lines to skip to reach the next selected profile
-       tt = readLines(con = testcon, n = skiplines)
-
-       tt = scan(file=testcon, what=numeric(), nlines = profpoints[p_pos], quiet = TRUE) #read single profile
-       tt = matrix(tt, nrow = c(profpoints[p_pos]), byrow = TRUE) #reshape matrix
+       if(grepl(".RData$", catena_file)) {
+         tt <- as.matrix(logdata[which(logdata[,1] == cur_p_id),])
+       } else {
+        tt = readLines(con = testcon, n = skiplines)
+        tt = scan(file=testcon, what=numeric(), nlines = profpoints[p_pos], quiet = TRUE) #read single profile
+        tt = matrix(tt, nrow = c(profpoints[p_pos]), byrow = TRUE) #reshape matrix
+       }
+        
        total_read = p_pos  #we are now just at the desired profile
        
        if (any(tt[,1]!= cur_p_id)) stop(paste0("Format error in ",catena_file))
@@ -385,9 +398,14 @@ prof_class <- function(
      if(!silent) # close progress bar
        close(pb)
      
-     close(testcon)
+     if(grepl(".RData$", catena_file)) {
+       rm(logdata)
+     } else {
+       close(testcon)
+     }
      # remove not needed objects to save memory
      rm(list = c("p_supp", "p_resampled", "tt"))
+     gc(verbose = F);gc(verbose = F)
      
      #save(file="debug.RData", list = ls(all.names = TRUE)) #for debugging only
      

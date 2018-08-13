@@ -4,11 +4,12 @@
 \alias{disc_wrapper}
 \title{Wrapper function performing a complete landscape discretisation}
 \usage{
-disc_wrapper(dem = NULL, drain_points = NULL, river = NULL, lcov = NULL,
-  soil = NULL, watermask = NULL, imperviousmask = NULL,
-  supp_quant = NULL, supp_qual = NULL, soil_depth = NULL, sdr = NULL,
-  veg_path = NULL, soil_path = NULL, odbc_file = "~/.odbc.ini",
-  dbname = NULL, db_driver = "SQLITE3",
+disc_wrapper(dem = NULL, drain_points = NULL, river = NULL,
+  flowaccum = NULL, drainage_dir = NULL, lcov = NULL, soil = NULL,
+  watermask = NULL, imperviousmask = NULL, supp_quant = NULL,
+  supp_qual = NULL, soil_depth = NULL, sdr = NULL, veg_path = NULL,
+  soil_path = NULL, odbc_file = "~/.odbc.ini", dbname = NULL,
+  db_driver = "SQLITE3",
   db_desc = "lumpR database automatically generated with lumpR::disc_wrapper()",
   db_server = "localhost", db_checks = NULL, db_option = NULL,
   subbas = NULL, stream = NULL, stream_eha = NULL, stream_horton = NULL,
@@ -21,12 +22,13 @@ disc_wrapper(dem = NULL, drain_points = NULL, river = NULL, lcov = NULL,
   terraincomponentsoutfile = "tc_db.dat", sub_ofile = "sub.dat",
   sub_lu = "sub_lu.dat", lupar_ofile = "lu_db.dat",
   recl_lu = "reclass_lu.dat", thresh_sub = NULL, eha_thres = NULL,
-  no_LUs = NULL, no_TCs = NULL, drainp_out_id = NULL,
+  no_LUs = NULL, no_TCs = NULL, disk_swap = FALSE, drainp_out_id = NULL,
   thresh_stream = NULL, snap_dist = NULL, rm_spurious = NULL,
-  groundwater = TRUE, ridge_thresh = NULL, min_cell_in_slope = NULL,
-  min_catena_length = NULL, max_riv_dist = NULL, grass_files = FALSE,
-  plot_catena = TRUE, plot_profclass = TRUE, plot_silhouette = TRUE,
-  keep_temp = FALSE, overwrite = FALSE, silent = FALSE, ncores = 1,
+  prep_things2do = c("eha", "river", "svc"), groundwater = TRUE,
+  ridge_thresh = NULL, min_cell_in_slope = NULL, min_catena_length = NULL,
+  max_riv_dist = NULL, grass_files = FALSE, plot_catena = TRUE,
+  plot_profclass = TRUE, plot_silhouette = TRUE, keep_temp = FALSE,
+  overwrite = FALSE, db_overwrite = NULL, silent = FALSE, ncores = 1,
   addon_path = NULL)
 }
 \value{
