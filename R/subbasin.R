@@ -196,10 +196,10 @@ calc_subbas <- function(
     
     # remove output of previous function calls if overwrite=T
     if (overwrite) {
+      # keep rivermap if prespecified
       remove_pattern=paste0("*_t,", basin_out, ",", points_processed, "_*")
-      if (is.null(river))
-		remove_pattern <- c(remove_pattern, paste0(",",stream,"_*")) #keep rivermap if prespecified
-	  cmd_out <- execGRASS("g.remove", type="raster,vector", pattern=remove_pattern, flags=c("f", "b"), intern=T)
+      if (is.null(river)) remove_pattern <- paste0(remove_pattern, ",",stream,"_*")
+	    cmd_out <- execGRASS("g.remove", type="raster,vector", pattern=remove_pattern, flags=c("f", "b"), intern=T)
     } else {
       # remove temporary maps in any case
       cmd_out <- execGRASS("g.remove", type="raster,vector", pattern="*_t", flags=c("f", "b"), intern=T)
