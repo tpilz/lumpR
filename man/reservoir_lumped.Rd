@@ -4,12 +4,13 @@
 \alias{reservoir_lumped}
 \title{Generation of WASA parameter files for simulation of lumped reservoirs}
 \usage{
-reservoir_lumped(res_vect = NULL, subbas = NULL, res_vect_class = NULL,
-  dir_out = "./", lake_file = "lake.dat",
-  lakenum_file = "lake_number.dat", lakemaxvol_file = "lake_maxvol.dat",
-  res_param = data.frame(class = 1:5, f_vol_init = 0.2, class_change = 0,
-  alpha_Molle = 2.7, damk_Molle = 1500, damc_hrr = c(7, 14, 21, 28, 35),
-  damd_hrr = 1.5), keep_temp = F, overwrite = F, silent = F)
+reservoir_lumped(res_vect = NULL, subbas = NULL,
+  res_vect_class = NULL, dir_out = "./", lake_file = "lake.dat",
+  lakenum_file = "lake_number.dat",
+  lakemaxvol_file = "lake_maxvol.dat", res_param = data.frame(class =
+  1:5, f_vol_init = 0.2, class_change = 0, alpha_Molle = 2.7, damk_Molle =
+  1500, damc_hrr = c(7, 14, 21, 28, 35), damd_hrr = 1.5), keep_temp = F,
+  overwrite = F, silent = F)
 }
 \arguments{
 \item{res_vect}{Name of reservoir vector map in GRASS location. Can be point
