@@ -363,7 +363,7 @@ calc_subbas <- function(
     outlet <- which(drain_points_snap@data$subbas_id == drain_points@data$subbas_id[outlet])
     outlet_coords <- coordinates(drain_points_snap)[outlet,]
     
-    cmd_out <- execGRASS("r.water.outlet", input="drain_t", output=paste0("basin_outlet_t"), coordinates=outlet_coords, intern = T)
+    cmd_out <- execGRASS("r.water.outlet", input="drain_t", output=paste0("basin_outlet_t"), coordinates=outlet_coords, flags="overwrite", intern = T)
     cmd_out = execGRASS("r.stats", input=paste0("basin_outlet_t"), flag=c("c","n","quiet"), intern = TRUE)
     ncells = as.numeric(strsplit(cmd_out, split = " ")[[1]][2])
     if (!is.finite(ncells) | ncells < 100)
@@ -570,7 +570,7 @@ calc_subbas <- function(
       } # end while-loop
       
       # constrain to catchment of outlet point
-      cmd_out <- execGRASS("r.mapcalc", expression=paste0(basin_out, "_t = basin_outlet_t * basin_all_t"), intern=T)
+      cmd_out <- execGRASS("r.mapcalc", expression=paste0(basin_out, "_t = basin_outlet_t * basin_all_t"), intern=T, flags="overwrite")
       
       
     } else { # only one sub-catchment
@@ -587,11 +587,14 @@ calc_subbas <- function(
     cmd_out <- execGRASS("v.db.addcolumn", map=paste0(points_processed, "_all_t"), columns="temp_id int", intern=TRUE) 
     cmd_out <- execGRASS("v.what.rast", raster=paste0(basin_out, "_t"), map=paste0(points_processed, "_all_t"), column="temp_id" ,intern=T, ignore.stderr = T)
     drain_points_snap <- readVECT(paste0(points_processed, "_all_t"))
+    nas = which(is.na(drain_points_snap@data$temp_id))
+    if (any(nas))
+      warning("Drainage point(s) ", paste0(nas, collapse=", "), " seem to lie outside catchment, please check.")
     dat_rules <- paste(drain_points_snap@data$temp_id, "=", drain_points_snap@data$subbas_id, collapse = "\n")
     tmp_file <- tempfile()
     write(dat_rules, file=tmp_file)
     cmd_out <- execGRASS("r.reclass", input = paste0(basin_out, "_t"), output = paste0(basin_out, "2_t"), rules = tmp_file)
-    x <- execGRASS("r.mapcalc", expression = paste0(basin_out, "=", basin_out, "2_t"), intern = T)
+    cmd_out <- execGRASS("r.mapcalc", expression = paste0(basin_out, "=", basin_out, "2_t"), intern = T)
     
     no_cross <- length(execGRASS("r.stats", input=basin_out, flags=c("n"), intern=T, ignore.stderr = T))
     if(no_catch != no_cross) warning(paste0("\nNumber of categories in ", basin_out, " not equal to number of drainage points!\nThis might be because there are drainage points outside the catchment of the defined outlet or due to small inconsistencies between calculated and manually defined (and snapped) drainage points. However, you should check the output with the GRASS GUI and consider the help pages of this function. 
