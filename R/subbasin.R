@@ -455,7 +455,7 @@ calc_subbas <- function(
     x <- execGRASS("g.remove", type="raster", pattern=paste0(points_processed, "_all_t_t)"), intern=T) #remove temporary map required in previous line
     
     # get coordinates of drain point cells
-    drainp_coords <- execGRASS("r.stats", input = paste0(points_processed, "_all_t"), flags=c("n", "g"), intern=T)
+    drainp_coords <- execGRASS("r.stats", input = paste0(points_processed, "_all_t"), flags=c("n", "g", "quiet"), intern=T)
     drainp_coords <- matrix(as.numeric(unlist(strsplit(drainp_coords, " "))), ncol = 3, byrow = T)
     
     # loop over drainage points of subbasins TODO: This step is slow!
