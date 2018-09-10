@@ -192,7 +192,7 @@ calc_subbas <- function(
   tryCatch({
     
     # remove mask if there is any (and ignore error in case there is no mask)
-    tryCatch(suppressWarnings(execGRASS("r.mask", flags=c("r"))), error=function(e){})
+    tryCatch(suppressWarnings(execGRASS("r.mask", flags=c("r","quiet"))), error=function(e){})
     
     # remove output of previous function calls if overwrite=T
     if (overwrite) {
@@ -292,7 +292,7 @@ calc_subbas <- function(
       stop("The column 'subbasin_id' in drain_points contains non-numeric entries.")
     # write to GRASS
     suppressWarnings(proj4string(drain_points) <- CRS(getLocationProj()))
-    suppressWarnings(writeVECT(drain_points, "dp_t", v.in.ogr_flags="o"))
+    suppressWarnings(writeVECT(drain_points, "dp_t", v.in.ogr_flags = c("o","quiet")))
     # WINDOWS PROBLEM: delete temporary file otherwise an error occurs when calling writeVECT or readVECT again with the same (or a similar) file name 
     if(.Platform$OS.type == "windows") {
       dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
@@ -317,7 +317,7 @@ calc_subbas <- function(
     # create shifted version of drainage points (shifted by 1/4 of resolution)
     drain_points_shifted <- drain_points_centered
     drain_points_shifted@coords <- drain_points_shifted@coords + res/4
-    suppressWarnings(writeVECT(drain_points_shifted, "dp_shifted_t", v.in.ogr_flags="o"))
+    suppressWarnings(writeVECT(drain_points_shifted, "dp_shifted_t", v.in.ogr_flags = c("o","quiet")))
     if(.Platform$OS.type == "windows") {
       dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
       files_del <- grep(substr("dp_shifted_t", 1, 8), dir(dir_del), value = T)
@@ -342,7 +342,7 @@ calc_subbas <- function(
     drain_points_snap$nearest_line_id=NULL #we don't need this and this long field name causes trouble
     
     # export drain_points_snap to GRASS
-    suppressWarnings(writeVECT(drain_points_snap, paste0(points_processed, "_snap"), v.in.ogr_flags = "o"))
+    suppressWarnings(writeVECT(drain_points_snap, paste0(points_processed, "_snap"), v.in.ogr_flags = c("o","quiet")))
     # WINDOWS PROBLEM: delete temporary file otherwise an error occurs when calling writeVECT or readVECT again with the same (or a similar) file name
     if(.Platform$OS.type == "windows") {
       dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
@@ -421,7 +421,7 @@ calc_subbas <- function(
         drain_points_calc <- SpatialPointsDataFrame(coordinates(outs), outs@data, proj4string = CRS(getLocationProj()))
         
         # write to GRASS location
-        writeVECT(drain_points_calc, paste0(points_processed, "_calc"), ignore.stderr = T, v.in.ogr_flags = "o")
+        writeVECT(drain_points_calc, paste0(points_processed, "_calc"), ignore.stderr = T, v.in.ogr_flags = c("o","quiet"))
         
         # drain_points_snap df requires columns 'cat' and 'subbas_id' as drain_points_calc
         drain_points_snap@data <- drain_points_snap@data[,c("cat", "subbas_id")]
@@ -443,7 +443,7 @@ calc_subbas <- function(
     }
     
     # combined drain points as raster (easier to identify double drain points sharing one raster cell)
-    suppressWarnings(writeVECT(drain_points_snap, paste0(points_processed, "_all_t"), v.in.ogr_flags = "o"))
+    suppressWarnings(writeVECT(drain_points_snap, paste0(points_processed, "_all_t"), v.in.ogr_flags = c("o","quiet")))
     # WINDOWS PROBLEM: delete temporary file otherwise an error occurs when calling writeVECT or readVECT again with the same (or a similar) file name 
     if(.Platform$OS.type == "windows") {
       dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
@@ -452,7 +452,7 @@ calc_subbas <- function(
     }
     x <- execGRASS("v.to.rast", input=paste0(points_processed, "_all_t"), output=paste0(points_processed, "_all_t_t"), use="attr", attribute_column="subbas_id", flags="overwrite", intern=T)
     x <- execGRASS("r.mapcalc", expression=paste0(points_processed, "_all_t=round(", points_processed, "_all_t_t)"), flags = c("overwrite"), intern=T)
-    x <- execGRASS("g.remove", type="raster", pattern=paste0(points_processed, "_all_t_t)"), intern=T) #remove temporary map required in previous line
+    x <- execGRASS("g.remove", type="raster", pattern=paste0(points_processed, "_all_t_t"), flags="f", intern=T) #remove temporary map required in previous line
     
     # get coordinates of drain point cells
     drainp_coords <- execGRASS("r.stats", input = paste0(points_processed, "_all_t"), flags=c("n", "g", "quiet"), intern=T)
