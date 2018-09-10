@@ -198,7 +198,7 @@ calc_subbas <- function(
     if (overwrite) {
       remove_pattern=paste0("*_t,", basin_out, ",", points_processed, "_*")
       if (is.null(river))
-		remove_pattern <- c(remove_pattern, paste0(",",stream,"_*")) #keep rivermap if prespecified
+		remove_pattern <- paste0(remove_pattern, paste0(",",stream,"_*")) #keep rivermap if prespecified
 	  cmd_out <- execGRASS("g.remove", type="raster,vector", pattern=remove_pattern, flags=c("f", "b"), intern=T)
     } else {
       # remove temporary maps in any case
@@ -623,22 +623,22 @@ calc_subbas <- function(
     
     
     # exception handling
-  }, error = function(e) {
-    
+    }, error = function(e) {
+
     # stop sinking
     closeAllConnections()
-    
+
     # restore original warning mode
     if(silent)
       options(warn = oldw)
-    
+
     # remove mask if there is any (and ignore error in case there is no mask)
     cmd_out <-tryCatch(suppressWarnings(execGRASS("r.mask", flags=c("r"), intern = T)), error=function(e){})
-    
+
     if(keep_temp == FALSE)
       cmd_out <- execGRASS("g.remove", type="raster,vector", pattern=paste0("*_t,",stream,"_*,", basin_out, ",", points_processed, "_*"), flags=c("f", "b"), intern = T)
-    
-    stop(paste(e))  
+
+    stop(paste(e))
   })
   
   
