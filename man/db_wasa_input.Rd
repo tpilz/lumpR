@@ -8,10 +8,11 @@ db_wasa_input(dbname, dest_dir = "./", files = c("info.dat",
   "River/routing.dat", "River/response.dat", "Hillslope/hymo.dat",
   "Hillslope/soter.dat", "Hillslope/terrain.dat",
   "Hillslope/soil_vegetation.dat", "Hillslope/soil.dat",
-  "Hillslope/vegetation.dat", "Hillslope/svc_in_tc.dat", "do.dat", "maxdim.dat",
-  "part_class.dat", "Hillslope/soil_particles.dat",
-  "Hillslope/rainy_season.dat", "Hillslope/x_seasons.dat", "Hillslope/svc.dat",
-  "Reservoir/reservoir.dat"), overwrite = F, verbose = TRUE)
+  "Hillslope/vegetation.dat", "Hillslope/svc_in_tc.dat", "do.dat",
+  "maxdim.dat", "part_class.dat", "Hillslope/soil_particles.dat",
+  "Hillslope/rainy_season.dat", "Hillslope/x_seasons.dat",
+  "Hillslope/svc.dat", "Reservoir/reservoir.dat"), overwrite = F,
+  verbose = TRUE)
 }
 \arguments{
 \item{dbname}{Name of the data source (DSN) registered as ODBC source.}

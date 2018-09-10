@@ -8,8 +8,8 @@ calc_subbas(dem = NULL, drain_points = NULL, river = NULL,
   flowaccum = NULL, drainage_dir = NULL, disk_swap = FALSE,
   basin_out = NULL, stream = NULL, points_processed = NULL,
   outlet = NULL, thresh_stream = NULL, thresh_sub = NULL,
-  snap_dist = NULL, rm_spurious = 0.01, keep_temp = F, overwrite = F,
-  silent = F)
+  snap_dist = NULL, rm_spurious = 0.01, keep_temp = F,
+  overwrite = F, silent = F)
 }
 \arguments{
 \item{dem}{Digital elevation model in GRASS location used for delineation of

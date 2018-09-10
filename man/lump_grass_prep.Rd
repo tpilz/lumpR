@@ -5,10 +5,11 @@
 \title{Pre-processing for Landscape Unit deviation using GRASS GIS}
 \usage{
 lump_grass_prep(mask = NULL, dem = NULL, lcov = NULL, soil = NULL,
-  watermask = NULL, imperviousmask = NULL, eha = NULL, flowdir = NULL,
-  flowacc = NULL, stream = NULL, stream_horton = NULL, elevriv = NULL,
-  distriv = NULL, mask_corr = NULL, svc = NULL, dir_out = NULL,
-  svc_ofile = NULL, eha_thres = NULL, sizefilter = NULL, growrad = NULL,
+  watermask = NULL, imperviousmask = NULL, eha = NULL,
+  flowdir = NULL, flowacc = NULL, stream = NULL,
+  stream_horton = NULL, elevriv = NULL, distriv = NULL,
+  mask_corr = NULL, svc = NULL, dir_out = NULL, svc_ofile = NULL,
+  eha_thres = NULL, sizefilter = NULL, growrad = NULL,
   keep_temp = F, overwrite = F, silent = F, addon_path = NULL,
   things2do = c("eha", "river", "svc"))
 }
