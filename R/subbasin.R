@@ -297,7 +297,7 @@ calc_subbas <- function(
     if(.Platform$OS.type == "windows") {
       dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
       files_del <- grep(substr("dp_t", 1, 8), dir(dir_del), value = T)
-      file.remove(paste(dir_del, files_del, sep="/"))
+      unlink(paste(dir_del, files_del, sep="/"))
     }
     # move drainage points to centers of raster cells
     x <- execGRASS("v.to.rast", input="dp_t", output="dp_t", use="attr", attribute_column="subbas_id", flags="overwrite", intern=T)
@@ -307,7 +307,7 @@ calc_subbas <- function(
     if(.Platform$OS.type == "windows") {
       dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
       files_del <- grep(substr("dp_centered_t", 1, 8), dir(dir_del), value = T)
-      file.remove(paste(dir_del, files_del, sep="/"))
+      unlink(paste(dir_del, files_del, sep="/"))
     }
     
     # determine raster resolution
@@ -321,7 +321,7 @@ calc_subbas <- function(
     if(.Platform$OS.type == "windows") {
       dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
       files_del <- grep(substr("dp_shifted_t", 1, 8), dir(dir_del), value = T)
-      file.remove(paste(dir_del, files_del, sep="/"))
+      unlink(paste(dir_del, files_del, sep="/"))
     }
     
     #drain_points <- drain_points_shifted
@@ -334,7 +334,7 @@ calc_subbas <- function(
     if(.Platform$OS.type == "windows") {
       dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
       files_del <- grep(substr(river, 1, 8), dir(dir_del), value = T)
-      file.remove(paste(dir_del, files_del, sep="/"))
+      unlink(paste(dir_del, files_del, sep="/"), force = TRUE)
     }
     
     # snap points to streams
@@ -347,7 +347,7 @@ calc_subbas <- function(
     if(.Platform$OS.type == "windows") {
       dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
       files_del <- grep(substr(paste0(points_processed, "_snap"), 1, 8), dir(dir_del), value = T)
-      file.remove(paste(dir_del, files_del, sep="/"))
+      unlink(paste(dir_del, files_del, sep="/"))
     }
     
     if (length(drain_points_snap) < length(drain_points)) stop("Less points after snapping than in drain_points input!\nComputed stream segments are probably too coarse. Try a smaller value of thresh_stream to create a fine river network.")
@@ -448,7 +448,7 @@ calc_subbas <- function(
     if(.Platform$OS.type == "windows") {
       dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
       files_del <- grep(substr(paste0(points_processed, "_all_t"), 1, 8), dir(dir_del), value = T)
-      file.remove(paste(dir_del, files_del, sep="/"))
+      unlink(paste(dir_del, files_del, sep="/"))
     }
     x <- execGRASS("v.to.rast", input=paste0(points_processed, "_all_t"), output=paste0(points_processed, "_all_t"), use="attr", attribute_column="subbas_id", flags="overwrite", intern=T)
     x <- execGRASS("r.mapcalc", expression=paste0(points_processed, "_all_t=round(", points_processed, "_all_t)"), flags = "overwrite", intern=T)
