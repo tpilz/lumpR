@@ -339,7 +339,7 @@ calc_subbas <- function(
     
     # snap points to streams
     drain_points_snap <- suppressWarnings(snapPointsToLines(drain_points, streams_vect, maxDist=snap_dist))
-    drain_points_snap$nearest_line_id=NULL #we don't need this and this long filed name causes trouble
+    drain_points_snap$nearest_line_id=NULL #we don't need this and this long field name causes trouble
     
     # export drain_points_snap to GRASS
     suppressWarnings(writeVECT(drain_points_snap, paste0(points_processed, "_snap"), v.in.ogr_flags = "o"))
@@ -450,8 +450,9 @@ calc_subbas <- function(
       files_del <- grep(substr(paste0(points_processed, "_all_t"), 1, 8), dir(dir_del), value = T)
       unlink(paste(dir_del, files_del, sep="/"))
     }
-    x <- execGRASS("v.to.rast", input=paste0(points_processed, "_all_t"), output=paste0(points_processed, "_all_t"), use="attr", attribute_column="subbas_id", flags="overwrite", intern=T)
-    x <- execGRASS("r.mapcalc", expression=paste0(points_processed, "_all_t=round(", points_processed, "_all_t)"), flags = "overwrite", intern=T)
+    x <- execGRASS("v.to.rast", input=paste0(points_processed, "_all_t"), output=paste0(points_processed, "_all_t_t"), use="attr", attribute_column="subbas_id", flags="overwrite", intern=T)
+    x <- execGRASS("r.mapcalc", expression=paste0(points_processed, "_all_t=round(", points_processed, "_all_t_t)"), flags = c("overwrite"), intern=T)
+    x <- execGRASS("g.remove", type="raster", pattern=paste0(points_processed, "_all_t_t)"), intern=T) #remove temporary map required in previous line
     
     # get coordinates of drain point cells
     drainp_coords <- execGRASS("r.stats", input = paste0(points_processed, "_all_t"), flags=c("n", "g"), intern=T)
