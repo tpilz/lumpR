@@ -589,7 +589,10 @@ calc_subbas <- function(
     drain_points_snap <- readVECT(paste0(points_processed, "_all_t"))
     nas = which(is.na(drain_points_snap@data$temp_id))
     if (any(nas))
+    {  
       warning("Drainage point(s) ", paste0(nas, collapse=", "), " seem to lie outside catchment, please check.")
+      drain_points_snap@data = drain_points_snap@data[-nas,]
+    }  
     dat_rules <- paste(drain_points_snap@data$temp_id, "=", drain_points_snap@data$subbas_id, collapse = "\n")
     tmp_file <- tempfile()
     write(dat_rules, file=tmp_file)
