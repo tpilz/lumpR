@@ -243,7 +243,7 @@ calc_subbas <- function(
       # thin
       cmd_out <- execGRASS("r.thin", input=paste0(stream, "_rast"), output=paste0(stream, "_thin_t"), iterations=10000, intern=T)
       # convert to vector
-      cmd_out <- execGRASS("r.to.vect", input=paste0(stream, "_thin_t"), output=paste0(stream, "_vect"), type="line", intern=T)
+      cmd_out <- execGRASS("r.to.vect", input=paste0(stream, "_thin_t"), output=paste0(stream, "_vect"), type="line", flags="quiet", intern=T)
       river <- paste0(stream, "_vect")
       
       if(!silent) message("% OK")
@@ -301,7 +301,7 @@ calc_subbas <- function(
     }
     # move drainage points to centers of raster cells
     x <- execGRASS("v.to.rast", input="dp_t", output="dp_t", use="attr", attribute_column="subbas_id", flags="overwrite", intern=T)
-    x <- execGRASS("r.to.vect", input="dp_t", output="dp_centered_t", type="point", flags = "overwrite")
+    x <- execGRASS("r.to.vect", input="dp_t", output="dp_centered_t", type="point", flags = c("overwrite", "quiet"))
     drain_points_centered <- readVECT(vname = "dp_centered_t", layer=1)
     colnames(drain_points_centered@data) <- c("cat","subbas_id")
     if(.Platform$OS.type == "windows") {
@@ -536,23 +536,26 @@ calc_subbas <- function(
         
         # check size of sub-catcments and identify and remove 'spurious' sub-catchments
         if(rm_spurious>0) {
+          if(!silent) message("% Iteratively remove spurious subcatchments ...")
           # get sub-catcments and sizes (cell counts) and identify spurious ones
           cmd_out <- execGRASS("r.stats", input="basin_all_t", flags=c("n", "c"), intern=T, ignore.stderr = T)
           sub_sizes <- matrix(as.numeric(unlist(strsplit(cmd_out, " "))), ncol=2, byrow=T)
           #sub_sizes <- sub_sizes[-which(sub_sizes[,1] == 0),]
           sub_rm <- sub_sizes[which(sub_sizes[,2] < rm_spurious*thresh_sub),1]
           if(length(sub_rm)>0) {
-            # get number of basin_recl_* to be romved (not identical with raster values of basin_all_t!)
-            cmd_out <- execGRASS("r.univar", map=paste0(points_processed, "_all_t"), zones="basin_all_t", separator="comma", flags=c("t"), intern=T, ignore.stderr = T)
+            # get IDs in basin_recl_* to be removed (not identical with raster values of basin_all_t!)
+            #cmd_out <- execGRASS("r.univar", map=paste0(points_processed, "_all_t"), zones="basin_all_t", separator="comma", flags=c("t"), intern=T, ignore.stderr = T)
+            cmd_out <- execGRASS("r.stats", input=paste0("basin_all_t,", points_processed, "_all_t"), flags=c("n"), separator="comma", intern=T, ignore.stderr = T)
             cmd_out <- strsplit(cmd_out, ",")
-            cmd_cols <- grep("zone|^mean$", cmd_out[[1]])
-            basins_points <- do.call(rbind, cmd_out)[-1,cmd_cols, drop=F]
-            sub_rm_f <- as.numeric(basins_points[which(as.numeric(basins_points[,1]) %in% sub_rm),2])
+            #cmd_cols <- grep("zone|^mean$", cmd_out[[1]])
+            #basins_points <- do.call(rbind, cmd_out)[-1,cmd_cols, drop=F]
+            basins_points = matrix(unlist(cmd_out), ncol=2, byrow = TRUE) #convert output to matrix
+            sub_rm_f <- as.numeric(basins_points[which(as.numeric(basins_points[,1]) %in% sub_rm),2]) #extract IDs to be removed
             # remove this temporary map from processing and drain points raster map and try again (back to start of while loop)
             subcatch_rasts <- grep(paste0("basin_recl_", sub_rm_f, "_t", collapse="|"), subcatch_rasts, invert = T, value = T)
             x <- execGRASS("g.remove", type="raster", name="basin_all_t", flags = "f", intern=T)
             tmp_file <- tempfile()
-            stats_t <- as.integer(execGRASS("r.stats", input = paste0(points_processed, "_all_t"), flags=c("n"), intern=T))
+            stats_t <- as.integer(execGRASS("r.stats", input = paste0(points_processed, "_all_t"), flags=c("n", "quiet"), intern=T))
             stats_t <- stats_t[!(stats_t %in% sub_rm_f)]
             write(paste(paste(sub_rm_f, "NULL", sep = " = ", collapse = "\n"), paste(stats_t, stats_t, sep=" = ", collapse = "\n"), sep="\n"), file=tmp_file)
             x <- execGRASS("r.reclass", input=paste0(points_processed, "_all_t"), output=paste0(points_processed, "_all2_t"),
@@ -583,7 +586,7 @@ calc_subbas <- function(
     
     # assign correct ids (from 'subbas_id') to basin_out
     cmd_out <- execGRASS("r.to.vect", input = paste0(points_processed, "_all_t"), output = paste0(points_processed, "_all_t"),
-                         type = "point", column = "subbas_id", flags = "overwrite", intern=T)
+                         type = "point", column = "subbas_id", flags = c("overwrite", "quiet"), intern=T)
     cmd_out <- execGRASS("v.db.addcolumn", map=paste0(points_processed, "_all_t"), columns="temp_id int", intern=TRUE) 
     cmd_out <- execGRASS("v.what.rast", raster=paste0(basin_out, "_t"), map=paste0(points_processed, "_all_t"), column="temp_id" ,intern=T, ignore.stderr = T)
     drain_points_snap <- readVECT(paste0(points_processed, "_all_t"))
