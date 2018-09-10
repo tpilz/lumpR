@@ -584,6 +584,7 @@ calc_subbas <- function(
     # assign correct ids (from 'subbas_id') to basin_out
     cmd_out <- execGRASS("r.to.vect", input = paste0(points_processed, "_all_t"), output = paste0(points_processed, "_all_t"),
                          type = "point", column = "subbas_id", flags = "overwrite", intern=T)
+    cmd_out <- execGRASS("v.db.addcolumn", map=paste0(points_processed, "_all_t"), columns="temp_id int", intern=TRUE) 
     cmd_out <- execGRASS("v.what.rast", raster=paste0(basin_out, "_t"), map=paste0(points_processed, "_all_t"), column="temp_id" ,intern=T, ignore.stderr = T)
     drain_points_snap <- readVECT(paste0(points_processed, "_all_t"))
     dat_rules <- paste(drain_points_snap@data$temp_id, "=", drain_points_snap@data$subbas_id, collapse = "\n")
