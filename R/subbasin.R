@@ -234,8 +234,8 @@ calc_subbas <- function(
       cmd_out <- execGRASS("r.univar", map="accum_t", separator="comma", flags=c("t"), intern=TRUE, ignore.stderr = TRUE)
       
       cmd_out <- strsplit(cmd_out, ",")
-      cmd_cols <- grep("^max$", cmd_out[[1]])
-      max_acc <- as.numeric(cmd_out[[2]][cmd_cols])
+      cmd_cols <- grep("^max$|^min$", cmd_out[[1]]) # ignore negative accumulation values (warning will be issued)
+      max_acc <- max(abs(as.numeric(cmd_out[[2]][cmd_cols])))
       if(thresh_stream > max_acc)
         stop(paste0("Parameter 'thresh_stream' (", thresh_stream, ") is larger than the maximum flow accumulation within the study area (", max_acc, "). Choose a smaller parameter value!"))
       # calculate stream segments (don't use output of r.watershed as streams should be finer than generated therein)
@@ -258,6 +258,13 @@ calc_subbas <- function(
         if(!silent) message("% OK")
       }
     }
+    
+    # check flowaccum raster for negative values
+    cmd_out <- execGRASS("r.univar", map="accum_t", separator="comma", flags=c("t"), intern=TRUE, ignore.stderr = TRUE)
+    cmd_out <- strsplit(cmd_out, ",")
+    cmd_cols <- grep("^min$", cmd_out[[1]])
+    min_acc <- as.numeric(cmd_out[[2]][cmd_cols])
+    if(min_acc < 0) warning("Negative flow accumulation values detected! This happens if cells get runoff from regions outside the study area, i.e. the extension of your DEM might be too small. Check if this could be a problem!")
     
     
     
@@ -382,6 +389,7 @@ calc_subbas <- function(
         # read raster data from GRASS for processing
         basins <- raster(readRAST("basin_calc_t", ignore.stderr = T))
         accum <- raster(readRAST("accum_t", ignore.stderr = T))
+        accum <- abs(accum) # ignore negative accumulation values (warning will be issued)
         
         # calculate zonal statistics: Maximum accumulation for every subbasin (=outlet)
         stats <- zonal(accum, basins, fun="max")
