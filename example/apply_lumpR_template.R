@@ -259,11 +259,11 @@ no_TCs <- 3
 
 
 # GRASS #
-# ATTENTION: GRASS 6.4 is needed, not compatible to GRASS 7!
-# Best is to use GRASS 6.4.6 as GRASS 6.4.5 by autumn 2016 suddenly started producing segmentation faults!
-addon_path="/home/tobias/.grass6/addons/" # path to your locally installed GRASS add-ons. Must only be given if necessary, see ?lump_grass_prep
+# ATTENTION: GRASS 7 is needed, not compatible to GRASS 6.x!
+
+addon_path="/home/tobias/.grass7/addons/" # path to your locally installed GRASS add-ons. Must only be given if necessary, see ?lump_grass_prep
 # initialisation of session
-initGRASS(gisBase="", # path to GRASS installation (use / instead of \ under windows, e.g. "d:/programme/GRASS6.4.3" )
+initGRASS(gisBase="", # path to GRASS installation (use / instead of \ under windows, e.g. "d:/programme/GRASS7.0" )
           home=getwd(), # The directory in which to create the .gisrc file
           location="", # GRASS location
           mapset="",    # corresp. mapset
