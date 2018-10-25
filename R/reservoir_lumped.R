@@ -57,8 +57,8 @@
 #'      silently removed during processing!
 #'      
 #'      Polygons overlapping over various subbasins will be classified to the subbasin
-#'      containing the polygon's centroid. If that occurrs frequently, you should
-#'      consider running \code{\link[rgrass7]{reservoir_outlet}} in advance where
+#'      containing the polygon's centroid. If that occurs frequently, you should
+#'      consider running \code{\link[lumpR]{reservoir_outlet}} in advance where
 #'      reservoir outlet locations are estimated instead of using the centroid.
 #'      
 #' @details This function creates WASA input files needed to run the model

@@ -62,7 +62,7 @@ sql_dialect <- function(con, statement) {
             silent=T)
       } else {
         suppressWarnings(sqlSave(channel=con, tablename=tbl_mod, dat=dat_tbl_mod, varTypes=varspec, append=FALSE, 
-                nastring = NULL, fast = TRUE, rownames = FALSE))
+                                 nastring = NULL, fast = TRUE, rownames = FALSE))
       }
       
       # in case of columns of type datetime (see function write_datetabs() below)
@@ -70,7 +70,7 @@ sql_dialect <- function(con, statement) {
         sqlQuery(con, paste0("delete from ", tbl_mod, ";"))
         write_datetabs(con, dat=dat_tbl_mod, tab=tbl_mod, verbose=F)
       }
-
+      
       
       # return NULL as statement
       statement <- NULL
@@ -114,6 +114,19 @@ sql_dialect <- function(con, statement) {
   
   return(statement)
 } # EOF sql_dialect
+
+# query with error message for easier error handling
+sqlQuery2 <- function(con, statement, info="") {
+  res <- sqlQuery(con, statement, errors=F)
+  if (res!=-1)
+    return(res)  
+    
+  res <- sqlQuery(con, statement, errors = T)
+  tryCatch(odbcClose(con), error=function(e){})
+  stop(cat(paste0("Error in SQL query (", info,").\nQuery: ", statement,
+                  "\nerror-message: ", res[1])))
+  
+} # EOF query with error message
 
 
 

@@ -22,7 +22,7 @@
 #' for modelling applications with the WASA model.
 #'
 #' @param dbname Name of the data source (DSN) registered at ODBC. See \code{Details}.
-#' @param overwrite  \code{c(NULL,"drop","empty")}. Overwrite and re-create (\code{"drop"}) or empty  (\code{"empty"}) any tables already existing in db. Default: NULL. In any case, tables included in \emph{keep_tables} remain untouched.
+#' @param overwrite  \code{c(NULL,"drop","empty")}. Delete and re-create (\code{"drop"}) or empty  (\code{"empty"}) any tables already existing in db. Default: NULL (keep all existing tables). In any case, tables included in \emph{keep_tables} remain untouched.
 #' @param keep_tables Vector of type \code{character}. Preserves the specified tables, if existing. Overrides \emph{overwrite}. Default: NULL.
 #' @param db_ver \code{numeric}. If \code{Inf} (default) the database will be updated
 #' to the latest version calling \code{\link[lumpR]{db_update}} internally. Otherwise, the
@@ -151,15 +151,12 @@ db_create <- function(
   
   # delete other tables (those that shall not be preserved and are not part of the base version 19 which is created here)
   tbls <- sqlTables(con)[,"TABLE_NAME"]
+  tbls = tbls[!grepl(x = tbls, "^MSys")] #ignore MS Access internal tables
+  
   r_tbls_del <- which(!(tbls %in% c(keep_tables, tbls_created)))
-  if (length(r_tbls_del) > 0) {
-    s2 = paste0("drop table ", tbls[r_tbls_del],";")
-    res <- sqlQuery(con, s2, errors=F)
-    if (res==-1){
-      res <- sqlQuery(con, s2, errors = T)
-      tryCatch(odbcClose(con), error=function(e){})
-      stop(cat(paste0("Error in SQL query execution while deleting table\nerror-message: ", res[1])))
-    }
+  for (tbl in tbls[r_tbls_del] ) {
+    statement = paste0("drop table ", tbl,";")
+    res <- sqlQuery2(con, statement, info="deleting superfluous tables")
   }
   
   # update table meta_info

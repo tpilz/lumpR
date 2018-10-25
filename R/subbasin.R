@@ -197,6 +197,7 @@ calc_subbas <- function(
     # remove output of previous function calls if overwrite=T
     if (overwrite) {
       remove_pattern=paste0("*_t,", basin_out, ",", points_processed, "_*")
+      # keep rivermap if prespecified
       if (is.null(river))
 		remove_pattern <- paste0(remove_pattern, paste0(",",stream,"_*")) #keep rivermap if prespecified
 	  cmd_out <- execGRASS("g.remove", type="raster,vector", pattern=remove_pattern, flags=c("f", "b"), intern=T)

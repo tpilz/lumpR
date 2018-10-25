@@ -9,7 +9,7 @@ db_create(dbname, overwrite = NULL, keep_tables = NULL, db_ver = Inf)
 \arguments{
 \item{dbname}{Name of the data source (DSN) registered at ODBC. See \code{Details}.}
 
-\item{overwrite}{\code{c(NULL,"drop","empty")}. Overwrite and re-create (\code{"drop"}) or empty  (\code{"empty"}) any tables already existing in db. Default: NULL. In any case, tables included in \emph{keep_tables} remain untouched.}
+\item{overwrite}{\code{c(NULL,"drop","empty")}. Delete and re-create (\code{"drop"}) or empty  (\code{"empty"}) any tables already existing in db. Default: NULL (keep all existing tables). In any case, tables included in \emph{keep_tables} remain untouched.}
 
 \item{keep_tables}{Vector of type \code{character}. Preserves the specified tables, if existing. Overrides \emph{overwrite}. Default: NULL.}
 

@@ -114,7 +114,7 @@ db_update <- function(
        for (tab in affected_tables)
        {
          if (!(tab %in% tbls))
-           stop(paste0("Table '", tabs, "' does not exist but is needed to update to version 19!"))
+           stop(paste0("Table '", tab, "' does not exist but is needed to update to version 19!"))
            
          statement = paste0("ALTER TABLE ", tab," add description VARCHAR(50);")
          res <- sqlQuery(con, statement, errors=TRUE)
@@ -247,15 +247,23 @@ db_update <- function(
         pos <- grep("create", split, ignore.case = T)
         tbl <- split[pos+2]
         if(tbl %in% tbls) {
-          stop(paste0("Table '", tbl, "' already exists when updating to version ", to_ver, ". Rename / delete manually, and repeat update."))
+          warning(paste0("Table '", tbl, "' already existed when updating to version ", to_ver, ". Renaming to *_bak, please consider manually migrating value into new table."))
+          #create backup and delete -
+          #direct renaming apparently not supported in Access
+          statement <- sql_dialect(con, paste0("DROP TABLE ", tbl,"_bak;"))
+          res <- sqlQuery(con, statement, errors=F)
+          statement <- sql_dialect(con, paste0("SELECT * INTO ", tbl,"_bak FROM ", tbl, ";"))
+          res <- sqlQuery2(con, statement, info="creating backup")
+          statement <- sql_dialect(con, paste0("DROP TABLE ", tbl,";"))
+          res <- sqlQuery2(con, statement, info="deleting backed-up table")
+          
         }
       }
       
       # check if table to be altered does exist
       if(grepl("alter table", statement, ignore.case = TRUE)) {
-        split <- strsplit(statement, "[ ]+")[[1]]
-        pos <- grep("alter", split, ignore.case = T)
-        tbl <- split[pos+2]
+        #extract table name from statement
+        tbl <- sub(x = statement, pattern = ".*alter *table (*[^ ]*).*", replacement = "\\1", ignore.case = TRUE)
         if (!(tbl %in% tbls))
           stop(paste0("Table '", tbl, "' does not exist but is needed to update database to version ", to_ver, "!"))
       }

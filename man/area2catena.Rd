@@ -4,13 +4,12 @@
 \alias{area2catena}
 \title{Calculates mean catena from spatial data}
 \usage{
-area2catena(mask = NULL, flowacc = NULL, eha = NULL,
-  distriv = NULL, elevriv = NULL, supp_quant = NULL,
-  supp_qual = NULL, dir_out = "./", catena_out = NULL,
-  catena_head_out = NULL, ridge_thresh = 1, min_cell_in_slope = 30,
-  min_catena_length = 3, max_riv_dist = 10, plot_catena = F,
-  grass_files = F, ncores = 1, eha_subset = NULL, overwrite = F,
-  silent = F)
+area2catena(mask = NULL, flowacc = NULL, eha = NULL, distriv = NULL,
+  elevriv = NULL, supp_quant = NULL, supp_qual = NULL, dir_out = "./",
+  catena_out = NULL, catena_head_out = NULL, ridge_thresh = 1,
+  min_cell_in_slope = 30, min_catena_length = 3, max_riv_dist = 10,
+  plot_catena = F, grass_files = F, ncores = 1, eha_subset = NULL,
+  overwrite = F, silent = F)
 }
 \arguments{
 \item{mask}{Raster file to be used as MASK in the GRASS location defining the
@@ -66,7 +65,7 @@ distance of the closest cell to river. Default: 10.}
 each area / class (written into sub-directory \emph{plots_area2catena}).}
 
 \item{grass_files}{logical; produce GRASS reclassification files for qualitative
-raster data.}
+raster data. If the attribute 'svc' is found, the respective reclass file is produced anyway.}
 
 \item{ncores}{Ineger specifying number of cores that should be used for computation.}
 
