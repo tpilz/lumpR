@@ -33,6 +33,7 @@
 #'      supplemental raster maps in GRASS location; leave empty if you have none.
 #' @param supp_qual Character vector containing names of qualitative
 #'      supplemental raster maps in GRASS location; leave empty if you have none.
+#' @param attribute_file Path to attribute file (see details). Overrides supp_quant and supp_qual
 #' @param dir_out Character string specifying output directory (will be created;
 #'      nothing will be overwritten).
 #' @param catena_out Output: Name of output file containing mean catena information
@@ -125,6 +126,7 @@ area2catena <- function(
   elevriv=NULL,
   supp_quant=NULL,
   supp_qual=NULL,
+  attribute_file=NULL,
   
   # OUTPUT #
   dir_out="./",
@@ -195,6 +197,34 @@ area2catena <- function(
   check_raster(distriv,"distriv")
   check_raster(elevriv,"elevriv")
   
+  if (!is.null(attribute_file)) #attribute description file specified?
+  {
+    if(!file.exists(attribute_file))
+      stop(past0("<attribute_file> ",attribute_file, "not found."))
+    
+    if (!is.null(supp_qual) | !is.null(supp_quant))
+      warning("<attribute_file> specified, ignoring <supp_qual> and <supp_quant>.")
+    
+    attribute_table=read.table(attribute_file, sep="\t", header=TRUE, stringsAsFactors = FALSE)
+    required_fields = c("attribute","type", "n_classes_4lu", "weight_4tc")
+    missing_fields = setdiff(required_fields, names(attribute_table))
+    if (length(missing_fields)>0)
+      stop(paste0("Columns not found in <attribute_file>: ",paste0(missing_fields, collapse = ", ")))
+    
+    if (is.null(attribute_table$group))      attribute_table$group="" #assume no groups, if not given
+    if (is.null(attribute_table$is_spatial)) attribute_table$is_spatial=1 #assume all attribues to be spatial, if not given
+    
+    unknown=setdiff(attribute_table$type, c("quantitative", "qualitative"))
+    if (length(unknown)>0)
+      stop(paste0("Column <group> of <attribute_file>  can only contain 'quantitative' or 'qualitative'."))
+    
+    supp_qual  = attribute_table$attribute[attribute_table$type=="qualitative"]
+    supp_quant = attribute_table$attribute[attribute_table$type=="quantitative"]
+    
+    #check groups
+    #check existence of length, height, width
+  }
+  
   #check existence of supplementary information maps
    if (length(supp_qual)==0) supp_qual=NULL else
      for (i in supp_qual) 
@@ -222,7 +252,7 @@ area2catena <- function(
   
   
 ### CALCULATIONS ###-----------------------------------------------------------
-  tryCatch({
+#  tryCatch({
     
 # load files from grass #------------------------------------------------------
     if(!silent) message("%")
@@ -445,7 +475,8 @@ area2catena <- function(
     #(area2catena creates continuous class numbering; restoring the orginal classes will require these files)
 
       for (i in supp_qual) {
-		if (grass_files | grepl("svc", supp_qual[i])) {
+      if (grass_files | grepl("^svc", supp_qual[i]))
+        {  
 			write(c("new_id", "original_id"),
 				  file=paste(dir_out, "/reclass_", i, ".txt", sep=""), ncolumns=2, append=F, sep="\t")
 			for (n in 1:n_supp_data_qual_classes[i]) {
@@ -486,17 +517,18 @@ area2catena <- function(
     
   
   # if an error occurs delete all temporary output
-  }, error = function(e) {
-    
-    # stop sinking
-    closeAllConnections()
-    
-    # restore original warning mode
-    if(silent)
-      options(warn = oldw)
-    
-    stop(paste(e))  
-  })
+#  }
+# , error = function(e) {
+# 
+#     # stop sinking
+#     closeAllConnections()
+# 
+#     # restore original warning mode
+#     if(silent)
+#       options(warn = oldw)
+# 
+#     stop(paste(e))
+#   })
   
 } # EOF
 
