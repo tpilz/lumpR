@@ -57,7 +57,7 @@
 #' @param plot_catena logical; produce plots (scatter, mean catena, etc.) for
 #'      each area / class (written into sub-directory \emph{plots_area2catena}).
 #' @param grass_files logical; produce GRASS reclassification files for qualitative
-#'      raster data. If the attribute 'svc' is found, the respective reclass file is produced anyway.
+#'      raster data. If an attribute name starting with 'svc' is found, the respective reclass file is produced anyway.
 #' @param ncores Ineger specifying number of cores that should be used for computation.
 #' @param eha_subset NULL or integer vector with subset of EHA ids that shall
 #'      be processed (for debugging and testing).
@@ -445,7 +445,7 @@ area2catena <- function(
     #(area2catena creates continuous class numbering; restoring the orginal classes will require these files)
 
       for (i in supp_qual) {
-		if (grass_files | grepl("svc", supp_qual[i])) {
+		if (grass_files | grepl("^svc", supp_qual[i])) {
 			write(c("new_id", "original_id"),
 				  file=paste(dir_out, "/reclass_", i, ".txt", sep=""), ncolumns=2, append=F, sep="\t")
 			for (n in 1:n_supp_data_qual_classes[i]) {

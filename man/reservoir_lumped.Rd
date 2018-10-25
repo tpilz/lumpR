@@ -130,7 +130,7 @@ Prepare GRASS location and necessary spatial objects in advance and start
      
      Polygons overlapping over various subbasins will be classified to the subbasin
      containing the polygon's centroid. If that occurrs frequently, you should
-     consider running \code{\link[rgrass7]{reservoir_outlet}} in advance where
+     consider running \code{\link[lumpR]{reservoir_outlet}} in advance where
      reservoir outlet locations are estimated instead of using the centroid.
 }
 \references{
