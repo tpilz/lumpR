@@ -216,12 +216,28 @@ area2catena <- function(
     
     unknown=setdiff(attribute_table$type, c("quantitative", "qualitative"))
     if (length(unknown)>0)
-      stop(paste0("Column <group> of <attribute_file>  can only contain 'quantitative' or 'qualitative'."))
+      stop(paste0("Column <group> of <attribute_file> can only contain 'quantitative' or 'qualitative'."))
+    
+    #check for invalid mixing within groups
+    type_mix=aggregate(attribute_table[,c("weight_4tc", "n_classes_4lu", "is_spatial", "type")], by=list(group=attribute_table$group), 
+              FUN=function(x){paste0(unique(x), collapse="§§")})
+    mixed_types = 
+      grepl(x=apply(type_mix, MAR=1, paste0, collapse=""), pattern="§§") & type_mix$group!=""
+
+    if (any(mixed_types))
+      stop(paste0("The following groups of <attribute_file> are inhomogenous in the fields 'weight_4tc', 'n_classes_4lu', 'is_spatial' or 'type', which is not supported: ", 
+                paste0(type_mix$group[mixed_types], collapse=", ")))
+    
+    #sort attribute_table by group
+    attribute_table = attribute_table[order(attribute_table$group, 1:nrow(attribute_table)), ]
+    
     
     supp_qual  = attribute_table$attribute[attribute_table$type=="qualitative"]
     supp_quant = attribute_table$attribute[attribute_table$type=="quantitative"]
     
-    #check groups
+    
+    
+    
     #check existence of length, height, width
   }
   
@@ -362,9 +378,14 @@ area2catena <- function(
     id <- NULL # to remove "R CMD CHECK ..." Note of "no visible binding for global variable 'id'"
   
     
-    ##initialize parallelism
+    ##initialize parallelisation
     if (ncores>1)
     {  
+      if (!any(grepl("doMC|doParallel",  rownames(installed.packages())))) 
+      {
+        warning("No package for parallel backend (doMC, doParallel) found, reverting to single-core mode")
+        ncores=1
+      } else  
       if(suppressPackageStartupMessages(require(doMC)))
         # register cores
         registerDoMC(cores=ncores) else
@@ -373,10 +394,8 @@ area2catena <- function(
             cl <- makePSOCKcluster(ncores) #make cluster, so we can explicitly close it later
             registerDoParallel(cl)
           } else
-          {
-            warning("No package for parallel backend (doMC, doParallel) found, reverting to single-core mode")
-            ncores=1
-          }
+          stop("initialisation of parallel computing failed. ")  
+          
     }
     
     if (ncores==1) registerDoSEQ() # specify that %dopar% should run sequentially
@@ -470,7 +489,21 @@ area2catena <- function(
     write(c(w_no, "[adjust weighting factors here and remove this comment]"),
           file=paste(dir_out,catena_head_out, sep="/"), ncolumns=length(w_no)+1, append=T, sep="\t")
     
-    #generate qualitative-data reclassification file
+    #update and write attribute table
+    browser()
+    attribute_table_new=data.frame(attribute    = att_names)
+    corresponding_rows= match(att_names, attribute_table$attribute)
+    
+    attribute_table_new$group        = attribute_table$group        [corresponding_rows]
+    attribute_table_new$is_spatial   = attribute_table$is_spatial   [corresponding_rows]
+    attribute_table_new$n_classes_4lu= attribute_table$n_classes_4lu[corresponding_rows]
+    attribute_table_new$weight_4tc   = attribute_table$weight_4tc   [corresponding_rows]
+    attribute_table_new$n_datacolumns= col_no
+    
+    write.table(attribute_table_new, file=paste0(attribute_file,".mod"), sep="\t", quote = FALSE, row.names = FALSE)
+    
+    
+        #generate qualitative-data reclassification file
     #Generate output files for reclassification (input class-IDs vs. internally used IDs)
     #(area2catena creates continuous class numbering; restoring the orginal classes will require these files)
 
