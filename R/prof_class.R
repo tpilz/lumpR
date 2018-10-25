@@ -830,6 +830,7 @@ prof_class <- function(
         mod_svc_ids <- svc_recl_dat$new_id
         org_svc_ids <- svc_recl_dat$original_id
       } else {
+		warning(paste0(svc_recl_file, " not found. SVC-ids may have changed, please check."))
         # no reclass file found - don't change IDs
         mod_svc_ids <- 1:datacolumns[svc_col_index]
         org_svc_ids <- mod_svc_ids
