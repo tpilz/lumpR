@@ -195,7 +195,6 @@ area2catena <- function(
   check_raster(distriv,"distriv")
   check_raster(elevriv,"elevriv")
   
-  cur_mapset = execGRASS("g.mapset", flags="p", intern=TRUE) #determine name of current mapset
   #check existence of supplementary information maps
    if (length(supp_qual)==0) supp_qual=NULL else
      for (i in supp_qual) 
@@ -230,9 +229,8 @@ area2catena <- function(
     if(!silent) message("% Load data from GRASS...")
 
     # set mask to make sure calculations are done exactly within expected area
-    tryCatch(suppressWarnings(execGRASS("r.mask", flags=c("r"))), error=function(e){})
-    cmd_out <- execGRASS("r.mask", raster=mask, intern = T)
-    
+    cmd_out <- execGRASS("g.copy", raster=paste0(mask,",MASK"), flags = "overwrite", intern = T)
+        
     # load flow accumulation
     flowaccum <- readRAST(flowacc)
     flowaccum_rast <- raster(flowaccum)
