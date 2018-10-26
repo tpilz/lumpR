@@ -444,19 +444,18 @@ area2catena <- function(
     #Generate output files for reclassification (input class-IDs vs. internally used IDs)
     #(area2catena creates continuous class numbering; restoring the orginal classes will require these files)
 
-      for (i in supp_qual) {
-		if (grass_files | grepl("^svc", supp_qual[i])) {
-			write(c("new_id", "original_id"),
-				  file=paste(dir_out, "/reclass_", i, ".txt", sep=""), ncolumns=2, append=F, sep="\t")
-			for (n in 1:n_supp_data_qual_classes[i]) {
-			  write(c(n, supp_data_classnames[[i]][n]),
-					file=paste(dir_out, "/reclass_", i, ".txt", sep=""), ncolumns=2, append=T, sep="\t")
+    for (i in 1:length(supp_qual)) {
+      if (grass_files | grepl("^svc", supp_qual[i])) {
+        filename=paste0(dir_out, "/reclass_", supp_qual[i], ".txt")
+        write(c("new_id", "original_id"),
+              file=filename, ncolumns=2, append=F, sep="\t")
+        for (n in 1:n_supp_data_qual_classes[i]) {
+          write(c(n, supp_data_classnames[[i]][n]),
+                file=filename, ncolumns=2, append=T, sep="\t")
         }
       }
-    }
-    
+    }    
 
-    
     # FINAL REPORT #
     if(!silent) message("% OK.")
     if(!silent) message("%")
