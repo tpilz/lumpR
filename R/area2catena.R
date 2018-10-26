@@ -553,10 +553,8 @@ area2catena <- function(
                 file=filename, ncolumns=2, append=T, sep="\t")
         }
       }
-    }
-    
+    }    
 
-    
     # FINAL REPORT #
     if(!silent) message("% OK.")
     if(!silent) message("%")
