@@ -206,34 +206,14 @@ area2catena <- function(
       warning("<attribute_file> specified, ignoring <supp_qual> and <supp_quant>.")
     
     attribute_table=read.table(attribute_file, sep="\t", header=TRUE, stringsAsFactors = FALSE)
-    required_fields = c("attribute","type", "n_classes_4lu", "weight_4tc")
-    missing_fields = setdiff(required_fields, names(attribute_table))
-    if (length(missing_fields)>0)
-      stop(paste0("Columns not found in <attribute_file>: ",paste0(missing_fields, collapse = ", ")))
     
-    if (is.null(attribute_table$group))        attribute_table$group="" #assume no groups, if not given
-    if (is.null(attribute_table$group_weight)) attribute_table$group_weight=1 #assume equal weighting within groups
-    if (is.null(attribute_table$is_spatial)) attribute_table$is_spatial=1 #assume all attribues to be spatial, if not given
+    attribute_table = check_attr_table(attribute_table) #check validity of /correct attribute table
     
-    unknown=setdiff(attribute_table$type, c("quantitative", "qualitative", "ignored"))
-    if (length(unknown)>0)
-      stop(paste0("Column <group> of <attribute_file> can only contain 'quantitative',  'qualitative' or 'ignored'."))
-    
-    auto_attributes = c("id","x_coord","elevation","x_extent","z_extent") #some attributes are automatically derived. If these are already specified in the table, extract them for later use
+    auto_attributes = c("id","x_coord","shape","x_extent","z_extent") #some attributes are automatically derived. If these are already specified in the table, extract them for later use
     exclude = attribute_table$attribute %in% auto_attributes
     attribute_table_auto=attribute_table[ exclude,] #store for later use
     attribute_table     =attribute_table[!exclude,] #exclude from ordinary treatment
-    
-    #check for invalid mixing within groups
-    type_mix=aggregate(attribute_table[,c("weight_4tc", "n_classes_4lu", "is_spatial", "type")], by=list(group=attribute_table$group), 
-              FUN=function(x){paste0(unique(x), collapse="§§")})
-    mixed_types = 
-      grepl(x=apply(type_mix, MAR=1, paste0, collapse=""), pattern="§§") & type_mix$group!=""
 
-    if (any(mixed_types))
-      stop(paste0("The following groups of <attribute_file> are inhomogenous in the fields 'weight_4tc', 'n_classes_4lu', 'is_spatial' or 'type', which is not supported: ", 
-                paste0(type_mix$group[mixed_types], collapse=", ")))
-    
     #sort attribute_table by group
     attribute_table = attribute_table[order(attribute_table$group, 1:nrow(attribute_table)), ]
     
@@ -241,10 +221,6 @@ area2catena <- function(
     supp_qual  = attribute_table$attribute[attribute_table$type=="qualitative"]
     supp_quant = attribute_table$attribute[attribute_table$type=="quantitative"]
     
-    
-    
-    
-    #check existence of length, height, width
   }
   
   #check existence of supplementary information maps
@@ -496,8 +472,8 @@ area2catena <- function(
           file=paste(dir_out,catena_head_out, sep="/"), ncolumns=length(w_no)+1, append=T, sep="\t")
     
     #update and write attribute table
-    browser()
     att_names[2]="x_coord"
+    att_names[3]="shape"
     
     attribute_table_new=data.frame(attribute    = att_names, stringsAsFactors = FALSE)
     corresponding_rows= match(att_names, attribute_table$attribute)
@@ -521,7 +497,7 @@ area2catena <- function(
     ll=which(attribute_table_new$attribute == "x_coord")
     attribute_table_new$is_spatial[ll]=1
     
-    ll=which(attribute_table_new$attribute %in% c("elevation", "slope_width"))
+    ll=which(attribute_table_new$attribute %in% c("shape", "slope_width"))
     attribute_table_new$type[ll]="quantitative"
     attribute_table_new$group_weight[ll]=1
     attribute_table_new$is_spatial  [ll]=1
@@ -548,13 +524,15 @@ area2catena <- function(
     attribute_table_new$weight_4tc   [4:5]=0
     attribute_table_new$n_datacolumns[4:5]=0
     
+    #browser()
     #if some of the special attributes have been specified before in the attribute table, restore these values
     if (nrow(attribute_table_auto)>0)
       for (i in 1:nrow(attribute_table_auto))
       {      
         cur_row = attribute_table_new$attribute == attribute_table_auto$attribute[i]
         for (ccol in names(attribute_table_auto))
-          attribute_table_new[cur_row, ccol] == attribute_table_auto$attribute[i, ccol]
+          if (!is.na(attribute_table_auto[i, ccol]))
+            attribute_table_new[cur_row, ccol] = attribute_table_auto[i, ccol] #copy from original table, is available
       }  
 
     #write modified file
@@ -623,7 +601,33 @@ area2catena <- function(
 } # EOF
 
 
-
+### INTERNAL FUNCTION: checks validity of attribute table ###--------------------------------------
+check_attr_table=function(attribute_table)
+{
+  required_fields = c("attribute","type", "n_classes_4lu", "weight_4tc")
+  missing_fields = setdiff(required_fields, names(attribute_table))
+  if (length(missing_fields)>0)
+    stop(paste0("Columns not found in <attribute_file>: ",paste0(missing_fields, collapse = ", ")))
+  
+  if (is.null(attribute_table$group))        attribute_table$group="" #assume no groups, if not given
+  if (is.null(attribute_table$group_weight)) attribute_table$group_weight=as.numeric(NA) #assume equal weighting within groups
+  if (is.null(attribute_table$is_spatial)) attribute_table$is_spatial=1 #assume all attribues to be spatial, if not given
+  
+  unknown=setdiff(attribute_table$type, c("quantitative", "qualitative", "ignored"))
+  if (length(unknown)>0)
+    stop(paste0("Column <group> of <attribute_file> can only contain 'quantitative',  'qualitative' or 'ignored'."))
+  
+  #check for invalid mixing within groups
+  type_mix=aggregate(attribute_table[,c("weight_4tc", "n_classes_4lu", "is_spatial", "type")], by=list(group=attribute_table$group), 
+                     FUN=function(x){paste0(unique(x), collapse="§§")})
+  mixed_types = 
+    grepl(x=apply(type_mix, MAR=1, paste0, collapse=""), pattern="§§") & type_mix$group!=""
+  
+  if (any(mixed_types))
+    stop(paste0("The following groups of <attribute_file> are inhomogenous in the fields 'weight_4tc', 'n_classes_4lu', 'is_spatial' or 'type', which is not supported: ", 
+                paste0(type_mix$group[mixed_types], collapse=", ")))
+  return(attribute_table)
+}
 
 ### INTERNAL FUNCTION: processing EHA ###--------------------------------------
 
