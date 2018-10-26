@@ -24,6 +24,7 @@
 #'      \code{\link[lumpR]{area2catena}}.
 #' @param catena_head_file Name of file containing meta-information for classification
 #'      derived from \code{\link[lumpR]{area2catena}} and adjusted manually (see \code{Notes}).
+#' @param attribute_file Path to attribute file (see details). Overrides catena_head_file
 #' @param svc_column Field name in \code{catena_head_file} that holds the information
 #'      of SVCs for generating \code{tccontainssvcoutfile}. Default: 'svc'.
 #' @param dir_out Character string specifying output directory (will be created;
@@ -119,6 +120,7 @@ prof_class <- function(
   ### INPUT ###
   catena_file=NULL,
   catena_head_file=NULL,
+  attribute_file=NULL,
   svc_column='svc',
   
   ### OUTPUT ###
@@ -175,9 +177,9 @@ prof_class <- function(
   }
   
   # argument checks
-  if(is.null(catena_file) | !file.exists(catena_file))
+  if(is.null(catena_file) || !file.exists(catena_file))
     stop("'catena_file' has not been specified or does not exist!")
-  if(is.null(catena_head_file) | !file.exists(catena_head_file))
+  if(is.null(catena_head_file) || !file.exists(catena_head_file))
     stop("'catena_head_file' has not been specified or does not exist!")
   if(!is.numeric(resolution))
     stop("Resolution of the raster used to produce 'catena_file' and 'catena_head_out' needs to be given (as numeric)!")
@@ -185,6 +187,22 @@ prof_class <- function(
     stop("Either parameter 'max_com_length' or 'com_length' has to be given!")
   if(!grepl("^[[:blank:]]{1}|save",classify_type))
     stop("'classify_type' must be ' ' or 'save' ('load' is currently not supported).")
+  
+  if (!is.null(attribute_file)) #attribute description file specified?
+  {
+    if(!file.exists(attribute_file))
+      stop(past0("<attribute_file> ",attribute_file, "not found."))
+    
+    if (!is.null(catena_head_file) )
+      warning("<attribute_file> specified, ignoring <catena_head_file>.")
+    
+    attribute_table=read.table(attribute_file, sep="\t", header=TRUE, stringsAsFactors = FALSE)
+    attribute_table = check_attr_table(attribute_table) #check validity of /correct attribute table
+    attribute_table$group_weight [is.na(attribute_table$group_weight) ]=1 #set unset weights to 1
+    attribute_table$n_classes_4lu[is.na(attribute_table$n_classes_4lu)]=1 #set unset number of classes to 1
+    attribute_table$weight_4tc   [is.na(attribute_table$weight_4tc)   ]=0 #set unset weighting in TCs to 0
+  } else attribute_table=NULL
+  
   
   
   # supress warnings in silent mode
@@ -200,8 +218,8 @@ prof_class <- function(
 
   
 ### CALCULATIONS ###-----------------------------------------------------------
-  tryCatch(
-  {
+#  tryCatch({
+    
     if(!silent) message("%")
     if(!silent) message("% Load and prepare data...")
     
@@ -221,21 +239,47 @@ prof_class <- function(
     
     # LOAD INPUT #
     # load stats header
-    headerdat <- as.matrix(read.table(catena_head_file, header=T))
-    # specification of number of columns used by each attribute
-    datacolumns <- headerdat[1,]
-    # relative weight of each attribute (supplemental data) to be used in classification
-    attr_weights_class <-  headerdat[2,]
-    # relative weight of each attribute (supplemental data) to be used in partition  (terrain component decomposition)
-    attr_weights_partition <- headerdat[3,]
+    if (is.null(attribute_table))
+    { #use rstats_head.txt
+      headerdat <- as.matrix(read.table(catena_head_file, header=T))
+      # specification of number of columns used by each attribute
+      datacolumns <- headerdat[1,]
+      # relative weight of each attribute (supplemental data) to be used in classification
+      attr_weights_class <-  headerdat[2,]
+      # relative weight of each attribute (supplemental data) to be used in partition  (terrain component decomposition)
+      attr_weights_partition <- headerdat[3,]
+      # store the names of the attributes
+      attr_names <- colnames(headerdat)
+    }   else
+    { #use attribute_table
+      
+      xz_factor=attribute_table$group_weight[attribute_table$attribute=="z_extent"]/
+                attribute_table$group_weight[attribute_table$attribute=="x_extent"]
+      
+      n_extent_classes=attribute_table$n_classes_4lu[attribute_table$attribute=="x_extent"]
+        
+      attribute_table=attribute_table[!attribute_table$attribute %in% c("x_extent", "z_extent"), ] #remove rows (currently treated in a different fashion)
+      
+      # specification of number of columns used by each attribute
+      datacolumns <- attribute_table$n_datacolumns
+      
+      # relative weight of each attribute (supplemental data) to be used in classification
+      attr_weights_class <-  attribute_table$n_classes_4lu
+      attr_weights_class [1] = -abs(n_extent_classes) #legacy
+      
+      # relative weight of each attribute (supplemental data) to be used in partition  (terrain component decomposition)
+      attr_weights_partition <- attribute_table$weight_4tc
+      # store the names of the attributes
+      attr_names <- attribute_table$attribute
+    }
+    
+    
     if (attr_weights_partition[1] < 1) {
       message(paste('% -> WARNING: number of TCs will be set to 2 instead of ', attr_weights_partition[1], ' as specified in catena_head_file', sep=""))
       attr_weights_partition[1] <- 2
     }
-    
-    # store the names of the attributes
-    attr_names <- colnames(headerdat)
-    
+  
+
     # determine type of classification from catena_head_file
     if (attr_weights_class[1] < 0) {
       cf_mode <- 'successive' # classification performed to specified number of classes for each attribute (option 2)
@@ -1253,20 +1297,20 @@ prof_class <- function(
 
     # if an error occurs...
   
-    }   , 
-   error = function(e) {
-   
-     # stop sinking
-     closeAllConnections()
-      
-     if (make_plots) dev.off() #close open devices
-     # restore original warning mode
-     if(silent)
-       options(warn = oldw)
-   
-     stop(paste(e))
-   
-     })
+    
+    # },    error = function(e) {
+    # 
+    #  # stop sinking
+    #  closeAllConnections()
+    #   
+    #  if (make_plots) dev.off() #close open devices
+    #  # restore original warning mode
+    #  if(silent)
+    #    options(warn = oldw)
+    # 
+    #  stop(paste(e))
+    # 
+    #  })
     
 } # EOF
 

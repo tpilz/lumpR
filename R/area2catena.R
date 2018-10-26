@@ -250,7 +250,7 @@ area2catena <- function(
   
   
 ### CALCULATIONS ###-----------------------------------------------------------
-#  tryCatch({
+  tryCatch({
     
 # load files from grass #------------------------------------------------------
     if(!silent) message("%")
@@ -583,20 +583,20 @@ area2catena <- function(
     
     
   
-  # if an error occurs delete all temporary output
-#  }
-# , error = function(e) {
-# 
-#     # stop sinking
-#     closeAllConnections()
-# 
-#     # restore original warning mode
-#     if(silent)
-#       options(warn = oldw)
-# 
-#     stop(paste(e))
-#   })
-  
+#if an error occurs delete all temporary output
+ }
+, error = function(e) {
+
+    # stop sinking
+    closeAllConnections()
+
+    # restore original warning mode
+    if(silent)
+      options(warn = oldw)
+
+    stop(paste(e))
+  })
+
 } # EOF
 
 
