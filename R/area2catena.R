@@ -211,12 +211,18 @@ area2catena <- function(
     if (length(missing_fields)>0)
       stop(paste0("Columns not found in <attribute_file>: ",paste0(missing_fields, collapse = ", ")))
     
-    if (is.null(attribute_table$group))      attribute_table$group="" #assume no groups, if not given
+    if (is.null(attribute_table$group))        attribute_table$group="" #assume no groups, if not given
+    if (is.null(attribute_table$group_weight)) attribute_table$group_weight=1 #assume equal weighting within groups
     if (is.null(attribute_table$is_spatial)) attribute_table$is_spatial=1 #assume all attribues to be spatial, if not given
     
-    unknown=setdiff(attribute_table$type, c("quantitative", "qualitative"))
+    unknown=setdiff(attribute_table$type, c("quantitative", "qualitative", "ignored"))
     if (length(unknown)>0)
-      stop(paste0("Column <group> of <attribute_file> can only contain 'quantitative' or 'qualitative'."))
+      stop(paste0("Column <group> of <attribute_file> can only contain 'quantitative',  'qualitative' or 'ignored'."))
+    
+    auto_attributes = c("id","x_coord","elevation","x_extent","z_extent") #some attributes are automatically derived. If these are already specified in the table, extract them for later use
+    exclude = attribute_table$attribute %in% auto_attributes
+    attribute_table_auto=attribute_table[ exclude,] #store for later use
+    attribute_table     =attribute_table[!exclude,] #exclude from ordinary treatment
     
     #check for invalid mixing within groups
     type_mix=aggregate(attribute_table[,c("weight_4tc", "n_classes_4lu", "is_spatial", "type")], by=list(group=attribute_table$group), 
@@ -491,19 +497,71 @@ area2catena <- function(
     
     #update and write attribute table
     browser()
-    attribute_table_new=data.frame(attribute    = att_names)
-    corresponding_rows= match(att_names, attribute_table$attribute)
+    att_names[2]="x_coord"
     
+    attribute_table_new=data.frame(attribute    = att_names, stringsAsFactors = FALSE)
+    corresponding_rows= match(att_names, attribute_table$attribute)
+
+    attribute_table_new$type         = attribute_table$type         [corresponding_rows]
     attribute_table_new$group        = attribute_table$group        [corresponding_rows]
+    attribute_table_new$group_weight = attribute_table$group_weight [corresponding_rows]
     attribute_table_new$is_spatial   = attribute_table$is_spatial   [corresponding_rows]
     attribute_table_new$n_classes_4lu= attribute_table$n_classes_4lu[corresponding_rows]
     attribute_table_new$weight_4tc   = attribute_table$weight_4tc   [corresponding_rows]
     attribute_table_new$n_datacolumns= col_no
     
+    #manually adjust some records
+    ll=which(attribute_table_new$attribute %in% c("id", "x_coord"))
+    attribute_table_new$type[ll]="ignored"
+    attribute_table_new[ll,c("group_weight", "n_classes_4lu",	"weight_4tc")]=0
+    
+    ll=which(attribute_table_new$attribute == "id")
+    attribute_table_new$is_spatial[ll]=0
+    
+    ll=which(attribute_table_new$attribute == "x_coord")
+    attribute_table_new$is_spatial[ll]=1
+    
+    ll=which(attribute_table_new$attribute %in% c("elevation", "slope_width"))
+    attribute_table_new$type[ll]="quantitative"
+    attribute_table_new$group_weight[ll]=1
+    attribute_table_new$is_spatial  [ll]=1
+    
+    
+    attribute_table_new$group[is.na(attribute_table_new$group)]=""
+    
+    #add rows for x_extent and z_extent
+    nr = nrow(attribute_table_new)
+    attribute_table_new = attribute_table_new[c(1:3, nr+1, nr+1, 4:nr),] #insert empty rows
+    
+    #for weighing  x_extent and z_extent
+    mean_length = 2 *  mean(logdata[,2]) * xres #average number of point per profile
+    tt = aggregate(x=logdata[,3], by=list(id=logdata[,1]), FUN=max) #get maximum elevation for each profile
+    mean_elev   = mean(tt[,2]) #mean elevation of profiles
+
+
+    attribute_table_new$attribute    [4:5]=c("x_extent", "z_extent")
+    attribute_table_new$type         [4:5]="quantitative"
+    attribute_table_new$group        [4:5]="extent"
+    attribute_table_new$group_weight [4:5]=c(1,mean_length/mean_elev)  #weigh according to averages
+    attribute_table_new$is_spatial   [4:5]=0
+    attribute_table_new$n_classes_4lu[4:5]=NA
+    attribute_table_new$weight_4tc   [4:5]=0
+    attribute_table_new$n_datacolumns[4:5]=0
+    
+    #if some of the special attributes have been specified before in the attribute table, restore these values
+    if (nrow(attribute_table_auto)>0)
+      for (i in 1:nrow(attribute_table_auto))
+      {      
+        cur_row = attribute_table_new$attribute == attribute_table_auto$attribute[i]
+        for (ccol in names(attribute_table_auto))
+          attribute_table_new[cur_row, ccol] == attribute_table_auto$attribute[i, ccol]
+      }  
+
+    #write modified file
     write.table(attribute_table_new, file=paste0(attribute_file,".mod"), sep="\t", quote = FALSE, row.names = FALSE)
     
     
-        #generate qualitative-data reclassification file
+    #generate qualitative-data reclassification file
     #Generate output files for reclassification (input class-IDs vs. internally used IDs)
     #(area2catena creates continuous class numbering; restoring the orginal classes will require these files)
 
