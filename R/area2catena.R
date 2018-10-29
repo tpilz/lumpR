@@ -625,6 +625,11 @@ check_attr_table=function(attribute_table)
   if (any(mixed_types))
     stop(paste0("The following groups of <attribute_file> are inhomogenous in the fields 'weight_4tc', 'n_classes_4lu', 'is_spatial' or 'type', which is not supported: ", 
                 paste0(type_mix$group[mixed_types], collapse=", ")))
+  
+  collisions=intersect(attribute_table$attribute, attribute_table$group)
+  if (length(collisions)>0)
+    stop(paste0("Conflict between names of attributes and groups in <attribute_file>: ", paste0(collisions, collapse = ", ")))
+  
   return(attribute_table)
 }
 

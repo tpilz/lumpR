@@ -246,17 +246,26 @@ prof_class <- function(
       # specification of number of columns used by each attribute
       datacolumns <- headerdat[1,]
       # relative weight of each attribute (supplemental data) to be used in classification
-      attr_weights_class <-  headerdat[2,]
+      attr_weights_class <-  as.numeric(headerdat[2,])
       # relative weight of each attribute (supplemental data) to be used in partition  (terrain component decomposition)
-      attr_weights_partition <- headerdat[3,]
+      attr_weights_partition <- as.numeric(headerdat[3,])
       # store the names of the attributes
       attr_names <- colnames(headerdat)
-      
-      #which attributes contain spatial information, which contain only  a single value for the entire profile?
-      is_spatial = rep(TRUE, length(attr_names))
-      is_spatial[2:3]= FALSE  #only x and y extent are not spatial attributes
-      
       rm(headerdat)
+      
+      #convergence toward single implementation
+        #which attributes contain spatial information, which contain only  a single value for the entire profile?
+        is_spatial = rep(TRUE, length(attr_names))
+        is_spatial[2:3]= FALSE  #only x and y extent are not spatial attributes
+      
+      attribute_table=data.frame(attribute=attr_names, group="", group_weight=1, is_spatial=as.integer(is_spatial), n_classes_4lu=attr_weights_class,
+                                 weight_4tc=attr_weights_partition, n_datacolumns=datacolumns, stringsAsFactors = FALSE)
+      attribute_table$group[2:3]="extent" #x and y extent are treated within one group
+      attribute_table$attribute =  gsub(x = attribute_table$attribute, pattern = "id",   replacement = "shape")
+      attribute_table$attribute =  gsub(x = attribute_table$attribute, pattern = "p_no",   replacement = "x_extent")
+      attribute_table$attribute =  gsub(x = attribute_table$attribute, pattern = "elevation",   replacement = "z_extent")
+      
+      
       save(list = ls(), file="head.RData")
     }   else
     { #use attribute_table
@@ -266,14 +275,16 @@ prof_class <- function(
       
       n_extent_classes=attribute_table$n_classes_4lu[attribute_table$attribute=="x_extent"]
       n_shape_classes =attribute_table$n_classes_4lu[attribute_table$attribute=="shape"]
+      n_tc            =attribute_table$weight_4tc   [attribute_table$attribute=="id"]
       
-      attribute_table=attribute_table[!attribute_table$attribute %in% c("x_extent", "z_extent"), ] #remove rows (currently treated in a different fashion)
+      #attribute_table=attribute_table[!attribute_table$attribute %in% c("x_extent", "z_extent"), ] #remove rows (currently treated in a different fashion)
+      attribute_table=attribute_table[!attribute_table$attribute %in% c("id", "x_coord"), ] #remove rows (currently treated in a different fashion)
       
       #which attributes contain spatial information, which contain only  a single value for the entire profile?
-      is_spatial = attribute_table$is_spatial
+      is_spatial = as.logical(attribute_table$is_spatial)
       
       # specification of number of columns used by each attribute
-      datacolumns <- attribute_table$n_datacolumns
+      datacolumns <- as.integer(attribute_table$n_datacolumns)
       
       # relative weight of each attribute (supplemental data) to be used in classification
       attr_weights_class <-  attribute_table$n_classes_4lu
@@ -281,15 +292,19 @@ prof_class <- function(
         attr_weights_class [1] = -abs(n_shape_classes) 
         attr_weights_class [2] = n_extent_classes 
         attr_weights_class [3] = xz_factor 
-        
+
       # relative weight of each attribute (supplemental data) to be used in partition  (terrain component decomposition)
       attr_weights_partition <- attribute_table$weight_4tc
+      attr_weights_partition[1] = n_tc
+      
       # store the names of the attributes
       attr_names <- attribute_table$attribute
+      
       #replacements for compatibility with rstats_head.txt. Can probably be removed later.
-        attr_names =  gsub(x = attr_names, pattern = "x_coord", replacement = "p_no")
-        attr_names =  gsub(x = attr_names, pattern = "shape",   replacement = "elevation")
-        attribute_table=NULL
+        attr_names =  gsub(x = attr_names, pattern = "shape", replacement = "id")
+        attr_names =  gsub(x = attr_names, pattern = "x_extent",   replacement = "p_no")
+        attr_names =  gsub(x = attr_names, pattern = "z_extent",   replacement = "elevation")
+        datacolumns[2:3]= 1 #extent effectively becomes length 1 later
         names(datacolumns)=attr_names
         names(attr_weights_partition)=attr_names
         names(attr_weights_class)    =attr_names
@@ -298,12 +313,13 @@ prof_class <- function(
       save(list = ls(), file="attr.RData")
     }
     
-    
+    ungrouped_atttribs = is.na(attribute_table$group) | (attribute_table$group=="") #these are the attributes to be treated separately
+    attribute_table$group[ungrouped_atttribs] = attribute_table$attrib[ungrouped_atttribs] #set group names to the attribute names 8later, we will iterate over these)
+        
     if (attr_weights_partition[1] < 1) {
       message(paste('% -> WARNING: number of TCs will be set to 2 instead of ', attr_weights_partition[1], ' as specified in catena_head_file', sep=""))
       attr_weights_partition[1] <- 2
     }
-  
 
     # determine type of classification from catena_head_file
     if (attr_weights_class[1] < 0) {
@@ -476,18 +492,16 @@ prof_class <- function(
      rm(list = c("p_supp", "p_resampled", "tt"))
      gc(verbose = F);gc(verbose = F)
      
-     #save(file="debug.RData", list = ls(all.names = TRUE)) #for debugging only
      
      
     # PREPARE attribute loop and key-generation #
 
     # START OF CLASS KEY GENERATION #
     attr_weights_class_original <- attr_weights_class
-    iw <- 0 #counter for counting the iterations of the classification loop
-    
+
     # successive weighting vs. single run: set number of times the classification loop has to be run
     if (cf_mode == 'successive') {
-      iw_max <- length(attr_weights_class) # successive weighting for each single attribute
+      iw_max <- length(unique(attribute_table$group)) # successive weighting for each single attribute
     } else {
       iw_max <- 1  # cf_mode ='singlerun'
     }
@@ -524,18 +538,14 @@ prof_class <- function(
     
     cidx_save <- list(NULL) # initialise list to store classification results; i.e. a vector assigning each EHA to a cluster class for each attribute
     hc <- 0
-    while (iw < iw_max) {
-      
-      # alter index for attribute-loop
-      if (iw==2) {
-        iw <- 4           # because x and y dimension are treated together
-      } else {
-        iw <- iw+1 
-      }
-      
-      
+    for (attr_group in unique(attribute_table$group))
+      {
       # ensure reproducible random numbers for debugging / repeatitions
       set.seed(seed)
+      
+            iw = which (attr_group == attribute_table$group)[1] #find index of group to treat
+                                       #"[1]" because several row may belong to this groups (which should, however, be identical)
+      
       
       # SUCCESSIVE weighting for each single attribute
       if (cf_mode == 'successive') {
@@ -595,73 +605,6 @@ prof_class <- function(
         
         offset = end_col #increase offset
       }
-      
-      
-      
-      # # do WEIGHTING for all profiles according to current weighting scheme
-      # for (i in 1:n_profs) {
-      #   
-      #   dest_column <- 1      # destination column where an attribute is placed
-      #   
-      #   # weigh shape and the dimension components, weighted with specified weights attr_weights_class(2), attr_weights_class(3) multiplied by com_length to make the weighting independent of any com_length that was computed; TODO: don't understand this
-      #   # put into data matrix only if the weighting factors are not zero
-      #   if (attr_weights_class[1]) {
-      #     profs_resampled[i,dest_column:(dest_column+com_length-1)] <- profs_resampled_stored[i,1:com_length]*attr_weights_class[1]
-      #     dest_column <- dest_column+com_length
-      #   }
-      #   if (attr_weights_class[2]) {
-      #     prof_length = profs_resampled_stored[i,com_length+1] # real length of profile
-      #     profs_resampled[i,dest_column] <- prof_length*com_length*attr_weights_class[2]
-      #     dest_column <- dest_column+1
-      #   }
-      #   if (attr_weights_class[3]) {
-      #     prof_height = profs_resampled_stored[i,com_length+2] # real height of profile
-      #     profs_resampled[i,dest_column] <- prof_height*com_length*attr_weights_class[3]
-      #     dest_column <- dest_column+1
-      #   }
-      #   
-      #   #ii: isn't this necessary only for cf_mode != 'successive'? Even in successive, wouldn't it be enough to do it once?
-      #   #treat supp_data if present (resample, weigh and add to profile vector to be included in cluster analysis)
-      #   if (n_suppl_attributes) {
-      #     attr_start_column <- 1+com_length+2   #initial value for first loop
-      #     
-      #     # append all the supplemental components, weighted with specified weights
-      #     for (j in 4:length(datacolumns)) {
-      #       
-      #       # skip attributes with no data columns
-      #       if(datacolumns[j]==0) next
-      #       
-      #       new_columns <- datacolumns[j]*com_length-1
-      #       
-      #       # skip attributes weighted with 0
-      #       if(attr_weights_class[j]==0) {
-      #         attr_start_column <- attr_start_column+new_columns+1
-      #         next              
-      #       }
-      #       
-      #       attr_end_column <- attr_start_column+new_columns
-      #       
-      #       # Weigh the current supplemental attribute, divide by
-      #       # number of fields (attr_end_column-attr_start_column+1) to
-      #       # prevent multi-field attributes to get more relative weight
-      #       profs_resampled[i,dest_column:(dest_column+new_columns)] <- profs_resampled_stored[i,attr_start_column:attr_end_column] * attr_weights_class[j] / (attr_end_column-attr_start_column+1)
-      #       
-      #       dest_column <- dest_column+new_columns
-      #       
-      #       # the next attribute starts one column further in prof_resampled_stored
-      #       attr_start_column <- attr_end_column+1
-      #       
-      #     } # end weigh and append suppl data
-      #     
-      #     
-      #   } else { 
-      #     
-      #     profs_resampled <- profs_resampled[i,1:com_length]
-      #     
-      #   } # end treat suppl data   
-      #   
-      # } # end weighting
-      
       
       
       # CLUSTER-ANALYSIS
