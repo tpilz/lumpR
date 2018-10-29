@@ -570,91 +570,97 @@ prof_class <- function(
       
       
       
-      # auxiliary vector for computing required array size for pre-allocation
+    # assemble weighted (excerpt) of the resampled profiles 
       attributes2consider = attr_weights_class!=0
-      
-      
-       # n_data_columns_needed = datacolumns * com_length #every attribute needs as many columns as there a resampled points times its required number of fields
-       # n_data_columns_needed[2:3] <- com_length # ...except the dimension attributes, which need only one value
-       # n_data_columns_needed[!attributes2consider] = 0 #attributes with zero weight do not need to be considered now
       
       n_data_columns_needed =  sum(column_indices[attributes2consider,])
       
-      #ii: isn't this a copy of profs_resampled_stored, which is then weighted? Do we need this duplication, or
-      #couldn't weight and "unweigh" (if necessary later) we the same instance to save memory?
-      profs_resampled <- matrix(0, nrow=n_profs, ncol=sum(n_data_columns_needed))
+      #ii: profs_resampled this is a copy/except of profs_resampled_stored, which is then weighted? Do we need this duplication, or
+      #we could weight and "unweigh" (if necessary later) the same instance to save memory?
+      profs_resampled <- matrix(0, nrow=n_profs, ncol=n_data_columns_needed)
+      
+      offset=0
+      for (attr_i in which(attributes2consider)) #loop through all attributes that need to be considered in this iteration
+      {
+        src_cols  = column_indices[attr_i,]
+        start_col = offset + 1    #index of start column of this attribute
+        end_col   = offset + sum(src_cols)
+        
+        # Weigh the current attribute
+        profs_resampled[,start_col:end_col] = profs_resampled_stored[, src_cols] * attr_weights_class[attr_i]
+        
+        # divide by number of fields (end_col-start_col+1) to
+        # prevent multi-field attributes to get more relative weight
+        profs_resampled[,start_col:end_col] = profs_resampled[,start_col:end_col] / (end_col-start_col+1)
+        
+        offset = end_col #increase offset
+      }
       
       
-      # for (attr_i in attributes2consider) #loop through all attributes that need to be considerred in this iteration
-      # {
+      
+      # # do WEIGHTING for all profiles according to current weighting scheme
+      # for (i in 1:n_profs) {
       #   
-      # }
-      # profs_resampled = profs_resampled_stored[, ]
-      
-      
-      # do WEIGHTING for all profiles according to current weighting scheme
-      for (i in 1:n_profs) {
-        
-        dest_column <- 1      # destination column where an attribute is placed
-        
-        # weigh shape and the dimension components, weighted with specified weights attr_weights_class(2), attr_weights_class(3) multiplied by com_length to make the weighting independent of any com_length that was computed; TODO: don't understand this
-        # put into data matrix only if the weighting factors are not zero
-        if (attr_weights_class[1]) {
-          profs_resampled[i,dest_column:(dest_column+com_length-1)] <- profs_resampled_stored[i,1:com_length]*attr_weights_class[1]
-          dest_column <- dest_column+com_length
-        }
-        if (attr_weights_class[2]) {
-          prof_length = profs_resampled_stored[i,com_length+1] # real length of profile
-          profs_resampled[i,dest_column] <- prof_length*com_length*attr_weights_class[2]
-          dest_column <- dest_column+1
-        }
-        if (attr_weights_class[3]) {
-          prof_height = profs_resampled_stored[i,com_length+2] # real height of profile
-          profs_resampled[i,dest_column] <- prof_height*com_length*attr_weights_class[3]
-          dest_column <- dest_column+1
-        }
-        
-        #ii: isn't this necessary only for cf_mode != 'successive'? Even in successive, wouldn't it be enough to do it once?
-        #treat supp_data if present (resample, weigh and add to profile vector to be included in cluster analysis)
-        if (n_suppl_attributes) {
-          attr_start_column <- 1+com_length+2   #initial value for first loop
-          
-          # append all the supplemental components, weighted with specified weights
-          for (j in 4:length(datacolumns)) {
-            
-            # skip attributes with no data columns
-            if(datacolumns[j]==0) next
-            
-            new_columns <- datacolumns[j]*com_length-1
-            
-            # skip attributes weighted with 0
-            if(attr_weights_class[j]==0) {
-              attr_start_column <- attr_start_column+new_columns+1
-              next              
-            }
-            
-            attr_end_column <- attr_start_column+new_columns
-            
-            # Weigh the current supplemental attribute, divide by
-            # number of fields (attr_end_column-attr_start_column+1) to
-            # prevent multi-field attributes to get more relative weight
-            profs_resampled[i,dest_column:(dest_column+new_columns)] <- profs_resampled_stored[i,attr_start_column:attr_end_column] * attr_weights_class[j] / (attr_end_column-attr_start_column+1)
-            
-            dest_column <- dest_column+new_columns
-            
-            # the next attribute starts one column further in prof_resampled_stored
-            attr_start_column <- attr_end_column+1
-            
-          } # end weigh and append suppl data
-          
-          
-        } else { 
-          
-          profs_resampled <- profs_resampled[i,1:com_length]
-          
-        } # end treat suppl data   
-        
-      } # end weighting
+      #   dest_column <- 1      # destination column where an attribute is placed
+      #   
+      #   # weigh shape and the dimension components, weighted with specified weights attr_weights_class(2), attr_weights_class(3) multiplied by com_length to make the weighting independent of any com_length that was computed; TODO: don't understand this
+      #   # put into data matrix only if the weighting factors are not zero
+      #   if (attr_weights_class[1]) {
+      #     profs_resampled[i,dest_column:(dest_column+com_length-1)] <- profs_resampled_stored[i,1:com_length]*attr_weights_class[1]
+      #     dest_column <- dest_column+com_length
+      #   }
+      #   if (attr_weights_class[2]) {
+      #     prof_length = profs_resampled_stored[i,com_length+1] # real length of profile
+      #     profs_resampled[i,dest_column] <- prof_length*com_length*attr_weights_class[2]
+      #     dest_column <- dest_column+1
+      #   }
+      #   if (attr_weights_class[3]) {
+      #     prof_height = profs_resampled_stored[i,com_length+2] # real height of profile
+      #     profs_resampled[i,dest_column] <- prof_height*com_length*attr_weights_class[3]
+      #     dest_column <- dest_column+1
+      #   }
+      #   
+      #   #ii: isn't this necessary only for cf_mode != 'successive'? Even in successive, wouldn't it be enough to do it once?
+      #   #treat supp_data if present (resample, weigh and add to profile vector to be included in cluster analysis)
+      #   if (n_suppl_attributes) {
+      #     attr_start_column <- 1+com_length+2   #initial value for first loop
+      #     
+      #     # append all the supplemental components, weighted with specified weights
+      #     for (j in 4:length(datacolumns)) {
+      #       
+      #       # skip attributes with no data columns
+      #       if(datacolumns[j]==0) next
+      #       
+      #       new_columns <- datacolumns[j]*com_length-1
+      #       
+      #       # skip attributes weighted with 0
+      #       if(attr_weights_class[j]==0) {
+      #         attr_start_column <- attr_start_column+new_columns+1
+      #         next              
+      #       }
+      #       
+      #       attr_end_column <- attr_start_column+new_columns
+      #       
+      #       # Weigh the current supplemental attribute, divide by
+      #       # number of fields (attr_end_column-attr_start_column+1) to
+      #       # prevent multi-field attributes to get more relative weight
+      #       profs_resampled[i,dest_column:(dest_column+new_columns)] <- profs_resampled_stored[i,attr_start_column:attr_end_column] * attr_weights_class[j] / (attr_end_column-attr_start_column+1)
+      #       
+      #       dest_column <- dest_column+new_columns
+      #       
+      #       # the next attribute starts one column further in prof_resampled_stored
+      #       attr_start_column <- attr_end_column+1
+      #       
+      #     } # end weigh and append suppl data
+      #     
+      #     
+      #   } else { 
+      #     
+      #     profs_resampled <- profs_resampled[i,1:com_length]
+      #     
+      #   } # end treat suppl data   
+      #   
+      # } # end weighting
       
       
       
