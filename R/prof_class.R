@@ -251,6 +251,11 @@ prof_class <- function(
       attr_weights_partition <- headerdat[3,]
       # store the names of the attributes
       attr_names <- colnames(headerdat)
+      
+      #which attributes contain spatial information, which contain only  a single value for the entire profile?
+      is_spatial = rep(TRUE, length(attr_names))
+      is_spatial[2:3]= FALSE  #only x and y extent are not spatial attributes
+      
       rm(headerdat)
       save(list = ls(), file="head.RData")
     }   else
@@ -263,6 +268,9 @@ prof_class <- function(
       n_shape_classes =attribute_table$n_classes_4lu[attribute_table$attribute=="shape"]
       
       attribute_table=attribute_table[!attribute_table$attribute %in% c("x_extent", "z_extent"), ] #remove rows (currently treated in a different fashion)
+      
+      #which attributes contain spatial information, which contain only  a single value for the entire profile?
+      is_spatial = attribute_table$is_spatial
       
       # specification of number of columns used by each attribute
       datacolumns <- attribute_table$n_datacolumns
@@ -498,6 +506,17 @@ prof_class <- function(
     if(!silent) message(paste0("% OK, ",length(p_id_unique)," profiles loaded."))
     
     
+    #generate column indices for all attributes
+    column_indices = array(FALSE, c(length(attr_names), ncol(profs_resampled_stored)))
+    offset=0
+    for (attr_i in 1:length(attr_names)) 
+    {
+      start_col = offset + 1    #index of start column of this attribute
+      end_col   = offset + datacolumns[attr_i] * ifelse (is_spatial[attr_i], com_length, 1) #index of end column of this attribute
+      column_indices[attr_i, start_col:end_col] = TRUE
+      offset = offset + (end_col-start_col)+1 #increase offset
+    }  
+    
     
 # classification of ehas (clustering) #----------------------------------------
     if(!silent) message("%")
@@ -552,13 +571,25 @@ prof_class <- function(
       
       
       # auxiliary vector for computing required array size for pre-allocation
-      t_help <- rep(1,length(datacolumns))*com_length
-      t_help[2:3] <- 1 # dimension attributes need only one value
+      attributes2consider = attr_weights_class!=0
+      
+      
+       # n_data_columns_needed = datacolumns * com_length #every attribute needs as many columns as there a resampled points times its required number of fields
+       # n_data_columns_needed[2:3] <- com_length # ...except the dimension attributes, which need only one value
+       # n_data_columns_needed[!attributes2consider] = 0 #attributes with zero weight do not need to be considered now
+      
+      n_data_columns_needed =  sum(column_indices[attributes2consider,])
+      
       #ii: isn't this a copy of profs_resampled_stored, which is then weighted? Do we need this duplication, or
       #couldn't weight and "unweigh" (if necessary later) we the same instance to save memory?
-      profs_resampled <- matrix(0, nrow=n_profs, ncol=sum(t_help*datacolumns*(attr_weights_class!=0)))
+      profs_resampled <- matrix(0, nrow=n_profs, ncol=sum(n_data_columns_needed))
       
       
+      # for (attr_i in attributes2consider) #loop through all attributes that need to be considerred in this iteration
+      # {
+      #   
+      # }
+      # profs_resampled = profs_resampled_stored[, ]
       
       
       # do WEIGHTING for all profiles according to current weighting scheme
