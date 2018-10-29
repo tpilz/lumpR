@@ -475,7 +475,7 @@ prof_class <- function(
 
     # START OF CLASS KEY GENERATION #
     attr_weights_class_original <- attr_weights_class
-    iw <- 1 #counter for counting the iterations of the classification loop
+    iw <- 0 #counter for counting the iterations of the classification loop
     
     # successive weighting vs. single run: set number of times the classification loop has to be run
     if (cf_mode == 'successive') {
@@ -505,7 +505,14 @@ prof_class <- function(
     
     cidx_save <- list(NULL) # initialise list to store classification results; i.e. a vector assigning each EHA to a cluster class for each attribute
     hc <- 0
-    while (iw <= iw_max) {
+    while (iw < iw_max) {
+      
+      # alter index for attribute-loop
+      if (iw==2) {
+        iw <- 4           # because x and y dimension are treated together
+      } else {
+        iw <- iw+1 
+      }
       
       
       # ensure reproducible random numbers for debugging / repeatitions
@@ -513,35 +520,27 @@ prof_class <- function(
       
       # SUCCESSIVE weighting for each single attribute
       if (cf_mode == 'successive') {
-        maskw <- 0*attr_weights_class_original  #modify weights based on original vector of weights
+        attr_weights_class <- 0*attr_weights_class_original  #modify weights based on original vector of weights
           
-        # first run > shape is considered
+        # first iteration: only shape is considered
         if (iw==1) {
-          maskw[1] <- 1
-        } else if (iw==2) { # second run > x/y dimension is considered
-          maskw[2] <- 1  
-          maskw[3] <- attr_weights_class_original[3]
-        } else if (iw>3) { # next runs > weights of all other parameters are set to zero, consideration of single attribute
-          maskw[iw] <- 1 
+          attr_weights_class[1] <- 1
+        } else if (iw==2) { # second iteration: only x/y dimension is considered
+          attr_weights_class[2] <- 1  
+          attr_weights_class[3] <- attr_weights_class_original[3]
+        } else if (iw>3) { # next iterations: weights of all other parameters are set to zero, consideration of single attribute
+          attr_weights_class[iw] <- 1 
         }
-        # modify original weights:
-        attr_weights_class <- maskw
         
-        # set nclass to specification in header file
+        # set specified number of classes to classify to
         nclasses <- attr_weights_class_original[iw]
         
-        # in case of erroneous input zero or only 1 class, don't do classification, just append the result of classifying into 1 class
+        # in case of erroneous input zero or only 1 class, don't do classification, just append a dummy classification (into one class)
         if (nclasses==0 || nclasses==1) {
           
-          cidx_save[[iw]] <- rep(1, n_profs)
+          cidx_save[[iw]] <- rep(1, n_profs) #put all profiles into class 1
           
           if(!silent) message(paste("% -> skipped '", attr_names[iw], "' (", iw-(iw>2), "/", length(attr_names)-1, ") because number of classes=1", sep=""))
-          
-          if (iw==2) {
-            iw <- 4
-          } else {
-            iw <- iw+1 # alter index for attribute-loop
-          }
           
           next
         }
@@ -675,7 +674,7 @@ prof_class <- function(
       }
       
       
-      
+  
       
       
       # PLOT classified catenas
@@ -698,15 +697,7 @@ prof_class <- function(
         }
       }
       
-      
-      # alter index for attribute-loop
-      if (iw==2) {
-        iw <- 4           # because x and y dimension are treated together
-      } else {
-        iw <- iw+1 
-      }
-      
-      
+  
     } # end classification loop through all attributes
     
     
