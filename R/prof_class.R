@@ -244,9 +244,9 @@ prof_class <- function(
     { #use rstats_head.txt
       headerdat <- as.matrix(read.table(catena_head_file, header=T))
       # specification of number of columns used by each attribute
-      datacolumns <- headerdat[1,]
+      attribute_table$n_datacolumns <- headerdat[1,]
       # relative weight of each attribute (supplemental data) to be used in classification
-      attr_weights_class <-  as.numeric(headerdat[2,])
+      attribute_table$n_classes_4lu <-  as.numeric(headerdat[2,])
       # relative weight of each attribute (supplemental data) to be used in partition  (terrain component decomposition)
       attr_weights_partition <- as.numeric(headerdat[3,])
       # store the names of the attributes
@@ -254,7 +254,7 @@ prof_class <- function(
       rm(headerdat)
       
       # number of classes to divide the dataset into
-      nclasses <- attr_weights_class[1]
+      nclasses <- attribute_table$n_classes_4lu[1]
       # number of TCs to be created in each LU
       ntc <- attr_weights_partition[1]
       
@@ -263,8 +263,8 @@ prof_class <- function(
         is_spatial = rep(TRUE, length(attr_names))
         is_spatial[2:3]= FALSE  #only x and y extent are not spatial attributes
       
-      attribute_table=data.frame(attribute=attr_names, group="", group_weight=1, is_spatial=as.integer(is_spatial), n_classes_4lu=attr_weights_class,
-                                 weight_4tc=attr_weights_partition, n_datacolumns=datacolumns, stringsAsFactors = FALSE)
+      attribute_table=data.frame(attribute=attr_names, group="", group_weight=1, is_spatial=as.integer(is_spatial), n_classes_4lu=attribute_table$n_classes_4lu,
+                                 weight_4tc=attr_weights_partition, n_datacolumns=attribute_table$n_datacolumns, stringsAsFactors = FALSE)
       attribute_table$group[2:3]="extent" #x and y extent are treated within one group
       attribute_table$attribute =  gsub(x = attribute_table$attribute, pattern = "id",   replacement = "shape")
       attribute_table$attribute =  gsub(x = attribute_table$attribute, pattern = "p_no",   replacement = "x_extent")
@@ -289,14 +289,13 @@ prof_class <- function(
       is_spatial = as.logical(attribute_table$is_spatial)
       
       # specification of number of columns used by each attribute
-      datacolumns <- as.integer(attribute_table$n_datacolumns)
+      attribute_table$n_datacolumns <- as.integer(attribute_table$n_datacolumns)
       
-      # relative weight of each attribute (supplemental data) to be used in classification
-      attr_weights_class <-  attribute_table$n_classes_4lu
+      # number of classes of each attribute (supplemental data) to be used in classification
       #legacy
-        attr_weights_class [1] = -abs(nclasses) 
-        attr_weights_class [2] = n_extent_classes 
-        attr_weights_class [3] = xz_factor 
+        attribute_table$n_classes_4lu [1] = -abs(nclasses) 
+        attribute_table$n_classes_4lu [2] = n_extent_classes 
+        attribute_table$n_classes_4lu [3] = xz_factor 
 
       # relative weight of each attribute (supplemental data) to be used in partition  (terrain component decomposition)
       attr_weights_partition <- attribute_table$weight_4tc
@@ -309,10 +308,9 @@ prof_class <- function(
         attr_names =  gsub(x = attr_names, pattern = "shape", replacement = "id")
         attr_names =  gsub(x = attr_names, pattern = "x_extent",   replacement = "p_no")
         attr_names =  gsub(x = attr_names, pattern = "z_extent",   replacement = "elevation")
-        datacolumns[2:3]= 1 #extent effectively becomes length 1 later
-        names(datacolumns)=attr_names
+        
         names(attr_weights_partition)=attr_names
-        names(attr_weights_class)    =attr_names
+        names(attribute_table$n_classes_4lu)    =attr_names
         
       
       save(list = ls(), file="attr.RData")
@@ -327,9 +325,9 @@ prof_class <- function(
     }
 
     # determine type of classification from catena_head_file
-    if (attr_weights_class[1] < 0) {
+    if (attribute_table$n_classes_4lu[1] < 0) {
       cf_mode <- 'successive' # classification performed to specified number of classes for each attribute (option 2)
-      attr_weights_class <- abs(attr_weights_class)
+      attribute_table$n_classes_4lu <- abs(attribute_table$n_classes_4lu)
       
       # only for nice output in loop
       attr_names[1] <- 'shape'
@@ -479,7 +477,7 @@ prof_class <- function(
            if (make_plots)
              dev.off() #close PDF output
            #browser()
-           na_attributes = names(datacolumns[-(1:3)])[unique(sapply (X = which(all_na), function(x) min(which(cumsum(datacolumns[-(1:3)]) >= x))))] #names of attributes with all NAs
+           na_attributes = names(attribute_table$n_datacolumns[-(1:3)])[unique(sapply (X = which(all_na), function(x) min(which(cumsum(attribute_table$n_datacolumns[-(1:3)]) >= x))))] #names of attributes with all NAs
            stop(paste0("Error: EHA ", cur_p_id," has only NAs for attribute(s) ", paste0(na_attributes, collapse=", "),". Most likely a result of insufficient map coverage. Fix coverage, remove this attribute or replace NAs manually."))
          }
          profs_resampled_stored[i,(com_length+3):(com_length+2+com_length*n_supp_data_columns)] <- as.vector(p_resampled[,-1])
@@ -503,7 +501,7 @@ prof_class <- function(
     # PREPARE attribute loop and key-generation #
 
     # START OF CLASS KEY GENERATION #
-    attr_weights_class_original <- attr_weights_class
+    attr_weights_class_original <- attribute_table$n_classes_4lu
 
     # successive weighting vs. single run: set number of times the classification loop has to be run
     if (cf_mode == 'successive') {
@@ -556,16 +554,16 @@ prof_class <- function(
       
       # SUCCESSIVE weighting for each single attribute
       if (cf_mode == 'successive') {
-        attr_weights_class <- 0*attr_weights_class_original  #modify weights based on original vector of weights
+        attribute_table$n_classes_4lu <- 0*attr_weights_class_original  #modify weights based on original vector of weights
           
         # first iteration: only shape is considered
         if (iw==1) {
-          attr_weights_class[1] <- 1
+          attribute_table$n_classes_4lu[1] <- 1
         } else if (iw==2) { # second iteration: only x/y dimension is considered
-          attr_weights_class[2] <- 1  
-          attr_weights_class[3] <- attr_weights_class_original[3]
+          attribute_table$n_classes_4lu[2] <- 1  
+          attribute_table$n_classes_4lu[3] <- attr_weights_class_original[3]
         } else if (iw>3) { # next iterations: weights of all other parameters are set to zero, consideration of single attribute
-          attr_weights_class[iw] <- 1 
+          attribute_table$n_classes_4lu[iw] <- 1 
         }
         
         # set specified number of classes to classify to
@@ -588,7 +586,7 @@ prof_class <- function(
       
       
     # assemble weighted (excerpt) of the resampled profiles 
-      attributes2consider = attr_weights_class!=0
+      attributes2consider = attribute_table$n_classes_4lu!=0
       
       n_data_columns_needed =  sum(column_indices[attributes2consider,])
       
@@ -604,7 +602,7 @@ prof_class <- function(
         end_col   = offset + sum(src_cols)
         
         # Weigh the current attribute
-        profs_resampled[,start_col:end_col] = profs_resampled_stored[, src_cols] * attr_weights_class[attr_i]
+        profs_resampled[,start_col:end_col] = profs_resampled_stored[, src_cols] * attribute_table$n_classes_4lu[attr_i]
         
         # divide by number of fields (end_col-start_col+1) to
         # prevent multi-field attributes to get more relative weight
@@ -808,15 +806,15 @@ prof_class <- function(
     
     # write header for all attributes
     #browser()
-    for (i in 3:length(datacolumns)) {
+    for (i in 3:length(attribute_table$n_datacolumns)) {
       # write all fields of this attribute for this catena point
-      for (k in 1:datacolumns[i]) {
+      for (k in 1:attribute_table$n_datacolumns[i]) {
         # write this attribute for all catena points
         for (j in 1:com_length) {
           dumstr <- paste(dumstr, tab, attr_names[i], '_p', j, sep="")
           
           # if this is a multi-field attribute...
-          if (datacolumns[i]>1) dumstr <- paste(dumstr, '_c', k, sep="")  # denote field numbering in header
+          if (attribute_table$n_datacolumns[i]>1) dumstr <- paste(dumstr, '_c', k, sep="")  # denote field numbering in header
         }
       }
     }
@@ -831,13 +829,13 @@ prof_class <- function(
     dumstr <- 'TC'
     # write header for all attributes
     #browser()
-    for (i in 4:length(datacolumns)) {
+    for (i in 4:length(attribute_table$n_datacolumns)) {
       # write all fields of this attribute for this catena point
-      for (k in 1:datacolumns[i]) {
+      for (k in 1:attribute_table$n_datacolumns[i]) {
         dumstr <- paste(dumstr, tab, attr_names[i], sep="")
         
         # if this is a multi-field attribute...
-        if (datacolumns[i]>1) dumstr <- paste(dumstr, '_c', k, sep="")  # denote field numbering in header
+        if (attribute_table$n_datacolumns[i]>1) dumstr <- paste(dumstr, '_c', k, sep="")  # denote field numbering in header
       }
     }
     
@@ -871,7 +869,7 @@ prof_class <- function(
 		warning(paste0(svc_recl_file, " not found. SVC-ids may have changed, please check."))
         # no reclass file found - don't change IDs
         #browser()
-        mod_svc_ids <- 1:datacolumns[svc_col_index]
+        mod_svc_ids <- 1:attribute_table$n_datacolumns[svc_col_index]
         org_svc_ids <- mod_svc_ids
       }
     }
@@ -939,10 +937,10 @@ prof_class <- function(
         
         # store data for all supplemental attributes
         #browser()
-        for (ii in 4:length(datacolumns)) {
+        for (ii in 4:length(attribute_table$n_datacolumns)) {
           # for retrieval of this attribute
-          attr_start_column <- 1+sum(datacolumns[4:(ii-1)])
-          attr_end_column <- attr_start_column+datacolumns[ii]-1
+          attr_start_column <- 1+sum(attribute_table$n_datacolumns[4:(ii-1)])
+          attr_end_column <- attr_start_column+attribute_table$n_datacolumns[ii]-1
           
           # for all points in profile
           for (jj in 1:com_length) {
@@ -963,8 +961,8 @@ prof_class <- function(
       } else {
         
         # decompose profile into terrain components
-        #    [lim_var,lim_clu] = tc_decomp(mean_prof(i,1:com_length), mean_supp_data, datacolumns, attr_weights_partition, xvec,monocrome,plot_approx_ts);
-        #    tc_decomp(prof, supp_data, datacolumns, attr_weights_partition, xvec, monocrome, plot_approx_ts)
+        #    [lim_var,lim_clu] = tc_decomp(mean_prof(i,1:com_length), mean_supp_data, attribute_table$n_datacolumns, attr_weights_partition, xvec,monocrome,plot_approx_ts);
+        #    tc_decomp(prof, supp_data, attribute_table$n_datacolumns, attr_weights_partition, xvec, monocrome, plot_approx_ts)
         
         # fill hollows/sinks
         for (ii in 2:com_length) {
@@ -988,12 +986,12 @@ prof_class <- function(
           supp_data_weighted <- array(0, dim(mean_supp_data))
           # weigh supplemental information according to weighting factors given
           #browser()
-          for (jj in 4:length(datacolumns)) {
+          for (jj in 4:length(attribute_table$n_datacolumns)) {
             # if an attribute is to be weighted with 0, we can as well skip it
             if (attr_weights_partition[jj]==0) next
             
-            attr_start_column <- sum(datacolumns[4:(jj-1)])+1
-            attr_end_column <- attr_start_column+datacolumns[jj]-1
+            attr_start_column <- sum(attribute_table$n_datacolumns[4:(jj-1)])+1
+            attr_end_column <- attr_start_column+attribute_table$n_datacolumns[jj]-1
             
             supp_data_weighted[attr_start_column:attr_end_column,] <- mean_supp_data[attr_start_column:attr_end_column,]*attr_weights_partition[jj]/(attr_end_column-attr_start_column+1) 
           }  
@@ -1218,9 +1216,9 @@ prof_class <- function(
         till_point <- lim_var_t[j+1]
         
         # write data for all supplemental attributes
-        for (ii in 4:length(datacolumns)) {
+        for (ii in 4:length(attribute_table$n_datacolumns)) {
           # write all fields of this attribute for this catena point
-          for (k in 1:datacolumns[ii]) {
+          for (k in 1:attribute_table$n_datacolumns[ii]) {
             tmp_v <- round(mean(mean_supp_data[treated_attribs+k,from_point:till_point]),5)
             dumstr <- paste(dumstr, paste(tmp_v,collapse=tab),sep=tab)
             
@@ -1262,7 +1260,7 @@ prof_class <- function(
     # save remaining classification results
     # cluster centers can be saved for future use (supervised classification, single run only)
     if (classify_type=='save'){
-      save('cluster_centers','com_length','datacolumns','attr_names',file=paste(dir_out,saved_clusters,sep="/"));
+      save('cluster_centers','com_length','attribute_table$n_datacolumns','attr_names',file=paste(dir_out,saved_clusters,sep="/"));
       if(!silent) message(paste("% -> NOTE: saved cluster centers to ", dir_out, "/", saved_clusters, sep=""))
     }
     
