@@ -253,6 +253,11 @@ prof_class <- function(
       attr_names <- colnames(headerdat)
       rm(headerdat)
       
+      # number of classes to divide the dataset into
+      nclasses <- attr_weights_class[1]
+      # number of TCs to be created in each LU
+      ntc <- attr_weights_partition[1]
+      
       #convergence toward single implementation
         #which attributes contain spatial information, which contain only  a single value for the entire profile?
         is_spatial = rep(TRUE, length(attr_names))
@@ -274,8 +279,8 @@ prof_class <- function(
                 attribute_table$group_weight[attribute_table$attribute=="x_extent"]
       
       n_extent_classes=attribute_table$n_classes_4lu[attribute_table$attribute=="x_extent"]
-      n_shape_classes =attribute_table$n_classes_4lu[attribute_table$attribute=="shape"]
-      n_tc            =attribute_table$weight_4tc   [attribute_table$attribute=="id"]
+      nclasses =attribute_table$n_classes_4lu[attribute_table$attribute=="shape"]
+      ntc            =attribute_table$weight_4tc   [attribute_table$attribute=="id"]
       
       #attribute_table=attribute_table[!attribute_table$attribute %in% c("x_extent", "z_extent"), ] #remove rows (currently treated in a different fashion)
       attribute_table=attribute_table[!attribute_table$attribute %in% c("id", "x_coord"), ] #remove rows (currently treated in a different fashion)
@@ -289,13 +294,13 @@ prof_class <- function(
       # relative weight of each attribute (supplemental data) to be used in classification
       attr_weights_class <-  attribute_table$n_classes_4lu
       #legacy
-        attr_weights_class [1] = -abs(n_shape_classes) 
+        attr_weights_class [1] = -abs(nclasses) 
         attr_weights_class [2] = n_extent_classes 
         attr_weights_class [3] = xz_factor 
 
       # relative weight of each attribute (supplemental data) to be used in partition  (terrain component decomposition)
       attr_weights_partition <- attribute_table$weight_4tc
-      attr_weights_partition[1] = n_tc
+      attr_weights_partition[1] = ntc
       
       # store the names of the attributes
       attr_names <- attribute_table$attribute
@@ -333,11 +338,7 @@ prof_class <- function(
       cf_mode <- 'singlerun' # classification performed in single run for all classes using the specified weighting factors (option 1)
       warning("cf_mode='singlerun' is experimental. Please consider 'successive' by adding a '-' before the first number of line 8 in rstats_head.txt")
     }
-    
-    # number of classes to divide the dataset into
-    nclasses <- attr_weights_class[1]
-    # number of TCs to be created in each LU
-    ntc <- attr_weights_partition[1]
+ 
     
     # if supervised classification using saved clusters is to be used
     #   com_length <- -1
@@ -386,10 +387,10 @@ prof_class <- function(
       }  
     }     # otherwise, the resolution from the saved clusters is used
     
-    
-  
-    n_suppl_attributes = max(0, length(datacolumns) - 3) #number of supplemental attributes
-    n_supp_data_columns <- sum(datacolumns[4:length(datacolumns)]) #number of respective columns
+    #browser()
+    suppl_cols =!(attribute_table$attribute %in% c("shape", "x_extent", "z_extent"))
+    n_suppl_attributes = sum(suppl_cols) #number of supplemental attributes
+    n_supp_data_columns <- sum(attribute_table$n_datacolumns[suppl_cols]) #number of respective columns
     
     # allocate new matrix for storing resampled profiles (hillslopes)
     # for each profile (rows) com_length elevation points, the profile length, the
@@ -462,6 +463,10 @@ prof_class <- function(
        
        # append the dimension components, unweighted
        profs_resampled_stored[i,1:(com_length+2)] <- c(p_resampled[,1], prof_length, prof_height)
+       attribute_table$n_datacolumns[attribute_table$attribute=="x_extent"] = 1  #record that there are these new attributes now
+       attribute_table$n_datacolumns[attribute_table$attribute=="z_extent"] = 1
+       
+       
        
        # treat supp_data if present (resample, weigh and add to profile vector to be included in cluster analysis)
        if (n_suppl_attributes>0) 
@@ -473,6 +478,7 @@ prof_class <- function(
          {  
            if (make_plots)
              dev.off() #close PDF output
+           #browser()
            na_attributes = names(datacolumns[-(1:3)])[unique(sapply (X = which(all_na), function(x) min(which(cumsum(datacolumns[-(1:3)]) >= x))))] #names of attributes with all NAs
            stop(paste0("Error: EHA ", cur_p_id," has only NAs for attribute(s) ", paste0(na_attributes, collapse=", "),". Most likely a result of insufficient map coverage. Fix coverage, remove this attribute or replace NAs manually."))
          }
@@ -526,7 +532,8 @@ prof_class <- function(
     for (attr_i in 1:length(attr_names)) 
     {
       start_col = offset + 1    #index of start column of this attribute
-      end_col   = offset + datacolumns[attr_i] * ifelse (is_spatial[attr_i], com_length, 1) #index of end column of this attribute
+      #browser()
+      end_col   = offset + attribute_table$n_datacolumns[attr_i] * ifelse (is_spatial[attr_i], com_length, 1) #index of end column of this attribute
       column_indices[attr_i, start_col:end_col] = TRUE
       offset = offset + (end_col-start_col)+1 #increase offset
     }  
@@ -800,6 +807,7 @@ prof_class <- function(
     }
     
     # write header for all attributes
+    #browser()
     for (i in 3:length(datacolumns)) {
       # write all fields of this attribute for this catena point
       for (k in 1:datacolumns[i]) {
@@ -822,6 +830,7 @@ prof_class <- function(
     #---------prepare file output tc.dat
     dumstr <- 'TC'
     # write header for all attributes
+    #browser()
     for (i in 4:length(datacolumns)) {
       # write all fields of this attribute for this catena point
       for (k in 1:datacolumns[i]) {
@@ -861,6 +870,7 @@ prof_class <- function(
       } else {
 		warning(paste0(svc_recl_file, " not found. SVC-ids may have changed, please check."))
         # no reclass file found - don't change IDs
+        #browser()
         mod_svc_ids <- 1:datacolumns[svc_col_index]
         org_svc_ids <- mod_svc_ids
       }
@@ -928,6 +938,7 @@ prof_class <- function(
         tmp_v=NULL
         
         # store data for all supplemental attributes
+        #browser()
         for (ii in 4:length(datacolumns)) {
           # for retrieval of this attribute
           attr_start_column <- 1+sum(datacolumns[4:(ii-1)])
@@ -976,6 +987,7 @@ prof_class <- function(
           supp_data_weighted <- NULL
           supp_data_weighted <- array(0, dim(mean_supp_data))
           # weigh supplemental information according to weighting factors given
+          #browser()
           for (jj in 4:length(datacolumns)) {
             # if an attribute is to be weighted with 0, we can as well skip it
             if (attr_weights_partition[jj]==0) next
