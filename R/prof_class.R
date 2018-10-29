@@ -180,7 +180,8 @@ prof_class <- function(
   if(is.null(catena_file) || !file.exists(catena_file))
     stop("'catena_file' has not been specified or does not exist!")
   if(is.null(catena_head_file) || !file.exists(catena_head_file))
-    stop("'catena_head_file' has not been specified or does not exist!")
+    if (is.null(attribute_file))
+      stop("'catena_head_file' has not been specified or does not exist!")
   if(!is.numeric(resolution))
     stop("Resolution of the raster used to produce 'catena_file' and 'catena_head_out' needs to be given (as numeric)!")
   if(is.null(max_com_length) & is.null(com_length))
@@ -250,6 +251,8 @@ prof_class <- function(
       attr_weights_partition <- headerdat[3,]
       # store the names of the attributes
       attr_names <- colnames(headerdat)
+      rm(headerdat)
+      save(list = ls(), file="head.RData")
     }   else
     { #use attribute_table
       
@@ -257,7 +260,8 @@ prof_class <- function(
                 attribute_table$group_weight[attribute_table$attribute=="x_extent"]
       
       n_extent_classes=attribute_table$n_classes_4lu[attribute_table$attribute=="x_extent"]
-        
+      n_shape_classes =attribute_table$n_classes_4lu[attribute_table$attribute=="shape"]
+      
       attribute_table=attribute_table[!attribute_table$attribute %in% c("x_extent", "z_extent"), ] #remove rows (currently treated in a different fashion)
       
       # specification of number of columns used by each attribute
@@ -265,12 +269,25 @@ prof_class <- function(
       
       # relative weight of each attribute (supplemental data) to be used in classification
       attr_weights_class <-  attribute_table$n_classes_4lu
-      attr_weights_class [1] = -abs(n_extent_classes) #legacy
-      
+      #legacy
+        attr_weights_class [1] = -abs(n_shape_classes) 
+        attr_weights_class [2] = n_extent_classes 
+        attr_weights_class [3] = xz_factor 
+        
       # relative weight of each attribute (supplemental data) to be used in partition  (terrain component decomposition)
       attr_weights_partition <- attribute_table$weight_4tc
       # store the names of the attributes
       attr_names <- attribute_table$attribute
+      #replacements for compatibility with rstats_head.txt. Can probably be removed later.
+        attr_names =  gsub(x = attr_names, pattern = "x_coord", replacement = "p_no")
+        attr_names =  gsub(x = attr_names, pattern = "shape",   replacement = "elevation")
+        attribute_table=NULL
+        names(datacolumns)=attr_names
+        names(attr_weights_partition)=attr_names
+        names(attr_weights_class)    =attr_names
+        
+      
+      save(list = ls(), file="attr.RData")
     }
     
     
