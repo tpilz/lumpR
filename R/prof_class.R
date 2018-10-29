@@ -475,7 +475,7 @@ prof_class <- function(
 
     # START OF CLASS KEY GENERATION #
     attr_weights_class_original <- attr_weights_class
-    iw <- 1
+    iw <- 1 #counter for counting the iterations of the classification loop
     
     # successive weighting vs. single run: set number of times the classification loop has to be run
     if (cf_mode == 'successive') {
@@ -503,7 +503,7 @@ prof_class <- function(
     if(!silent) message("%")
     if(!silent) message("% Clustering of EHAs...")
     
-    cidx_save <- list(NULL) # initialise list to store classification results; i.e. a vector assinging each EHA to a cluster class for each attribute
+    cidx_save <- list(NULL) # initialise list to store classification results; i.e. a vector assigning each EHA to a cluster class for each attribute
     hc <- 0
     while (iw <= iw_max) {
       
@@ -513,18 +513,15 @@ prof_class <- function(
       
       # SUCCESSIVE weighting for each single attribute
       if (cf_mode == 'successive') {
-        emptymask <- vector("numeric", length=length(attr_weights_class_original))
-        
+        maskw <- 0*attr_weights_class_original  #modify weights based on original vector of weights
+          
         # first run > shape is considered
         if (iw==1) {
-          maskw <- emptymask
           maskw[1] <- 1
         } else if (iw==2) { # second run > x/y dimension is considered
-          maskw <- emptymask
           maskw[2] <- 1  
           maskw[3] <- attr_weights_class_original[3]
         } else if (iw>3) { # next runs > weights of all other parameters are set to zero, consideration of single attribute
-          maskw <- emptymask
           maskw[iw] <- 1 
         }
         # modify original weights:
