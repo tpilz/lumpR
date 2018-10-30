@@ -23,8 +23,9 @@
 #' @param catena_file Name of file containing mean catena information derived from
 #'      \code{\link[lumpR]{area2catena}}.
 #' @param catena_head_file Name of file containing meta-information for classification
-#'      derived from \code{\link[lumpR]{area2catena}} and adjusted manually (see \code{Notes}).
-#' @param attribute_file Path to attribute file (see details). Overrides catena_head_file
+#'      derived from \code{\link[lumpR]{area2catena}} and adjusted manually (see \link{Notes}). 
+#'      Superseded by \code{attribute_file}, will be deprecated in future versions.
+#' @param attribute_file Path to attribute file (see \link{Notes}). Supersedes and overrides \code{catena_head_file}.
 #' @param svc_column Field name in \code{catena_head_file} that holds the information
 #'      of SVCs for generating \code{tccontainssvcoutfile}. Default: 'svc'.
 #' @param dir_out Character string specifying output directory (will be created;
@@ -248,30 +249,28 @@ prof_class <- function(
       # relative weight of each attribute (supplemental data) to be used in classification
       attribute_table$n_classes_4lu <-  as.numeric(headerdat[2,])
       # relative weight of each attribute (supplemental data) to be used in partition  (terrain component decomposition)
-      attr_weights_partition <- as.numeric(headerdat[3,])
+      attribute_table$weight_4tc <- as.numeric(headerdat[3,])
       # store the names of the attributes
-      attr_names <- colnames(headerdat)
+      attribute_table$attribute <- colnames(headerdat)
       rm(headerdat)
       
-      # number of classes to divide the dataset into
-      nclasses <- attribute_table$n_classes_4lu[1]
+      
       # number of TCs to be created in each LU
-      ntc <- attr_weights_partition[1]
+      ntc <- attribute_table$weight_4tc[1]
       
       #convergence toward single implementation
         #which attributes contain spatial information, which contain only  a single value for the entire profile?
-        is_spatial = rep(TRUE, length(attr_names))
+        is_spatial = rep(TRUE, length(attribute_table$attribute))
         is_spatial[2:3]= FALSE  #only x and y extent are not spatial attributes
       
-      attribute_table=data.frame(attribute=attr_names, group="", group_weight=1, is_spatial=as.integer(is_spatial), n_classes_4lu=attribute_table$n_classes_4lu,
-                                 weight_4tc=attr_weights_partition, n_datacolumns=attribute_table$n_datacolumns, stringsAsFactors = FALSE)
+      attribute_table=data.frame(attribute=attribute_table$attribute, group="", group_weight=1, is_spatial=as.integer(is_spatial), n_classes_4lu=attribute_table$n_classes_4lu,
+                                 weight_4tc=attribute_table$weight_4tc, n_datacolumns=attribute_table$n_datacolumns, stringsAsFactors = FALSE)
       attribute_table$group[2:3]="extent" #x and y extent are treated within one group
-      attribute_table$attribute =  gsub(x = attribute_table$attribute, pattern = "id",   replacement = "shape")
+      attribute_table$attribute =  gsub(x = attribute_table$attribute, pattern = "^id$",   replacement = "shape")
       attribute_table$attribute =  gsub(x = attribute_table$attribute, pattern = "p_no",   replacement = "x_extent")
       attribute_table$attribute =  gsub(x = attribute_table$attribute, pattern = "elevation",   replacement = "z_extent")
       
-      
-      save(list = ls(), file="head.RData")
+      #save(list = ls(), file="head.RData")
     }   else
     { #use attribute_table
       
@@ -282,11 +281,10 @@ prof_class <- function(
       nclasses =attribute_table$n_classes_4lu[attribute_table$attribute=="shape"]
       ntc            =attribute_table$weight_4tc   [attribute_table$attribute=="id"]
       
-      #attribute_table=attribute_table[!attribute_table$attribute %in% c("x_extent", "z_extent"), ] #remove rows (currently treated in a different fashion)
       attribute_table=attribute_table[!attribute_table$attribute %in% c("id", "x_coord"), ] #remove rows (currently treated in a different fashion)
       
       #which attributes contain spatial information, which contain only  a single value for the entire profile?
-      is_spatial = as.logical(attribute_table$is_spatial)
+      attribute_table$is_spatial = as.logical(attribute_table$is_spatial)
       
       # specification of number of columns used by each attribute
       attribute_table$n_datacolumns <- as.integer(attribute_table$n_datacolumns)
@@ -298,30 +296,17 @@ prof_class <- function(
         attribute_table$n_classes_4lu [3] = xz_factor 
 
       # relative weight of each attribute (supplemental data) to be used in partition  (terrain component decomposition)
-      attr_weights_partition <- attribute_table$weight_4tc
-      attr_weights_partition[1] = ntc
+      attribute_table$weight_4tc[1] = ntc
       
-      # store the names of the attributes
-      attr_names <- attribute_table$attribute
-      
-      #replacements for compatibility with rstats_head.txt. Can probably be removed later.
-        attr_names =  gsub(x = attr_names, pattern = "shape", replacement = "id")
-        attr_names =  gsub(x = attr_names, pattern = "x_extent",   replacement = "p_no")
-        attr_names =  gsub(x = attr_names, pattern = "z_extent",   replacement = "elevation")
-        
-        names(attr_weights_partition)=attr_names
-        names(attribute_table$n_classes_4lu)    =attr_names
-        
-      
-      save(list = ls(), file="attr.RData")
+      #save(list = ls(), file="attr.RData")
     }
     
     ungrouped_atttribs = is.na(attribute_table$group) | (attribute_table$group=="") #these are the attributes to be treated separately
     attribute_table$group[ungrouped_atttribs] = attribute_table$attrib[ungrouped_atttribs] #set group names to the attribute names 8later, we will iterate over these)
         
-    if (attr_weights_partition[1] < 1) {
-      message(paste('% -> WARNING: number of TCs will be set to 2 instead of ', attr_weights_partition[1], ' as specified in catena_head_file', sep=""))
-      attr_weights_partition[1] <- 2
+    if (attribute_table$weight_4tc[1] < 1) {
+      message(paste('% -> WARNING: number of TCs will be set to 2 instead of ', attribute_table$weight_4tc[1], ' as specified in catena_head_file', sep=""))
+      attribute_table$weight_4tc[1] <- 2
     }
 
     # determine type of classification from catena_head_file
@@ -330,8 +315,8 @@ prof_class <- function(
       attribute_table$n_classes_4lu <- abs(attribute_table$n_classes_4lu)
       
       # only for nice output in loop
-      attr_names[1] <- 'shape'
-      attr_names[2] <- 'xy-extent'
+      attribute_table$attribute[1] <- 'shape'
+      attribute_table$attribute[2] <- 'x_extent'
     } else {
       cf_mode <- 'singlerun' # classification performed in single run for all classes using the specified weighting factors (option 1)
       warning("cf_mode='singlerun' is experimental. Please consider 'successive' by adding a '-' before the first number of line 8 in rstats_head.txt")
@@ -525,13 +510,13 @@ prof_class <- function(
     
     
     #generate column indices for all attributes
-    column_indices = array(FALSE, c(length(attr_names), ncol(profs_resampled_stored)))
+    column_indices = array(FALSE, c(length(attribute_table$attribute), ncol(profs_resampled_stored)))
     offset=0
-    for (attr_i in 1:length(attr_names)) 
+    for (attr_i in 1:length(attribute_table$attribute)) 
     {
       start_col = offset + 1    #index of start column of this attribute
       #browser()
-      end_col   = offset + attribute_table$n_datacolumns[attr_i] * ifelse (is_spatial[attr_i], com_length, 1) #index of end column of this attribute
+      end_col   = offset + attribute_table$n_datacolumns[attr_i] * ifelse (attribute_table$is_spatial[attr_i], com_length, 1) #index of end column of this attribute
       column_indices[attr_i, start_col:end_col] = TRUE
       offset = offset + (end_col-start_col)+1 #increase offset
     }  
@@ -574,12 +559,12 @@ prof_class <- function(
           
           cidx_save[[iw]] <- rep(1, n_profs) #put all profiles into class 1
           
-          if(!silent) message(paste("% -> skipped '", attr_names[iw], "' (", iw-(iw>2), "/", length(attr_names)-1, ") because number of classes=1", sep=""))
+          if(!silent) message(paste("% -> skipped '", attribute_table$attribute[iw], "' (", iw-(iw>2), "/", length(attribute_table$attribute)-1, ") because number of classes=1", sep=""))
           
           next
         }
         
-        if(!silent) message(paste("% -> successive clustering loop, treating attribute '", attr_names[iw], "' (", iw-(iw>2), "/", length(attr_names)-1, ")", sep="")) 
+        if(!silent) message(paste("% -> successive clustering loop, treating attribute '", attribute_table$attribute[iw], "' (", iw-(iw>2), "/", length(attribute_table$attribute)-1, ")", sep="")) 
         hc <- hc+1
       } # end cases of cf_mode 'successive'/'singlerun'
       
@@ -652,7 +637,7 @@ prof_class <- function(
         if (!is.null(kmeans_out) & plot_silhouette)
         {
           dists <- daisy(profs_resampled) # compute pairwise distances, TODO: see warnings
-          plot(silhouette(kmeans_out$cluster, dists^2), main=attr_names[iw]) # plot silhouette
+          plot(silhouette(kmeans_out$cluster, dists^2), main=attribute_table$attribute[iw]) # plot silhouette
         }  else
           dists <- matrix(-9999, nrow=n_profs, ncol=nclasses)  #dummy, no distance computed
       
@@ -666,7 +651,7 @@ prof_class <- function(
       # originals
       if (make_plots) {
         plot(1,1,type="n", xlim=c(0,max(profs_resampled_stored[,com_length+1])), ylim=c(0,max(profs_resampled_stored[,com_length+2])),
-             main=paste("Original catenas\nclassified according ", attr_names[iw], sep=""), xlab="horizontal length [m]", ylab="elevation [m]")
+             main=paste("Original catenas\nclassified according ", attribute_table$attribute[iw], sep=""), xlab="horizontal length [m]", ylab="elevation [m]")
         for (i in 1:n_profs) {
           lines(   (0:(com_length-1) / (com_length-1)) * profs_resampled_stored[i,com_length+1], 
                 profs_resampled_stored[i,1:com_length] * profs_resampled_stored[i,com_length+2], col=cidx[i])
@@ -675,7 +660,7 @@ prof_class <- function(
       
       # modified
       if (make_plots) {
-        plot(1,1,type="n", xlim=c(0,com_length-1), ylim=c(0,1), main=paste("catenas, resampled, reduced & normalized\nclassified according ", attr_names[iw], sep=""), 
+        plot(1,1,type="n", xlim=c(0,com_length-1), ylim=c(0,1), main=paste("catenas, resampled, reduced & normalized\nclassified according ", attribute_table$attribute[iw], sep=""), 
              xlab="catena point number", ylab="relative elevation")
         for (i in 1:nrow(profs_resampled_stored)) {
           lines(0:(com_length-1), profs_resampled_stored[i,1:com_length], col=cidx[i])
@@ -806,18 +791,40 @@ prof_class <- function(
     
     # write header for all attributes
     #browser()
-    for (i in 3:length(attribute_table$n_datacolumns)) {
+    output_cols = !(attribute_table$attribute %in% c("x_extent", "z_extent")) #the two extent filed have been treated before, output the rest
+
+    #legacy cosmetics for downward compatibility of output files
+    renamed =which(attribute_table$attribute=="shape") 
+    if (length(renamed)>0) attribute_table$attribute[renamed]="elevation"
+      
+    for (i in which(output_cols)) {
       # write all fields of this attribute for this catena point
       for (k in 1:attribute_table$n_datacolumns[i]) {
-        # write this attribute for all catena points
-        for (j in 1:com_length) {
-          dumstr <- paste(dumstr, tab, attr_names[i], '_p', j, sep="")
+        # write this attribute for all catena points FIXME: treat non-spatial attributes differently
+        for (j in 1:ifelse(attribute_table$is_spatial[i], com_length, 1)) {
+          dumstr <- paste(dumstr, tab, attribute_table$attribute[i], '_p', j, sep="")
           
           # if this is a multi-field attribute...
           if (attribute_table$n_datacolumns[i]>1) dumstr <- paste(dumstr, '_c', k, sep="")  # denote field numbering in header
         }
       }
     }
+    
+    #legacy: revert to original name
+    if (length(renamed)>0) attribute_table$attribute[renamed]="shape"
+    
+    # for (i in 3:length(attribute_table$n_datacolumns)) {
+    #   # write all fields of this attribute for this catena point
+    #   for (k in 1:attribute_table$n_datacolumns[i]) {
+    #     # write this attribute for all catena points
+    #     for (j in 1:com_length) {
+    #       dumstr <- paste(dumstr, tab, attribute_table$attribute[i], '_p', j, sep="")
+    #       
+    #       # if this is a multi-field attribute...
+    #       if (attribute_table$n_datacolumns[i]>1) dumstr <- paste(dumstr, '_c', k, sep="")  # denote field numbering in header
+    #     }
+    #   }
+    # }
     
     # write header string to output file
     write(file=paste(dir_out,luoutfile,sep="/"), append=F, x=dumstr)
@@ -832,7 +839,7 @@ prof_class <- function(
     for (i in 4:length(attribute_table$n_datacolumns)) {
       # write all fields of this attribute for this catena point
       for (k in 1:attribute_table$n_datacolumns[i]) {
-        dumstr <- paste(dumstr, tab, attr_names[i], sep="")
+        dumstr <- paste(dumstr, tab, attribute_table$attribute[i], sep="")
         
         # if this is a multi-field attribute...
         if (attribute_table$n_datacolumns[i]>1) dumstr <- paste(dumstr, '_c', k, sep="")  # denote field numbering in header
@@ -847,8 +854,8 @@ prof_class <- function(
     #---------prepare file output r_tc_contains_svc
     svc_col_index <- 0
     # find index of column containing svcs
-    for (j in 1:length(attr_names)) {
-      if (attr_names[j]==svc_column) {
+    for (j in 1:length(attribute_table$attribute)) {
+      if (attribute_table$attribute[j]==svc_column) {
         svc_col_index <- j
         break
       }
@@ -858,7 +865,7 @@ prof_class <- function(
       #write header string to output file r_tc_contains_svc
       write(file=paste(dir_out,tccontainssvcoutfile,sep="/"), append=F, x='tc_id\tsvc_id\tfraction')
       
-      svc_recl_file <- paste('reclass_', attr_names[svc_col_index], '.txt', sep="")
+      svc_recl_file <- paste('reclass_', attribute_table$attribute[svc_col_index], '.txt', sep="")
       
       # check existence of file containing original SVC-IDs
       if (file.exists(svc_recl_file)) {
@@ -886,7 +893,7 @@ prof_class <- function(
     
     cluster_centers <- matrix(NA, nrow=nclasses, ncol=ncol(profs_resampled_stored)) # initialise matrix for cluster centers for each class
     lu_contains_tc <- NULL
-    if (attr_weights_partition[1]==1) {
+    if (attribute_table$weight_4tc[1]==1) {
       if(!silent) message('% -> NOTE: only one TC per LU will be produced!')
     }
     
@@ -954,15 +961,15 @@ prof_class <- function(
       # TERRAIN COMPONENTS
       # get exact horizontal resolution for exact plotting
       dx <- xvec[com_length]/(com_length-1)
-      if (attr_weights_partition[1]==1) {
+      if (attribute_table$weight_4tc[1]==1) {
         # only one TC per LU has to be produced - not much work to be done
         lim_var=NULL
         lim_clu=NULL
       } else {
         
         # decompose profile into terrain components
-        #    [lim_var,lim_clu] = tc_decomp(mean_prof(i,1:com_length), mean_supp_data, attribute_table$n_datacolumns, attr_weights_partition, xvec,monocrome,plot_approx_ts);
-        #    tc_decomp(prof, supp_data, attribute_table$n_datacolumns, attr_weights_partition, xvec, monocrome, plot_approx_ts)
+        #    [lim_var,lim_clu] = tc_decomp(mean_prof(i,1:com_length), mean_supp_data, attribute_table$n_datacolumns, attribute_table$weight_4tc, xvec,monocrome,plot_approx_ts);
+        #    tc_decomp(prof, supp_data, attribute_table$n_datacolumns, attribute_table$weight_4tc, xvec, monocrome, plot_approx_ts)
         
         # fill hollows/sinks
         for (ii in 2:com_length) {
@@ -980,7 +987,7 @@ prof_class <- function(
         
         
         # if supplemental data is present
-        if (n_suppl_attributes>0 && any(attr_weights_partition[4:length(attr_weights_partition)]>0)) 
+        if (n_suppl_attributes>0 && any(attribute_table$weight_4tc[4:length(attribute_table$weight_4tc)]>0)) 
         {
           supp_data_weighted <- NULL
           supp_data_weighted <- array(0, dim(mean_supp_data))
@@ -988,12 +995,12 @@ prof_class <- function(
           #browser()
           for (jj in 4:length(attribute_table$n_datacolumns)) {
             # if an attribute is to be weighted with 0, we can as well skip it
-            if (attr_weights_partition[jj]==0) next
+            if (attribute_table$weight_4tc[jj]==0) next
             
             attr_start_column <- sum(attribute_table$n_datacolumns[4:(jj-1)])+1
             attr_end_column <- attr_start_column+attribute_table$n_datacolumns[jj]-1
             
-            supp_data_weighted[attr_start_column:attr_end_column,] <- mean_supp_data[attr_start_column:attr_end_column,]*attr_weights_partition[jj]/(attr_end_column-attr_start_column+1) 
+            supp_data_weighted[attr_start_column:attr_end_column,] <- mean_supp_data[attr_start_column:attr_end_column,]*attribute_table$weight_4tc[jj]/(attr_end_column-attr_start_column+1) 
           }  
           # data that is given to partitioning algorithm
           #remove columns without variability to conserve space and computation time
@@ -1010,7 +1017,7 @@ prof_class <- function(
         
 
         # decomposition using min variance
-        b_part <- best_partition_new(pdata, attr_weights_partition[1])
+        b_part <- best_partition_new(pdata, attribute_table$weight_4tc[1])
 
         qual <- b_part[1] # partitioning quality
         best_limits <- b_part[-1]  # best limits of partitioning
@@ -1021,7 +1028,7 @@ prof_class <- function(
         
         #decomposition using cluster analysis - deactivated
         best_limits_c <- NULL
-        best_limits_c[1:(attr_weights_partition[1]-1)] <- 0
+        best_limits_c[1:(attribute_table$weight_4tc[1]-1)] <- 0
         if (FALSE){ 
           clusterdata <- pdata # matrix containing data that is fed to cluster analysis
           dummy_dim_appended <- 0 # flag if dummy dimension has already been appended
@@ -1031,7 +1038,7 @@ prof_class <- function(
           for (j in 1:(length(supp_data_weighted)*10+2)) {
             
             # cluster analysis
-            kmeans_out <- kmeans(clusterdata, centers=attr_weights_partition[1], nstart=5)
+            kmeans_out <- kmeans(clusterdata, centers=attribute_table$weight_4tc[1], nstart=5)
             cidxtc <- kmeans_out$cluster    # cluster number for each point
             cmeanstc <- kmeans_out$centers # matrix of cluster centers
             fitc <- kmeans_out$withinss   # within-cluster sum of squares, one per cluster
@@ -1040,7 +1047,7 @@ prof_class <- function(
             continuous_clusters <- 1
             
             # check if clusters are continuous or distributed
-            for (k in 1:attr_weights_partition[1]){
+            for (k in 1:attribute_table$weight_4tc[1]){
               xvec <- which(cidxtc==k) # find limits
               
               if (!any(xvec)) next
@@ -1075,7 +1082,7 @@ prof_class <- function(
           # continuous clustering achieved?
           if (!continuous_clusters) {
             if(!silent) message('% -> WARNING: partitioning using cluster analysis failed.')  
-            best_limits_c[1:(attr_weights_partition[1]-1)] <- 0
+            best_limits_c[1:(attribute_table$weight_4tc[1]-1)] <- 0
           } else {
             # sort limits to ascending order
             best_limits_c <- sort(best_limits_c)
@@ -1102,7 +1109,7 @@ prof_class <- function(
         lim_var <- best_limits
         lim_clu <- best_limits_c
         
-      } # end else attr_weights_partition[1]==1
+      } # end else attribute_table$weight_4tc[1]==1
       
       # plot orig
       if (make_plots) {
@@ -1119,7 +1126,7 @@ prof_class <- function(
       # plot parameterized slope
       if (make_plots) {  
         
-        if(attr_weights_partition[1]==1) {
+        if(attribute_table$weight_4tc[1]==1) {
           lines(c(min(xvec), max(xvec)), mean_prof[i,c(1,com_length)], col="red")
         } else {
           # only for drawing - from beginning till end
@@ -1144,7 +1151,7 @@ prof_class <- function(
                lty=c(1,NA,1,2), pch=c(NA,1,NA,NA), col=c("black", "black", "red","red"))
       }
       
-      
+#### write output      
       #----------file output lu.dat
       # write LU-ID, closest catena and its distance, catena length and relative elevation
       lu_out_dat <- c(i, p_id_unique[class_repr[i,1]], class_repr[i,2], round(mean_prof[i,(com_length+1):(com_length+2)],1))
@@ -1260,7 +1267,7 @@ prof_class <- function(
     # save remaining classification results
     # cluster centers can be saved for future use (supervised classification, single run only)
     if (classify_type=='save'){
-      save('cluster_centers','com_length','attribute_table$n_datacolumns','attr_names',file=paste(dir_out,saved_clusters,sep="/"));
+      save('cluster_centers','com_length','attribute_table$n_datacolumns','attribute_table$attribute',file=paste(dir_out,saved_clusters,sep="/"));
       if(!silent) message(paste("% -> NOTE: saved cluster centers to ", dir_out, "/", saved_clusters, sep=""))
     }
     
