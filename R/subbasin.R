@@ -381,7 +381,7 @@ calc_subbas <- function(
     if(is.numeric(thresh_sub)) {
       
       # set watershed of outlet point as mask
-      cmd_out <- execGRASS("r.mask", raster="basin_outlet_t", intern = T)
+      cmd_out <- execGRASS("g.copy", raster=paste0("basin_outlet_t,MASK"), flags = "overwrite", intern = T)
       
       # the following calculations only make sense if thresh_sub is small enough to produce more subbasins than determined by drain_points
       no_catch_calc <- length(as.numeric(execGRASS("r.stats", input="basin_calc_t", flags=c("n"), intern=T, ignore.stderr = T)))
