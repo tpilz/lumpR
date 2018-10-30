@@ -293,6 +293,7 @@ prof_class <- function(
     { #use attribute_table
       check_attr_table(attribute_table, manatory_attribs = c("id", "shape", "x_extent", "z_extent"))
 
+      #FIXME: we cannot do this here, since this is the order that is in the file!!
       #order by group
       attribute_table = attribute_table[order(attribute_table$group, 1:nrow(attribute_table)), ] 
       
@@ -332,7 +333,7 @@ prof_class <- function(
     }
 
     # determine type of classification from catena_head_file
-    if (attribute_table$n_classes_4lu[1] < 0) {
+    if (attribute_table$n_classes_4lu[1] <= 0) {
       cf_mode <- 'successive' # classification performed to specified number of classes for each attribute (option 2)
       attribute_table$n_classes_4lu <- abs(attribute_table$n_classes_4lu)
     } else {
@@ -553,14 +554,15 @@ prof_class <- function(
       
             iw = which (attr_group == attribute_table$group)[1] #find index of group to treat
                                        #"[1]" because several row may belong to this groups (which should, however, be identical)
-      
+            if (attr_group=="aspect")
+            browser()
       
       # SUCCESSIVE weighting for each single attribute
       if (cf_mode == 'successive') {
         attribute_table$n_classes_4lu <- 0*attr_weights_class_original  #modify weights based on original vector of weights
           
-        # first iteration: only shape is considered
-        if (iw==1) {
+        # first iteration: only shape is considered 
+        if (iw==1) {   #FIXME: this should be removed, right?
           attribute_table$n_classes_4lu[1] <- 1
         } else if (iw==2) { # second iteration: only x/y dimension is considered
           attribute_table$n_classes_4lu[2] <- 1  
@@ -589,7 +591,7 @@ prof_class <- function(
       
       
     # assemble weighted (excerpt) of the resampled profiles 
-      attributes2consider = attribute_table$n_classes_4lu!=0
+      attributes2consider = attribute_table$n_classes_4lu!=0 #FIXME: this should be weight, shouldnt it
       
       n_data_columns_needed =  sum(column_indices[attributes2consider,])
       
@@ -609,6 +611,7 @@ prof_class <- function(
         
         # divide by number of fields (end_col-start_col+1) to
         # prevent multi-field attributes to get more relative weight
+        #FIXME: why is this all small positives for cos_azimuth
         profs_resampled[,start_col:end_col] = profs_resampled[,start_col:end_col] / (end_col-start_col+1)
         
         offset = end_col #increase offset
