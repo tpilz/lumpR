@@ -338,8 +338,8 @@ lump_grass_post <- function(
     stop(paste0("Output file(s) ", sub_ofile, ", ",lu_ofile, ", and/or ", lupar_ofile, " already exist(s) in ", dir_out, "!"))
   
   # remove mask if there is any (and ignore error in case there is no mask)
-  tryCatch(suppressWarnings(execGRASS("r.mask", flags=c("r"))), error=function(e){})
-  cmd_out <- execGRASS("r.mask", raster=mask, intern = T)
+  # set mask to make sure calculations are done exactly within expected area
+  cmd_out <- execGRASS("g.copy", raster=paste0(mask,",MASK"), flags = "overwrite", intern = T)
   
   # remove output of previous function calls if overwrite=T
   if (overwrite) {
