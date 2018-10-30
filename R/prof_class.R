@@ -273,15 +273,16 @@ prof_class <- function(
       #save(list = ls(), file="head.RData")
     }   else
     { #use attribute_table
-      
+      check_attr_table(attribute_table, manatory_attribs = c("shape", "x_extent", "z_extent"))
+
       xz_factor=attribute_table$group_weight[attribute_table$attribute=="z_extent"]/
                 attribute_table$group_weight[attribute_table$attribute=="x_extent"]
       
       n_extent_classes=attribute_table$n_classes_4lu[attribute_table$attribute=="x_extent"]
-      nclasses =attribute_table$n_classes_4lu[attribute_table$attribute=="shape"]
-      ntc            =attribute_table$weight_4tc   [attribute_table$attribute=="id"]
+      nclasses        =attribute_table$n_classes_4lu[attribute_table$attribute=="shape"]
+      ntc             =attribute_table$weight_4tc   [attribute_table$attribute=="id"]
       
-      attribute_table=attribute_table[!attribute_table$attribute %in% c("id", "x_coord"), ] #remove rows (currently treated in a different fashion)
+      attribute_table=attribute_table[!attribute_table$attribute %in% c("id", "x_coord"), ] #remove rows (these are not treated)
       
       #which attributes contain spatial information, which contain only  a single value for the entire profile?
       attribute_table$is_spatial = as.logical(attribute_table$is_spatial)

@@ -601,12 +601,16 @@ area2catena <- function(
 
 
 ### INTERNAL FUNCTION: checks validity of attribute table ###--------------------------------------
-check_attr_table=function(attribute_table)
+check_attr_table=function(attribute_table, manatory_attribs=NULL)
 {
   required_fields = c("attribute","type", "n_classes_4lu", "weight_4tc")
   missing_fields = setdiff(required_fields, names(attribute_table))
   if (length(missing_fields)>0)
     stop(paste0("Columns not found in <attribute_file>: ",paste0(missing_fields, collapse = ", ")))
+  
+  missing_attribs = setdiff(manatory_attribs, attribute_table$attribute)
+  if (length(missing_attribs)>0)
+    stop(paste0("Required attributes not found in <attribute_file>: ",paste0(missing_attribs, collapse = ", ")))
   
   if (is.null(attribute_table$group))        attribute_table$group="" #assume no groups, if not given
   if (is.null(attribute_table$group_weight)) attribute_table$group_weight=as.numeric(NA) #assume equal weighting within groups
