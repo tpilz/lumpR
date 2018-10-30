@@ -33,7 +33,8 @@
 #'      supplemental raster maps in GRASS location; leave empty if you have none.
 #' @param supp_qual Character vector containing names of qualitative
 #'      supplemental raster maps in GRASS location; leave empty if you have none.
-#' @param attribute_file Path to attribute file (see details). Overrides supp_quant and supp_qual
+#' @param attribute_file Path to attribute file. Overrides \code{supp_quant} and \code{supp_qual}. 
+#'      See section Details in help of \code{\link[lumpR]{prof_class}}.
 #' @param dir_out Character string specifying output directory (will be created;
 #'      nothing will be overwritten).
 #' @param catena_out Output: Name of output file containing mean catena information
@@ -69,7 +70,7 @@
 #'      after function execution)? Default: \code{FALSE}.
 #'      
 #' @return Function returns nothing. Output files are written into output directory
-#'      as specified in arguments.
+#'      as specified in arguments. An updated copy of \code{attribute_file} will be created.
 #'  
 #' @note Prepare GRASS location and necessary raster files in advance (e.g. using
 #'      \code{\link[lumpR]{lump_grass_prep}}) and start GRASS session in R using 
@@ -221,7 +222,7 @@ area2catena <- function(
     supp_qual  = attribute_table$attribute[attribute_table$type=="qualitative"]
     supp_quant = attribute_table$attribute[attribute_table$type=="quantitative"]
     
-  }
+  } else attribute_file="attribute_file.txt" #so we can create this output anyway
   
   #check existence of supplementary information maps
    if (length(supp_qual)==0) supp_qual=NULL else
