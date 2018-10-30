@@ -275,10 +275,17 @@ prof_class <- function(
     { #use attribute_table
       check_attr_table(attribute_table, manatory_attribs = c("shape", "x_extent", "z_extent"))
 
+      #order by group
+      attribute_table = attribute_table[order(attribute_table$group, 1:nrow(attribute_table)), ] 
+      
+      #bring "shape", "x_extent", "z_extent" to top
+      new_order = match(c("shape", "x_extent", "z_extent"), attribute_table$attribute)
+      new_order = c(new_order, which(! (attribute_table$attribute %in% c("shape", "x_extent", "z_extent"))))
+      attribute_table = attribute_table[new_order, ] 
+      
       xz_factor=attribute_table$group_weight[attribute_table$attribute=="z_extent"]/
                 attribute_table$group_weight[attribute_table$attribute=="x_extent"]
-      
-      n_extent_classes=attribute_table$n_classes_4lu[attribute_table$attribute=="x_extent"]
+
       nclasses        =attribute_table$n_classes_4lu[attribute_table$attribute=="shape"]
       ntc             =attribute_table$weight_4tc   [attribute_table$attribute=="id"]
       
@@ -293,21 +300,17 @@ prof_class <- function(
       # number of classes of each attribute (supplemental data) to be used in classification
       #legacy
         attribute_table$n_classes_4lu [1] = -abs(nclasses) 
-        attribute_table$n_classes_4lu [2] = n_extent_classes 
         attribute_table$n_classes_4lu [3] = xz_factor 
 
-      # relative weight of each attribute (supplemental data) to be used in partition  (terrain component decomposition)
-      attribute_table$weight_4tc[1] = ntc
-      
       #save(list = ls(), file="attr.RData")
     }
     
     ungrouped_atttribs = is.na(attribute_table$group) | (attribute_table$group=="") #these are the attributes to be treated separately
     attribute_table$group[ungrouped_atttribs] = attribute_table$attrib[ungrouped_atttribs] #set group names to the attribute names 8later, we will iterate over these)
         
-    if (attribute_table$weight_4tc[1] < 1) {
-      message(paste('% -> WARNING: number of TCs will be set to 2 instead of ', attribute_table$weight_4tc[1], ' as specified in catena_head_file', sep=""))
-      attribute_table$weight_4tc[1] <- 2
+    if (ntc < 1) {
+      message(paste('% -> WARNING: number of TCs will be set to 2 instead of ', ntc, ' as specified in catena_head_file', sep=""))
+      ntc <- 2
     }
 
     # determine type of classification from catena_head_file
@@ -894,7 +897,7 @@ prof_class <- function(
     
     cluster_centers <- matrix(NA, nrow=nclasses, ncol=ncol(profs_resampled_stored)) # initialise matrix for cluster centers for each class
     lu_contains_tc <- NULL
-    if (attribute_table$weight_4tc[1]==1) {
+    if (ntc==1) {
       if(!silent) message('% -> NOTE: only one TC per LU will be produced!')
     }
     
@@ -962,7 +965,7 @@ prof_class <- function(
       # TERRAIN COMPONENTS
       # get exact horizontal resolution for exact plotting
       dx <- xvec[com_length]/(com_length-1)
-      if (attribute_table$weight_4tc[1]==1) {
+      if (ntc==1) {
         # only one TC per LU has to be produced - not much work to be done
         lim_var=NULL
         lim_clu=NULL
@@ -1018,7 +1021,7 @@ prof_class <- function(
         
 
         # decomposition using min variance
-        b_part <- best_partition_new(pdata, attribute_table$weight_4tc[1])
+        b_part <- best_partition_new(pdata, ntc)
 
         qual <- b_part[1] # partitioning quality
         best_limits <- b_part[-1]  # best limits of partitioning
@@ -1029,7 +1032,7 @@ prof_class <- function(
         
         #decomposition using cluster analysis - deactivated
         best_limits_c <- NULL
-        best_limits_c[1:(attribute_table$weight_4tc[1]-1)] <- 0
+        best_limits_c[1:(ntc-1)] <- 0
         if (FALSE){ 
           clusterdata <- pdata # matrix containing data that is fed to cluster analysis
           dummy_dim_appended <- 0 # flag if dummy dimension has already been appended
@@ -1039,7 +1042,7 @@ prof_class <- function(
           for (j in 1:(length(supp_data_weighted)*10+2)) {
             
             # cluster analysis
-            kmeans_out <- kmeans(clusterdata, centers=attribute_table$weight_4tc[1], nstart=5)
+            kmeans_out <- kmeans(clusterdata, centers=ntc, nstart=5)
             cidxtc <- kmeans_out$cluster    # cluster number for each point
             cmeanstc <- kmeans_out$centers # matrix of cluster centers
             fitc <- kmeans_out$withinss   # within-cluster sum of squares, one per cluster
@@ -1048,7 +1051,7 @@ prof_class <- function(
             continuous_clusters <- 1
             
             # check if clusters are continuous or distributed
-            for (k in 1:attribute_table$weight_4tc[1]){
+            for (k in 1:ntc){
               xvec <- which(cidxtc==k) # find limits
               
               if (!any(xvec)) next
@@ -1083,7 +1086,7 @@ prof_class <- function(
           # continuous clustering achieved?
           if (!continuous_clusters) {
             if(!silent) message('% -> WARNING: partitioning using cluster analysis failed.')  
-            best_limits_c[1:(attribute_table$weight_4tc[1]-1)] <- 0
+            best_limits_c[1:(ntc-1)] <- 0
           } else {
             # sort limits to ascending order
             best_limits_c <- sort(best_limits_c)
@@ -1110,7 +1113,7 @@ prof_class <- function(
         lim_var <- best_limits
         lim_clu <- best_limits_c
         
-      } # end else attribute_table$weight_4tc[1]==1
+      } # end else ntc==1
       
       # plot orig
       if (make_plots) {
@@ -1127,7 +1130,7 @@ prof_class <- function(
       # plot parameterized slope
       if (make_plots) {  
         
-        if(attribute_table$weight_4tc[1]==1) {
+        if(ntc==1) {
           lines(c(min(xvec), max(xvec)), mean_prof[i,c(1,com_length)], col="red")
         } else {
           # only for drawing - from beginning till end
