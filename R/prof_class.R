@@ -505,7 +505,6 @@ prof_class <- function(
     # PREPARE attribute loop and key-generation #
 
     # START OF CLASS KEY GENERATION #
-    attr_weights_class_original <- attribute_table$n_classes_4lu
 
     # successive weighting vs. single run: set number of times the classification loop has to be run
     if (cf_mode == 'successive') {
@@ -553,8 +552,8 @@ prof_class <- function(
       set.seed(seed)
             current_attribs = which (attr_group == attribute_table$group)
       
-            iw = current_attribs[1] #find index of group to treat
-                                       #"[1]" because several rows may belong to this groups (which should, however, be identical)
+            iw = current_attribs[1] #find index of first attribute of current group
+
             if (attr_group=="aspect")
             browser()
       
@@ -562,16 +561,7 @@ prof_class <- function(
       if (cf_mode == 'successive') {
         attr_weights_class <- 0*attribute_table$group_weight  #modify weights based on original vector of weights
           
-        # first iteration: only shape is considered 
-        if (iw==1) {   #FIXME: this should be removed, right?
-          attr_weights_class[1] <- 1
-        } else if (iw==2) { # second iteration: only x/y dimension is considered
-          attr_weights_class[2] <- 1  
-          #attr_weights_class[3] <- attr_weights_class_original[3]
-          attr_weights_class[3] <- attribute_table$group_weight[3]
-        } else if (iw>3) { # next iterations: weights of all other parameters are set to zero, consideration of single attribute
-          attr_weights_class[iw] <- 1 
-        }
+        attr_weights_class[current_attribs] = attribute_table$group_weight[current_attribs]
         
         # set specified number of classes to classify to
         nclasses <- attribute_table$n_classes_4lu[iw] 
