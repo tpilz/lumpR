@@ -295,15 +295,15 @@ prof_class <- function(
 
       #FIXME: we cannot do this here, since this is the order that is in the rstats-file!!
       #order by group
-      attribute_table = attribute_table[order(attribute_table$group, 1:nrow(attribute_table)), ] 
+      #attribute_table = attribute_table[order(attribute_table$group, 1:nrow(attribute_table)), ] 
       
       #bring "shape", "x_extent", "z_extent" to top
       new_order = match(c("shape", "x_extent", "z_extent"), attribute_table$attribute)
       new_order = c(new_order, which(! (attribute_table$attribute %in% c("shape", "x_extent", "z_extent"))))
       attribute_table = attribute_table[new_order, ] 
       
-      xz_factor=attribute_table$group_weight[attribute_table$attribute=="z_extent"]/
-                attribute_table$group_weight[attribute_table$attribute=="x_extent"]
+      # xz_factor=attribute_table$group_weight[attribute_table$attribute=="z_extent"]/
+      #           attribute_table$group_weight[attribute_table$attribute=="x_extent"]
 
       nclasses        =attribute_table$n_classes_4lu[attribute_table$attribute=="shape"]
       ntc             =attribute_table$weight_4tc   [attribute_table$attribute=="id"]
@@ -319,7 +319,7 @@ prof_class <- function(
       # number of classes of each attribute (supplemental data) to be used in classification
       #legacy
         attribute_table$n_classes_4lu [1] = -abs(nclasses) 
-        attribute_table$n_classes_4lu [3] = xz_factor 
+        #attribute_table$n_classes_4lu [3] = xz_factor 
 
       #save(list = ls(), file="attr.RData")
     }
