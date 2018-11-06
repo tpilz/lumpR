@@ -567,13 +567,14 @@ prof_class <- function(
           attr_weights_class[1] <- 1
         } else if (iw==2) { # second iteration: only x/y dimension is considered
           attr_weights_class[2] <- 1  
-          attr_weights_class[3] <- attr_weights_class_original[3]
+          #attr_weights_class[3] <- attr_weights_class_original[3]
+          attr_weights_class[3] <- attribute_table$group_weight[3]
         } else if (iw>3) { # next iterations: weights of all other parameters are set to zero, consideration of single attribute
           attr_weights_class[iw] <- 1 
         }
         
         # set specified number of classes to classify to
-        nclasses <- attr_weights_class_original[iw] #FIXME: this should be classes, right?
+        nclasses <- attribute_table$n_classes_4lu[iw] 
         
         # in case of erroneous input zero or only 1 class, don't do classification, just append a dummy classification (into one class)
         if (nclasses==0 || nclasses==1) {
@@ -708,7 +709,7 @@ prof_class <- function(
       }
       
       nclasses <- length(unique(cidx_save[[iw_max+1]]))
-      attr_weights_class_original[iw+1] <- nclasses
+      #attribute_table$n_classes_4lu[iw+1] <- nclasses
       
       # "pretend" this is the actual classification
       cidx <- cidx_save[[iw_max+1]]
