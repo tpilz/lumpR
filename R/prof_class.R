@@ -293,18 +293,15 @@ prof_class <- function(
     { #use attribute_table
       check_attr_table(attribute_table, manatory_attribs = c("id", "shape", "x_extent", "z_extent"))
 
-      #FIXME: we cannot do this here, since this is the order that is in the rstats-file!!
+      #FIXME: we cannot do this here, since this is the order that is in the rstats-file!! rather sort in the output
       #order by group
       #attribute_table = attribute_table[order(attribute_table$group, 1:nrow(attribute_table)), ] 
       
-      #bring "shape", "x_extent", "z_extent" to top
+      #bring "shape", "x_extent", "z_extent" to top fixme: rather sort in the output
       new_order = match(c("shape", "x_extent", "z_extent"), attribute_table$attribute)
       new_order = c(new_order, which(! (attribute_table$attribute %in% c("shape", "x_extent", "z_extent"))))
       attribute_table = attribute_table[new_order, ] 
       
-      # xz_factor=attribute_table$group_weight[attribute_table$attribute=="z_extent"]/
-      #           attribute_table$group_weight[attribute_table$attribute=="x_extent"]
-
       nclasses        =attribute_table$n_classes_4lu[attribute_table$attribute=="shape"]
       ntc             =attribute_table$weight_4tc   [attribute_table$attribute=="id"]
       
@@ -319,7 +316,6 @@ prof_class <- function(
       # number of classes of each attribute (supplemental data) to be used in classification
       #legacy
         attribute_table$n_classes_4lu [1] = -abs(nclasses) 
-        #attribute_table$n_classes_4lu [3] = xz_factor 
 
       #save(list = ls(), file="attr.RData")
     }
@@ -554,8 +550,8 @@ prof_class <- function(
       
             iw = current_attribs[1] #find index of first attribute of current group
 
-            if (attr_group=="aspect")
-            browser()
+#            if (attr_group=="aspect")
+#            browser()
       
       # SUCCESSIVE weighting for each single attribute
       if (cf_mode == 'successive') {
@@ -777,14 +773,25 @@ prof_class <- function(
       # save reclass files
       write(file=paste(dir_out,recl_lu,sep="/"), append=ifelse(i==1,FALSE,TRUE), x=paste(p_id_unique[class_i], "=",i," ", unique_classes[i], sep=""))
       
-      # TODO: sql class file -> is that needed?
-      
     } # end calc mean catena of each class
     
     # in reclass files: all other (unclassified) profiles are assigned nodata
     write(file=paste(dir_out,recl_lu,sep="/"), append=T, x="* = NULL")
     
+
+#order output    
+#order by group
+    # order1 = order(attribute_table$group, 1:nrow(attribute_table))
+    # 
+    # #bring "shape", "x_extent", "z_extent" to top
+    # new_order = match(c("shape", "x_extent", "z_extent"), attribute_table$attribute[order1])
+    # new_order = c(new_order, which(! (attribute_table$attribute %in% c("shape", "x_extent", "z_extent"))))
+    # 
+    # mean_prof
     
+    
+# prepare output files ----------------------------------------    
+  
     #---------prepare file output luoutfile
     # prepare header line for output file
     dumstr <- paste('LU-ID', tab, 'closest_catena', tab, 'closest_dist', tab, 'x_length', tab, 'y_length', sep="")
@@ -803,7 +810,7 @@ prof_class <- function(
     
     # write header for all attributes
     #browser()
-    output_cols = !(attribute_table$attribute %in% c("x_extent", "z_extent")) #the two extent filed have been treated before, output the rest
+    output_cols = !(attribute_table$attribute %in% c("x_extent", "z_extent")) #the two extent fields have been treated before, output the rest
 
     #legacy cosmetics for downward compatibility of output files
     renamed =which(attribute_table$attribute=="shape") 
@@ -825,20 +832,7 @@ prof_class <- function(
     #legacy: revert to original name
     if (length(renamed)>0) attribute_table$attribute[renamed]="shape"
     
-    # for (i in 3:length(attribute_table$n_datacolumns)) {
-    #   # write all fields of this attribute for this catena point
-    #   for (k in 1:attribute_table$n_datacolumns[i]) {
-    #     # write this attribute for all catena points
-    #     for (j in 1:com_length) {
-    #       dumstr <- paste(dumstr, tab, attribute_table$attribute[i], '_p', j, sep="")
-    #       
-    #       # if this is a multi-field attribute...
-    #       if (attribute_table$n_datacolumns[i]>1) dumstr <- paste(dumstr, '_c', k, sep="")  # denote field numbering in header
-    #     }
-    #   }
-    # }
-    
-    # write header string to output file
+     # write header string to output file
     write(file=paste(dir_out,luoutfile,sep="/"), append=F, x=dumstr)
     #---------end prepare file output
     
@@ -872,7 +866,7 @@ prof_class <- function(
         break
       }
     }
-    
+  
     if (svc_col_index) {
       #write header string to output file r_tc_contains_svc
       write(file=paste(dir_out,tccontainssvcoutfile,sep="/"), append=F, x='tc_id\tsvc_id\tfraction')
@@ -885,7 +879,7 @@ prof_class <- function(
         mod_svc_ids <- svc_recl_dat$new_id
         org_svc_ids <- svc_recl_dat$original_id
       } else {
-		warning(paste0(svc_recl_file, " not found. SVC-ids may have changed, please check."))
+        warning(paste0(svc_recl_file, " not found. SVC-ids may have changed, please check."))
         # no reclass file found - don't change IDs
         #browser()
         mod_svc_ids <- 1:attribute_table$n_datacolumns[svc_col_index]
@@ -893,6 +887,8 @@ prof_class <- function(
       }
     }
     #---------end prepare file output r_tc_contains_svc
+      
+
     
     
     if(!silent) message("% OK.")
@@ -1123,21 +1119,15 @@ prof_class <- function(
         
       } # end else ntc==1
       
-      # plot orig
+      
       if (make_plots) {
+        # plot orig
         plot(xvec, mean_prof_orig_t[i,1:com_length], type="l", xlab='horizontal length', ylab='relative elevation gain',
              main=paste("partitioning class ", i, sep=""))
-      }
-      
       # plot filled
-      if (make_plots) {
         points(xvec, mean_prof[i,1:com_length], pch=1)
-      }
       
-      
-      # plot parameterized slope
-      if (make_plots) {  
-        
+      # plot parameterized slope  
         if(ntc==1) {
           lines(c(min(xvec), max(xvec)), mean_prof[i,c(1,com_length)], col="red")
         } else {
@@ -1151,10 +1141,8 @@ prof_class <- function(
             lines(c((best_limits[ii]-1)*dx, (best_limits[ii]-1)*dx), c(0, mean_prof[i,1:com_length][best_limits[ii]]), lty=2, col="red")
           }
         }
-      }
-      
-      # plot legend
-      if (make_plots) { 
+    
+        # plot legend
         #           legend("topleft", c("orig. toposequence", "filled profile", "approx. (min var)", "TC boundary (var)",
         #                               "approx. (cluster anal.)", "TC boundary (cluster anal.)"), lty=c(1,NA,1,2,1,2),
         #                  pch=c(NA,1,NA,NA,NA,NA), col=c("black", "black", "red","red","green","green"))
@@ -1163,7 +1151,8 @@ prof_class <- function(
                lty=c(1,NA,1,2), pch=c(NA,1,NA,NA), col=c("black", "black", "red","red"))
       }
       
-#### write output      
+#### write output    #-----------------------------------
+     
       #----------file output lu.dat
       # write LU-ID, closest catena and its distance, catena length and relative elevation
       lu_out_dat <- c(i, p_id_unique[class_repr[i,1]], class_repr[i,2], round(mean_prof[i,(com_length+1):(com_length+2)],1))
