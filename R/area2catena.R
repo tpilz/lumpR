@@ -621,6 +621,15 @@ check_attr_table=function(attribute_table, manatory_attribs=NULL)
   if (length(unknown)>0)
     stop(paste0("Column <group> of <attribute_file> can only contain 'quantitative',  'qualitative' or 'ignored'."))
   
+  
+  if (!is.numeric(attribute_table$group_weight))
+    stop(paste0("Column <group_weight> of <attribute_file> contains non-numeric entries."))
+  
+  
+  if (!is.numeric(attribute_table$n_classes_4lu))
+    stop(paste0("Column <n_classes_4lu> of <attribute_file> contains non-numeric entries."))
+  
+  
   #check for invalid mixing within groups
   type_mix=aggregate(attribute_table[,c("weight_4tc", "n_classes_4lu", "is_spatial", "type")], by=list(group=attribute_table$group), 
                      FUN=function(x){paste0(unique(x), collapse="§§")})
