@@ -560,7 +560,7 @@ prof_class <- function(
       
       # SUCCESSIVE weighting for each single attribute
       if (cf_mode == 'successive') {
-        attr_weights_class <- 0*attr_weights_class_original  #modify weights based on original vector of weights
+        attr_weights_class <- 0*attribute_table$group_weight  #modify weights based on original vector of weights
           
         # first iteration: only shape is considered 
         if (iw==1) {   #FIXME: this should be removed, right?
@@ -573,7 +573,7 @@ prof_class <- function(
         }
         
         # set specified number of classes to classify to
-        nclasses <- attr_weights_class_original[iw]
+        nclasses <- attr_weights_class_original[iw] #FIXME: this should be classes, right?
         
         # in case of erroneous input zero or only 1 class, don't do classification, just append a dummy classification (into one class)
         if (nclasses==0 || nclasses==1) {
@@ -591,7 +591,7 @@ prof_class <- function(
       
       
     # assemble weighted (excerpt) of the resampled profiles 
-      attributes2consider = (attr_weights_class !=0) #fixme done
+      attributes2consider = (attr_weights_class !=0) 
       
       n_data_columns_needed =  sum(column_indices[attributes2consider,])
       
@@ -607,7 +607,7 @@ prof_class <- function(
         end_col   = offset + sum(src_cols)
         
         # Weigh the current attribute
-        profs_resampled[,start_col:end_col] = profs_resampled_stored[, src_cols] * attr_weights_class[attr_i] #FIXME - done
+        profs_resampled[,start_col:end_col] = profs_resampled_stored[, src_cols] * attr_weights_class[attr_i] 
         
         # divide by number of fields (end_col-start_col+1) to
         # prevent multi-field attributes to get more relative weight
