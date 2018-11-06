@@ -560,16 +560,16 @@ prof_class <- function(
       
       # SUCCESSIVE weighting for each single attribute
       if (cf_mode == 'successive') {
-        attribute_table$n_classes_4lu <- 0*attr_weights_class_original  #modify weights based on original vector of weights
+        attr_weights_class <- 0*attr_weights_class_original  #modify weights based on original vector of weights
           
         # first iteration: only shape is considered 
         if (iw==1) {   #FIXME: this should be removed, right?
-          attribute_table$n_classes_4lu[1] <- 1
+          attr_weights_class[1] <- 1
         } else if (iw==2) { # second iteration: only x/y dimension is considered
-          attribute_table$n_classes_4lu[2] <- 1  
-          attribute_table$n_classes_4lu[3] <- attr_weights_class_original[3]
+          attr_weights_class[2] <- 1  
+          attr_weights_class[3] <- attr_weights_class_original[3]
         } else if (iw>3) { # next iterations: weights of all other parameters are set to zero, consideration of single attribute
-          attribute_table$n_classes_4lu[iw] <- 1 
+          attr_weights_class[iw] <- 1 
         }
         
         # set specified number of classes to classify to
@@ -591,7 +591,7 @@ prof_class <- function(
       
       
     # assemble weighted (excerpt) of the resampled profiles 
-      attributes2consider = attribute_table$n_classes_4lu!=0 #FIXME: this should be weight, shouldnt it
+      attributes2consider = (attr_weights_class !=0) #fixme done
       
       n_data_columns_needed =  sum(column_indices[attributes2consider,])
       
@@ -607,7 +607,7 @@ prof_class <- function(
         end_col   = offset + sum(src_cols)
         
         # Weigh the current attribute
-        profs_resampled[,start_col:end_col] = profs_resampled_stored[, src_cols] * attribute_table$n_classes_4lu[attr_i] #FIXME: should this be the weights?
+        profs_resampled[,start_col:end_col] = profs_resampled_stored[, src_cols] * attr_weights_class[attr_i] #FIXME - done
         
         # divide by number of fields (end_col-start_col+1) to
         # prevent multi-field attributes to get more relative weight
