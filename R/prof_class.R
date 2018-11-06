@@ -293,7 +293,7 @@ prof_class <- function(
     { #use attribute_table
       check_attr_table(attribute_table, manatory_attribs = c("id", "shape", "x_extent", "z_extent"))
 
-      #FIXME: we cannot do this here, since this is the order that is in the file!!
+      #FIXME: we cannot do this here, since this is the order that is in the rstats-file!!
       #order by group
       attribute_table = attribute_table[order(attribute_table$group, 1:nrow(attribute_table)), ] 
       
@@ -551,9 +551,10 @@ prof_class <- function(
       {
       # ensure reproducible random numbers for debugging / repeatitions
       set.seed(seed)
+            current_attribs = which (attr_group == attribute_table$group)
       
-            iw = which (attr_group == attribute_table$group)[1] #find index of group to treat
-                                       #"[1]" because several row may belong to this groups (which should, however, be identical)
+            iw = current_attribs[1] #find index of group to treat
+                                       #"[1]" because several rows may belong to this groups (which should, however, be identical)
             if (attr_group=="aspect")
             browser()
       
@@ -579,8 +580,7 @@ prof_class <- function(
           
           cidx_save[[iw]] <- rep(1, n_profs) #put all profiles into class 1
           
-          if(!silent) message(paste("% -> skipped '", attribute_table$attribute[iw], "' (", iw-(iw>2), "/", iw_max, ") because number of classes=1", sep=""))
-          
+          if(!silent) message(paste("% -> skipped '", attr_group, "' (", iw-(iw>2), "/", iw_max, ") because number of classes=1", sep=""))
           next
         }
         
@@ -607,7 +607,7 @@ prof_class <- function(
         end_col   = offset + sum(src_cols)
         
         # Weigh the current attribute
-        profs_resampled[,start_col:end_col] = profs_resampled_stored[, src_cols] * attribute_table$n_classes_4lu[attr_i]
+        profs_resampled[,start_col:end_col] = profs_resampled_stored[, src_cols] * attribute_table$n_classes_4lu[attr_i] #FIXME: should this be the weights?
         
         # divide by number of fields (end_col-start_col+1) to
         # prevent multi-field attributes to get more relative weight
