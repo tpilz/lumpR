@@ -939,16 +939,7 @@ prof_class <- function(
       if(length(curr_lu_key) > 1)
         stop("Unexpected error during partitioning of the mean profile for each LU: more than one LU identified in partitioning loop. Contact the package developer!")
       
-      # if supplemental data exists, calculate average
-      if (n_suppl_attributes) {
-        mean_supp_data_t <- apply(profs_resampled_stored[class_i,(com_length+3):ncol(profs_resampled_stored), drop=F],2, mean)
-        mean_supp_data <- matrix(mean_supp_data_t, ncol=com_length, nrow=n_supp_data_columns, byrow=T)
-
-      } else {
-        mean_supp_data <- 0      # no supplemental data present
-      }
-      
-      
+  
       # compute x-dimension for current mean profile
       xvec <- c(0:(com_length-1))/(com_length-1)*mean_prof[i,(com_length+1)]
 
@@ -962,9 +953,6 @@ prof_class <- function(
         lim_clu=NULL
       } else {
         
-        # decompose profile into terrain components
-        #    [lim_var,lim_clu] = tc_decomp(mean_prof(i,1:com_length), mean_supp_data, attribute_table$n_datacolumns, attribute_table$weight_4tc, xvec,monocrome,plot_approx_ts);
-        #    tc_decomp(prof, supp_data, attribute_table$n_datacolumns, attribute_table$weight_4tc, xvec, monocrome, plot_approx_ts)
         
         # fill hollows/sinks
         for (ii in 2:com_length) {
