@@ -262,17 +262,22 @@ prof_class <- function(
     if (is.null(attribute_table))
     { #use rstats_head.txt
       headerdat <- as.matrix(read.table(catena_head_file, header=T))
+      
+      attribute_table=data.frame(attribute=colnames(headerdat), stringsAsFactors = FALSE)
+      
       # specification of number of columns used by each attribute
       attribute_table$n_datacolumns <- headerdat[1,]
       # relative weight of each attribute (supplemental data) to be used in classification
       attribute_table$n_classes_4lu <-  as.numeric(headerdat[2,])
+      attribute_table$group_weight=1
+      attribute_table$group_weight[3]  = attribute_table$n_classes_4lu[3] #special case: the weighting factor for x/z
+      attribute_table$n_classes_4lu[3] = attribute_table$n_classes_4lu[2] #this is the same group ("extent")
       # relative weight of each attribute (supplemental data) to be used in partition  (terrain component decomposition)
       attribute_table$weight_4tc <- as.numeric(headerdat[3,])
       # store the names of the attributes
       attribute_table$attribute <- colnames(headerdat)
       rm(headerdat)
-      
-      
+
       # number of TCs to be created in each LU
       ntc <- attribute_table$weight_4tc[1]
       
@@ -281,14 +286,15 @@ prof_class <- function(
         is_spatial = rep(TRUE, length(attribute_table$attribute))
         is_spatial[2:3]= FALSE  #only x and y extent are not spatial attributes
       
-      attribute_table=data.frame(attribute=attribute_table$attribute, group="", group_weight=1, is_spatial=as.integer(is_spatial), n_classes_4lu=attribute_table$n_classes_4lu,
+      attribute_table=data.frame(attribute=attribute_table$attribute, group="", group_weight=attribute_table$group_weight, is_spatial=as.integer(is_spatial), n_classes_4lu=attribute_table$n_classes_4lu,
                                  weight_4tc=attribute_table$weight_4tc, n_datacolumns=attribute_table$n_datacolumns, stringsAsFactors = FALSE)
-      attribute_table$group[2:3]="extent" #x and y extent are treated within one group
+      attribute_table$group        [2:3]="extent" #x and y extent are treated within one group
+      attribute_table$n_datacolumns[2:3]=0        #they are not contained in the input file, but will be computed later
       attribute_table$attribute =  gsub(x = attribute_table$attribute, pattern = "^id$",   replacement = "shape")
       attribute_table$attribute =  gsub(x = attribute_table$attribute, pattern = "p_no",   replacement = "x_extent")
       attribute_table$attribute =  gsub(x = attribute_table$attribute, pattern = "elevation",   replacement = "z_extent")
       
-      #save(list = ls(), file="head.RData")
+      save(list = ls(), file="head.RData")
     }   else
     { #use attribute_table
       check_attr_table(attribute_table, manatory_attribs = c("id", "shape", "x_extent", "z_extent"))
@@ -317,7 +323,7 @@ prof_class <- function(
       #legacy
         attribute_table$n_classes_4lu [1] = -abs(nclasses) 
 
-      #save(list = ls(), file="attr.RData")
+      save(list = ls(), file="attr.RData")
     }
     
     ungrouped_atttribs = is.na(attribute_table$group) | (attribute_table$group=="") #these are the attributes to be treated separately
@@ -788,7 +794,7 @@ prof_class <- function(
     # new_order = c(new_order, which(! (attribute_table$attribute %in% c("shape", "x_extent", "z_extent"))))
     # 
     # mean_prof
-    
+#    browser()
     
 # prepare output files ----------------------------------------    
   
@@ -937,6 +943,7 @@ prof_class <- function(
       if (n_suppl_attributes) {
         mean_supp_data_t <- apply(profs_resampled_stored[class_i,(com_length+3):ncol(profs_resampled_stored), drop=F],2, mean)
         mean_supp_data <- matrix(mean_supp_data_t, ncol=com_length, nrow=n_supp_data_columns, byrow=T)
+
       } else {
         mean_supp_data <- 0      # no supplemental data present
       }
@@ -1005,10 +1012,20 @@ prof_class <- function(
             # if an attribute is to be weighted with 0, we can as well skip it
             if (attribute_table$weight_4tc[jj]==0) next
             
-            attr_start_column <- sum(attribute_table$n_datacolumns[4:(jj-1)])+1
+            attr_start_column <- sum(attribute_table$n_datacolumns[4:(jj-1)])+1 #-1: this is wrong!
             attr_end_column <- attr_start_column+attribute_table$n_datacolumns[jj]-1
             
+            # #FIXME: introduce this to master branch
+            # attr_start_column <- sum(attribute_table$n_datacolumns[1:(jj-1)][-(1:3)])+1 #this should be OK
+            # attr_end_column <- attr_start_column+attribute_table$n_datacolumns[jj]-1
+            # 
             supp_data_weighted[attr_start_column:attr_end_column,] <- mean_supp_data[attr_start_column:attr_end_column,]*attribute_table$weight_4tc[jj]/(attr_end_column-attr_start_column+1) 
+            
+            # #this potentially eliminates the need for mean_supp_data:
+            #  attr_start_column_src <- sum(attribute_table$n_datacolumns[1:(jj-1)] * ifelse (attribute_table$is_spatial[1:(jj-1)], com_length, 1))+1
+            #  attr_end_column_src <- attr_start_column_src+attribute_table$n_datacolumns[jj]*ifelse (attribute_table$is_spatial[jj], com_length, 1)-1
+            #  
+            #  supp_data_weighted[attr_start_column:attr_end_column,] <- mean_prof[i,attr_start_column_src:attr_end_column_src]*attribute_table$weight_4tc[jj]/(attr_end_column-attr_start_column+1) 
           }  
           # data that is given to partitioning algorithm
           #remove columns without variability to conserve space and computation time
