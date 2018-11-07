@@ -33,10 +33,10 @@
 #  c) the comments of this script
 #
 # REFERENCES:
-# lumpR Paper (in preparation!): https://github.com/tpilz/lumpr_paper
+# Pilz, T., T. Francke, and A. Bronstert (2017), lumpR: An R package facilitating landscape discretisation for hillslope-based hydrological models, Geosci Model Dev, 10(8), 3001-3023, doi:https://doi.org/10.5194/gmd-10-3001-2017.
 #
 # landscape discretisation algorithm:
-# Francke et al. (2008), Int. J. Geogr. Inf. Sci., 22, 111–132, doi:10.1080/13658810701300873
+# Francke et al. (2008), Int. J. Geogr. Inf. Sci., 22, 111-132, doi:10.1080/13658810701300873
 
 
 
@@ -47,7 +47,8 @@ if("lumpR" %in% rownames(installed.packages())) {
   library(lumpR)
 } else if("devtools" %in% rownames(installed.packages())) {
   library(devtools)
-  install_github("tpilz/lumpR")
+  #install_github("tpilz/lumpR")
+  install_github("tpilz/lumpR", ref="grass7_2018")
   library(lumpR)
 } else {
   install.packages("devtools")
@@ -59,7 +60,7 @@ if("lumpR" %in% rownames(installed.packages())) {
 
 
 
-### SETTINGS ###
+### SETTINGS ####
 
 # switch to specified working directory
 setwd("~/lumpR_test/") #use "/" instead of "\" in Windows
@@ -85,10 +86,14 @@ write(str_odbc, file="~/.odbc.ini", ncolumns=1, append=T, sep="\n")
 # INPUT #
 # inputs marked MANDATORY have to be given, the rest can be 'NULL' if not available
 
-# watershed outlet (coordinates in projection of GRASS location!) 
-drain_p <- data.frame(utm_x_m=, utm_y_m=)
-# specifiy columns containing coordinates
-coordinates(drain_p) <- c("utm_x_m", "utm_y_m")
+# subbasin outlet points (choose option A or B)
+  #A: manually specify (coordinates in projection of GRASS location!) 
+  drain_p <- data.frame(utm_x_m=c(1,2,3), utm_y_m=c(1,2,3)) #enter your coordinates here
+  coordinates(drain_p) <- c("utm_x_m", "utm_y_m")
+  #B: import from vector layer  in GRASS mapset
+  drain_p = readVECT(vname = "subbas_outlets", layer=1) #specify name of point vector containing subbasin coordinates
+  #plot(drain_p)
+  outlet_id = which(drain_p@data$Name=="Barasona") #specify row of outlet point of entire watershed
 
 # DEM raster in GRASS location
 dem <- ""
@@ -258,7 +263,7 @@ no_LUs <- c(3, 3, 10, 3, 3)
 no_TCs <- 3
 
 
-# GRASS #
+# GRASS ####
 # ATTENTION: GRASS 7 is needed, not compatible to GRASS 6.x!
 
 addon_path="/home/tobias/.grass7/addons/" # path to your locally installed GRASS add-ons. Must only be given if necessary, see ?lump_grass_prep
@@ -285,6 +290,7 @@ initGRASS(gisBase="", # path to GRASS installation (use / instead of \ under win
 projection(drain_p) <- getLocationProj()
 
 # calculate subbasins; one subbasin for each drainage point
+# calculate subbasins; one subbasin for each drainage point ####
 ?calc_subbas # read the documentation!
 calc_subbas(
   # INPUT #
@@ -296,7 +302,7 @@ calc_subbas(
   stream=stream_pref,
   points_processed=drainp_processed,
   # PARAMETERS #
-  outlet=1,
+  outlet=outlet_id,
   thresh_stream=thresh_stream,
   thresh_sub=thresh_sub,
   snap_dist=snap_dist,
@@ -308,7 +314,7 @@ calc_subbas(
       
       
       
-# PREPROCESSING AND HILLSLOPE DEVIATION #
+# PREPROCESSING AND HILLSLOPE DEVIATION ####
 ?lump_grass_prep # read the documentation!
 lump_grass_prep(
   # INPUT #
@@ -380,11 +386,11 @@ writeLines(header_dat,paste(getwd(), catena_head_out, sep="/"))
 
 
 
-# CATENA CLASSIFICATION INTO LANDSCAPE UNITS AND TERRAIN COMPONENTS #
+# CATENA CLASSIFICATION INTO LANDSCAPE UNITS AND TERRAIN COMPONENTS ####
 # Part of algorithm described by Francke et al. (2008)
 # get resolution (mean between x and y resolution)
-res <- execGRASS("r.info", map=dem, flags=c("s"), intern=TRUE)
-res <- sum(as.numeric(gsub("[a-z]*=", "", res))) / 2
+res <- execGRASS("r.info", map=dem, flags=c("g"), intern=TRUE)
+res <- sum(as.numeric(gsub("[a-z]*=", "", grep("nsres|ewres", res, value = T)))) / 2
 
 ?prof_class # read the documentation!
 prof_class(
@@ -416,6 +422,7 @@ prof_class(
 
 
 # POST PROCESSING #
+# POST PROCESSING ####
 ?lump_grass_post # read the documentation!
 lump_grass_post(
 # INPUT #
