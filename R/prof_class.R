@@ -1011,14 +1011,9 @@ prof_class <- function(
           for (jj in 4:length(attribute_table$n_datacolumns)) {
             # if an attribute is to be weighted with 0, we can as well skip it
             if (attribute_table$weight_4tc[jj]==0) next
-            
-            attr_start_column <- sum(attribute_table$n_datacolumns[4:(jj-1)])+1 #-1: this is wrong!
+            attr_start_column <- sum(attribute_table$n_datacolumns[1:(jj-1)][-(1:3)])+1 #this should be OK
             attr_end_column <- attr_start_column+attribute_table$n_datacolumns[jj]-1
-            
-            # #FIXME: introduce this to master branch
-            # attr_start_column <- sum(attribute_table$n_datacolumns[1:(jj-1)][-(1:3)])+1 #this should be OK
-            # attr_end_column <- attr_start_column+attribute_table$n_datacolumns[jj]-1
-            # 
+
             supp_data_weighted[attr_start_column:attr_end_column,] <- mean_supp_data[attr_start_column:attr_end_column,]*attribute_table$weight_4tc[jj]/(attr_end_column-attr_start_column+1) 
             
             # #this potentially eliminates the need for mean_supp_data:
