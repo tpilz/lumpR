@@ -607,7 +607,6 @@ prof_class <- function(
         
         # divide by number of fields (end_col-start_col+1) to
         # prevent multi-field attributes to get more relative weight
-        #FIXME: why is this all small positives for cos_azimuth
         profs_resampled[,start_col:end_col] = profs_resampled[,start_col:end_col] / (end_col-start_col+1)
         
         offset = end_col #increase offset
@@ -840,16 +839,6 @@ prof_class <- function(
         if (attribute_table$n_datacolumns[i]>1) d2 <- paste0(d2, '_c', k, sep="")  # denote field numbering in header 
         
         dumstr <- paste0(c(dumstr, d2), collapse=tab)
-        
-        #    
-        # dumstr <- paste(dumstr, tab, attribute_table$attribute[i], '_p', j, sep="")
-        # 
-        # for (j in 1:ifelse(attribute_table$is_spatial[i], com_length, 1)) {
-        #   dumstr <- paste(dumstr, tab, attribute_table$attribute[i], '_p', j, sep="")
-        #   
-        #   # if this is a multi-field attribute...
-        #   if (attribute_table$n_datacolumns[i]>1) dumstr <- paste(dumstr, '_c', k, sep="")  # denote field numbering in header
-        # }
       }
     }
     
@@ -996,7 +985,8 @@ prof_class <- function(
         if (n_suppl_attributes>0 && any(attribute_table$weight_4tc[4:length(attribute_table$weight_4tc)]>0)) 
         {
           supp_data_weighted <- NULL
-          supp_data_weighted <- array(0, dim(mean_supp_data))
+          supp_data_weighted <- array(0, c(n_supp_data_columns, com_length)) 
+          
           # weigh supplemental information according to weighting factors given
           #browser()
           for (jj in 4:length(attribute_table$n_datacolumns)) {
