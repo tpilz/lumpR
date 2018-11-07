@@ -1199,7 +1199,12 @@ prof_class <- function(
         for (ii in 4:length(attribute_table$n_datacolumns)) {
           # write all fields of this attribute for this catena point
           for (k in 1:attribute_table$n_datacolumns[ii]) {
-            tmp_v <- round(mean(mean_supp_data[treated_attribs+k,from_point:till_point]),5)
+            ci = range(which(column_indices[ii,])) #get columns of current attribute
+            attr_start_column_src = ci[1] + (k-1)* ifelse(attribute_table$is_spatial[ii], com_length, 1) #correct for offsets caused by spatial attributes or multiclass ones
+            attr_end_column_src   = attr_start_column_src + ifelse(attribute_table$is_spatial[ii], com_length, 1) -1
+            
+            tmp_v = round(mean(mean_prof[i,attr_start_column_src:attr_end_column_src  ][from_point:till_point]), digits = 5) #average current value troughout TC
+            
             dumstr <- paste(dumstr, paste(tmp_v,collapse=tab),sep=tab)
             
             #---------output r_tc_contains_svc.dat
