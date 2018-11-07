@@ -209,7 +209,7 @@ prof_class <- function(
     stop("'classify_type' must be ' ' or 'save' ('load' is currently not supported).")
   if(any(classify_type == "save") & is.null(saved_clusters))
     stop("Parameter 'saved_clusters' must be given when 'classify_type'='save'!")
-  saved_clusters
+  
   
   if (!is.null(attribute_file)) #attribute description file specified?
   {
@@ -618,7 +618,7 @@ prof_class <- function(
       cidx=array(NA,nrow(profs_resampled)) #cluster membership
       if (classify_type=='load') {
         # classification based on loaded classes, TODO
-        #[cidx,sumd,dists]=cluster_supervised(profs_resampled_stored,nclasses,cluster_centers_weighted);
+        #[cidx,sumd,dists]=cluster_supervised(profs_resampled_stored,nclasses,mean_prof);
         stop("not yet implemented")
       } else {
         # unsupervised classification
@@ -908,7 +908,6 @@ prof_class <- function(
     if(!silent) message("%")
     if(!silent) message("% Decomposition into TCs...")
     
-    cluster_centers <- matrix(NA, nrow=nclasses, ncol=ncol(profs_resampled_stored)) # initialise matrix for cluster centers for each class
     lu_contains_tc <- NULL
     if (ntc==1) {
       if(!silent) message('% -> NOTE: only one TC per LU will be produced!')
@@ -931,12 +930,6 @@ prof_class <- function(
       # find all profiles belonging to current class
       class_i <- which(cidx==unique_classes[i])
       
-      # empty cluster
-      if (!any(class_i)) {
-        cluster_centers[i,] <- NaN
-        next
-      }
-      
       # get the ID of the currently treated LU
       curr_lu_key <- unique(cidx[class_i])
       if(length(curr_lu_key) > 1)
@@ -954,37 +947,8 @@ prof_class <- function(
       
       # compute x-dimension for current mean profile
       xvec <- c(0:(com_length-1))/(com_length-1)*mean_prof[i,(com_length+1)]
-      
-      
-      # cluster centers can be saved for future use (supervised classification)
-      if (classify_type=="save") {
-        tmp_v=NULL
-        
-        # store data for all supplemental attributes
-        #browser()
-        for (ii in 4:length(attribute_table$n_datacolumns)) {
-          # for retrieval of this attribute
-          attr_start_column <- 1+sum(attribute_table$n_datacolumns[4:(ii-1)])
-          attr_end_column <- attr_start_column+attribute_table$n_datacolumns[ii]-1
-          
-          # for all points in profile
-          for (jj in 1:com_length) {
-            tmp_v <- c(tmp_v, mean_supp_data[attr_start_column:attr_end_column,jj])
-          }
-          
-          # ci = range(which(column_indices[jj,])) #get columns of current attribute
-          # attr_start_column = ci[1]
-          # attr_end_column   = ci[2]
-          
-          # # for all points in profile
-          # for (jj in 1:com_length) {
-          #   tmp_v <- c(tmp_v, mean_prof[attr_start_column:attr_end_column,jj])
-          # }
-        }  
-        cluster_centers[i,] <- c(mean_prof[i,1:(com_length+2)], tmp_v) 
-      } # end if classify_type==save
-      
 
+      
       # TERRAIN COMPONENTS
       # get exact horizontal resolution for exact plotting
       dx <- xvec[com_length]/(com_length-1)
@@ -1289,7 +1253,7 @@ prof_class <- function(
     # save remaining classification results
     # cluster centers can be saved for future use (supervised classification, single run only)
     if (classify_type=='save'){
-      save('cluster_centers','com_length','attribute_table',file=paste(dir_out,saved_clusters,sep="/"));
+      save('mean_prof','com_length','attribute_table',file=paste(dir_out,saved_clusters,sep="/"));
       if(!silent) message(paste("% -> NOTE: saved cluster centers to ", dir_out, "/", saved_clusters, sep=""))
     }
     
