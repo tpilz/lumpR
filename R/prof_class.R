@@ -737,6 +737,7 @@ prof_class <- function(
     
     mean_prof <- matrix(NA, nrow=nclasses, ncol=ncol(profs_resampled_stored)) # mean shape of every class
     class_repr <- matrix(NA, nrow=nclasses, ncol=2) # min. distance of class i to centroid and resp. ID
+    lims_collected <- NULL   #for collecting the resulting TC limits for each LU
     
     for (i in 1:nclasses) {
       
@@ -1104,6 +1105,7 @@ prof_class <- function(
         
       } # end else ntc==1
       
+      lims_collected=rbind(lims_collected, c(lim_var, lim_clu)) #collect determined TC limits
       
       if (make_plots) {
         # plot orig
@@ -1139,14 +1141,11 @@ prof_class <- function(
 #### write output    #-----------------------------------
      
       #----------file output lu.dat
-      # write LU-ID, closest catena and its distance, catena length and relative elevation
-      lu_out_dat <- c(i, p_id_unique[class_repr[i,1]], class_repr[i,2], round(mean_prof[i,(com_length+1):(com_length+2)],1))
-      # write limits of TC-decomposition
-      lu_out_dat <- c(lu_out_dat, lim_var, lim_clu)
-      # write elevation data and all supplemental data
-      lu_out_dat <- c(lu_out_dat, round(mean_prof[i,-(com_length+1:2)],2))
-      
-      
+      lu_out_dat <- c(i, p_id_unique[class_repr[i,1]], class_repr[i,2], round(mean_prof[i,(com_length+1):(com_length+2)],1),
+                      # write LU-ID, closest catena and its distance, catena length and relative elevation
+                      lims_collected[i,],   # write limits of TC-decomposition
+                      round(mean_prof[i,-(com_length+1:2)],2)) # write elevation data and all supplemental data
+
       # write into file
       write(file=paste(dir_out,luoutfile,sep="/"), append=T, ncolumns=length(lu_out_dat), x=lu_out_dat, sep=tab)
       #----------end file output
