@@ -829,13 +829,27 @@ prof_class <- function(
     for (i in which(output_cols)) {
       # write all fields of this attribute for this catena point
       for (k in 1:attribute_table$n_datacolumns[i]) {
-        # write this attribute for all catena points FIXME: treat non-spatial attributes differently
-        for (j in 1:ifelse(attribute_table$is_spatial[i], com_length, 1)) {
-          dumstr <- paste(dumstr, tab, attribute_table$attribute[i], '_p', j, sep="")
-          
-          # if this is a multi-field attribute...
-          if (attribute_table$n_datacolumns[i]>1) dumstr <- paste(dumstr, '_c', k, sep="")  # denote field numbering in header
-        }
+        # write this attribute for all catena points
+        
+        # if this is a spatial attribute...
+        if(attribute_table$is_spatial[i])
+          d2 = paste0(attribute_table$attribute[i],'_p', 1:com_length)
+        else 
+          d2 = attribute_table$attribute[i]
+        # if this is a multi-field attribute...
+        if (attribute_table$n_datacolumns[i]>1) d2 <- paste0(d2, '_c', k, sep="")  # denote field numbering in header 
+        
+        dumstr <- paste0(c(dumstr, d2), collapse=tab)
+        
+        #    
+        # dumstr <- paste(dumstr, tab, attribute_table$attribute[i], '_p', j, sep="")
+        # 
+        # for (j in 1:ifelse(attribute_table$is_spatial[i], com_length, 1)) {
+        #   dumstr <- paste(dumstr, tab, attribute_table$attribute[i], '_p', j, sep="")
+        #   
+        #   # if this is a multi-field attribute...
+        #   if (attribute_table$n_datacolumns[i]>1) dumstr <- paste(dumstr, '_c', k, sep="")  # denote field numbering in header
+        # }
       }
     }
     
