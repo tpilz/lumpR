@@ -1014,13 +1014,13 @@ prof_class <- function(
             attr_start_column <- sum(attribute_table$n_datacolumns[1:(jj-1)][-(1:3)])+1 #this should be OK
             attr_end_column <- attr_start_column+attribute_table$n_datacolumns[jj]-1
 
-            supp_data_weighted[attr_start_column:attr_end_column,] <- mean_supp_data[attr_start_column:attr_end_column,]*attribute_table$weight_4tc[jj]/(attr_end_column-attr_start_column+1) 
+            #supp_data_weighted[attr_start_column:attr_end_column,] <- mean_supp_data[attr_start_column:attr_end_column,]*attribute_table$weight_4tc[jj]/(attr_end_column-attr_start_column+1) 
             
-            # #this potentially eliminates the need for mean_supp_data:
-            #  attr_start_column_src <- sum(attribute_table$n_datacolumns[1:(jj-1)] * ifelse (attribute_table$is_spatial[1:(jj-1)], com_length, 1))+1
-            #  attr_end_column_src <- attr_start_column_src+attribute_table$n_datacolumns[jj]*ifelse (attribute_table$is_spatial[jj], com_length, 1)-1
-            #  
-            #  supp_data_weighted[attr_start_column:attr_end_column,] <- mean_prof[i,attr_start_column_src:attr_end_column_src]*attribute_table$weight_4tc[jj]/(attr_end_column-attr_start_column+1) 
+            #this potentially eliminates the need for mean_supp_data:
+             attr_start_column_src <- sum(attribute_table$n_datacolumns[1:(jj-1)] * ifelse (attribute_table$is_spatial[1:(jj-1)], com_length, 1))+1
+             attr_end_column_src <- attr_start_column_src+attribute_table$n_datacolumns[jj]*ifelse (attribute_table$is_spatial[jj], com_length, 1)-1
+
+             supp_data_weighted[attr_start_column:attr_end_column,] <- mean_prof[i,attr_start_column_src:attr_end_column_src]*attribute_table$weight_4tc[jj]/(attr_end_column-attr_start_column+1)
           }  
           # data that is given to partitioning algorithm
           #remove columns without variability to conserve space and computation time
