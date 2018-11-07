@@ -207,6 +207,9 @@ prof_class <- function(
     stop("Either parameter 'max_com_length' or 'com_length' has to be given!")
   if(!grepl("^[[:blank:]]{1}|save",classify_type))
     stop("'classify_type' must be ' ' or 'save' ('load' is currently not supported).")
+  if(any(classify_type == "save") & is.null(saved_clusters))
+    stop("Parameter 'saved_clusters' must be given when 'classify_type'='save'!")
+  saved_clusters
   
   if (!is.null(attribute_file)) #attribute description file specified?
   {
@@ -954,7 +957,7 @@ prof_class <- function(
       
       
       # cluster centers can be saved for future use (supervised classification)
-      if (classify_type=='save') {
+      if (classify_type=="save") {
         tmp_v=NULL
         
         # store data for all supplemental attributes
@@ -968,6 +971,15 @@ prof_class <- function(
           for (jj in 1:com_length) {
             tmp_v <- c(tmp_v, mean_supp_data[attr_start_column:attr_end_column,jj])
           }
+          
+          # ci = range(which(column_indices[jj,])) #get columns of current attribute
+          # attr_start_column = ci[1]
+          # attr_end_column   = ci[2]
+          
+          # # for all points in profile
+          # for (jj in 1:com_length) {
+          #   tmp_v <- c(tmp_v, mean_prof[attr_start_column:attr_end_column,jj])
+          # }
         }  
         cluster_centers[i,] <- c(mean_prof[i,1:(com_length+2)], tmp_v) 
       } # end if classify_type==save
@@ -1011,7 +1023,7 @@ prof_class <- function(
           for (jj in 4:length(attribute_table$n_datacolumns)) {
             # if an attribute is to be weighted with 0, we can as well skip it
             if (attribute_table$weight_4tc[jj]==0) next
-            attr_start_column <- sum(attribute_table$n_datacolumns[1:(jj-1)][-(1:3)])+1 #this should be OK
+            attr_start_column <- sum(attribute_table$n_datacolumns[1:(jj-1)][-(1:3)])+1 
             attr_end_column <- attr_start_column+attribute_table$n_datacolumns[jj]-1
             
             ci = range(which(column_indices[jj,])) #get columns of current attribute
@@ -1277,7 +1289,7 @@ prof_class <- function(
     # save remaining classification results
     # cluster centers can be saved for future use (supervised classification, single run only)
     if (classify_type=='save'){
-      save('cluster_centers','com_length','attribute_table$n_datacolumns','attribute_table$attribute',file=paste(dir_out,saved_clusters,sep="/"));
+      save('cluster_centers','com_length','attribute_table',file=paste(dir_out,saved_clusters,sep="/"));
       if(!silent) message(paste("% -> NOTE: saved cluster centers to ", dir_out, "/", saved_clusters, sep=""))
     }
     
