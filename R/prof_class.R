@@ -1139,19 +1139,7 @@ prof_class <- function(
       }
       
 #### write output    #-----------------------------------
-     
-      #----------file output lu.dat
-      lu_out_dat <- c(i, p_id_unique[class_repr[i,1]], class_repr[i,2], round(mean_prof[i,(com_length+1):(com_length+2)],1),
-                      # write LU-ID, closest catena and its distance, catena length and relative elevation
-                      lims_collected[i,],   # write limits of TC-decomposition
-                      round(mean_prof[i,-(com_length+1:2)],2)) # write elevation data and all supplemental data
-
-      # write into file
-      write(file=paste(dir_out,luoutfile,sep="/"), append=T, ncolumns=length(lu_out_dat), x=lu_out_dat, sep=tab)
-      #----------end file output
-      
-      
-      
+   
       
       #----------file TC-output
       lim_var_t <- c(0.5, lim_var, com_length+0.5)
@@ -1243,7 +1231,16 @@ prof_class <- function(
     dev.off()
     
     
-    
+  #----------file output lu.dat
+  lu_out_dat <- cbind(1:nclasses, p_id_unique[class_repr[,1]], class_repr[,2], round(mean_prof[,(com_length+1):(com_length+2)],1),
+                  # write LU-ID, closest catena and its distance, catena length and relative elevation
+                  lims_collected[,],   # write limits of TC-decomposition
+                  round(mean_prof[,-(com_length+1:2)],2)) # write elevation data and all supplemental data
+  # write into file
+  write.table(file=paste(dir_out,luoutfile,sep="/"), append=T, x=lu_out_dat, sep=tab, col.names = FALSE, row.names=FALSE, quote=FALSE)
+  #----------end file output
+  
+     
     
     # save remaining classification results
     # cluster centers can be saved for future use (supervised classification, single run only)
