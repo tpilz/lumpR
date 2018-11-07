@@ -1143,13 +1143,9 @@ prof_class <- function(
       lu_out_dat <- c(i, p_id_unique[class_repr[i,1]], class_repr[i,2], round(mean_prof[i,(com_length+1):(com_length+2)],1))
       # write limits of TC-decomposition
       lu_out_dat <- c(lu_out_dat, lim_var, lim_clu)
-      # write elevation data
-      lu_out_dat <- c(lu_out_dat, round(mean_prof[i,1:com_length],2))
-      # write for all catena points
-      for (j in 1:nrow(mean_supp_data)) {
-        # write data string to output file
-        lu_out_dat <- c(lu_out_dat, round(mean_supp_data[j,],2))
-      }
+      # write elevation data and all supplemental data
+      lu_out_dat <- c(lu_out_dat, round(mean_prof[i,-(com_length+1:2)],2))
+      
       
       # write into file
       write(file=paste(dir_out,luoutfile,sep="/"), append=T, ncolumns=length(lu_out_dat), x=lu_out_dat, sep=tab)
