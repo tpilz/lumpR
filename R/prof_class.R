@@ -343,7 +343,7 @@ prof_class <- function(
       attribute_table$n_classes_4lu <- abs(attribute_table$n_classes_4lu)
     } else {
       cf_mode <- 'singlerun' # classification performed in single run for all classes using the specified weighting factors (option 1)
-      warning("cf_mode='singlerun' is experimental. Please consider providing argument 'attribute_table' and grouping all attributes.")
+      warning("cf_mode='singlerun' is experimental. Please consider providing argument 'attribute_table' and grouping all attributes. This should enable the same options.")
     }
  
     
@@ -591,8 +591,6 @@ prof_class <- function(
       
       n_data_columns_needed =  sum(column_indices[attributes2consider,])
       
-      #ii: profs_resampled this is a copy/except of profs_resampled_stored, which is then weighted? Do we need this duplication, or
-      #we could weight and "unweigh" (if necessary later) the same instance to save memory?
       profs_resampled <- matrix(0, nrow=n_profs, ncol=n_data_columns_needed)
       
       offset=0
@@ -689,7 +687,7 @@ prof_class <- function(
     
     
     # complete key generation (successive mode only)
-    # successive weighting mode: all prior classifications will be merged into one by generating unique key 
+    # successive weighting mode: all prior attribute-wise classifications will be merged into one by generating a unique composite key 
     if (cf_mode == 'successive') {
       cidx_save[[iw_max+1]] <- 0 #inititalize overall (composite) classification result
       
@@ -698,8 +696,9 @@ prof_class <- function(
         # eliminate empty iw=3 (horiz. & vertical extent treated together) by jumping to next entry
         if (iz==3) next
         
+        digits = floor(log10(max(cidx_save[[iz]])))+1 #calculate number of required digits to encode this classifications
         # generate key from previous classifications
-        cidx_save[[iw_max+1]] <- cidx_save[[iw_max+1]]*10 + cidx_save[[iz]] #attention: this will be faulty when more than 10 classes have been chosen for any attribute, fix this
+        cidx_save[[iw_max+1]] <- cidx_save[[iw_max+1]]*10^digits + cidx_save[[iz]] #FIXME: this will be faulty when more than 10 classes have been chosen for any attribute, fix this
       }
       
       nclasses <- length(unique(cidx_save[[iw_max+1]]))
