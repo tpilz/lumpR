@@ -307,9 +307,9 @@ prof_class <- function(
       #attribute_table = attribute_table[order(attribute_table$group, 1:nrow(attribute_table)), ] 
       
       #bring "shape", "x_extent", "z_extent" to top fixme: rather sort in the output
-      new_order = match(c("shape", "x_extent", "z_extent"), attribute_table$attribute)
-      new_order = c(new_order, which(! (attribute_table$attribute %in% c("shape", "x_extent", "z_extent"))))
-      attribute_table = attribute_table[new_order, ] 
+      #new_order = match(c("shape", "x_extent", "z_extent"), attribute_table$attribute)
+      #new_order = c(new_order, which(! (attribute_table$attribute %in% c("shape", "x_extent", "z_extent"))))
+      #attribute_table = attribute_table[new_order, ] 
       
       nclasses        =attribute_table$n_classes_4lu[attribute_table$attribute=="shape"]
       ntc             =attribute_table$weight_4tc   [attribute_table$attribute=="id"]
@@ -543,6 +543,20 @@ prof_class <- function(
       column_indices[attr_i, start_col:end_col] = TRUE
       offset = offset + (end_col-start_col)+1 #increase offset
     }  
+    
+    
+#re-order columns    
+    #order by group
+#    browser()
+    # new_order = order(attribute_table$group, 1:nrow(attribute_table))
+    # attribute_table = attribute_table[new_order, ]
+    # column_indices  = column_indices [new_order, ]
+    
+    #bring "shape", "x_extent", "z_extent" to top 
+    new_order = match(c("shape", "x_extent", "z_extent"), attribute_table$attribute)
+    new_order = c(new_order, which(! (attribute_table$attribute %in% c("shape", "x_extent", "z_extent"))))
+    attribute_table = attribute_table[new_order, ] 
+    column_indices  = column_indices [new_order, ] 
     
     
 # classification of ehas (clustering) #----------------------------------------
