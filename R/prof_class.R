@@ -311,7 +311,7 @@ prof_class <- function(
       #new_order = c(new_order, which(! (attribute_table$attribute %in% c("shape", "x_extent", "z_extent"))))
       #attribute_table = attribute_table[new_order, ] 
       
-      nlus        =attribute_table$n_classes_4lu[attribute_table$attribute=="shape"]
+      nclasses        =attribute_table$n_classes_4lu[attribute_table$attribute=="shape"]
       ntc             =attribute_table$weight_4tc   [attribute_table$attribute=="id"]
       
       attribute_table=attribute_table[!attribute_table$attribute %in% c("id", "x_coord"), ] #remove rows (these are not treated)
@@ -324,7 +324,7 @@ prof_class <- function(
       
       # number of classes of each attribute (supplemental data) to be used in classification
       #legacy
-        attribute_table$n_classes_4lu [1] = -abs(nlus) 
+        attribute_table$n_classes_4lu [1] = -abs(nclasses) 
 
       save(list = ls(), file="attr.RData")
     }
@@ -583,10 +583,10 @@ prof_class <- function(
         attr_weights_class[current_attribs] = attribute_table$group_weight[current_attribs]
         
         # set specified number of classes to classify to
-        nlus <- attribute_table$n_classes_4lu[iw] 
+        nclasses <- attribute_table$n_classes_4lu[iw] 
         
         # in case of erroneous input zero or only 1 class, don't do classification, just append a dummy classification (into one class)
-        if (nlus==0 || nlus==1) {
+        if (nclasses==0 || nclasses==1) {
           
           cidx_save[[iw]] <- rep(1, n_profs) #put all profiles into class 1
           
@@ -629,12 +629,12 @@ prof_class <- function(
       cidx=array(NA,nrow(profs_resampled)) #cluster membership
       if (classify_type=='load') {
         # classification based on loaded classes, TODO
-        #[cidx,sumd,dists]=cluster_supervised(profs_resampled_stored,nlus,mean_prof);
+        #[cidx,sumd,dists]=cluster_supervised(profs_resampled_stored,nclasses,mean_prof);
         stop("not yet implemented")
       } else {
         # unsupervised classification
         dups = duplicated(profs_resampled)
-        if (nrow(profs_resampled) - sum(dups) <= nlus) #not enough distinct profiles for this attribute 
+        if (nrow(profs_resampled) - sum(dups) <= nclasses) #not enough distinct profiles for this attribute 
         {
           kmeans_out=NULL #disables later plots
           for(jj in 1:nrow(profs_resampled)) 
@@ -643,7 +643,7 @@ prof_class <- function(
           sumd <- 0   # within-cluster sum of squares, one per cluster  
         } else
         { #regular case  
-          kmeans_out <- kmeans(profs_resampled, centers=nlus, nstart=10)
+          kmeans_out <- kmeans(profs_resampled, centers=nclasses, nstart=10)
           
           cidx <- kmeans_out$cluster    # cluster number for each point
           cmeans2 <- kmeans_out$centers # matrix of cluster centers
@@ -658,8 +658,8 @@ prof_class <- function(
       if(!silent) message(paste('% -> profile clustering: fitting index_c = ', round(sqrt(sum(sumd^2)),2), sep=""))
       
       
-      if (length(unique(cidx)) < nlus) {
-        if(!silent) message(paste("% -> WARNING: ", nlus-length(unique(cidx)), ' empty clusters produced.', sep=""))
+      if (length(unique(cidx)) < nclasses) {
+        if(!silent) message(paste("% -> WARNING: ", nclasses-length(unique(cidx)), ' empty clusters produced.', sep=""))
       } else if (make_plots) {
         # silhouette plot, doesn't work with empty clusters
         if (!is.null(kmeans_out) & plot_silhouette)
@@ -667,7 +667,7 @@ prof_class <- function(
           dists <- daisy(profs_resampled) # compute pairwise distances, TODO: see warnings
           plot(silhouette(kmeans_out$cluster, dists^2), main=attribute_table$attribute[iw]) # plot silhouette
         }  else
-          dists <- matrix(-9999, nrow=n_profs, ncol=nlus)  #dummy, no distance computed
+          dists <- matrix(-9999, nrow=n_profs, ncol=nclasses)  #dummy, no distance computed
       
       }
       
