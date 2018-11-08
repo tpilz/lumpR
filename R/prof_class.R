@@ -702,19 +702,22 @@ prof_class <- function(
     
     # complete key generation (successive mode only)
     # successive weighting mode: all prior attribute-wise classifications will be merged into one by generating a unique composite key 
+    
+    cidx = 0 #compisite classification from all prior iterations
+    
     if (cf_mode == 'successive') {
-      cidx_save[[iw_max+1]] <- 0 #inititalize overall (composite) classification result
-      
-      for (iz in 1:iw_max) {
-        
-        # eliminate empty iw=3 (horiz. & vertical extent treated together) by jumping to next entry
-        if (iz==3) next
-        
+      for (attr_group in unique(attribute_table$group))
+      {
+        current_attribs = which (attr_group == attribute_table$group)
+        iz = current_attribs[1] #find index of first attribute of current group
+        if (is.null(cidx_save[[iz]]) | (attribute_table$n_classes_4lu[iz]<2)) next #skip attributes that have not been classified
         digits = floor(log10(max(cidx_save[[iz]])))+1 #calculate number of required digits to encode this classifications
         # generate key from previous classifications
-        cidx_save[[iw_max+1]] <- cidx_save[[iw_max+1]]*10^digits + cidx_save[[iz]] #FIXME: this will be faulty when more than 10 classes have been chosen for any attribute, fix this
+        cidx             <- cidx*10^digits + cidx_save[[iz]] 
+        
       }
-      
+      cidx_save[[iw_max+1]] <- cidx # overall (composite) classification result
+
       nlus <- length(unique(cidx_save[[iw_max+1]])) #total number of LUs that resulted
       print(paste0("total number of LUs generated: ", nlus))
 
