@@ -302,10 +302,6 @@ prof_class <- function(
     { #use attribute_table
       check_attr_table(attribute_table, manatory_attribs = c("id", "shape", "x_extent", "z_extent"))
 
-      #FIXME: we cannot do this here, since this is the order that is in the rstats-file!! rather sort in the output
-      #order by group
-      #attribute_table = attribute_table[order(attribute_table$group, 1:nrow(attribute_table)), ] 
-      
       #bring "shape", "x_extent", "z_extent" to top fixme: rather sort in the output
       #new_order = match(c("shape", "x_extent", "z_extent"), attribute_table$attribute)
       #new_order = c(new_order, which(! (attribute_table$attribute %in% c("shape", "x_extent", "z_extent"))))
@@ -546,8 +542,7 @@ prof_class <- function(
     
     
 #re-order columns    
-    #order by group
-#    browser()
+    #order by group - not really necessary
     # new_order = order(attribute_table$group, 1:nrow(attribute_table))
     # attribute_table = attribute_table[new_order, ]
     # column_indices  = column_indices [new_order, ]
@@ -1245,10 +1240,14 @@ prof_class <- function(
     
     
   #----------file output lu.dat
+  #column_indices[-(1:3),]
+  col_order=unlist(apply(column_indices[-(2:3),], MAR=1, FUN = which))  #correct column order (potential mismatch between resorted attributes and their position in mean_prof)
+  
   lu_out_dat <- cbind(1:nlus, p_id_unique[class_repr[,1]], class_repr[,2], round(mean_prof[,(com_length+1):(com_length+2)],1),
                   # write LU-ID, closest catena and its distance, catena length and relative elevation
                   lims_collected[,],   # write limits of TC-decomposition
-                  round(mean_prof[,-(com_length+1:2)],2)) # write elevation data and all supplemental data
+#                  round(mean_prof[, -(com_length+1:2)],2)) # write elevation data and all supplemental data
+                  round(mean_prof[, col_order],2)) # write elevation data and all supplemental data
   # write into file
   write.table(file=paste(dir_out,luoutfile,sep="/"), append=T, x=lu_out_dat, sep=tab, col.names = FALSE, row.names=FALSE, quote=FALSE)
   #----------end file output
