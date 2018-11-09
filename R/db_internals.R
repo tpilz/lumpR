@@ -118,13 +118,19 @@ sql_dialect <- function(con, statement) {
 # query with error message for easier error handling
 sqlQuery2 <- function(con, statement, info="") {
   res <- sqlQuery(con, statement, errors=F)
-  if (res!=-1)
+  if (is.data.frame(res) || res !=-1) #regular successful query
     return(res)  
-    
-  res <- sqlQuery(con, statement, errors = T)
+  
+  #DELETE on an empty table also yields "-1". Don't treat this as an error
+  if (res==-1 & grepl(pattern = "^delete", ignore.case = TRUE, x = statement)) 
+    return(0)
+  
+  res2 <- sqlQuery(con, statement, errors = T)
+  if (is.na(res2[1])) return(res)   #for creation statements, this may be OK, don't issue an error
+  
   tryCatch(odbcClose(con), error=function(e){})
   stop(cat(paste0("Error in SQL query (", info,").\nQuery: ", statement,
-                  "\nerror-message: ", res[1])))
+                  "\nerror-message: ", res2[1])))
   
 } # EOF query with error message
 

@@ -59,10 +59,17 @@ db_create <- function(
   # connect to ODBC registered database
   con <- connect_db(dbname)
   
+  dbs_name = odbcGetInfo(con)["DBMS_Name"] #determine the kind of database used
   # ensure MySQL/MariaDB uses ANSI quotation (double quotes instead of back ticks)
-  if(grepl("MariaDB", odbcGetInfo(con)["DBMS_Name"], ignore.case=T))
+  if(grepl("MariaDB", dbs_name, ignore.case=T))
     sqlQuery(con, "SET sql_mode='ANSI';")
   
+  if(grepl("ACCESS", dbs_name, ignore.case=T) && overwrite=="drop")
+    warning("You are using an Access database and option overwrite='drop'. Due to technical restrictions, this may cause errors. In this case, please delete the tables manually using MS Access and re-run without this option.")
+    
+  
+  if (overwrite == "empty")
+    keep_tables = c(keep_tables, "db_version") #conserve table "db_version" anyway
   # read file with sql statements to create tables of the database
   sql_file <- system.file("database/create_db.sql", package="lumpR")
   script  <- readLines(sql_file)
@@ -116,13 +123,8 @@ db_create <- function(
             message(paste0("Found existing table ", tablename, ", emptying..."))
             #browser()
           }
-          res <- sqlQuery(con, s2, errors=F)
-          if (res==-1 & overwrite!="empty"){ #emptying an empty table throws an error in MS Access, so ignore it
-            res <- sqlQuery(con, s2, errors = T)
-            tryCatch(odbcClose(con), error=function(e){})
-            stop(paste0("Error in SQL query execution while deleting (from) table\nerror-message: ", res[1]))
-            }
-        }  
+          res <- sqlQuery2(con, s2, info = "deleting (from) table")
+s        }  
       } 
     } else {
       skip <- FALSE
@@ -137,14 +139,10 @@ db_create <- function(
     else
     if (!skip)
     {  
+      #browser()
       # create table in database if it does not yet exist
-      res <- sqlQuery(con, statement, errors=F)
-      if (res==-1){
-        res <- sqlQuery(con, statement, errors = T)
-        tryCatch(odbcClose(con), error=function(e){})
-        stop(paste0("Error in SQL query execution while creating db.\nQuery: ", statement,
-                    "\nerror-message: ", res[1]))
-      }
+      res <- sqlQuery2(con, statement, info = "(creating db)")
+  
     } # skip?
     
   } # loop over scriptparts
