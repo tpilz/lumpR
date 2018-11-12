@@ -148,7 +148,16 @@ writedb <- function(con, file, table, overwrite, verbose) {
     sqlQuery(con, "SET sql_mode='ANSI';")
   
   # read data
-  dat <- read.table(file, header=T, sep="\t")
+  dat <- read.table(file, header=T, sep="\t", strip.white = TRUE, blank.lines.skip = TRUE, fill=TRUE)
+  
+  empty_lines = apply(is.na(dat) | dat=="", MARGIN = 1, all)
+  
+  if (any(empty_lines))
+  {
+    warning(paste0("Empty lines encountered in ", file,", ignored"))
+    dat=dat[!empty_lines,]
+  }
+  
   
   # check structure
   table_desc = sqlColumns(con, table) #get table description
