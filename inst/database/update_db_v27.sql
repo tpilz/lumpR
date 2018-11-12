@@ -1,4 +1,4 @@
-ALTER TABLE horizons CHANGE COLUMN shrinks shrinks TINYINT(1) NULL DEFAULT 0 AFTER coarse_frag;
+ALTER TABLE horizons MODIFY shrinks TINYINT(1) NULL DEFAULT 0;
 
 INSERT INTO db_version VALUES (
 	27, 
