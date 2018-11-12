@@ -22,6 +22,7 @@
 #' @param dbname Name of the data source (DSN) registered at ODBC.
 #' @param to_ver Version number to update to (default: newest version available).
 #' @param checkOnly only print current version number, no updating.
+#' @param keep_tables Vector of type \code{character}. Skips the specified tables. Default: NULL.
 #' 
 #' @details
 #'  This function currently is only relevant to users who already have a parameter
@@ -46,7 +47,7 @@
 #'   
 
 db_update <- function(
-  dbname, to_ver=Inf, checkOnly=FALSE  
+  dbname, to_ver=Inf, checkOnly=FALSE, keep_tables=NULL  
 ) {
   
   # connect to ODBC registered database
@@ -68,9 +69,9 @@ db_update <- function(
   tbls <- sqlTables(con)[,"TABLE_NAME"]
     
   # check current db version
-  db_ver <- sqlFetch(con, "db_version")$version
-  db_ver = max(db_ver)
-  db_ver_init <- db_ver
+  db_ver = sqlQuery2(con, statement = "select version from db_version;", info = "get DB-version")
+  db_ver = db_ver$version[nrow(db_ver)] #use last row
+  db_ver_init = db_ver
   
   if (checkOnly)
   {  
@@ -235,6 +236,11 @@ db_update <- function(
       
       statement <- scriptparts[i]
       if (!any(grepl(x = scriptparts[i], pattern = "[^ \t]"))) next #skip empty lines
+      
+      #if the current statement concerns any of the tables that should be preserved, skip it
+      if (any(sapply(X = keep_tables, x = statement, FUN = grepl)))
+       next
+      
       # adjust to specific SQL dialects
       statement <- sql_dialect(con, statement)
       

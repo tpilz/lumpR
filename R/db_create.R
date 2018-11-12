@@ -67,9 +67,21 @@ db_create <- function(
   if(grepl("ACCESS", dbs_name, ignore.case=T) && overwrite=="drop")
     warning("You are using an Access database and option overwrite='drop'. Due to technical restrictions, this may cause errors. In this case, please delete the tables manually using MS Access and re-run without this option.")
     
+  #get current version of DB, if any
+  db_ver_init = sqlQuery(con, "select version from db_version;")
+  if (is.data.frame(db_ver_init))
+    db_ver_init = db_ver_init$version[nrow(db_ver_init)] #use last row
+  else
+    db_ver_init = 19 #no current version available, assume the first of db_update
+  
   
   if (overwrite == "empty")
-    keep_tables = c(keep_tables, "db_version") #conserve table "db_version" anyway
+    keep_tables = unique(c(keep_tables, "db_version")) #conserve table "db_version" anyway
+  
+  if (overwrite == "drop" && ("db_version" %in% keep_tables))
+    warning("Dropping all tables but keeping 'db_version' will likely corrupt the updating process. Please do not conserve this table or reset db_version manually.")
+  
+  
   # read file with sql statements to create tables of the database
   sql_file <- system.file("database/create_db.sql", package="lumpR")
   script  <- readLines(sql_file)
@@ -124,7 +136,7 @@ db_create <- function(
             #browser()
           }
           res <- sqlQuery2(con, s2, info = "deleting (from) table")
-s        }  
+        }  
       } 
     } else {
       skip <- FALSE
@@ -164,12 +176,16 @@ s        }
   } else {
     pid_new <- 1
   }
+  
+  db_ver_cur = sqlQuery(con, "select version from db_version;")
+  db_ver_cur = db_ver_cur$version[nrow(db_ver_cur)] #use last row
+  
   meta_out <- data.frame(pid=pid_new,
                          mod_date=as.POSIXct(Sys.time()),
                          mod_user=paste0("db_create(), v. ", installed.packages()["lumpR","Version"]),
                          affected_tables="all",
                          affected_columns="all",
-                         remarks=paste0("Created database version ", max(sqlFetch(con, "db_version")$version), " using R package lumpR."))
+                         remarks=paste0("Created database version ", db_ver_cur, " using R package lumpR."))
   write_datetabs(con, meta_out, tab="meta_info", verbose=F)
   
   # update database if desired
@@ -177,8 +193,14 @@ s        }
   tryCatch(odbcClose(con), error=function(e){})
   
   if (db_ver > 19)
+  {  
+    if (!is.null(keep_tables)) #first, update until version encountered before, keeping protected tables
+      db_update(dbname, db_ver_init, keep_tables = keep_tables)
+
     db_update(dbname, db_ver)
+  }
   
+    
   
   
 } # EOF
