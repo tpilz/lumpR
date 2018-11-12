@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#' Generation of WASA parameter files for simulation of lumped reservoirs
+#' Generation of WASA parameter files for simulation of lumped reservoirs ("small reservoirs")
 #' 
 #' Function generates the WASA parameter files lake.dat and lake_number.dat from
 #' a pre-processed reservoir vector and a subbasin raster file stored in a GRASS
@@ -27,8 +27,8 @@
 #'      If none is encountered, 'area' can be generated from the area of the polygons, if present.
 #' @param subbas Name of subbasin raster map in GRASS location. Can be created with
 #'      \code{\link[lumpR]{calc_subbas}}.
-#' @param res_vect_class Output: Name for the vector reservoir map to be created in GRASS
-#'      location. As \code{res_vect} with information of area or volume (which is missing),
+#' @param res_vect_classified Output: Name for the vector reservoir map to be created in GRASS
+#'      location. This is a point map based on \code{res_vect} with information of area or volume (whichever is missing),
 #'      ID of the subbasin in which the reservoir is located, and the classified size class
 #'      appended to the attribute table. If \code{NULL} (default) it will not be created.
 #' @param dir_out Character string specifying output directory (will be created if
@@ -40,7 +40,7 @@
 #' @param lakemaxvol_file Output: WASA file containing specification of maximum volume
 #'      of small reservoirs for a specific subbasin - size class combination.
 #' @param res_param A \code{data.frame} object containing parameters for the reservoir
-#'      size classes. Given standard parameter set adjusted to semi-arid Brazil.
+#'      size classes. The default parameter set is adjusted to semi-arid Brazil.
 #'      See \code{Details}.
 #' @param keep_temp \code{logical}. Set to \code{TRUE} if temporary files shall be kept
 #'      in the GRASS location, e.g. for debugging or further analyses. Default: \code{FALSE}.
@@ -50,8 +50,13 @@
 #' @param silent \code{logical}. Shall the function be silent (also suppressing warnings
 #'      of internally used GRASS functions)? Default: \code{FALSE}.
 #' 
+#' @return The three output files specified in \code{lake_file} , \code{lakenum_file} and \code{lakemaxvol_file}; and
+#'      the vector map \code{res_vect_class} in GRASS
+#'      
 #' @note Prepare GRASS location and necessary spatial objects in advance and start
 #'      GRASS session in R using \code{\link[rgrass7]{initGRASS}}.
+#'      
+#'      Use \code{\link[rgrass7]{reservoir_strategic}} to prepare the input for large / strategic reservoirs. 
 #'      
 #'      Points in \code{res_vect} not overlapping with any \code{subbas} will be
 #'      silently removed during processing!
@@ -61,15 +66,14 @@
 #'      consider running \code{\link[lumpR]{reservoir_outlet}} in advance where
 #'      reservoir outlet locations are estimated instead of using the centroid.
 #'      
-#' @details This function creates WASA input files needed to run the model
-#'      with option \code{doacudes}.
+#' @details This function creates WASA input files which are needed to run the model
+#'      with option \code{doacudes=.T.} (simulate small unlocated reservoirs).
 #'      
-#'      The given standard parameter set was estimated by Molle (1989) for the 
-#'      \bold{semi-arid NE of Brazil} and needs to be adjusted if applied to some other region!
+#'      The default values for \code{res_param} set were estimated by Molle (1989) for the 
+#'      \bold{semi-arid NE of Brazil} and need to be adjusted if applied to some other region!
 #'      
 #'      \bold{lake_file} / \bold{res_param}\cr
-#'      Specification of parameters for the reservoir size classes. Note same order for
-#'      \code{lake_file} and \code{res_param} but different header names! If information
+#'      Specification of parameters for the reservoir size classes. Note that \code{lake_file} and \code{res_param} have the same order, but different header names! If information
 #'      on 'maxlake0' / 'vol_max' is not available, you can specify 'area_max' in \code{res_param},
 #'      i.e. the maximum area of reservoir size classes in \emph{m^2}. This is internally converted to volume
 #'      by relationship of Molle (1989) using parameters 'alpha_Molle' and 'damk_Molle'.
@@ -152,7 +156,7 @@ reservoir_lumped <- function(
   res_vect=NULL,
   subbas=NULL,
   # OUTPUT #
-  res_vect_class=NULL,
+  res_vect_classified=NULL,
   dir_out="./",
   lake_file="lake.dat",
   lakenum_file="lake_number.dat",
@@ -188,10 +192,10 @@ reservoir_lumped <- function(
     stop("The name of a reservoir vector file 'res_vect' within the mapset of your initialised GRASS session has to be given!")
   if(is.null(subbas))
     stop("The name of a subbasin raster file 'subbas' within the mapset of your initialised GRASS session has to be given!")
-  if(is.null(res_vect_class))
+  if(is.null(res_vect_classified))
   {
-    warning("Classified reservoir point vector file 'res_vect_class' will NOT be created!")
-    res_vect_class = paste0(res_vect,"_t")
+    warning("Classified reservoir point vector file 'res_vect_classified' will NOT be created!")
+    res_vect_classified = paste0(res_vect,"_t")
   }
   # check 'res_param'
   if(!is.data.frame(res_param))
@@ -271,7 +275,7 @@ reservoir_lumped <- function(
     
     # remove output of previous function calls if overwrite=T
     if (overwrite) {
-      cmd_out <- execGRASS("g.remove", type="raster,vector", pattern=paste0("*_t,", res_vect_class), flags=c("f", "b"), intern=T)
+      cmd_out <- execGRASS("g.remove", type="raster,vector", pattern=paste0("*_t,", res_vect_classified), flags=c("f", "b"), intern=T)
     } else {
       # remove temporary maps in any case
       cmd_out <- execGRASS("g.remove", type="raster,vector", pattern="*_t", flags=c("f", "b"), intern=T)
@@ -292,13 +296,8 @@ reservoir_lumped <- function(
         projection(res_lump) <- getLocationProj()
         
         res_lump@data$t_id = 1:nrow(res_lump@data) #create temporary ID
-        # WINDOWS PROBLEM: delete temporary file otherwise an error occurs when calling writeVECT or readVECT again with the same (or a similar) file name 
-        if(.Platform$OS.type == "windows") {
-          dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
-          files_del <- grep(substr(res_vect, 1, 8), dir(dir_del), value = T)
-          if (length(files_del)>0)
-          file.remove(paste(dir_del, files_del, sep="/"), showWarnings=FALSE)
-        }
+        clean_temp_dir(res_vect)
+        
         get.area <- function(polygon) {
           row <- data.frame(id=polygon@ID, area=polygon@area, stringsAsFactors=FALSE)
           return(row)
@@ -308,18 +307,17 @@ reservoir_lumped <- function(
         res_lump@data$t_id = NULL #discard temporary ID
         res_lump@data$cat = NULL #discard internal GRASS ID that will be re-generated anyway
         writeVECT(SDF = res_lump, vname="t_t", v.in.ogr_flags=c("o","overwrite"))
-      } else x <- execGRASS("g.copy", vector=paste(res_vect,"t_t", sep=","), flags="overwrite", intern=TRUE)           
+        clean_temp_dir("t_t")
+      } else #area column already present
+        x <- execGRASS("g.copy", vector=paste(res_vect,"t_t", sep=","), flags="overwrite", intern=TRUE)           
                 
-        #x <- execGRASS("v.centroids", input=res_vect, output="t_t", flags="overwrite", intern=TRUE) 
-        #x <- execGRASS("g.copy", vector=paste0(res_vect,",",res_vect_class), flags="overwrite", intern=TRUE) 
-        x <- execGRASS("v.type", input="t_t", output=res_vect_class, from_type="centroid", to_type="point", flags="overwrite", intern=TRUE) 
+      #convert polygons to points  
+      x <- execGRASS("v.type", input="t_t", output=res_vect_classified, from_type="centroid", to_type="point", flags="overwrite", intern=TRUE) 
     
-        #x <- execGRASS("v.type", input=res_vect, output=res_vect_class, from_type="area", to_type="point", flags="overwrite", intern=TRUE) 
-        
         if(!silent) message("% OK")
         
-    } else
-    x <- execGRASS("g.copy", vector=paste(res_vect,res_vect_class, sep=","), flags="overwrite", intern=TRUE)       
+    } else #the input map is already a point map with the required columns, use it
+    x <- execGRASS("g.copy", vector=paste(res_vect,res_vect_classified, sep=","), flags="overwrite", intern=TRUE)       
     
     
     
@@ -328,34 +326,28 @@ reservoir_lumped <- function(
     if(!silent) message("% Reservoir calculations...")
     
     #add subbasin-ID to reservoirs ####
-    x <- execGRASS("v.db.addcolumn", map=res_vect_class, columns="subbas_id int", intern=TRUE) 
-    x <- execGRASS("v.what.rast", map=res_vect_class, column="subbas_id", raster=subbas, intern=TRUE)  
+    x <- execGRASS("v.db.addcolumn", map=res_vect_classified, columns="subbas_id int", intern=TRUE) 
+    x <- execGRASS("v.what.rast", map=res_vect_classified, column="subbas_id", raster=subbas, intern=TRUE)  
     
-    res_lump <- readVECT(res_vect_class, type = "point") #re-load from GRASS
+    res_lump <- readVECT(res_vect_classified, type = "point") #re-load from GRASS
+    clean_temp_dir(res_vect_classified)
     projection(res_lump) <- getLocationProj()
-    # WINDOWS PROBLEM: delete temporary file otherwise an error occurs when calling writeVECT or readVECT again with the same (or a similar) file name 
-    if(.Platform$OS.type == "windows") {
-      dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
-      files_del <- grep(substr(res_vect, 1, 8), dir(dir_del), value = T)
-      if (length(files_del)>0)
-        file.remove(paste(dir_del, files_del, sep="/"), showWarnings=FALSE)
-    }
     
     # calculate parameter vol_max if not given
     if(is.null(res_param$vol_max)) {
       if(is.null(res_param$area_max)) {
         # area_max is also not given, i.e. calculate vol_max based on quantiles of sizes given in GRASS data
-        res_lump <- readVECT(res_vect_class, type="point")
+        res_lump <- readVECT(res_vect_classified, type="point")
         # WINDOWS PROBLEM: delete temporary file otherwise an error occurs when calling writeVECT or readVECT again with the same (or a similar) file name 
         if(.Platform$OS.type == "windows") {
           dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
-          files_del <- grep(substr(res_vect_class, 1, 8), dir(dir_del), value = T)
+          files_del <- grep(substr(res_vect_classified, 1, 8), dir(dir_del), value = T)
           if (length(files_del)>0)
             file.remove(paste(dir_del, files_del, sep="/"), showWarnings=FALSE)
         }
         if("volume" %in% ncols) {
           if (!"volume" %in% names(res_lump@data)) #no area column found
-            stop("Column 'area' not found in generated vector '", res_vect_class,"' something went wrong in the previous steps!") 
+            stop("Column 'area' not found in generated vector '", res_vect_classified,"' something went wrong in the previous steps!") 
           quants <- quantile(res_lump@data[,"volume"], probs=c(.2,1))
           classes <- exp(approx(log(quants), n = length(res_param$class))$y)
           res_param$vol_max <- classes
@@ -367,7 +359,7 @@ reservoir_lumped <- function(
             res_param$area_max <- molle_a(res_param$alpha_Molle, res_param$damk_Molle, classes)
         } else {
           if (!"area" %in% names(res_lump@data)) #no area column found
-            stop("Column 'area' not found in generated vector '", res_vect_class,"' something went wrong in the previous steps!") 
+            stop("Column 'area' not found in generated vector '", res_vect_classified,"' something went wrong in the previous steps!") 
           quants <- quantile(res_lump@data[,"area"], probs=c(.2,1))
           classes <- exp(approx(log(quants), n = length(res_param$class))$y)
           res_param$area_max <- classes
@@ -415,36 +407,29 @@ reservoir_lumped <- function(
     if(!silent) message("%")
     if(!silent) message("% Create output files...")
     
-    # res_vect_class
-    if(!is.null(res_vect_class)) {
-      writeVECT(SDF = res_lump, vname=res_vect_class, v.in.ogr_flags=c("o","overwrite"))
-      
-      # WINDOWS PROBLEM: delete temporary file otherwise an error occurs when calling writeVECT or readVECT again with the same (or a similar) file name 
-      if(.Platform$OS.type == "windows") {
-        dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
-        files_del <- grep(substr(res_vect_class, 1, 8), dir(dir_del), value = T)
-        file.remove(paste(dir_del, files_del, sep="/"))
-      }
+    # res_vect_classified
+    if(!is.null(res_vect_classified)) {
+      writeVECT(SDF = res_lump, vname=res_vect_classified, v.in.ogr_flags=c("o","overwrite"))
+      clean_temp_dir(res_vect_classified)
     }
     
     # lake.dat from 'res_param'
-    write("Specification of parameters for the reservoir size classes", paste(dir_out, lake_file, sep="/"))
-    write("Reservoir_class-ID, maxlake0[m**3], lake_vol0_factor[-], lake_change[-], alpha_Molle[-], damk_Molle[-], damc_hrr[-], damd_hrr[-]", paste(dir_out, lake_file, sep="/"), append=T)
+    write(file = paste(dir_out, lake_file, sep="/"), "Specification of parameters for the reservoir size classes")
+    write(file = paste(dir_out, lake_file, sep="/"), "Reservoir_class-ID, maxlake0[m**3], lake_vol0_factor[-], lake_change[-], alpha_Molle[-], damk_Molle[-], damc_hrr[-], damd_hrr[-]", append=T)
     dat_out <- data.frame(res_param$class, res_param$vol_max, res_param$f_vol_init, res_param$class_change,
                           res_param$alpha_Molle, res_param$damk_Molle, res_param$damc_hrr, res_param$damd_hrr)
-    write.table(format(dat_out, scientific=F), paste(dir_out, lake_file, sep="/"), sep="\t", quote=F, append=T, row.names = F, col.names = F)
+    write.table(file = paste(dir_out, lake_file, sep="/"), format(dat_out, scientific=F), sep="\t", quote=F, append=T, row.names = F, col.names = F)
     
     
     # lake_number.dat from classified reservoirs
-    write("Specification of total number of reservoirs in the size classes", paste(dir_out, lakenum_file, sep="/"))
-    write("Sub-basin-ID, acud[-] (five reservoir size classes)", paste(dir_out, lakenum_file, sep="/"), append=T)
-    write.table(lake_number, paste(dir_out, lakenum_file, sep="/"), append=T, quote=F, sep="\t", row.names = T, col.names = F)
-    
+    write      (file=paste(dir_out, lakenum_file, sep="/"), "Specification of total number of reservoirs in the size classes")
+    write      (file=paste(dir_out, lakenum_file, sep="/"), "Sub-basin-ID, acud[-] (five reservoir size classes)", append=T)
+    write.table(file=paste(dir_out, lakenum_file, sep="/"), lake_number, append=T, quote=F, sep="\t", row.names = T, col.names = F)
     
     # lake_maxvol.dat
-    write("Specification of water storage capacity for the reservoir size classes", paste(dir_out, lakemaxvol_file, sep="/"))
-    write("Sub-basin-ID, maxlake[m**3] (five reservoir size classes)", paste(dir_out, lakemaxvol_file, sep="/"), append = T)
-    write.table(round(lake_maxvol,2), paste(dir_out, lakemaxvol_file, sep="/"), append=T, quote=F, sep="\t", row.names = T, col.names = F)
+    write      (file=paste(dir_out, lakemaxvol_file, sep="/"), "Specification of water storage capacity for the reservoir size classes")
+    write      (file=paste(dir_out, lakemaxvol_file, sep="/"), "Sub-basin-ID, maxlake[m**3] (five reservoir size classes)", append = T)
+    write.table(file=paste(dir_out, lakemaxvol_file, sep="/"), round(lake_maxvol,2), append=T, quote=F, sep="\t", row.names = T, col.names = F)
     
     
     # remove temporary maps
@@ -482,7 +467,7 @@ reservoir_lumped <- function(
     cmd_out <-tryCatch(suppressWarnings(execGRASS("r.mask", flags=c("r"), intern = T)), error=function(e){})
     
     if(keep_temp == FALSE)
-      cmd_out <- execGRASS("g.remove", type="raster,vector", pattern=paste0("*_t,", res_vect_class), flags=c("f", "b"), intern = T)
+      cmd_out <- execGRASS("g.remove", type="raster,vector", pattern=paste0("*_t,", res_vect_classified), flags=c("f", "b"), intern = T)
     
     stop(paste(e))  
   })
