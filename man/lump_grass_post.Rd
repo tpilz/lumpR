@@ -6,14 +6,14 @@
 \usage{
 lump_grass_post(mask = NULL, dem = NULL, recl_lu = NULL, lu = NULL,
   subbasin = NULL, eha = NULL, flowacc = NULL, flowdir = NULL,
-  stream_horton = NULL, soil_depth = NULL, sdr = NULL, dir_out = "./",
-  sub_ofile = NULL, lu_ofile = NULL, lupar_ofile = NULL, fill_holes = T,
-  groundwater = 0, na_val = NA, keep_temp = F, overwrite = F,
-  silent = F)
+  stream_horton = NULL, soil_depth = NULL, sdr = NULL,
+  dir_out = "./", sub_ofile = NULL, lu_ofile = NULL,
+  lupar_ofile = NULL, fill_holes = T, groundwater = 0, na_val = NA,
+  keep_temp = F, overwrite = F, silent = F)
 }
 \arguments{
-\item{mask}{Name of mask raster map masking the study area. E.g. output \code{mask_corr}
-of \code{\link[lumpR]{lump_grass_prep}}.}
+\item{mask}{Name of mask raster map masking the study area. E.g. output \code{basin_out}
+of \code{\link[lumpR]{calc_subbas}}.}
 
 \item{dem}{DEM raster map in GRASS location as used in \code{\link[lumpR]{lump_grass_prep}}.}
 
@@ -219,7 +219,12 @@ using outputs of \code{\link[lumpR]{lump_grass_prep}} and \code{\link[lumpR]{pro
 \note{
 Prepare GRASS location and necessary raster files in advance (e.g. using
      \code{\link[lumpR]{lump_grass_prep}}) and start GRASS session in R using 
-     \code{\link[spgrass6]{initGRASS}}.
+     \code{\link[rgrass7]{initGRASS}}.
+     
+     \bold{IMPORTANT:} Herein, when specifying the GRASS input maps, please do
+     explicitly refer to the mapset if it is different from the mapset given in
+     initGRASS() (even PERMANENT!), as otherwise internally used readRAST() command
+     resulted in errors under Windows. 
      
      TODO:\cr
        - check empirical formulas for channel width and channel depth\cr

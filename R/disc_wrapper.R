@@ -27,6 +27,8 @@ disc_wrapper <- function(
   dem = NULL,
   drain_points = NULL,
   river = NULL,
+  flowaccum = NULL,
+  drainage_dir = NULL,
   lcov = NULL,
   soil = NULL,
   watermask = NULL,
@@ -77,10 +79,12 @@ disc_wrapper <- function(
   no_LUs = NULL,
   no_TCs = NULL,
   # parameters: runtime and others #
+  disk_swap = FALSE,
   drainp_out_id = NULL,
   thresh_stream = NULL,
   snap_dist = NULL,
   rm_spurious = NULL,
+  prep_things2do = c("eha", "river", "svc"),
   groundwater = TRUE,
   ridge_thresh = NULL,
   min_cell_in_slope = NULL,
@@ -92,6 +96,7 @@ disc_wrapper <- function(
   plot_silhouette = TRUE,
   keep_temp = FALSE,
   overwrite = FALSE,
+  db_overwrite = NULL,
   silent = FALSE,
   ncores = 1,
   addon_path = NULL
@@ -104,11 +109,14 @@ disc_wrapper <- function(
     dem=dem,
     drain_points=drain_points,
     river=river,
+    flowaccum = flowaccum,
+    drainage_dir = drainage_dir,
     # OUTPUT #
     basin_out=subbas,
     stream=stream,
     points_processed=points_processed,
     # PARAMETERS #
+    disk_swap = disk_swap,
     outlet=ifelse(is.null(drainp_out_id), 1, ifelse(is.character(drainp_out_id), which(drain_points$id == drainp_out_id), drainp_out_id)),
     thresh_stream=thresh_stream,
     thresh_sub=thresh_sub,
@@ -138,7 +146,6 @@ disc_wrapper <- function(
     stream_horton = stream_horton,
     elevriv = elevriv,
     distriv = distriv,
-    mask_corr = "MASK_corr",
     svc = svc,
     dir_out = output_dir,
     svc_ofile = svc_file,
@@ -149,6 +156,7 @@ disc_wrapper <- function(
     keep_temp=keep_temp,
     overwrite=overwrite,
     silent=silent,
+    things2do = prep_things2do,
     addon_path = addon_path
   )
 
@@ -157,7 +165,7 @@ disc_wrapper <- function(
   # CALCULATE MEAN CATENA FOR HILLSLOPES #
   area2catena(
     # INPUT #
-    mask="MASK_corr",
+    mask=subbas,
     flowacc=flowacc,
     eha=eha,
     distriv=distriv,
@@ -192,8 +200,7 @@ disc_wrapper <- function(
 
   # CATENA CLASSIFICATION INTO LANDSCAPE UNITS AND TERRAIN COMPONENTS #
   # get resolution (mean between x and y resolution)
-  res <- execGRASS("r.info", map=dem, flags=c("s"), intern=TRUE)
-  res <- sum(as.numeric(gsub("[a-z]*=", "", res))) / 2
+  res <- mean(gmeta()$nsres, gmeta()$ewres)
 
   prof_class(
     # INPUT #
@@ -218,6 +225,7 @@ disc_wrapper <- function(
     make_plots=plot_profclass,
     plot_silhouette = plot_silhouette,
     eha_subset=NULL,
+    eha_blacklist = NULL,
     overwrite=overwrite,
     silent=silent
   )
@@ -227,7 +235,7 @@ disc_wrapper <- function(
   # POST PROCESSING #
   lump_grass_post(
     # INPUT #
-    mask = "MASK_corr",
+    mask = subbas,
     dem = dem,
     recl_lu = paste(output_dir, recl_lu, sep="/"),
     lu = lu,
@@ -305,7 +313,7 @@ disc_wrapper <- function(
   }
   
   # create database
-  db_create(dbname, overwrite = overwrite)
+  db_create(dbname, overwrite = db_overwrite)
   
   # fill database
   db_fill(dbname=dbname,

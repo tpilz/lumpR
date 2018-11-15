@@ -22,6 +22,7 @@
 #' @param dbname Name of the data source (DSN) registered at ODBC.
 #' @param to_ver Version number to update to (default: newest version available).
 #' @param checkOnly only print current version number, no updating.
+#' @param keep_tables Vector of type \code{character}. Skips the specified tables. Default: NULL.
 #' 
 #' @details
 #'  This function currently is only relevant to users who already have a parameter
@@ -46,7 +47,7 @@
 #'   
 
 db_update <- function(
-  dbname, to_ver=Inf, checkOnly=FALSE  
+  dbname, to_ver=Inf, checkOnly=FALSE, keep_tables=NULL  
 ) {
   
   # connect to ODBC registered database
@@ -68,25 +69,39 @@ db_update <- function(
   tbls <- sqlTables(con)[,"TABLE_NAME"]
     
   # check current db version
-  db_ver <- sqlFetch(con, "db_version")$version
-  db_ver = max(db_ver)
-  db_ver_init <- db_ver
+  db_ver = sqlQuery2(con, statement = "select version from db_version;", info = "get DB-version")
+  db_ver = db_ver$version[nrow(db_ver)] #use last row
+  db_ver_init = db_ver
   
   if (checkOnly)
+  {  
+    tryCatch(odbcClose(con), error=function(e){})
     return(db_ver)
-  
+  }
+    
   if(to_ver > db_ver_max)
+  {  
+    tryCatch(odbcClose(con), error=function(e){})  
     stop(paste0("Requested update (", to_ver, ") is greater than newest available database version (", db_ver_max, ")!"))
+  }
   
   if(db_ver == db_ver_max)
+  {  
+    tryCatch(odbcClose(con), error=function(e){})
     return(message(paste0("Database is up-to-date (version ", db_ver_max, "). Nothing to do.")))
+  }
   
   if(db_ver > to_ver)
+  {  
+    tryCatch(odbcClose(con), error=function(e){})
     stop(paste0("Database (", db_ver, ") is newer than the requested update (", to_ver, "). Nothing to do."))
+  }
   
   if(db_ver < 18)
+  {  
+    tryCatch(odbcClose(con), error=function(e){})
     stop("Database needs to be at least version 18 for updating. Do manual updates first (see db_version.txt in lumpR's source directory 'example/make_wasa_input/').")
-  
+  }
   
   if(db_ver == 18) #ver 18 -> 19
   {  
@@ -100,7 +115,7 @@ db_update <- function(
        for (tab in affected_tables)
        {
          if (!(tab %in% tbls))
-           stop(paste0("Table '", tabs, "' does not exist but is needed to update to version 19!"))
+           stop(paste0("Table '", tab, "' does not exist but is needed to update to version 19!"))
            
          statement = paste0("ALTER TABLE ", tab," add description VARCHAR(50);")
          res <- sqlQuery(con, statement, errors=TRUE)
@@ -220,6 +235,11 @@ db_update <- function(
     for(i in seq(along=scriptparts)){
       
       statement <- scriptparts[i]
+      if (!any(grepl(x = scriptparts[i], pattern = "[^ \t]"))) next #skip empty lines
+      
+      #if the current statement concerns any of the tables that should be preserved, skip it
+      if (any(sapply(X = keep_tables, x = statement, FUN = grepl)))
+       next
       
       # adjust to specific SQL dialects
       statement <- sql_dialect(con, statement)
@@ -233,15 +253,23 @@ db_update <- function(
         pos <- grep("create", split, ignore.case = T)
         tbl <- split[pos+2]
         if(tbl %in% tbls) {
-          stop(paste0("Table '", tbl, "' already exists when updating to version ", to_ver, ". Rename / delete manually, and repeat update."))
+          warning(paste0("Table '", tbl, "' already existed when updating to version ", to_ver, ". Renaming to *_bak, please consider manually migrating value into new table."))
+          #create backup and delete -
+          #direct renaming apparently not supported in Access
+          statement <- sql_dialect(con, paste0("DROP TABLE ", tbl,"_bak;"))
+          res <- sqlQuery(con, statement, errors=F)
+          statement <- sql_dialect(con, paste0("SELECT * INTO ", tbl,"_bak FROM ", tbl, ";"))
+          res <- sqlQuery2(con, statement, info="creating backup")
+          statement <- sql_dialect(con, paste0("DROP TABLE ", tbl,";"))
+          res <- sqlQuery2(con, statement, info="deleting backed-up table")
+          
         }
       }
       
       # check if table to be altered does exist
       if(grepl("alter table", statement, ignore.case = TRUE)) {
-        split <- strsplit(statement, "[ ]+")[[1]]
-        pos <- grep("alter", split, ignore.case = T)
-        tbl <- split[pos+2]
+        #extract table name from statement
+        tbl <- sub(x = statement, pattern = ".*alter *table (*[^ ]*).*", replacement = "\\1", ignore.case = TRUE)
         if (!(tbl %in% tbls))
           stop(paste0("Table '", tbl, "' does not exist but is needed to update database to version ", to_ver, "!"))
       }
@@ -275,7 +303,7 @@ db_update <- function(
                          affected_tables="See lumpRs source database/update_db_v*.sql.",
                          affected_columns="See lumpRs source database/update_db_v*.sql.",
                          remarks=paste0("Database updated from version ", db_ver_init, " to version ", db_ver, "."))
-  write_datetabs(con, meta_out, tab="meta_info", verbose=F)
+  write_datetabs(con, dat = meta_out, tab="meta_info", verbose=F)
   
   # close connection
   tryCatch(odbcClose(con), error=function(e){})

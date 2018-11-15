@@ -5,7 +5,8 @@
 \title{Determine outlet coordinates of reservoirs}
 \usage{
 reservoir_outlet(flowacc = NULL, dem = NULL, res_vct = NULL,
-  outlets_vect = NULL, keep_temp = FALSE, overwrite = FALSE)
+  outlets_vect = NULL, keep_temp = FALSE, overwrite = FALSE,
+  silent = F)
 }
 \arguments{
 \item{flowacc}{Flow accumulation raster in GRASS location used for determination
@@ -17,10 +18,10 @@ flow accumulation if no flow accumulation raster is given. Default: \code{NULL}.
 
 \item{res_vct}{Reservoir vector file in GRASS location. For each polygon coordinates
 of the outlet (cell with highest flow accumulation) are determined. Needs
-at least the column \code{name} as reservoir identifier.}
+at least the column \code{res_id} (integer) as reservoir identifier.}
 
 \item{outlets_vect}{Output: Name of vector file of outlet locations to be exported
-to GRASS location. If \code{NULL} (default), nothing is exported to GRASS.}
+to GRASS location.}
 
 \item{keep_temp}{\code{logical}. Set to \code{TRUE} if temporary files shall be kept
 in the GRASS location, e.g. for debugging or further analyses. Default: \code{FALSE}.}
@@ -28,10 +29,13 @@ in the GRASS location, e.g. for debugging or further analyses. Default: \code{FA
 \item{overwrite}{\code{logical}. Shall output of previous calls of this function be
 deleted? If \code{FALSE} the function returns an error if output already exists.
 Default: \code{FALSE}.}
+
+\item{silent}{\code{logical}. Shall the function be silent (also suppressing warnings
+of internally used GRASS functions)? Default: \code{FALSE}.}
 }
 \value{
-\code{SpatialPoints} object containing outlet position for each reservoir
-     polygon and vector file \code{outlets_vect} exported to GRASS location.
+Function returns nothing. \bold{WARNING:} Up to version 2.5.0 this function
+returned a \code{SpatialPoints} object with the outlet coordinates.
 }
 \description{
 Takes a flow accumulation raster (or DEM for computation) and reservoir vector
@@ -40,14 +44,21 @@ polygon.
 }
 \note{
 Prepare GRASS location and necessary files in advance and start GRASS
-     session in R using \code{\link[spgrass6]{initGRASS}}. Location should not
+     session in R using \code{\link[rgrass7]{initGRASS}}. Location should not
      contain any maps ending on *_t as these will be removed by calling the
      function to remove temporary maps.
+     
+     Attribute table of \code{res_vct} must be stored in a SQL database to copy
+     the attribute table to \code{outlets_vect}. Furthermore, \code{res_vct}
+     must not contain a column \code{cat_new} as this will be the new identifier
+     column for \code{outlets_vect}.
      
      Check the results by investigating vector file with outlet points written
      to GRASS location. Due to small projection inaccuracies between the DEM / flow
      accumulation raster and the reservoir vector file, calculated outlet locations
      might more or less deviate from true locations!
+
+     Can be run before \code{\link[lumpR]{reservoir_strategic}}.
 }
 \author{
 Tobias Pilz \email{tpilz@uni-potsdam.de}

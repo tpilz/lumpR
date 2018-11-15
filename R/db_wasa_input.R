@@ -23,11 +23,11 @@
 #' @param dbname Name of the data source (DSN) registered as ODBC source.
 #' 
 #' @param dest_dir The directory in which the output files (= WASA input files) will be
-#' written. Will be created if it does not exist. Default: \code{./}. Includes the
+#' written. Will be created if it does not exist. Default: \code{./}. Will include the
 #' sub-directories 'Hillslope' and 'River'.
 #' 
 #' @param files Character vector specifying WASA input files that should be created. 
-#' See \code{Details}. By default all files will be created.
+#' See \code{Details}. By default, all files will be created.
 #' 
 #' @param overwrite \code{logical}. Should existing files in \code{dest_dir} be
 #' overwritten? Default: \code{FALSE}.
@@ -37,9 +37,9 @@
 #' 
 #' 
 #' @details
-#' Consider function db_check() before running this function to ensure consistency in
+#' Consider function \code{\link[lumpR]{db_check}} before running this function to ensure consistency
 #' and completeness of data in the database. Otherwise, the input files might contain
-#' errors which might lead to errors or unexpected results during model application.
+#' errors, which might lead to errors or unexpected results during model application.
 #' 
 #' Note differences in variable notations between parameter database and WASA's
 #' input files!
@@ -171,7 +171,7 @@
 #'  more information. Manual investigation and adjustment after creation is necessary
 #'  (e.g. for input/output directories, start/stop year of simulation etc.). Note that,
 #'  depending on your choices, the manual creation of additional input files will
-#'  be necessary. Consult the WASA's documentation.
+#'  be necessary. Consult the WASA documentation.
 #'  
 #'  \bold{maxdim.dat}\cr
 #'  \emph{Optional} file that contains maximum dimensions of spatial units to
@@ -186,11 +186,11 @@
 #'   \bold{Hillslope/soil_particles.dat}\cr
 #'   File contains particle size distributions of topmost soil horizons.
 #'   
-#'   \bold{Hillslope/rainy_season.dat}\cr
+#'   \bold{Hillslope/rainy_season.dat, Hillslope/x_seasons.dat, }\cr
 #'   \emph{Optional} file defining days of year (i.e. nodes, cf. vegetation parameters)
 #'   of the rainy/growing season for each year, subbasin and vegetation type. See
 #'   doc of \code{\link[lumpR]{db_fill}} and \code{\link[lumpR]{rainy_season}} for
-#'   more information. If this file is not supplied only the first node value of 
+#'   more information. If this file is not supplied, only the first node value of 
 #'   seasonal vegetation parameters is used.
 #'   
 #'   \bold{Hillslope/svc.dat}\cr
@@ -199,6 +199,9 @@
 #'   states. See doc of \code{\link[lumpR]{db_fill}} (-> 'soil_veg_components') for
 #'   description of header.
 #'  
+#'   \bold{Reservoir/reservoir.dat}\cr
+#'   \emph{Optional} file defining properties of strategic reservoirs.
+#'   
 #' @references 
 #'      lumpR package introduction with literature study and sensitivity analysis:\cr
 #'      Pilz, T.; Francke, T.; Bronstert, A. (2017): lumpR 2.0.0: an R package facilitating
@@ -215,7 +218,7 @@ db_wasa_input <- function(
           "Hillslope/soter.dat", "Hillslope/terrain.dat", "Hillslope/soil_vegetation.dat",
           "Hillslope/soil.dat", "Hillslope/vegetation.dat", "Hillslope/svc_in_tc.dat",
           "do.dat", "maxdim.dat", "part_class.dat", "Hillslope/soil_particles.dat",
-          "Hillslope/rainy_season.dat", "Hillslope/svc.dat"),
+          "Hillslope/rainy_season.dat", "Hillslope/x_seasons.dat", "Hillslope/svc.dat", "Reservoir/reservoir.dat"),
   overwrite=F,
   verbose = TRUE
 ) {
@@ -264,7 +267,8 @@ db_wasa_input <- function(
   dir.create(dest_dir, recursive=T, showWarnings = F)
   dir.create(paste(dest_dir, "River", sep="/"), recursive=T, showWarnings = F)
   dir.create(paste(dest_dir, "Hillslope", sep="/"), recursive=T, showWarnings = F)
-
+  dir.create(paste(dest_dir, "Reservoir", sep="/"), recursive=T, showWarnings = F)
+  
   if(verbose) message("%")
   if(verbose) message(paste0("% Output will be written to ", dest_dir))
     
@@ -947,7 +951,7 @@ db_wasa_input <- function(
     
     ### write output
     writeLines(con=paste(dest_dir, "do.dat", sep="/"),
-               text=c(paste0("v1.33 Parameter specification for the WASA Model (SESAM-Project), generated with R-Package lumpR function db_wasa_input() version ", installed.packages()["lumpR","Version"]),
+               text=c(paste0("Parameter specification for the WASA Model (SESAM-Project), generated with R-Package lumpR function db_wasa_input() version ", installed.packages()["lumpR","Version"]),
                       "path/to/your_input_dir/",
                       "path/to/your_output_dir/",
                       "//tstart (start year of simulation)",
@@ -982,8 +986,8 @@ db_wasa_input <- function(
                       "1\t// type of sediment transport model at the hillslope",
                       "1\t//type of water / sediment model in the river: (1) old routing, (2) Muskingum & ss transport, (3) Muskingum & bedload modelling",
                       "1\t//type of sediment model in the reservoir: choose sediment transport equation (1:Wu et al., 2000; 2:Ashida and Michiue, 1973; 3: Yang, 1973 and 1984; 4: Ackers and White, 1973)",
-                      ".f.\t//load state of storages from files (if present) at start (optional)",
-                      ".f.\t//save state of storages to files after simulation period (optional)"))
+                      ".f. .f.\t//OPTIONAL: load state of storages from files (if present) at start; optional second flag: allows the model to append to existing output files, default is .f. ",
+                      ".f. .t.\t//OPTIONAL: save state of storages to files after simulation period; optional second flag: determines if the model states are saved (and overwritten) at the end of each simulation year, default is .t."))
     
     if(verbose) message("% OK")
     
@@ -1139,9 +1143,6 @@ db_wasa_input <- function(
   } # Hillslope/soil_particles.dat
 
 
-
-
-###############################################################################
 ### Hillslope/rainy_season.dat
   if("Hillslope/rainy_season.dat" %in% files) {
     if(verbose) message("%")
@@ -1214,12 +1215,208 @@ db_wasa_input <- function(
     write.table(dat_out, paste(dest_dir, "Hillslope/rainy_season.dat", sep="/"), append=T,
                 quote=F, sep="\t", row.names=F, col.names=F)
     
-  
+    
     if(verbose) message("% OK")
     
   } # Hillslope/rainy_season.dat
   
 
+###############################################################################
+### Hillslope/x_seasons.dat
+  if("Hillslope/x_seasons.dat" %in% files) {
+    if(verbose) message("%")
+    if (!("x_seasons" %in% sqlTables(con)$TABLE_NAME)) #check existence of table
+      {if(verbose) message("% table 'x_seasons' not found, skipped.")} else
+    {      
+      # get data
+      dat_all <- c(dat_all,
+                   read_db_dat(tbl = c("x_seasons"),
+                               con = con,
+                               tbl_exist = names(dat_all), update_frac_impervious=F))
+      
+      if(any(is.na(dat_all$x_seasons)) | nrow(dat_all$x_seasons) == 0)
+        stop("There are missing values in table 'x_seasons.dat'!")
+      
+      params = unique(dat_all$x_seasons$parameter)
+        
+      if (length(params) == 0)
+        message("% No records in 'x_seasons', skipped.")
+      else
+      for (param in params)  
+      { 
+        tfile = paste0(tolower(param), "_seasons.dat")
+        if(verbose) message("% Create Hillslope/", tfile," ...")
+      
+        # create file
+        if(!file.exists(paste(dest_dir, "Hillslope", tfile, sep="/")) | overwrite){
+          file.create(paste(dest_dir, "Hillslope", tfile, sep="/"))
+        } else {
+          stop("File 'Hillslope/", tfile,"' exists! Use 'overwrite=TRUE'")
+        }
+    
+         # write header
+        writeLines(con=paste(dest_dir, "Hillslope", tfile, sep="/"),
+                   text=c(paste0("Specification of seasonality of ", param," (per year)"),
+                          "for the interpolation of temporal distribution between 4 nodes within the year using values in svc.dat",
+                          "Subasin\tsvc_id\tyear\tDOY1\tDOY2\tDOY3\tDOY4"))
+        
+    ### sort data, i.e. wildcards at the last lines
+    
+    # search for years with wildcards and put them at the end of the data.frame
+    dat_rs <- dat_all$x_seasons[dat_all$x_seasons$parameter==param,] #pick entries with current parameter
+    r_year_wild <- which(dat_rs$yearm == -1)
+    if(any(r_year_wild)) {
+      # substract rows from data.frame
+      dat_rs_t <- dat_rs[-r_year_wild,]
+      # put them at the end of the data.frame
+      dat_rs <- rbind(dat_rs_t, dat_rs[r_year_wild,])
+    }
+    
+    # loop over years and search for subbas with wildcards and put them at the end of the respective year
+    for (y in unique(dat_rs$yearm)) {
+      rows <- which(dat_rs$yearm == y)
+      dat_rs_t <- dat_rs[rows,]
+      r_sub_wild <- which(dat_rs_t$subbas_id == -1)
+      if (any(r_sub_wild)) {
+        dat_rs_t2 <- dat_rs_t[-r_sub_wild,]
+        dat_rs_t <- rbind(dat_rs_t2, dat_rs_t[r_sub_wild,])
+      }
+      
+      # loop over subbasins and search for veg with wildcards and put them at the end of the respective subbasin
+      for (s in unique(dat_rs_t$subbas_id)) {
+        rows2 <- which(dat_rs_t$subbas_id == s)
+        dat_rs_t2 <- dat_rs_t[rows2,]
+        r_veg_wild <- which(dat_rs_t2$veg_id == -1)
+        if (any(r_veg_wild)) {
+          dat_rs_t3 <- dat_rs_t2[-r_veg_wild,]
+          dat_rs_t2 <- rbind(dat_rs_t3, dat_rs_t2[r_veg_wild,])
+        }
+        
+        dat_rs_t[rows2,] <- dat_rs_t2
+      }
+      
+      dat_rs[rows,] <- dat_rs_t
+    }
+    
+    # write output
+    dat_out <- dat_rs[,c("subbas_id", "svc_id", "yearm", "node1", "node2", "node3", "node4")]
+    write.table(dat_out, paste(dest_dir, "Hillslope", tfile, sep="/"), append=T,
+                quote=F, sep="\t", row.names=F, col.names=F)
+    
+      } #loop through parameters
+    if(verbose) message("% OK")
+    } 
+  } # Hillslope/x_seasons.dat
+  
+  ###############################################################################
+  ### Hillslope/soil_particles.dat
+  if("Hillslope/soil_particles.dat" %in% files) {
+    if(verbose) message("%")
+    if(verbose) message("% Create Hillslope/soil_particles.dat ...")
+    
+    # create file
+    if(!file.exists(paste(dest_dir, "Hillslope/soil_particles.dat", sep="/")) | overwrite){
+      file.create(paste(dest_dir, "Hillslope/soil_particles.dat", sep="/"))
+    } else {
+      stop("File 'Hillslope/soil_particles.dat' exists!")
+    }
+    
+    # write header
+    writeLines(con=paste(dest_dir, "Hillslope/soil_particles.dat", sep="/"),
+               text=c("Particle size distribution of topmost horizons of soils",
+                      "soil_id\tpart_class_id\tfraction[-]"))
+    
+    # get data
+    dat_all <- c(dat_all,
+                 read_db_dat(tbl = c("soil_veg_components", "r_tc_contains_svc", "r_soil_contains_particles"),
+                             con = con,
+                             tbl_exist = names(dat_all), update_frac_impervious=F))
+    
+    # only soil types occurring in soil_veg_components and r_tc_contains_svc will be considered
+    dat_contains_part <- dat_all$r_soil_contains_particles
+    dat_svc <- dat_all$soil_veg_components
+    r_svc_out <- which(!(dat_svc$pid %in% dat_all$r_tc_contains_svc$svc_id))
+    if(any(r_svc_out))
+      dat_svc <- dat_svc[-r_svc_out,]
+    
+    r_soil_out <- which(!(dat_contains_part$soil_id %in% dat_svc$soil_id))
+    if(any(r_soil_out)) {
+      warning(paste0("Soil types ", paste0(unique(dat_contains_part$soil_id[r_soil_out]), collapse=", "), " from table 'r_soil_contains_particles' are not in table 'soil_veg_components', or the respective SVCs are not in 'r_tc_contains_svc', and will be ignored."))
+      dat_contains_part <- dat_contains_part[-r_soil_out,]
+    }
+    
+    frac_sums <- round(tapply(dat_contains_part$fraction, dat_contains_part$soil_id, sum),3)
+    if(any(frac_sums != 1))
+      stop("Could not successfully write file Hillslope/soil_particles.dat. In table 'r_soil_contains_particles' not all fractions sum up to 1.")
+    
+    # write output
+    write.table(dat_contains_part, paste(dest_dir, "Hillslope/soil_particles.dat", sep="/"), append=T,
+                quote=F, sep="\t", row.names=F, col.names=F)
+    
+    if(verbose) message("% OK")
+    
+  } # Hillslope/soil_particles.dat
+  
+  
+  ### Reservoir/reservoir.dat
+  if("Reservoir/reservoir.dat" %in% files) {
+    if(verbose) message("%")
+    if(verbose) message("% Create Reservoir/reservoir.dat ...")
+    
+    # create file
+    if(!file.exists(paste0(dest_dir, "/Reservoir/reservoir.dat")) | overwrite){
+      file.create(paste0(dest_dir, "/Reservoir/reservoir.dat"))
+    } else {
+      stop("File 'Reservoir/reservoir.dat' exists!")
+    }
+    
+    # prepare output file
+    header_str <- "Subasin-ID, minlevel[m], maxlevel[m], vol0([1000m**3]; unknown=-999), storcap[1000m**3], damflow[m**3/s], damq_frac[-], withdrawal[m**3/s], damyear[YYYY], maxdamarea[ha], damdead[1000m**3], damalert[1000m**3], dama[-], damb[-], qoutlet[m**3/s], fvol_bottom[-], fvol_over[-], damc[-], damd[-], elevbottom[m]"
+
+    write(file=paste0(dest_dir, "/Reservoir/reservoir.dat"),
+          x=c("Specification of reservoir parameters", header_str))
+
+
+    # get data
+    dat_all <- c(dat_all,
+                 read_db_dat(tbl = c("reservoirs_strategic"),
+                             con = con,
+                             tbl_exist = names(dat_all), update_frac_impervious=FALSE))
+    
+    dat_all[["reservoirs_strategic"]] = dat_all[["reservoirs_strategic"]][, c("pid", 
+                          "minlevel",
+                          "maxlevel",
+                          "vol0",
+                          "storecap",
+                          "damflow",
+                          "damq_frac",
+                          "withdrawal",
+                          "damyear",
+                          "maxdamarea",
+                          "damdead",
+                          "damalert",
+                          "dama",
+                          "damb",
+                          "q_outlet",
+                          "fvol_botm",
+                          "fvol_over",
+                          "damc",
+                          "damd",
+                          "elevbottom")]
+    
+    
+    # write output
+    # write data
+    write.table(dat_all[["reservoirs_strategic"]], paste0(dest_dir, "/Reservoir/reservoir.dat"), append=T, quote=F,
+                sep="\t", row.names=F, col.names=F)
+    
+    
+    if(verbose) message("% OK")
+    
+  } # reservoir/reservoir.dat
+  
+  
+  
 
 
 ###############################################################################

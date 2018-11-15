@@ -8,20 +8,21 @@ db_wasa_input(dbname, dest_dir = "./", files = c("info.dat",
   "River/routing.dat", "River/response.dat", "Hillslope/hymo.dat",
   "Hillslope/soter.dat", "Hillslope/terrain.dat",
   "Hillslope/soil_vegetation.dat", "Hillslope/soil.dat",
-  "Hillslope/vegetation.dat", "Hillslope/svc_in_tc.dat", "do.dat", "maxdim.dat",
-  "part_class.dat", "Hillslope/soil_particles.dat",
-  "Hillslope/rainy_season.dat", "Hillslope/svc.dat"), overwrite = F,
+  "Hillslope/vegetation.dat", "Hillslope/svc_in_tc.dat", "do.dat",
+  "maxdim.dat", "part_class.dat", "Hillslope/soil_particles.dat",
+  "Hillslope/rainy_season.dat", "Hillslope/x_seasons.dat",
+  "Hillslope/svc.dat", "Reservoir/reservoir.dat"), overwrite = F,
   verbose = TRUE)
 }
 \arguments{
 \item{dbname}{Name of the data source (DSN) registered as ODBC source.}
 
 \item{dest_dir}{The directory in which the output files (= WASA input files) will be
-written. Will be created if it does not exist. Default: \code{./}. Includes the
+written. Will be created if it does not exist. Default: \code{./}. Will include the
 sub-directories 'Hillslope' and 'River'.}
 
 \item{files}{Character vector specifying WASA input files that should be created. 
-See \code{Details}. By default all files will be created.}
+See \code{Details}. By default, all files will be created.}
 
 \item{overwrite}{\code{logical}. Should existing files in \code{dest_dir} be
 overwritten? Default: \code{FALSE}.}
@@ -34,9 +35,9 @@ Function retrieves parameters from a parameter database and generates ASCII file
 as input to the  hydrological model WASA.
 }
 \details{
-Consider function db_check() before running this function to ensure consistency in
+Consider function \code{\link[lumpR]{db_check}} before running this function to ensure consistency
 and completeness of data in the database. Otherwise, the input files might contain
-errors which might lead to errors or unexpected results during model application.
+errors, which might lead to errors or unexpected results during model application.
 
 Note differences in variable notations between parameter database and WASA's
 input files!
@@ -168,7 +169,7 @@ input files!
  more information. Manual investigation and adjustment after creation is necessary
  (e.g. for input/output directories, start/stop year of simulation etc.). Note that,
  depending on your choices, the manual creation of additional input files will
- be necessary. Consult the WASA's documentation.
+ be necessary. Consult the WASA documentation.
  
  \bold{maxdim.dat}\cr
  \emph{Optional} file that contains maximum dimensions of spatial units to
@@ -183,11 +184,11 @@ input files!
   \bold{Hillslope/soil_particles.dat}\cr
   File contains particle size distributions of topmost soil horizons.
   
-  \bold{Hillslope/rainy_season.dat}\cr
+  \bold{Hillslope/rainy_season.dat, Hillslope/x_seasons.dat, }\cr
   \emph{Optional} file defining days of year (i.e. nodes, cf. vegetation parameters)
   of the rainy/growing season for each year, subbasin and vegetation type. See
   doc of \code{\link[lumpR]{db_fill}} and \code{\link[lumpR]{rainy_season}} for
-  more information. If this file is not supplied only the first node value of 
+  more information. If this file is not supplied, only the first node value of 
   seasonal vegetation parameters is used.
   
   \bold{Hillslope/svc.dat}\cr
@@ -195,6 +196,9 @@ input files!
   parameters. Mandatory for WASA's sediment module and/or saving/loading of model
   states. See doc of \code{\link[lumpR]{db_fill}} (-> 'soil_veg_components') for
   description of header.
+ 
+  \bold{Reservoir/reservoir.dat}\cr
+  \emph{Optional} file defining properties of strategic reservoirs.
 }
 \references{
 lumpR package introduction with literature study and sensitivity analysis:\cr

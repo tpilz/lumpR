@@ -15,12 +15,12 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-#' Check parameter database for consistency
+#' Check and modify parameter database for consistency
 #' 
 #' Function includes several options to check and correct the parameter database for completeness
 #' and consistency.
 #' 
-#' @param dbname Name of the data source (DSN) registered at ODBC.
+#' @param dbname Name of the data source (DSN) registered as ODBC-source.
 #'  
 #' @param check Character vector specifying what shall be checked. See \code{Details}.
 #'  
@@ -28,18 +28,19 @@
 #'  for the different options and their meaning.
 #'  
 #' @param fix \code{logical}. If \code{FALSE} (the \code{default}) a report of the
-#'  selected checks will be created. The database will not be touched. If \code{TRUE}
-#'  canges to the database according to the selected checks will be made.
+#'  selected checks will be created. The database will not be modified. If \code{TRUE},
+#'  changes to the database according to the selected checks will be made.
+#'  WARNING: \code{fix = TRUE} may irrevocably modify your database. If in doubt, make a backup before.
 #'  
 #' @param verbose \code{logical}. Should detailed information during execution be
-#'  printed? When \code{TRUE} (the \code{default}) output of writing updated values
+#'  printed? When \code{TRUE} (the \code{default}), output of writing updated values
 #'  into database can be rather long so you might want to direct output into an
 #'  external log file. Always set to \code{TRUE} if \code{fix = FALSE}.
 #'  
 #' @details
-#'  The following checks are currently included and can be specified via argument \code{checks}.
-#'  Execute checks in pre-defined order as some checks build upon each other and
-#'  lead to erroneous results when interchanged. However, some checks might be
+#'  The following checks / modifications are currently included and can be specified via argument \code{checks}.
+#'  Execute checks in pre-defined order as some steps build upon each other and
+#'  lead to erroneous results when interchanged. However, some steps might be
 #'  unnecessary for your purpose and can be left out.
 #'  
 #'  \bold{check_fix_fractions}\cr
@@ -73,8 +74,10 @@
 #'  threshold = 0.01 and slope = 0.1 \%.
 #'  
 #'  \bold{special_areas}\cr
+#'  (This check is unnecessary if you specified \code{watermask}) and \code{imperviousmask} in the workflow before)
 #'  Define certain Soil-Vegetation Components as special areas via column 'special_area'
-#'  in table 'soil_veg_components' inferred from table 'vegetation' and/or 'soils'. 
+#'  in table 'soil_veg_components' inferred from table 'vegetation' and/or 'soils'. This columns is 
+#'  necessary for \bold{remove_water_svc} and \bold{compute_rocky_frac} to work.
 #'  Currently values '0' for an ordinary SVC, '1' for water areas, and '2' for
 #'  impervious surfaces are supported.\cr
 #'  \emph{Option: 'special_area'}\cr
@@ -113,17 +116,18 @@
 #'  in table 'soil_veg_components' column 'special_area' is equal to 2.\cr
 #'  \emph{Option: 'update_frac_impervious'}\cr
 #'  Value of type \code{logical}:\cr
-#'  F (default): Areal fractions will not be updated. I.e., the sum of 'fraction' for a specific
+#'  FALSE (default): Areal fractions will not be updated. I.e., the sum of 'fraction' for a specific
 #'  'tc_id' plus 'frac_rocky' of table 'terrain_components' of that specific TC (calculated by
 #'  check 'compute_rocky_frac') sums up to unity. This is a requirement of the WASA-SED model.\cr
-#'  T: Areal fractions will be updated such that 'fraction' for a specific 'tc_id' sums to unity.
+#'  TRUE: Areal fractions will be updated such that 'fraction' for a specific 'tc_id' sums to unity.
 #'  
 #'  \bold{proxy_frgw_delay}\cr
 #'  Estimate storage coefficient for groundwater delay ('frgw_delay') in \emph{days}
 #'  for each LU based on a proxy and manually specified total mean groundwater delay
 #'  in \emph{days}. The proxy is estimated from average slope length, slope and rocky
-#'  fraction according to empirical formula: \code{proxy = slopelength * (1 - frac_rocky)
-#'  / slope}. And finally: \code{frgw_delay = proxy * total_mean_delay / mean(proxy)}.
+#'  fraction according to empirical formulas:\cr
+#'   \code{proxy = slopelength * (1 - frac_rocky) / slope}. and \cr
+#'   \code{frgw_delay = proxy * total_mean_delay / mean(proxy)}.
 #'  Existing values of 'frgw_delay' will be overwritten.\cr
 #'  \emph{Option: 'total_mean_delay'}\cr
 #'  Total mean groundwater delay in \emph{days} estimated a priori for the whole
@@ -155,6 +159,14 @@
 #'  
 #'  Database will only be touched (if \code{fix = TRUE}) after all checks are completed successfully.
 #'  If the function stops with an error during checks, the database will be left unchanged.
+#'
+#' @examples  
+#' \dontrun{
+#' db_check(dbname,
+#' check=c("subbasin_order"),
+#' fix=TRUE,
+#' verbose=T, option=list(overwrite=FALSE))
+#' }
 #'  
 #' @references 
 #'      lumpR package introduction with literature study and sensitivity analysis:\cr
@@ -572,7 +584,7 @@ db_check <- function(
         
         # compute frac_rocky for every TC
         if (length(rows_tc_impervious) > 0) {
-          if(verbose) message(paste0("% -> Found ", length(svc_impervious), " impervious SVCs. Add aereal fractions to corresponding TCs"))
+          if(verbose) message(paste0("% -> Found ", length(svc_impervious), " impervious SVCs. Adding areal fractions to corresponding TCs..."))
           tc_rocky <- tapply(dat_all$r_tc_contains_svc$fraction[rows_tc_impervious], list(parent=dat_all$r_tc_contains_svc$tc_id[rows_tc_impervious]), sum)
           for (t in 1:length(tc_rocky)) {
             row <- which(dat_all$terrain_components$pid == names(tc_rocky)[t])
@@ -693,7 +705,7 @@ db_check <- function(
     dat_all <- c(dat_all,
                  read_db_dat(tbl = c("subbasins", "landscape_units", "terrain_components", "soil_veg_components",
                                      "vegetation", "soils", "horizons", "particle_classes", "rainy_season",
-                                     "r_subbas_contains_lu",  "r_lu_contains_tc", "r_tc_contains_svc", "r_soil_contains_particles"),
+                                     "r_subbas_contains_lu",  "r_lu_contains_tc", "r_tc_contains_svc", "r_soil_contains_particles", "reservoirs_strategic"),
                              con = con, tbl_exist = names(dat_all), update_frac_impervious=option[["update_frac_impervious"]]))
     
     # database tables
@@ -750,11 +762,17 @@ db_check <- function(
         c (table = "rainy_season",    key2prev="veg_id", key2next="")
       ))
     
+    table_chain8= data.frame(stringsAsFactors = FALSE,      #scheme of table relations (7)
+       rbind(
+         c (table = "subbasins",           key2prev=""      , key2next="pid"),
+         c (table = "reservoirs_strategic",    key2prev="pid", key2next="")
+       ))
+    
     wildcard_fields = list(  #tables with wildcard values ("-1") need to be considered
       rainy_season = c("subbas_id", "veg_id"),
       x_seasons     = c("subbas_id", "svc_id")
     )
-    chain_list = list(table_chain1, table_chain2, table_chain3, table_chain4, table_chain5, table_chain6, table_chain7) #list of all relation chains that need to be checked
+    chain_list = list(table_chain1, table_chain2, table_chain3, table_chain4, table_chain5, table_chain6, table_chain7, table_chain8) #list of all relation chains that need to be checked
   }
     
 ###############################################################################
@@ -817,7 +835,6 @@ db_check <- function(
         } # loop current table_chain
       } # all tables of current table_chain in database?
     }  # loop chain_list
-  
     if(verbose) message("% OK")
     checks_done <- checks_done+1
   } # check delete_obsolete
@@ -833,7 +850,7 @@ db_check <- function(
 
     for (table_chain in chain_list)
     {  
-      # check that all tables in table_chain are in the database to avaoid conflicts with optional tables
+      # check that all tables in table_chain are in the database to avoid conflicts with optional tables
       if(any(!(table_chain$table %in% tbl_db)))
         next
       else {
@@ -848,14 +865,16 @@ db_check <- function(
           dat_nex <- dat_all[[nex_table]][[table_chain$key2prev[i+1]]]
           dat_nex <- dat_nex[which(dat_nex != -1)]
           
+          dat_cur = unique(dat_cur) #simplify further treatment, no need to consider duplicates
+          dat_nex = unique(dat_nex)
           if(length(dat_cur) > 0 & length(dat_nex) > 0) {
             # identify excessive datasets
-            dat_excess <- list(cur=which(!(dat_cur %in% dat_nex)),
-                               nex=which(!(dat_nex %in% dat_cur)))
+            dat_excess <- list(cur=setdiff(dat_cur, dat_nex),
+                               nex=setdiff(dat_nex, dat_cur) )
             
             if(any(sapply(dat_excess, any))) {
-              if(any(dat_excess$cur)) message(paste0("% -> WARNING: Table '", cur_table, "' contains ", length(dat_excess$cur), " dataset(s) not referenced in '", nex_table, "'"))
-              if(any(dat_excess$nex)) message(paste0("% -> WARNING: Table '", nex_table, "' contains ", length(dat_excess$nex), " dataset(s) not referenced in '", cur_table, "'"))
+              if(any(dat_excess$cur)) message(paste0("% -> WARNING: Table '", cur_table, "' contains ", length(dat_excess$cur), " dataset(s) not referenced in '", nex_table, "': ", paste(dat_excess$cur[1:min(10, length(dat_excess$cur))], collapse=", ")))
+              if(any(dat_excess$nex)) message(paste0("% -> WARNING: Table '", nex_table, "' contains ", length(dat_excess$nex), " dataset(s) not referenced in '", cur_table, "': ", paste(dat_excess$nex[1:min(10, length(dat_excess$nex))], collapse=", ")))
             } else if(verbose)
               message(paste0("% -> All datasets of '", cur_table,"' appear in referenced '", nex_table, "' and vice versa"))
           } else if(verbose)
@@ -997,7 +1016,7 @@ db_check <- function(
 
 
   if(verbose) message("%")
-  if(verbose) message("% All checks completed successfully. Close ODBC connection.")
+  if(verbose) message("% All checks completed successfully. Closing ODBC connection.")
   
   tryCatch(odbcClose(con), error=function(e){})
   

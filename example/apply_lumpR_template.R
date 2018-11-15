@@ -47,7 +47,8 @@ if("lumpR" %in% rownames(installed.packages())) {
   library(lumpR)
 } else if("devtools" %in% rownames(installed.packages())) {
   library(devtools)
-  install_github("tpilz/lumpR")
+  #install_github("tpilz/lumpR")
+  install_github("tpilz/lumpR", ref="grass7_2018")
   library(lumpR)
 } else {
   install.packages("devtools")
@@ -59,7 +60,7 @@ if("lumpR" %in% rownames(installed.packages())) {
 
 
 
-### SETTINGS ###
+### SETTINGS ####
 
 # switch to specified working directory
 setwd("~/lumpR_test/") #use "/" instead of "\" in Windows
@@ -85,14 +86,14 @@ write(str_odbc, file="~/.odbc.ini", ncolumns=1, append=T, sep="\n")
 # INPUT #
 # inputs marked MANDATORY have to be given, the rest can be 'NULL' if not available
 
-# watershed outlet (choose option A or B)
+# subbasin outlet points (choose option A or B)
   #A: manually specify (coordinates in projection of GRASS location!) 
   drain_p <- data.frame(utm_x_m=c(1,2,3), utm_y_m=c(1,2,3)) #enter your coordinates here
   coordinates(drain_p) <- c("utm_x_m", "utm_y_m")
-  #B: import from shapefile in GRASS mapset
+  #B: import from vector layer  in GRASS mapset
   drain_p = readVECT(vname = "subbas_outlets", layer=1) #specify name of point vector containing subbasin coordinates
   #plot(drain_p)
-  
+  outlet_id = which(drain_p@data$Name=="Barasona") #specify row of outlet point of entire watershed
 
 # DEM raster in GRASS location
 dem <- ""
@@ -246,7 +247,6 @@ ncores <- 1
 thresh_sub <- 5000
   
 # parameter for GRASS function r.watershed. This is a crucial parameter affecting the size of delineated hillslopes - MANDATORY
-# rough guide: eha_thres = 2'000'000/ (dem_res[m])^2
 eha_thres <- 200
   
 # vector with GRASS file names of quantitative supplemental information for LU deviation (adjust no_LUs accordingly)
@@ -263,16 +263,16 @@ no_LUs <- c(3, 3, 10, 3, 3)
 no_TCs <- 3
 
 
-# GRASS #
-# ATTENTION: GRASS 6.4 is needed, not compatible to GRASS 7!
-# Best is to use GRASS 6.4.6 as GRASS 6.4.5 by autumn 2016 suddenly started producing segmentation faults!
-addon_path="/home/tobias/.grass6/addons/" # path to your locally installed GRASS add-ons. Must only be given if necessary, see ?lump_grass_prep
+# GRASS ####
+# ATTENTION: GRASS 7 is needed, not compatible to GRASS 6.x!
+
+addon_path="/home/tobias/.grass7/addons/" # path to your locally installed GRASS add-ons. Must only be given if necessary, see ?lump_grass_prep
 # initialisation of session
-initGRASS(gisBase="your_path", # path to GRASS installation (use / instead of \ under windows, e.g. "d:/programme/GRASS6.4.3" )
+initGRASS(gisBase="", # path to GRASS installation (use / instead of \ under windows, e.g. "d:/programme/GRASS7.0" )
           home=getwd(), # The directory in which to create the .gisrc file
-          location="your_location", # GRASS location
-          mapset="your_mapset",    # corresp. mapset
-          gisDbase="your_gisDbase",  # path to 'grassdata' directory containing the location specified above and all corresp. data
+          location="", # GRASS location
+          mapset="",    # corresp. mapset
+          gisDbase="",  # path to 'grassdata' directory containing the location specified above and all corresp. data
           override=TRUE)
   
   
@@ -290,6 +290,7 @@ initGRASS(gisBase="your_path", # path to GRASS installation (use / instead of \ 
 projection(drain_p) <- getLocationProj()
 
 # calculate subbasins; one subbasin for each drainage point
+# calculate subbasins; one subbasin for each drainage point ####
 ?calc_subbas # read the documentation!
 calc_subbas(
   # INPUT #
@@ -301,7 +302,7 @@ calc_subbas(
   stream=stream_pref,
   points_processed=drainp_processed,
   # PARAMETERS #
-  outlet=1,
+  outlet=outlet_id,
   thresh_stream=thresh_stream,
   thresh_sub=thresh_sub,
   snap_dist=snap_dist,
@@ -313,7 +314,7 @@ calc_subbas(
       
       
       
-# PREPROCESSING AND HILLSLOPE DEVIATION #
+# PREPROCESSING AND HILLSLOPE DEVIATION ####
 ?lump_grass_prep # read the documentation!
 lump_grass_prep(
   # INPUT #
@@ -385,11 +386,11 @@ writeLines(header_dat,paste(getwd(), catena_head_out, sep="/"))
 
 
 
-# CATENA CLASSIFICATION INTO LANDSCAPE UNITS AND TERRAIN COMPONENTS #
+# CATENA CLASSIFICATION INTO LANDSCAPE UNITS AND TERRAIN COMPONENTS ####
 # Part of algorithm described by Francke et al. (2008)
 # get resolution (mean between x and y resolution)
-res <- execGRASS("r.info", map=dem, flags=c("s"), intern=TRUE)
-res <- sum(as.numeric(gsub("[a-z]*=", "", res))) / 2
+res <- execGRASS("r.info", map=dem, flags=c("g"), intern=TRUE)
+res <- sum(as.numeric(gsub("[a-z]*=", "", grep("nsres|ewres", res, value = T)))) / 2
 
 ?prof_class # read the documentation!
 prof_class(
@@ -402,7 +403,7 @@ prof_class(
   luoutfile="lu.dat",
   tcoutfile="tc.dat",
   lucontainstcoutfile="lucontainstc.dat",
-  tccontainssvcoutfile="r_tc_contains_svc.dat",
+  tccontainssvcoutfile="tc_contains_svc.dat",
   terraincomponentsoutfile="terraincomponents.dat",
   recl_lu="reclass_lu.txt",
   saved_clusters=NULL,
@@ -421,6 +422,7 @@ prof_class(
 
 
 # POST PROCESSING #
+# POST PROCESSING ####
 ?lump_grass_post # read the documentation!
 lump_grass_post(
 # INPUT #
@@ -449,8 +451,19 @@ silent = silent
 )
 
 
+#generate reservoir parameterisation
+  #find reservoir outlets
+  x = reservoir_outlet(flowacc = flowacc, dem = dem, res_vct = "reservoirs", outlets_vect = "res_outlets", keep_temp = TRUE, overwrite = TRUE) 
+  
+  #generate reservoir parameter file for later import into db
+  reservoir_strategic(res_vect = "res_outlets", res_file="reservoir_pars.csv", reservoir_file = "reservoir.txt", dir_out = getwd(), overwrite = TRUE, subbasin = subbas)
 
-# DATABASE #
+  #find reservoir outlets
+  reservoir_lumped(res_vect = "res_small", subbas = subbas, res_vect_class = "res_small_2", dir_out =  paste0("wasa_input/Reservoir/",getwd()), overwrite = TRUE)
+  
+
+
+# DATABASE ####
 # rainy_season not included within this example
 
 # create database
@@ -483,14 +496,14 @@ file.copy(paste(soil_path, "r_soil_contains_particles.dat", sep="/"), "r_soil_co
 # lumpR output and manually prepared information (e.g. soil parameters) to database
 ?db_fill
 db_fill(dbname=dbname,
-        tables = c("r_subbas_contains_lu", "subbasins",
+        tables = c("subbasins", "r_subbas_contains_lu", 
                    "landscape_units", "r_lu_contains_tc", "terrain_components", "r_tc_contains_svc",
-                   "vegetation", "soils", "horizons", "soil_veg_components",
-                   "particle_classes", "r_soil_contains_particles"),
-        dat_files=c("lu_stats.txt", "sub_stats.txt",
+                   "soils", "horizons", "soil_veg_components",
+                   "particle_classes", "r_soil_contains_particles", "reservoirs_strategic"),
+        dat_files=c("sub_stats.txt", "lu_stats.txt", 
                     "lu_db.dat", "lucontainstc.dat", "terraincomponents.dat", "r_tc_contains_svc.dat",
-                    "vegetation.dat", "soil.dat", "horizons.dat", "soil_vegetation_components.dat",
-                    "particle_classes.dat", "r_soil_contains_particles.dat"), 
+                    "soil.dat", "horizons.dat", "soil_vegetation_components.dat",
+                    "particle_classes.dat", "r_soil_contains_particles.dat", "reservoir.txt"), 
         dat_dir=getwd(),
         overwrite=T, verbose=T)
 
@@ -563,7 +576,9 @@ db_wasa_input(dbname = dbname,
               files=c("info.dat", "River/routing.dat", "River/response.dat", "Hillslope/hymo.dat",
                       "Hillslope/soter.dat", "Hillslope/terrain.dat", "Hillslope/soil_vegetation.dat",
                       "Hillslope/soil.dat", "Hillslope/vegetation.dat", "Hillslope/svc_in_tc.dat",
-                      "do.dat", "maxdim.dat", "part_class.dat", "Hillslope/soil_particles.dat", "Hillslope/svc.dat"),
+                      "do.dat", "maxdim.dat", "part_class.dat", "Hillslope/soil_particles.dat", 
+                      "Hillslope/rainy_season.dat", "Hillslope/x_seasons.dat", "Hillslope/svc.dat",
+                      "Reservoir/reservoir.dat"),
               overwrite = overwrite, verbose=T)
       
 # adjust model input data to your needs ...

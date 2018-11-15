@@ -62,7 +62,7 @@ sql_dialect <- function(con, statement) {
             silent=T)
       } else {
         suppressWarnings(sqlSave(channel=con, tablename=tbl_mod, dat=dat_tbl_mod, varTypes=varspec, append=FALSE, 
-                nastring = NULL, fast = TRUE, rownames = FALSE))
+                                 nastring = NULL, fast = TRUE, rownames = FALSE))
       }
       
       # in case of columns of type datetime (see function write_datetabs() below)
@@ -70,7 +70,7 @@ sql_dialect <- function(con, statement) {
         sqlQuery(con, paste0("delete from ", tbl_mod, ";"))
         write_datetabs(con, dat=dat_tbl_mod, tab=tbl_mod, verbose=F)
       }
-
+      
       
       # return NULL as statement
       statement <- NULL
@@ -115,6 +115,25 @@ sql_dialect <- function(con, statement) {
   return(statement)
 } # EOF sql_dialect
 
+# query with error message for easier error handling
+sqlQuery2 <- function(con, statement, info="") {
+  res <- sqlQuery(con, statement, errors=F)
+  if (is.data.frame(res) || res !=-1) #regular successful query
+    return(res)  
+  
+  #DELETE on an empty table also yields "-1". Don't treat this as an error
+  if (res==-1 & grepl(pattern = "^delete", ignore.case = TRUE, x = statement)) 
+    return(0)
+  
+  res2 <- sqlQuery(con, statement, errors = T)
+  if (is.na(res2[1])) return(res)   #for creation statements, this may be OK, don't issue an error
+  
+  tryCatch(odbcClose(con), error=function(e){})
+  stop(cat(paste0("Error in SQL query (", info,").\nQuery: ", statement,
+                  "\nerror-message: ", res2[1])))
+  
+} # EOF query with error message
+
 
 
 
@@ -129,30 +148,57 @@ writedb <- function(con, file, table, overwrite, verbose) {
     sqlQuery(con, "SET sql_mode='ANSI';")
   
   # read data
-  dat <- read.table(file, header=T, sep="\t")
+  dat <- read.table(file, header=T, sep="\t", strip.white = TRUE, blank.lines.skip = TRUE, fill=TRUE)
+  
+  empty_lines = apply(is.na(dat) | dat=="", MARGIN = 1, all)
+  
+  if (any(empty_lines))
+  {
+    warning(paste0("Empty lines encountered in ", file,", ignored"))
+    dat=dat[!empty_lines,]
+  }
+  
   
   # check structure
-  cols <- sqlColumns(con, table)$COLUMN_NAME
-  if (any(!(cols %in% colnames(dat)))) 
-    stop(paste0("File '", file, "' does not contain the required columns (", paste(cols, collapse=", "), ")."))
+  table_desc = sqlColumns(con, table) #get table description
+  cols <- table_desc$COLUMN_NAME
+  
+  missing_cols = setdiff(cols, colnames(dat))
+  
+  for(colname in missing_cols)
+  {
+    if (grepl(colname, pattern = "^a_") |
+        (table=="soils" & colname %in% c("description", "Phil_s", "Phil_a", "Hort_ini", "Hort_end", "Hort_k")) |
+        (table=="horizons" & colname %in% c("shrinks", "description", "soil_dens"))
+        
+          )
+    {
+      if (grepl(table_desc[table_desc[,"COLUMN_NAME"]==colname, "TYPE_NAME"], pattern = "VARCHAR")) #set missing values
+        dat[,colname]=as.character(NA) else 
+        dat[,colname]=as.numeric(NA)
+        missing_cols = missing_cols[missing_cols!=colname] #remove from list of missing columns
+    }
+  }  
+    
+  if (length(missing_cols)>0) 
+    stop(paste0("File '", file, "' does not contain some required columns (", paste(missing_cols, collapse=", "), ")."))
   
   # remove unnecessary columns if available
   rm_cols <- which(!(colnames(dat) %in% cols))
   if (any(rm_cols))
-    dat <- dat[-rm_cols]
+    dat <- dat[,-rm_cols]
   
   # delete existing values in table values
   if (overwrite)
-    sqlQuery(con, paste0("delete from ", table))
-  
+    res <- sqlQuery(con, paste0("delete from ", table),errors = T) #ignore errors, because emptying empty tables in MSAccess causes errors
   # write values into table; in case of an error write a more meaningful error message
   tryCatch(
 {
   sqlSave(channel=con, tablename = table, dat=dat, verbose=F, 
           append=TRUE , test = FALSE, nastring = NULL, fast = TRUE, rownames = FALSE)
 }, error = function(e) {
-  stop(paste0("An error occured when writing into table '", table, "'. ",
-              "All values written until error occurence will be kept in the database! ",
+  stop(paste0("An error occurred when writing into table '", table, "'. ",
+              "All values written until error occurrence will be kept in the database! ",
               "There might be a problem with the input data structure (e.g. gaps), ",
               "duplicate entries or entries that already exist in the database table. ",
               "Error message of the writing function: ", e))
@@ -182,7 +228,10 @@ write_datetabs <- function(con, dat, tab, verbose) {
     # apply statement
     res <- sqlQuery(con, statement, errors=F)
     if (res==-1)
-      stop(paste0("Error in SQL query execution while writing into table '",tab,"'."))
+    {  
+      res <- sqlQuery(con, statement, errors=T)
+      stop(paste0("Error in SQL query execution while writing into table '",tab,"': ", res))
+    }  
   }
   
   if(verbose) message(paste0("% -> Updated table '",tab,"'."))
@@ -400,7 +449,8 @@ modify_db <- function(con, dat_tbl) {
     horizons="pid",
     particle_classes="class_id",
     r_soil_contains_particles=c("soil_id", "class_id"),
-    rainy_season="pid"
+    rainy_season="pid",
+    x_seasons="pid"
   )
   
   # check if table has been modified, otherwise return an flag (-1)

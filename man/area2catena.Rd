@@ -4,16 +4,17 @@
 \alias{area2catena}
 \title{Calculates mean catena from spatial data}
 \usage{
-area2catena(mask = NULL, flowacc = NULL, eha = NULL, distriv = NULL,
-  elevriv = NULL, supp_quant = NULL, supp_qual = NULL, dir_out = "./",
-  catena_out = NULL, catena_head_out = NULL, ridge_thresh = 1,
-  min_cell_in_slope = 30, min_catena_length = 3, max_riv_dist = 10,
-  plot_catena = F, grass_files = F, ncores = 1, eha_subset = NULL,
-  overwrite = F, silent = F)
+area2catena(mask = NULL, flowacc = NULL, eha = NULL,
+  distriv = NULL, elevriv = NULL, supp_quant = NULL,
+  supp_qual = NULL, dir_out = "./", catena_out = NULL,
+  catena_head_out = NULL, ridge_thresh = 1, min_cell_in_slope = 30,
+  min_catena_length = 3, max_riv_dist = 10, plot_catena = F,
+  grass_files = F, ncores = 1, eha_subset = NULL, overwrite = F,
+  silent = F)
 }
 \arguments{
 \item{mask}{Raster file to be used as MASK in the GRASS location defining the
-area of interest. E.g. \code{mask_corr} of \code{\link[lumpR]{lump_grass_prep}}.}
+area of interest. E.g. \code{basin_out} of \code{\link[lumpR]{calc_subbas}}.}
 
 \item{flowacc}{Name of flow accumulation raster map in GRASS location. Can
 be created with \code{\link[lumpR]{lump_grass_prep}}.}
@@ -37,7 +38,10 @@ supplemental raster maps in GRASS location; leave empty if you have none.}
 nothing will be overwritten).}
 
 \item{catena_out}{Output: Name of output file containing mean catena information
-as input for \code{\link[lumpR]{prof_class}}.}
+as input for \code{\link[lumpR]{prof_class}}. To save computation time and
+memory in cases of large catchments and/or high resolution, specify a file
+name with ending \code{*.RData}. In such a case, a compressed RData file will be
+written instead of a text file.}
 
 \item{catena_head_out}{Output: Name of output header file containing meta-information
 as input for \code{\link[lumpR]{prof_class}}; manual adjustment necessary.}
@@ -62,7 +66,7 @@ distance of the closest cell to river. Default: 10.}
 each area / class (written into sub-directory \emph{plots_area2catena}).}
 
 \item{grass_files}{logical; produce GRASS reclassification files for qualitative
-raster data.}
+raster data. If an attribute name starting with 'svc' is found, the respective reclass file is produced anyway.}
 
 \item{ncores}{Ineger specifying number of cores that should be used for computation.}
 
@@ -86,7 +90,18 @@ Takes raster data from a GRASS location and calculates catena properties.
 \note{
 Prepare GRASS location and necessary raster files in advance (e.g. using
      \code{\link[lumpR]{lump_grass_prep}}) and start GRASS session in R using 
-     \code{\link[spgrass6]{initGRASS}}.
+     \code{\link[rgrass7]{initGRASS}}.
+     
+     \bold{IMPORTANT:} Herein, when specifying the GRASS input maps, please do
+     explicitly refer to the mapset if it is different from the mapset given in
+     initGRASS() (even PERMANENT!), as otherwise internally used readRAST() command
+     resulted in errors under Windows.
+     
+     In case of \bold{long computation times or memory issues}, try \code{plot_catena = FALSE}
+     and specify an RData file as \code{catena_out}. Furthermore, make sure your
+     raster maps are not overly large (i.e. containing lots of NULL values around
+     the region of interest) and are of type \code{CELL} (i.e. integer) where it makes
+     sense (check with \code{r.info} in GRASS).
      
      GUIs such as RStudio may not produce some runtime messages (within parallel
      foreach loop).

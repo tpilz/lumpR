@@ -4,7 +4,8 @@
 \alias{db_update}
 \title{Update parameter database}
 \usage{
-db_update(dbname, to_ver = Inf, checkOnly = FALSE)
+db_update(dbname, to_ver = Inf, checkOnly = FALSE,
+  keep_tables = NULL)
 }
 \arguments{
 \item{dbname}{Name of the data source (DSN) registered at ODBC.}
@@ -12,6 +13,8 @@ db_update(dbname, to_ver = Inf, checkOnly = FALSE)
 \item{to_ver}{Version number to update to (default: newest version available).}
 
 \item{checkOnly}{only print current version number, no updating.}
+
+\item{keep_tables}{Vector of type \code{character}. Skips the specified tables. Default: NULL.}
 }
 \description{
 Function updates the parameter database to the specified (or latest version).

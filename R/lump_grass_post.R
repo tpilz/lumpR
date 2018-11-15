@@ -1,5 +1,5 @@
 # lumpR/lump_grass_post.R
-# Copyright (C) 2014-2017 Tobias Pilz, Till Francke
+# Copyright (C) 2014-2018 Tobias Pilz, Till Francke
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -21,8 +21,8 @@
 #' and parameter estimation for Subbasins and Landscape Units in the catchment
 #' using outputs of \code{\link[lumpR]{lump_grass_prep}} and \code{\link[lumpR]{prof_class}}.
 #' 
-#' @param mask Name of mask raster map masking the study area. E.g. output \code{mask_corr}
-#'      of \code{\link[lumpR]{lump_grass_prep}}.
+#' @param mask Name of mask raster map masking the study area. E.g. output \code{basin_out}
+#'      of \code{\link[lumpR]{calc_subbas}}.
 #' @param dem DEM raster map in GRASS location as used in \code{\link[lumpR]{lump_grass_prep}}.
 #' @param subbasin Subbasin raster map in GRASS location as used in \code{\link[lumpR]{lump_grass_prep}}
 #'      and/or created by \code{\link[lumpR]{calc_subbas}}.
@@ -72,7 +72,12 @@
 #'      
 #' @note Prepare GRASS location and necessary raster files in advance (e.g. using
 #'      \code{\link[lumpR]{lump_grass_prep}}) and start GRASS session in R using 
-#'      \code{\link[spgrass6]{initGRASS}}.
+#'      \code{\link[rgrass7]{initGRASS}}.
+#'      
+#'      \bold{IMPORTANT:} Herein, when specifying the GRASS input maps, please do
+#'      explicitly refer to the mapset if it is different from the mapset given in
+#'      initGRASS() (even PERMANENT!), as otherwise internally used readRAST() command
+#'      resulted in errors under Windows. 
 #'      
 #'      TODO:\cr
 #'        - check empirical formulas for channel width and channel depth\cr
@@ -271,9 +276,14 @@ lump_grass_post <- function(
 ) {
   
   
-  ### PREPROCESSING ###
+### PREPROCESSING ###----------------------------------------------------------
   
-  # CHECKS #
+  if(!silent) message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
+  if(!silent) message("% START lump_grass_post()")
+  if(!silent) message("%")
+  if(!silent) message("% Initialise function...")
+  
+# checks #---------------------------------------------------------------------
   tryCatch(gmeta(), error = function(e) stop("Cannot execute GRASS commands. Maybe you forgot to run initGRASS()?"))
   if(is.null(mask))
     stop("The name of a raster within the mapset of your initialised GRASS session to be used as catchment MASK in GRASS has to be given!")
@@ -291,7 +301,20 @@ lump_grass_post <- function(
     stop("A name for needed flow accumulation raster map within the mapset of your initialised GRASS session has to be given!")
   if(is.null(lu))
     stop("A name for the landscape units raster map to be generated (recl_lu = NULL) or already within the mapset of your initialised GRASS session has to be given")
+  if(!is.null(recl_lu) && !file.exists(recl_lu))
+    stop(paste0("Could not find file '",recl_lu,"' (argument 'recl_lu')"))
   
+  #check existence of raster maps
+  check_raster(mask,"mask")
+  check_raster(dem,"dem")
+  if(is.null(recl_lu)) check_raster(lu,"lu")
+  check_raster(subbasin,"subbasin")
+  check_raster(eha,"eha")
+  check_raster(flowacc,"flowacc")
+  check_raster(flowdir,"flowdir")
+  check_raster(stream_horton,"stream_horton")
+  if(!is.null(soil_depth)) check_raster(soil_depth,"soil_depth")
+  if(!is.null(sdr)) check_raster(sdr,"sdr")
   
   # suppress annoying GRASS outputs
   tmp_file <- file(tempfile(), open="wt")
@@ -305,44 +328,47 @@ lump_grass_post <- function(
     options(warn = -1)
   }
   
+  # create output dir
+  dir.create(dir_out, recursive=T, showWarnings=F)
+  
+  # check output directory
+  if (!overwrite & (file.exists(paste(dir_out,sub_ofile,sep="/")) |
+                    file.exists(paste(dir_out,lu_ofile,sep="/")) |
+                    file.exists(paste(dir_out,lupar_ofile,sep="/"))) )
+    stop(paste0("Output file(s) ", sub_ofile, ", ",lu_ofile, ", and/or ", lupar_ofile, " already exist(s) in ", dir_out, "!"))
+  
+  # remove mask if there is any (and ignore error in case there is no mask)
+  # set mask to make sure calculations are done exactly within expected area
+  cmd_out <- execGRASS("g.copy", raster=paste0(mask,",MASK"), flags = "overwrite", intern = T)
+  
+  # remove output of previous function calls if overwrite=T
+  if (overwrite) {
+    cmd_out <- execGRASS("g.remove", type="raster", pattern=paste("*_t,", lu, sep=","), flags=c("f", "b"), intern=T)
+  } else {
+    # remove temporary maps in any case
+    cmd_out <- execGRASS("g.remove", type="raster", pattern="*_t", flags=c("f", "b"), intern=T)
+  }
+  
 
+  if(!silent) message("% OK")
   
   
   
-  ### CALCULATIONS ###
-  message("\nSTART lumpR postprocessing using GRASS...\n")
+### CALCULATIONS ###-----------------------------------------------------------
   
-  
-  # prepare output directory, GRASS location, etc. #
+# prepare output directory, read GRASS data #-----------------------------
   tryCatch({
-    message("\nPreparations...\n")
-    
-    # create output dir
-    dir.create(dir_out, recursive=T, showWarnings=F)
-    
-    # check output directory
-    if (!overwrite & (file.exists(paste(dir_out,sub_ofile,sep="/")) |
-                      file.exists(paste(dir_out,lu_ofile,sep="/")) |
-                      file.exists(paste(dir_out,lupar_ofile,sep="/"))) )
-      stop(paste0("Output file(s) ", sub_ofile, ", ",lu_ofile, ", and/or ", lupar_ofile, " already exist(s) in ", dir_out, "!"))
-    
-    # remove output of previous function calls if overwrite=T
-    if (overwrite) {
-      execGRASS("g.mremove", rast=paste("*_t,", lu, sep=","), flags=c("f", "b"))
-    } else {
-      # remove temporary maps in any case
-      execGRASS("g.mremove", rast="*_t", flags=c("f", "b"))
-    }
-    
-    # set basin-wide mask
-    execGRASS("r.mask", input=mask, flags=c("o"))
+    if(!silent) message("%")
+    if(!silent) message("% Prepare output and import GRASS data...")
     
     # load rasters into R
-    dem_rast <- raster(readRAST6(dem))
-    accum_rast <- raster(readRAST6(flowacc))
-    dir_rast <- raster(readRAST6(flowdir))
-    sub_rast <- raster(readRAST6(subbasin))
-    horton_rast <- raster(readRAST6(stream_horton))
+    dem_rast <- read_raster(dem)
+    accum_rast <- read_raster(flowacc)
+    dir_rast <- read_raster(flowdir)
+    cur_mapset = execGRASS("g.mapset", flags="p", intern=TRUE) #determine name of current mapset
+    
+    sub_rast <- read_raster(subbasin)
+    horton_rast <- read_raster(stream_horton)
     # ... raster values as matrix
     dem_mat <- getValues(dem_rast, format="matrix")
     rm(dem_rast)
@@ -361,6 +387,8 @@ lump_grass_post <- function(
     g_meta <- gmeta()
     resol <- mean(g_meta$nsres, g_meta$ewres)
     
+    if(!silent) message("% OK")
+    
   }, error = function(e) {
     
     # stop sinking
@@ -371,59 +399,74 @@ lump_grass_post <- function(
       options(warn = oldw)
     
     # remove mask
-    execGRASS("r.mask", flags=c("r"))
+    tryCatch(suppressWarnings(execGRASS("r.mask", flags=c("r"))), error=function(e){})
     
     stop(paste(e))
   })
   
   
   
-  # LU RASTER #
+# generate lu raster #---------------------------------------------------------
   tryCatch({
+    if(!silent) message("%")
       
     if (is.null(recl_lu)) #use existing LU-map
     {
-      message(paste0("\nUse existing raster map '", lu, "'\n"))
+      if(!silent) message(paste0("% NOTE: Use existing raster map ", lu, " as specified."))
       
     } else {
       
-      message(paste0("\nGenerate landscape units raster map '", lu, "'...\n"))
+      if(!silent) message(paste0("% Generate landscape units raster map '", lu, "'..."))
       
       #reclass EHA according to reclass file generated by prof_class to get LU
-      x=execGRASS("r.reclass", input=eha, output=lu, rules=recl_lu)
-      
+      cmd_out=execGRASS("r.reclass", input=eha, output=lu, rules=recl_lu, intern = TRUE)
+      if(!is.null(attr(cmd_out, "status")))
+         stop(paste0("Could not reclass '",eha,"' into '",lu,"'"))
+
       # growing radius (parameter for r.grow)
       GROWRAD <- 20
-        
+
+      if (fill_holes)        
       while (TRUE)
       {        
         # look for empty patches
-        x=execGRASS("r.mapcalculator", amap=mask, bmap=lu, outfile="grow_eval_t", formula="A * isnull(B)", flags="overwrite", intern=TRUE)
+        cmd_out=execGRASS("r.mapcalc", expression=paste0("grow_eval_t = if(isnull(", lu, "), 1, 0)"), flags = "overwrite", intern=TRUE)
         
-        na_eval <- execGRASS("r.stats", input="grow_eval_t", flags=c("n","p"), intern=TRUE, ignore.stderr = T)
-        if (grepl(pattern="[0-9]+.*[\b]+",x=tail(na_eval, n=1)))
-          na_eval = na_eval[-length(na_eval)] #last line contains progress indicator, remove
-        na_res <- strsplit(x=na_eval, split=" +")  
-        if (length(na_res)>1)
-          message(paste0(na_res[[2]][2], " NAs in ", lu))
+        na_eval <- execGRASS("r.stats", input=paste0("grow_eval_t"), flags=c("n", "p"), intern=TRUE, ignore.stderr = T)
         
-    
-        if (length(na_res)==1 | !fill_holes) 
-        {  
-          x=execGRASS("g.remove", rast="grow_eval_t", intern=TRUE)
-          break #no empty patches found  
-        }
+        if (length(na_eval)==0 ) break #no empty patches found  
+        
+        # if (grepl(pattern="[0-9]+.*[\b]+",x=tail(na_eval, n=1)))
+        #   na_eval = na_eval[-length(na_eval)] #last line contains progress indicator, remove
+         
+        na_line=grepl(na_eval, pattern = "^1 .*\\%$")
+        
+        if (!any(na_line)) break #no empty patches found  
+        
+        na_res <- strsplit(x=na_eval[na_line], split=" +")  
+        if(!silent) message(paste0("% -> ", tail(unlist(na_res),1), " NAs in LU-map '", lu,"'"))
         
         # otherwise grow LU map to fill gaps 
-        message(paste0("Filling empty patches in ",lu,", iterating..."))
-        x=execGRASS("r.grow",   input=lu, output="tt_eha_grown", radius=GROWRAD, flags="overwrite", intern=TRUE)
+        if(!silent) message(paste0("% -> Filling empty patches in ",lu,", iterating..."))
+        cmd_out=execGRASS("r.grow",   input=lu, output="lu_t", radius=GROWRAD, flags="overwrite", intern=TRUE)
+        if(!is.null(attr(cmd_out, "status")))
+          stop(paste0("Could not grow '",lu,"'"))
         
-        x=execGRASS("r.mapcalculator", amap=mask, bmap="tt_eha_grown", outfile=lu, formula="A * B", flags="overwrite", intern=TRUE)
+        # r.grow converts type CELL to type DCELL; convert back to CELL
+        cmd_out <- execGRASS("r.mapcalc", expression=paste0(lu," = int(lu_t)"), flags = "overwrite", intern = T)
         
-        x=execGRASS("g.remove", rast="tt_eha_grown", intern=TRUE)
-      } # while true
+        cmd_out <- execGRASS("g.remove", type="raster", pattern="lu_t", flags=c("f", "b"), intern=T)
+        # x=execGRASS("r.mapcalc", expression = paste0(lu, " = ", mask, " * tt_eha_grown"), flags="overwrite", intern=TRUE)
+        # 
+        # x=execGRASS("g.remove", type="raster", name="tt_eha_grown", intern=TRUE)
+      } # while true (grow-loop)
+      
+      cmd_out=execGRASS("g.remove", type="raster", name="grow_eval_t", intern=TRUE)
+      
+      if(!silent) message("% OK")
       
     } # recl_lu was given
+    
     
   },
   error = function(e) {
@@ -436,11 +479,11 @@ lump_grass_post <- function(
       options(warn = oldw)
     
     # remove mask
-    execGRASS("r.mask", flags=c("r"))
+    tryCatch(suppressWarnings(execGRASS("r.mask", flags=c("r"))), error=function(e){})
     
     # remove output so far
     if(!keep_temp)
-      x=execGRASS("g.mremove", rast=paste0("tt_eha_grown,grow_eval_t,", lu), flags=c("f", "b"), intern=TRUE)
+      x=execGRASS("g.remove", type="raster", pattern=paste0("grow_eval_t,", lu), flags=c("f", "b"), intern=TRUE)
     
     stop(paste(e))
   }
@@ -448,10 +491,11 @@ lump_grass_post <- function(
   
     
     
-  # SUBBASIN STATISTICS #
+# subbasin statistics #--------------------------------------------------------
   tryCatch({
     if(!is.null(sub_ofile)) {
-      message("\nCalculate subbasin statistics...\n")
+      if(!silent) message("%")
+      if(!silent) message("% Calculate subbasin statistics...")
       
       sub_stats <- execGRASS("r.stats", input=subbasin, flags=c("a", "n"), intern=TRUE, ignore.stderr = T)
       if (grepl(pattern="[0-9]+.*[\b]+",x=tail(sub_stats, n=1)))
@@ -564,6 +608,8 @@ lump_grass_post <- function(
       # write output file
       write.table(sub_stats, paste(dir_out, sub_ofile, sep="/"), quote=F, row.names=F, sep="\t")
       
+      if(!silent) message("% OK")
+      
     } # sub_ofile given?
   
   
@@ -577,23 +623,27 @@ lump_grass_post <- function(
       options(warn = oldw)
     
     # remove mask
-    execGRASS("r.mask", flags=c("r"))
+    tryCatch(suppressWarnings(execGRASS("r.mask", flags=c("r"))), error=function(e){})
     
     # remove output so far
     if(!keep_temp)
-      x=execGRASS("g.mremove", rast=paste0("*_t,", lu), flags=c("f", "b"), intern=TRUE)
+      x=execGRASS("g.remove", type="raster", pattern=paste0("*_t,", lu), flags=c("f", "b"), intern=TRUE)
     
     stop(paste(e))
   })
 
 
 
-  # LANDSCAPE UNIT STATISTICS #
+# lu statistics #--------------------------------------------------------------
   tryCatch({
     if(!is.null(lu_ofile)) {
-      message("\nCalculate LU statistics...\n")
+      if(!silent) message("%")
+      if(!silent) message("% Calculate LU statistics...")
       
       sub_lu_stats_t <- execGRASS("r.stats", input=paste0(subbasin,",",lu), flags=c("n", "c"), intern=TRUE, ignore.stderr = T)
+      if(!is.null(attr(sub_lu_stats_t, "status")))
+        stop(paste0("Could not access lu-map '",lu,"'."))
+      
       if (grepl(pattern="[0-9]+.*[\b]+",x=tail(sub_lu_stats_t, n=1))) #check if last line contains progress indicator, remove
       sub_lu_stats_t = sub_lu_stats_t[-length(sub_lu_stats_t)] 
       
@@ -607,6 +657,8 @@ lump_grass_post <- function(
       sub_lu_stats_t2$fraction=sub_lu_stats_t2$cells / sub_lu_stats_t2$x #compute fraction
       write.table(sub_lu_stats_t2[,c("subbas_id", "lu_id", "fraction")], paste(dir_out, lu_ofile, sep="/"), quote=F, row.names=F, sep="\t")
       
+      if(!silent) message("% OK")
+      
     } # lu_ofile given?
     
   }, error = function(e) {
@@ -618,11 +670,11 @@ lump_grass_post <- function(
       options(warn = oldw)
     
     # remove mask
-    execGRASS("r.mask", flags=c("r"))
+    tryCatch(suppressWarnings(execGRASS("r.mask", flags=c("r"))), error=function(e){})
     
     # remove output so far
     if(!keep_temp)
-      x=execGRASS("g.mremove", rast=paste0("*_t,", lu), flags=c("f", "b"), intern=TRUE)
+      x=execGRASS("g.remove", type="raster", pattern=paste0("*_t,", lu), flags=c("f", "b"), intern=TRUE)
     
     stop(paste(e))
   })
@@ -631,10 +683,11 @@ lump_grass_post <- function(
 
 
     
-  # LANDSCAPE UNIT PARAMETERS #
+# lu parameters #--------------------------------------------------------------
   tryCatch({
     if(!is.null(lupar_ofile)) {
-      message("\nCalculate LU parameters...\n")
+      if(!silent) message("%")
+      if(!silent) message("% Calculate LU parameters")
        
       # identify LUs
       lu_ids <- execGRASS("r.stats", input=lu, flags=c("n"), intern=TRUE, ignore.stderr = T)
@@ -704,6 +757,8 @@ lump_grass_post <- function(
     
       # write output
       write.table(lu_par, paste(dir_out, lupar_ofile, sep="/"), quote=F, row.names=F, sep="\t")
+      
+      if(!silent) message("% OK")
     
     } # lupar_ofile fiven?
 
@@ -717,11 +772,11 @@ lump_grass_post <- function(
       options(warn = oldw)
     
     # remove mask
-    execGRASS("r.mask", flags=c("r"))
+    tryCatch(suppressWarnings(execGRASS("r.mask", flags=c("r"))), error=function(e){})
     
     # remove output so far
     if(!keep_temp)
-      x=execGRASS("g.mremove", rast=paste0("*_t,", lu), flags=c("f", "b"), intern=TRUE)
+      x=execGRASS("g.remove", type="raster", pattern=paste0("*_t,", lu), flags=c("f", "b"), intern=TRUE)
     
     stop(paste(e))
   })
@@ -731,10 +786,12 @@ lump_grass_post <- function(
   
   
   # remove temp files
-  if(keep_temp == FALSE)
-    execGRASS("g.mremove", rast="*_t", flags=c("f", "b"))
+  if(!keep_temp)
+    x=execGRASS("g.remove", type="raster", pattern="*_t", flags=c("f", "b"), intern=TRUE)
   
-  message("\nDONE!\n")
+  if(!silent) message("%")
+  if(!silent) message("% DONE!")
+  if(!silent) message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
   
   
   # stop sinking
@@ -750,9 +807,9 @@ lump_grass_post <- function(
 
 
 
-### internal functions ###
+### INTERNAL FUNCTIONS ###-----------------------------------------------------
 
-# CENTROIDS #
+# subbasin centroids #---------------------------------------------------------
 # returns a matrix with x and y value of the centroid of the object given in coords_sub
 centroid <- function(coords_sub) {
   # convert so sp class
@@ -765,7 +822,7 @@ centroid <- function(coords_sub) {
   return(centr)
 }
 
-# SUBBASIN ROUTING #
+# subbasin routing #-----------------------------------------------------------
 # returns ID of downstream subbasin for the current subbasin 'sub_no'
 # determined from flow accumulation and flow direction map
 sub_route <- function(sub_no,sub_mat,accum_mat,dir_mat) {
@@ -824,7 +881,7 @@ sub_route <- function(sub_no,sub_mat,accum_mat,dir_mat) {
 } # EOF
 
 
-# MAIN CHANNEL LENGTH #
+# main channel length #--------------------------------------------------------
 # returns length of the main channel (largest value in Horton order) in [m]
 # computes main stream temporary raster used in further calculations
 channel_length <- function(horton, flowdir, resol) {
@@ -858,7 +915,7 @@ channel_length <- function(horton, flowdir, resol) {
 } # EOF
 
 
-# MAIN CHANNEL SLOPE #
+# main channel slope #---------------------------------------------------------
 # returns average slope of main channel [m/m]
 channel_slope <- function(horton, accum, dem, chan_len) {  
   if (is.na(chan_len) ) return(NA)
@@ -887,7 +944,7 @@ channel_slope <- function(horton, accum, dem, chan_len) {
 }
 
 
-# MAIN CHANNEL WIDTH #
+# main channel width #---------------------------------------------------------
 # calculate main channel width based on empirical formula: width[m] = 1.29 * darea[km2] ^ 0.6
 # darea = drainage area determined from maximum flow accumulation and resolution
 channel_width <- function(accum, resol) {
@@ -907,7 +964,7 @@ channel_width <- function(accum, resol) {
 }
 
 
-# MAIN CHANNEL DEPTH #
+# main channel depth #---------------------------------------------------------
 # calculate main channel width based on empirical formula: width[m] = 0.13 * darea[km2] ^ 0.4
 # darea = drainage area determined from maximum flow accumulation and resolution
 channel_depth <- function(accum, resol) {
@@ -927,7 +984,7 @@ channel_depth <- function(accum, resol) {
 }
 
 
-# FLOW VELOCITY #
+# flow velocity #--------------------------------------------------------------
 # function returns flow velocity of main channel [m/s]
 # calc by Gauckler-Manning-Strickler
 # assume simple rectangle cross section as width >> depth for main channels
