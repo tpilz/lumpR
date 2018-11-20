@@ -19,7 +19,7 @@
 #' 
 #' Takes a flow accumulation raster (or DEM for computation) and reservoir vector
 #' file from a GRASS location and estimates the outlet coordinates of each reservoir
-#' polygon.
+#' polygon. Can be run before \code{\link[lumpR]{reservoir_strategic}} to produce the required input. 
 #' 
 #' @param flowacc Flow accumulation raster in GRASS location used for determination
 #'      of reservoir outlets (= highest accumulation value). Set to \code{NULL} if
@@ -51,9 +51,10 @@
 #'      contain any maps ending on *_t as these will be removed by calling the
 #'      function to remove temporary maps.
 #'      
-#'      Attribute table of \code{res_vct} must be stored in a SQL database to copy
-#'      the attribute table to \code{outlets_vect}. Furthermore, \code{res_vct}
-#'      must not contain a column \code{cat_new} as this will be the new identifier
+#'      Internal operations require a non-dbf datatabes driver (SQLite, PostgreSQL, MySQL, ODBC, ...). 
+#'      Automatic switiching to sqlite will be attempted.
+#'      
+#'      \code{res_vct} must not contain a column \code{cat_new} as this will be the new identifier
 #'      column for \code{outlets_vect}.
 #'      
 #'      Check the results by investigating vector file with outlet points written
@@ -157,6 +158,35 @@ reservoir_outlet <- function(
       x <- execGRASS("g.copy", raster=paste0(flowacc,",accum_t"), flags=c("overwrite"), intern=T) else
       x <- execGRASS("r.mapcalc", expression=paste0("accum_t = round(", flowacc, ")"), flags=c("overwrite"), intern=T)
     
+    #we need a non-dbf driver connection to realize the next steps
+    org_settings=NULL
+    x <- execGRASS("db.connect", flags=c("p"), intern=TRUE) #check current db-driver
+    if (!grepl(x[1], pattern = "SQLite|PostgreSQL|MySQL|ODBC")) #currently running under unsupported driver, try switching
+    {
+      #keep original settings and convert into key/value pairs
+      org_settings=list()
+      for (s in x) 
+      {  
+        s2=strsplit(s, split = ": ")
+        if (length(s2[[1]])>1)
+          org_settings[[s2[[1]][1]]] = s2[[1]][2] 
+      }
+      org_settings$cmd="db.connect" #for later use in resetting db-connection
+      org_settings$intern=TRUE
+      
+      x <- execGRASS("db.drivers", flags=c("p"), intern=TRUE) #check available drivers
+      if (!any(grepl(x, pattern = "sqlite", ignore.case = TRUE))) #is sqlite available?  
+        stop(paste0("Current db-driver (", org_settings$driver,") not supported for this operation. Cannot connect to 'sqlite' as alternative. Please fix this manually by using 'db.connect' with a supported driver (SQLite|PostgreSQL|MySQL|ODBC)"))
+      else
+      {  #connect to sqlite
+        x <- execGRASS("db.connect", driver="sqlite", database="$GISDBASE/$LOCATION_NAME/$MAPSET/sqlite/sqlite.db", intern=TRUE) #set to sqlite
+        x <- execGRASS("db.connect", flags = "c", intern=TRUE) #test connection
+        x <- execGRASS("db.connect", flags=c("p"), intern=TRUE) #check current db-driver
+        if (!any(x== "driver: sqlite"))
+          stop(paste0("Current db-driver (", org_settings$driver,") not supported for this operation. Cannot connect to 'sqlite' as alternative. Please fix this manually by using 'db.connect' with a supported driver (SQLite|PostgreSQL|MySQL|ODBC)"))          
+      }  
+    }  
+    
     x <- execGRASS("g.copy", vector=paste0(res_vct,",resv_t"), flags=c("overwrite"), intern=T) #working copy of reservoir outlines
 
     #find maximum value of flowaccumulation for each reservoir - this should be the outlet
@@ -179,7 +209,25 @@ reservoir_outlet <- function(
     
     # preserve attribute table of res_vct
     x <- execGRASS("v.db.dropcolumn", map = "resv_t", columns = "fa_maximum", intern=T)
+    
+    #sadly, this command does not work when DBF-driver is used (default in Windows)
     x <- execGRASS("v.db.join", map = outlets_vect, column = "res_id", other_table = "resv_t", other_column = "res_id", intern=T)
+    
+    #restore original driver settings, if changed earlier
+    if(!is.null(org_settings)) 
+      x=do.call(what=execGRASS, args = org_settings)
+    #      x <- execGRASS("db.connect", driver="dbf", database="e:\\till\\uni\\r_lib\\package_build\\lumpR\\lumpr_test\\wasa_example\\grassdata\\Esera\\PERMANENT\\dbf\\", intern=TRUE)      
+    
+    
+    ##read reservoir map
+    #res_t <- readVECT("resv_t")
+    #clean_temp_dir("resv_t")
+    
+    #read outlet point map
+    #outlets_vect<- readVECT("resv_t")
+    #projection(res_t) <- getLocationProj()
+    #res_t@data$t_id = 1:nrow(res_t@data) #create temporary ID
+    
     
     # delete temp
     if(keep_temp == FALSE)
