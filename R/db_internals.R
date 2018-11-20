@@ -118,13 +118,19 @@ sql_dialect <- function(con, statement) {
 # query with error message for easier error handling
 sqlQuery2 <- function(con, statement, info="") {
   res <- sqlQuery(con, statement, errors=F)
-  if (res!=-1)
+  if (is.data.frame(res) || res !=-1) #regular successful query
     return(res)  
-    
-  res <- sqlQuery(con, statement, errors = T)
+  
+  #DELETE on an empty table also yields "-1". Don't treat this as an error
+  if (res==-1 & grepl(pattern = "^delete", ignore.case = TRUE, x = statement)) 
+    return(0)
+  
+  res2 <- sqlQuery(con, statement, errors = T)
+  if (is.na(res2[1])) return(res)   #for creation statements, this may be OK, don't issue an error
+  
   tryCatch(odbcClose(con), error=function(e){})
   stop(cat(paste0("Error in SQL query (", info,").\nQuery: ", statement,
-                  "\nerror-message: ", res[1])))
+                  "\nerror-message: ", res2[1])))
   
 } # EOF query with error message
 
@@ -142,7 +148,16 @@ writedb <- function(con, file, table, overwrite, verbose) {
     sqlQuery(con, "SET sql_mode='ANSI';")
   
   # read data
-  dat <- read.table(file, header=T, sep="\t")
+  dat <- read.table(file, header=T, sep="\t", strip.white = TRUE, blank.lines.skip = TRUE, fill=TRUE)
+  
+  empty_lines = apply(is.na(dat) | dat=="", MARGIN = 1, all)
+  
+  if (any(empty_lines))
+  {
+    warning(paste0("Empty lines encountered in ", file,", ignored"))
+    dat=dat[!empty_lines,]
+  }
+  
   
   # check structure
   table_desc = sqlColumns(con, table) #get table description

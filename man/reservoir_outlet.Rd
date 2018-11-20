@@ -40,7 +40,7 @@ returned a \code{SpatialPoints} object with the outlet coordinates.
 \description{
 Takes a flow accumulation raster (or DEM for computation) and reservoir vector
 file from a GRASS location and estimates the outlet coordinates of each reservoir
-polygon.
+polygon. Can be run before \code{\link[lumpR]{reservoir_strategic}} to produce the required input.
 }
 \note{
 Prepare GRASS location and necessary files in advance and start GRASS
@@ -48,9 +48,10 @@ Prepare GRASS location and necessary files in advance and start GRASS
      contain any maps ending on *_t as these will be removed by calling the
      function to remove temporary maps.
      
-     Attribute table of \code{res_vct} must be stored in a SQL database to copy
-     the attribute table to \code{outlets_vect}. Furthermore, \code{res_vct}
-     must not contain a column \code{cat_new} as this will be the new identifier
+     Internal operations require a non-dbf datatabes driver (SQLite, PostgreSQL, MySQL, ODBC, ...). 
+     Automatic switiching to sqlite will be attempted.
+     
+     \code{res_vct} must not contain a column \code{cat_new} as this will be the new identifier
      column for \code{outlets_vect}.
      
      Check the results by investigating vector file with outlet points written

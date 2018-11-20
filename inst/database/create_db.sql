@@ -37,7 +37,7 @@ pid INT DEFAULT 0 COMMENT 'primary key',
 description NVARCHAR(50) COMMENT 'description',
 stomat_r DOUBLE DEFAULT 0 COMMENT 'stomata resistance without water stress [sec/m]',
 min_suction DOUBLE DEFAULT 0 COMMENT 'suction threshold for water stress effect on resistance (begin of stomata closure) [hPa]',
-max_suction DOUBLE DEFAULT 0 COMMENT 'suction threshold for water stress effect on resistance (total closure of stomata – wilting point) [hPa]',
+max_suction DOUBLE DEFAULT 0 COMMENT 'suction threshold for water stress effect on resistance (total closure of stomata - wilting point) [hPa]',
 height1 DOUBLE DEFAULT 0 COMMENT 'Average height of vegetation canopy [m] before rainy season',
 height2 DOUBLE DEFAULT 0 COMMENT 'Average height of vegetation canopy [m] beginning rainy season',
 height3 DOUBLE DEFAULT 0 COMMENT 'Average height of vegetation canopy [m] end rainy season',
@@ -80,7 +80,7 @@ suction DOUBLE DEFAULT 0 COMMENT 'suction at the wetting front [mm]',
 pore_size_i DOUBLE DEFAULT 0 COMMENT 'pore-size-index',
 bubb_pres DOUBLE DEFAULT 0 COMMENT 'bubble pressure [cm]',
 coarse_frag DOUBLE DEFAULT 0 COMMENT 'fraction of coarse fragments [Vol.-]',
-shrinks BOOL NOT NULL COMMENT 'flag for soil structure, currently not used, set to 0',
+shrinks BOOL DEFAULT 0 COMMENT 'flag for soil structure, currently not used, set to 0',
 UNIQUE (soil_id, position)
 ) ENGINE=InnoDB;
 

@@ -6,7 +6,7 @@ CREATE TABLE reservoirs_strategic (
 	maxlevel double COMMENT 'Maximum water level [m]',
 	vol0 double COMMENT 'Initial volume [10^3 m^3]',
 	storecap double COMMENT 'Initial storage capacity [10^3 m^3]. ',
-	damflow double COMMENT 'Target release through the barrage’s intake devices [m^3/s]',
+	damflow double COMMENT 'Target release through the intake devices [m^3/s]',
 	damq_frac double COMMENT 'Maximum fraction of damflow which is released from the reservoir [-]',
 	withdrawal double COMMENT 'Water withdrawal discharge to supply the water use sectors in the reservoir [m^3/s]. ',
 	damyear double COMMENT 'Year of construction of the dam',

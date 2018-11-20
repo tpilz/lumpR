@@ -2,10 +2,10 @@
 % Please edit documentation in R/reservoir_lumped.R
 \name{reservoir_lumped}
 \alias{reservoir_lumped}
-\title{Generation of WASA parameter files for simulation of lumped reservoirs}
+\title{Generation of WASA parameter files for simulation of lumped reservoirs ("small reservoirs")}
 \usage{
 reservoir_lumped(res_vect = NULL, subbas = NULL,
-  res_vect_class = NULL, dir_out = "./", lake_file = "lake.dat",
+  res_vect_classified = NULL, dir_out = "./", lake_file = "lake.dat",
   lakenum_file = "lake_number.dat",
   lakemaxvol_file = "lake_maxvol.dat", res_param = data.frame(class =
   1:5, f_vol_init = 0.2, class_change = 0, alpha_Molle = 2.7, damk_Molle =
@@ -22,8 +22,8 @@ If none is encountered, 'area' can be generated from the area of the polygons, i
 \item{subbas}{Name of subbasin raster map in GRASS location. Can be created with
 \code{\link[lumpR]{calc_subbas}}.}
 
-\item{res_vect_class}{Output: Name for the vector reservoir map to be created in GRASS
-location. As \code{res_vect} with information of area or volume (which is missing),
+\item{res_vect_classified}{Output: Name for the vector reservoir map to be created in GRASS
+location. This is a point map based on \code{res_vect} with information of area or volume (whichever is missing),
 ID of the subbasin in which the reservoir is located, and the classified size class
 appended to the attribute table. If \code{NULL} (default) it will not be created.}
 
@@ -40,7 +40,7 @@ of reservoirs in the size classes for a specific subbasin. See \code{Details}.}
 of small reservoirs for a specific subbasin - size class combination.}
 
 \item{res_param}{A \code{data.frame} object containing parameters for the reservoir
-size classes. Given standard parameter set adjusted to semi-arid Brazil.
+size classes. The default parameter set is adjusted to semi-arid Brazil.
 See \code{Details}.}
 
 \item{keep_temp}{\code{logical}. Set to \code{TRUE} if temporary files shall be kept
@@ -53,21 +53,24 @@ Default: \code{FALSE}.}
 \item{silent}{\code{logical}. Shall the function be silent (also suppressing warnings
 of internally used GRASS functions)? Default: \code{FALSE}.}
 }
+\value{
+The three output files specified in \code{lake_file} , \code{lakenum_file} and \code{lakemaxvol_file}; and
+     the vector map \code{res_vect_class} in GRASS
+}
 \description{
 Function generates the WASA parameter files lake.dat and lake_number.dat from
 a pre-processed reservoir vector and a subbasin raster file stored in a GRASS
 location.
 }
 \details{
-This function creates WASA input files needed to run the model
-     with option \code{doacudes}.
+This function creates WASA input files which are needed to run the model
+     with option \code{doacudes=.T.} (simulate small unlocated reservoirs).
      
-     The given standard parameter set was estimated by Molle (1989) for the 
-     \bold{semi-arid NE of Brazil} and needs to be adjusted if applied to some other region!
+     The default values for \code{res_param} set were estimated by Molle (1989) for the 
+     \bold{semi-arid NE of Brazil} and need to be adjusted if applied to some other region!
      
      \bold{lake_file} / \bold{res_param}\cr
-     Specification of parameters for the reservoir size classes. Note same order for
-     \code{lake_file} and \code{res_param} but different header names! If information
+     Specification of parameters for the reservoir size classes. Note that \code{lake_file} and \code{res_param} have the same order, but different header names! If information
      on 'maxlake0' / 'vol_max' is not available, you can specify 'area_max' in \code{res_param},
      i.e. the maximum area of reservoir size classes in \emph{m^2}. This is internally converted to volume
      by relationship of Molle (1989) using parameters 'alpha_Molle' and 'damk_Molle'.
@@ -124,6 +127,8 @@ This function creates WASA input files needed to run the model
 \note{
 Prepare GRASS location and necessary spatial objects in advance and start
      GRASS session in R using \code{\link[rgrass7]{initGRASS}}.
+     
+     Use \code{\link[rgrass7]{reservoir_strategic}} to prepare the input for large / strategic reservoirs. 
      
      Points in \code{res_vect} not overlapping with any \code{subbas} will be
      silently removed during processing!
