@@ -31,3 +31,13 @@ read_raster <- function(raster_name) {
     tmp@data@names = sub(x = tmp@data@names, pattern = paste0("\\.", cur_mapset_r), repl="")
   return(tmp)
 }
+
+clean_temp_dir <- function(file_name) {
+# MS Windows only: clean temporary files that otherwise can obstruct subseqent import/export operations  
+  if(.Platform$OS.type == "windows") {
+    dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
+    files_del <- grep(substr(file_name, 1, 8), dir(dir_del), value = T)
+    if (length(files_del)>0)
+      file.remove(paste(dir_del, files_del, sep="/"), showWarnings=FALSE)
+  }
+}

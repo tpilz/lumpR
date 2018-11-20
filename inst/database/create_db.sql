@@ -80,7 +80,7 @@ suction DOUBLE DEFAULT 0 COMMENT 'suction at the wetting front [mm]',
 pore_size_i DOUBLE DEFAULT 0 COMMENT 'pore-size-index',
 bubb_pres DOUBLE DEFAULT 0 COMMENT 'bubble pressure [cm]',
 coarse_frag DOUBLE DEFAULT 0 COMMENT 'fraction of coarse fragments [Vol.-]',
-shrinks BOOL NOT NULL COMMENT 'flag for soil structure, currently not used, set to 0',
+shrinks BOOL DEFAULT 0 COMMENT 'flag for soil structure, currently not used, set to 0',
 UNIQUE (soil_id, position)
 ) ENGINE=InnoDB;
 
