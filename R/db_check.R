@@ -705,7 +705,8 @@ db_check <- function(
     dat_all <- c(dat_all,
                  read_db_dat(tbl = c("subbasins", "landscape_units", "terrain_components", "soil_veg_components",
                                      "vegetation", "soils", "horizons", "particle_classes", "rainy_season",
-                                     "r_subbas_contains_lu",  "r_lu_contains_tc", "r_tc_contains_svc", "r_soil_contains_particles", "reservoirs_strategic"),
+                                     "r_subbas_contains_lu",  "r_lu_contains_tc", "r_tc_contains_svc", "r_soil_contains_particles", "reservoirs_strategic",
+                                     "r_subbas_contains_reservoirs_small", "reservoirs_small_classes"),
                              con = con, tbl_exist = names(dat_all), update_frac_impervious=option[["update_frac_impervious"]]))
     
     # database tables
@@ -762,17 +763,24 @@ db_check <- function(
         c (table = "rainy_season",    key2prev="veg_id", key2next="")
       ))
     
-    table_chain8= data.frame(stringsAsFactors = FALSE,      #scheme of table relations (7)
+    table_chain8= data.frame(stringsAsFactors = FALSE,      #scheme of table relations (8)
        rbind(
          c (table = "subbasins",           key2prev=""      , key2next="pid"),
          c (table = "reservoirs_strategic",    key2prev="pid", key2next="")
        ))
     
+    table_chain9= data.frame(stringsAsFactors = FALSE,      #scheme of table relations (9)
+                             rbind(
+                               c (table = "subbasins",           key2prev=""      , key2next="pid"),
+                               c (table = "r_subbas_contains_reservoirs_small",    key2prev="subbas_id", key2next="res_class_id"),
+                               c (table = "reservoirs_small_classes",    key2prev="pid", key2next="")
+                             ))
+    
     wildcard_fields = list(  #tables with wildcard values ("-1") need to be considered
       rainy_season = c("subbas_id", "veg_id"),
       x_seasons     = c("subbas_id", "svc_id")
     )
-    chain_list = list(table_chain1, table_chain2, table_chain3, table_chain4, table_chain5, table_chain6, table_chain7, table_chain8) #list of all relation chains that need to be checked
+    chain_list = list(table_chain1, table_chain2, table_chain3, table_chain4, table_chain5, table_chain6, table_chain7, table_chain8, table_chain9) #list of all relation chains that need to be checked
   }
     
 ###############################################################################
@@ -796,14 +804,14 @@ db_check <- function(
         {
           cur_table = table_chain$table[i]
           pre_table = table_chain$table[i-1]
-          
+          if (cur_table=="reservoirs_small_classes")
           # exclude wildcards
           dat_cur <- dat_all[[cur_table]][[table_chain$key2prev[i]]]
           dat_cur <- dat_cur[which(dat_cur != -1)]
           dat_pre <- dat_all[[pre_table]][[table_chain$key2next[i-1]]]
           dat_pre <- dat_pre[which(dat_pre != -1)]
           
-          if (length(dat_cur) == 0 | length(dat_pre) == 0) {
+          if (length(dat_cur) == 0 | length(dat_pre) == 0) { #"length(dat_pre) == 0": if the table is empty, don't delete obsoletes
             if(verbose) message(paste0("% -> No obsolete datasets found in '", cur_table,"' with reference to '", pre_table, "'"))
             next
           }
@@ -826,7 +834,7 @@ db_check <- function(
                 attr(dat_all[[cur_table]], "altered") <- TRUE
                 
                 # re-calculate fractions of contains tables
-                if(grepl("contains", cur_table))
+                if(grepl("contains", cur_table) & cur_table != "r_subbas_contains_reservoirs_small")
                   dat_all[[cur_table]] <- check_fix_fractions(dat_tbl= dat_all[[cur_table]], fix=TRUE, update_frac_impervious=option[["update_frac_impervious"]], verbose=FALSE)
               }
             }

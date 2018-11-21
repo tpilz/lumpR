@@ -450,7 +450,10 @@ modify_db <- function(con, dat_tbl) {
     particle_classes="class_id",
     r_soil_contains_particles=c("soil_id", "class_id"),
     rainy_season="pid",
-    x_seasons="pid"
+    x_seasons="pid",
+    reservoirs_strategic="pid",
+    reservoirs_small_classes="pid",
+    r_subbas_contains_reservoirs_small=c("subbas_id", "res_class_id")
   )
   
   # check if table has been modified, otherwise return an flag (-1)
@@ -459,7 +462,8 @@ modify_db <- function(con, dat_tbl) {
   
   # delete removed datasets (sqlUpdate() does not delete)
   key_t <- tbls_keys[[tbl_name]]
-  
+  if (is.null(key_t))
+    stop(paste0("Unknown table ",tbl_name,", please report to package mantainer."))
   del_query <- paste0("delete from ", tbl_name, " where not ", key_t[1], " in (",
                       paste(unique(dat_tbl[, key_t[1]]), collapse = ", "), ")")
   del_query <- sql_dialect(con, del_query)

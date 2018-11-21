@@ -33,12 +33,10 @@
 #'      appended to the attribute table. If \code{NULL} (default) it will not be created.
 #' @param dir_out Character string specifying output directory (will be created if
 #'      not available and files will be overwritten if \code{overwrite = TRUE}.
-#' @param lake_file Output: WASA file of parameters for the reservoir size classes.
-#'      See \code{Details}.
-#' @param lakenum_file Output: WASA file containing specification of total number
-#'      of reservoirs in the size classes for a specific subbasin. See \code{Details}.
-#' @param lakemaxvol_file Output: WASA file containing specification of maximum volume
-#'      of small reservoirs for a specific subbasin - size class combination.
+#' @param reservoirs_small_classes_file Parameters for the reservoir size classes.
+#'      See \code{\link{db_fill}}.
+#' @param r_subbas_contains_reservoirs_small_file Distribution of small reservoirs in subbasins.
+#'      See \code{\link{db_fill}}.
 #' @param res_param A \code{data.frame} object containing parameters for the reservoir
 #'      size classes. The default parameter set is adjusted to semi-arid Brazil.
 #'      See \code{Details}.
@@ -49,8 +47,7 @@
 #'      Default: \code{FALSE}.
 #' @param silent \code{logical}. Shall the function be silent (also suppressing warnings
 #'      of internally used GRASS functions)? Default: \code{FALSE}.
-#' 
-#' @return The three output files specified in \code{lake_file} , \code{lakenum_file} and \code{lakemaxvol_file}; and
+#' @return The two output files specified in \code{reservoirs_small_classes_file} and \code{r_subbas_contains_reservoirs_small_file}; and
 #'      the vector map \code{res_vect_class} in GRASS
 #'      
 #' @note Prepare GRASS location and necessary spatial objects in advance and start
@@ -106,27 +103,6 @@
 #'      Unit of Overflow: \emph{m^3/s}, unit of Height (over spillway): \emph{m}. 
 #'      
 #'      
-#'      \bold{lakenum_file}\cr
-#'      Specification of total number of reservoirs for the size classes for a specific
-#'      subbasin.
-#'      
-#'      \emph{Subasin-ID}\cr
-#'      Subbasin ID.
-#'      
-#'      \emph{acud}\cr
-#'      Total number of reservoirs in the size classes.
-#'      
-#'      
-#'      \bold{lakemaxvol_file}\cr
-#'      Specification of the maximum volume of reservoirs for the size classes for a
-#'      specific subbasin.
-#'      
-#'      \emph{Subasin-ID}\cr
-#'      Subbasin ID.
-#'      
-#'      \emph{maxlake}\cr
-#'      Maximum volumes in \emph{m^3} of reservoirs in the size classes.
-#'      
 #'      
 #' @references 
 #' 
@@ -158,9 +134,9 @@ reservoir_lumped <- function(
   # OUTPUT #
   res_vect_classified=NULL,
   dir_out="./",
-  lake_file="lake.dat",
-  lakenum_file="lake_number.dat",
-  lakemaxvol_file="lake_maxvol.dat",
+  reservoirs_small_classes_file="reservoirs_small_classes.dat",
+  r_subbas_contains_reservoirs_small_file="r_subbas_contains_reservoirs_small.dat",
+
   # PARAMETERS #
   res_param=data.frame(class=1:5,
                        f_vol_init=0.2,
@@ -268,10 +244,9 @@ reservoir_lumped <- function(
     dir.create(dir_out, recursive=T, showWarnings=F)
     
     # check output directory
-    if (!overwrite & (file.exists(paste(dir_out,lake_file,sep="/")) |
-                      file.exists(paste(dir_out,lakenum_file,sep="/"))) )
-      stop(paste0("Output file(s) ", lake_file, " and/or ",lakenum_file, " already exist(s) in ", dir_out, "!"))
-    
+    if (!overwrite & (file.exists(paste(dir_out,reservoirs_small_classes_file,sep="/")) |
+                      file.exists(paste(dir_out,r_subbas_contains_reservoirs_small_file,sep="/"))) )
+      stop(paste0("Output file(s) ", reservoirs_small_classes_file, " and/or ",r_subbas_contains_reservoirs_small_file, " already exist(s) in ", dir_out, "!"))
     
     # remove output of previous function calls if overwrite=T
     if (overwrite) {
@@ -413,23 +388,28 @@ reservoir_lumped <- function(
       clean_temp_dir(res_vect_classified)
     }
     
-    # lake.dat from 'res_param'
-    write(file = paste(dir_out, lake_file, sep="/"), "Specification of parameters for the reservoir size classes")
-    write(file = paste(dir_out, lake_file, sep="/"), "Reservoir_class-ID, maxlake0[m**3], lake_vol0_factor[-], lake_change[-], alpha_Molle[-], damk_Molle[-], damc_hrr[-], damd_hrr[-]", append=T)
-    dat_out <- data.frame(res_param$class, res_param$vol_max, res_param$f_vol_init, res_param$class_change,
-                          res_param$alpha_Molle, res_param$damk_Molle, res_param$damc_hrr, res_param$damd_hrr)
-    write.table(file = paste(dir_out, lake_file, sep="/"), format(dat_out, scientific=F), sep="\t", quote=F, append=T, row.names = F, col.names = F)
+    # reservoirs_small_classes_file from 'res_param'
+    #write(file = paste(dir_out, reservoirs_small_classes_file, sep="/"), "Reservoir_class-ID, maxlake0[m**3], lake_vol0_factor[-], lake_change[-], alpha_Molle[-], damk_Molle[-], damc_hrr[-], damd_hrr[-]", append=F)
+    dat_out <- res_param
+    #rename columns
+    names(dat_out)[names(dat_out)=="class"]="pid"  
+    names(dat_out)[names(dat_out)=="vol_max"]="maxlake0"  
+    names(dat_out)[names(dat_out)=="f_vol_init"]="lake_vol0_factor"  
+    names(dat_out)[names(dat_out)=="class_change"]="lake_change"  
+    names(dat_out)[names(dat_out)=="damk_Molle"]="k_Molle"  
+    names(dat_out)[names(dat_out)=="damc_hrr"]="damc"  
+    names(dat_out)[names(dat_out)=="damd_hrr"]="damd"  
+    dat_out$name="" #optional
     
+    # data.frame(pid=res_param$class, res_param$vol_max, res_param$f_vol_init, res_param$class_change,
+    #                       res_param$alpha_Molle, res_param$damk_Molle, res_param$damc_hrr, res_param$damd_hrr)
+    write.table(file = paste(dir_out, reservoirs_small_classes_file, sep="/"), format(dat_out, scientific=F), sep="\t", quote=F, append=F, row.names = F, col.names = T)
     
     # lake_number.dat from classified reservoirs
-    write      (file=paste(dir_out, lakenum_file, sep="/"), "Specification of total number of reservoirs in the size classes")
-    write      (file=paste(dir_out, lakenum_file, sep="/"), "Sub-basin-ID, acud[-] (five reservoir size classes)", append=T)
-    write.table(file=paste(dir_out, lakenum_file, sep="/"), lake_number, append=T, quote=F, sep="\t", row.names = T, col.names = F)
+    dat_out = data.frame(subbas_id=row.names(lake_number), res_class_id=rep(dimnames(lake_number)[[2]], each=nrow(lake_number)),
+               n_reservoirs=matrix(lake_number, ncol=1), maxlake=matrix(lake_maxvol, ncol=1))
     
-    # lake_maxvol.dat
-    write      (file=paste(dir_out, lakemaxvol_file, sep="/"), "Specification of water storage capacity for the reservoir size classes")
-    write      (file=paste(dir_out, lakemaxvol_file, sep="/"), "Sub-basin-ID, maxlake[m**3] (five reservoir size classes)", append = T)
-    write.table(file=paste(dir_out, lakemaxvol_file, sep="/"), round(lake_maxvol,2), append=T, quote=F, sep="\t", row.names = T, col.names = F)
+    write.table(file=paste(dir_out, r_subbas_contains_reservoirs_small_file, sep="/"), dat_out, append=F, quote=F, sep="\t", row.names = F, col.names = T)
     
     
     # remove temporary maps

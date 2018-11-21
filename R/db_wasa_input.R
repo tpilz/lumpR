@@ -202,6 +202,9 @@
 #'   \bold{Reservoir/reservoir.dat}\cr
 #'   \emph{Optional} file defining properties of strategic reservoirs.
 #'   
+#'   \bold{Reservoir/lake.dat, lake_number.dat, lake_maxvol.dat}\cr
+#'   \emph{Optional} file defining properties of small reservoirs.
+#'   
 #' @references 
 #'      lumpR package introduction with literature study and sensitivity analysis:\cr
 #'      Pilz, T.; Francke, T.; Bronstert, A. (2017): lumpR 2.0.0: an R package facilitating
@@ -218,7 +221,8 @@ db_wasa_input <- function(
           "Hillslope/soter.dat", "Hillslope/terrain.dat", "Hillslope/soil_vegetation.dat",
           "Hillslope/soil.dat", "Hillslope/vegetation.dat", "Hillslope/svc_in_tc.dat",
           "do.dat", "maxdim.dat", "part_class.dat", "Hillslope/soil_particles.dat",
-          "Hillslope/rainy_season.dat", "Hillslope/x_seasons.dat", "Hillslope/svc.dat", "Reservoir/reservoir.dat"),
+          "Hillslope/rainy_season.dat", "Hillslope/x_seasons.dat", "Hillslope/svc.dat", "Reservoir/reservoir.dat",
+          "Reservoir/lake.dat","Reservoir/lake_number.dat","Reservoir/lake_maxvol.dat"),
   overwrite=F,
   verbose = TRUE
 ) {
@@ -1415,8 +1419,116 @@ db_wasa_input <- function(
     
   } # reservoir/reservoir.dat
   
+  ### Reservoir/lake.dat
+  if("Reservoir/lake.dat" %in% files) {
+    if(verbose) message("%")
+    if(verbose) message("% Create Reservoir/lake.dat ...")
+    
+    # create file
+    if(!file.exists(paste0(dest_dir, "/Reservoir/lake.dat")) | overwrite){
+      file.create(paste0(dest_dir, "/Reservoir/lake.dat"))
+    } else {
+      stop("File 'Reservoir/lake.dat' exists!")
+    }
+    
+    # get data
+    dat_all <- c(dat_all,
+                 read_db_dat(tbl = c("reservoirs_small_classes"),
+                             con = con,
+                             tbl_exist = names(dat_all), update_frac_impervious=FALSE))
+    
+        tt = dat_all[["reservoirs_small_classes"]]
+        tt$name=NULL #omit "name" column
+
+    # write output
+    header_str <- "Reservoir_class-ID, maxlake0[m**3], lake_vol0_factor[-], lake_change[-], alpha_Molle[-], damk_Molle[-], damc_hrr[-], damd_hrr[-]"
+    write(file=paste0(dest_dir, "/Reservoir/lake.dat"),
+              x=c("Specification of parameters for the reservoir size classes", header_str))
+        # write data
+    write.table(tt, paste0(dest_dir, "/Reservoir/lake.dat"), append=T, quote=F,
+                sep="\t", row.names=F, col.names=F)
+ 
+    if(verbose) message("% OK")
+    
+  } # reservoir/lake.dat
+  
+  ### Reservoir/lake_number.dat
+  if("Reservoir/lake_number.dat" %in% files) {
+    if(verbose) message("%")
+    if(verbose) message("% Create Reservoir/lake_number.dat ...")
+    
+    # create file
+    if(!file.exists(paste0(dest_dir, "/Reservoir/lake_number.dat")) | overwrite){
+      file.create(paste0(dest_dir, "/Reservoir/lake_number.dat"))
+    } else {
+      stop("File 'Reservoir/lake_number.dat' exists!")
+    }
+    
+  # get data
+    dat_all <- c(dat_all,
+                 read_db_dat(tbl = c("r_subbas_contains_reservoirs_small"),
+                             con = con,
+                             tbl_exist = names(dat_all), update_frac_impervious=FALSE))
+    tt = dat_all[["r_subbas_contains_reservoirs_small"]][,c("subbas_id", "res_class_id", "n_reservoirs")]
+    dat_out = reshape(data=tt, direction = "wide", v.names = "n_reservoirs", idvar = "subbas_id", timevar = "res_class_id")
+    
+    # prepare output file
+    header_str <- paste0("Sub-basin-ID, acud[-] (", ncol(dat_out)-1," reservoir size classes)")
+
+    
+    write(file=paste0(dest_dir, "/Reservoir/lake_number.dat"),
+          x=c("Specification of total number of reservoirs in the size classes", header_str))
+    
+    # write output
+    write.table(dat_out, paste0(dest_dir, "/Reservoir/lake_number.dat"), append=T, quote=F,
+                sep="\t", row.names=F, col.names=F)
+    
+    
+    if(verbose) message("% OK")
+    
+  } # reservoir/lake_number.dat
+  
+  ### Reservoir/lake_maxvol.dat
+  if("Reservoir/lake_maxvol.dat" %in% files) {
+    if(verbose) message("%")
+    if(verbose) message("% Create Reservoir/reservoir.dat ...")
+    
+    # create file
+    if(!file.exists(paste0(dest_dir, "/Reservoir/lake_maxvol.dat")) | overwrite){
+      file.create(paste0(dest_dir, "/Reservoir/lake_maxvol.dat"))
+    } else {
+      stop("File 'Reservoir/lake_maxvol.dat' exists!")
+    }
+    
+    # get data
+    dat_all <- c(dat_all,
+                 read_db_dat(tbl = c("r_subbas_contains_reservoirs_small"),
+                             con = con,
+                             tbl_exist = names(dat_all), update_frac_impervious=FALSE))
+    tt = dat_all[["r_subbas_contains_reservoirs_small"]][,c("subbas_id", "res_class_id", "maxlake")]
+    dat_out = reshape(data=tt, direction = "wide", v.names = "maxlake", idvar = "subbas_id", timevar = "res_class_id")
+    
+    # prepare output file
+    header_str <- paste0("Sub-basin-ID, maxlake[m**3]  (", ncol(dat_out)-1," reservoir size classes)")
+    
+    
+    write(file=paste0(dest_dir, "/Reservoir/lake_maxvol.dat"),
+          x=c("Specification of water storage capacity for the reservoir size classes", header_str))
+    
+    # write output
+    write.table(round(dat_out, digits = 1), paste0(dest_dir, "/Reservoir/lake_maxvol.dat"), append=T, quote=F,
+                sep="\t", row.names=F, col.names=F)
+    
+    
+    
+    if(verbose) message("% OK")
+    
+  } # reservoir/lake_maxvol.dat
   
   
+  
+
+   
 
 
 ###############################################################################

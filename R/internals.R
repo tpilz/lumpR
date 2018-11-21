@@ -16,7 +16,7 @@ check_vector <- function(map, argument_name="") { #check existence of vector map
 
 read_raster <- function(raster_name) { 
   #read raster from GRASS-location
-  #if raster exist bith in local mapset and PERMANENT, force the reading of the local version, otherwise readRAST fails
+  #if raster exist both in local mapset and PERMANENT, force the reading of the local version, otherwise readRAST fails
   cur_mapset = execGRASS("g.mapset", flags="p", intern=TRUE) #determine name of current mapset
   # mapset name in R (meta symbols replaced by ".")
   cur_mapset_r = gsub("[-+*/@.?!]", ".", cur_mapset)

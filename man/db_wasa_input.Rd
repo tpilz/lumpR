@@ -11,8 +11,9 @@ db_wasa_input(dbname, dest_dir = "./", files = c("info.dat",
   "Hillslope/vegetation.dat", "Hillslope/svc_in_tc.dat", "do.dat",
   "maxdim.dat", "part_class.dat", "Hillslope/soil_particles.dat",
   "Hillslope/rainy_season.dat", "Hillslope/x_seasons.dat",
-  "Hillslope/svc.dat", "Reservoir/reservoir.dat"), overwrite = F,
-  verbose = TRUE)
+  "Hillslope/svc.dat", "Reservoir/reservoir.dat", "Reservoir/lake.dat",
+  "Reservoir/lake_number.dat", "Reservoir/lake_maxvol.dat"),
+  overwrite = F, verbose = TRUE)
 }
 \arguments{
 \item{dbname}{Name of the data source (DSN) registered as ODBC source.}
@@ -199,6 +200,9 @@ input files!
  
   \bold{Reservoir/reservoir.dat}\cr
   \emph{Optional} file defining properties of strategic reservoirs.
+  
+  \bold{Reservoir/lake.dat, lake_number.dat, lake_maxvol.dat}\cr
+  \emph{Optional} file defining properties of small reservoirs.
 }
 \references{
 lumpR package introduction with literature study and sensitivity analysis:\cr
