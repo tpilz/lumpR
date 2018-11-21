@@ -202,6 +202,9 @@
 #'   \bold{Reservoir/reservoir.dat}\cr
 #'   \emph{Optional} file defining properties of strategic reservoirs.
 #'   
+#'   \bold{Reservoir/lake.dat, lake_number.dat, lake_maxvol.dat}\cr
+#'   \emph{Optional} file defining properties of small reservoirs.
+#'   
 #' @references 
 #'      lumpR package introduction with literature study and sensitivity analysis:\cr
 #'      Pilz, T.; Francke, T.; Bronstert, A. (2017): lumpR 2.0.0: an R package facilitating
@@ -218,7 +221,8 @@ db_wasa_input <- function(
           "Hillslope/soter.dat", "Hillslope/terrain.dat", "Hillslope/soil_vegetation.dat",
           "Hillslope/soil.dat", "Hillslope/vegetation.dat", "Hillslope/svc_in_tc.dat",
           "do.dat", "maxdim.dat", "part_class.dat", "Hillslope/soil_particles.dat",
-          "Hillslope/rainy_season.dat", "Hillslope/x_seasons.dat", "Hillslope/svc.dat", "Reservoir/reservoir.dat"),
+          "Hillslope/rainy_season.dat", "Hillslope/x_seasons.dat", "Hillslope/svc.dat", "Reservoir/reservoir.dat",
+          "Reservoir/lake.dat","Reservoir/lake_number.dat","Reservoir/lake_maxvol.dat"),
   overwrite=F,
   verbose = TRUE
 ) {
@@ -431,7 +435,7 @@ db_wasa_input <- function(
     # check if subbasins are in the contains table
     r_sub_out <- which(!(dat_all$subbasins$pid %in% dat_all$r_subbas_contains_lu$subbas_id))
     if(any(r_sub_out))
-      stop(paste0("Subbasins ", paste0(dat_all$subbasins$pid[r_sub_out], collapse=", "), " from table 'subbasins' are not in table 'r_subbas_contains_lu'! Consider db_check()!"))
+      stop(paste0("Subbasin(s) ", paste0(dat_all$subbasins$pid[r_sub_out], collapse=", "), " from table 'subbasins' are not in table 'r_subbas_contains_lu'! Consider db_check()!"))
 
     if(nrow(dat_all$subbasins) == 0)
       stop("Cannot write file Hillslope/hymo.dat No validly specified subbasins in 'subbasins' found!")
@@ -492,6 +496,8 @@ db_wasa_input <- function(
                              con = con,
                              tbl_exist = names(dat_all), update_frac_impervious=F))
     
+    dat_all[["landscape_units"]]$frgw_delay = round(dat_all[["landscape_units"]]$frgw_delay, digits = 2) #round gw-edlay to 2 digits
+    
     # write header
     htext=c("Specification of landscape units",
            "LU-ID[id]\tNo._of_TC[-]\tTC1[id]\tTC2[id]\tTC3[id]\tkfsu[mm/d]\tlength[m]\tmeandep[mm]\tmaxdep[mm]\tRiverbed[mm]\tgwflag[0/1]\tgw_dist[mm]\tfrgw_delay[day]")
@@ -531,6 +537,7 @@ db_wasa_input <- function(
       if (!all(is.na(dat_all$landscape_units$sdr_lu)))
         str_out <- paste(str_out, dat_all$landscape_units[s, "sdr_lu"], sep="\t")
 
+      
       # write output
       write(file=paste(dest_dir, "Hillslope/soter.dat", sep="/"),x=str_out,append=T,sep="\n")
     }
@@ -818,8 +825,12 @@ db_wasa_input <- function(
       dat_out <- dat_all$horizons[r_hor, c("theta_r", "theta_pwp", "fk", "fk63", "nfk", "theta_s", "thickness",
                                         "ks", "suction", "pore_size_i", "bubb_pres", "coarse_frag", "shrinks")]
       
-      if(any(is.na(cbind(dat_out, dat_soil$pid[s], dat_soil$bedrock_flag[s], dat_soil$alluvial_flag[s]))) | nrow(dat_soil) == 0)
-        stop(paste("Could not successfully write Hillslope/soil.dat. For soil ", dat_soil$pid[s], " there are missing values. Check tables 'soils' and 'horizons'!"))
+      if(nrow(dat_soil) == 0)
+        stop(paste("Could not successfully write Hillslope/soil.dat - no data found. Check tables 'soils' and 'horizons'!"))
+      
+      dat_out$shrinks[is.na(dat_out$shrinks)]=0
+      if(any(is.na(cbind(dat_out, dat_soil$pid[s], dat_soil$bedrock_flag[s], dat_soil$alluvial_flag[s]))) )
+        stop(paste("Could not successfully write Hillslope/soil.dat. For soil(s) ", dat_soil$pid[s], " there are missing values. Check tables 'soils' and 'horizons'!"))
       
       str_out <- paste(dat_soil$pid[s], length(r_hor),
                        paste(apply(dat_out,1,paste,collapse="\t"),collapse="\t"),
@@ -956,8 +967,8 @@ db_wasa_input <- function(
                       "path/to/your_output_dir/",
                       "//tstart (start year of simulation)",
                       "//tstop (end year of simulation)",
-                      "//mstart (start month of simulation [optional: start day])",
-                      "//mstop (end month of simulation [optional: start day])",
+                      "//mstart (start month of simulation [optional: <space>start_day])",
+                      "//mstop (end month of simulation [optional: <space>end_day])",
                       paste0(no_sub, "\t//no. of sub-basins"),
                       paste0(no_sblutc, "\t//no. of combinations of sub-basins, landscape units, terrain components (TC-instances)"),
                       paste0(no_lu, "\t//total no. of landscape units in study area"),
@@ -1167,8 +1178,8 @@ db_wasa_input <- function(
                              con = con,
                              tbl_exist = names(dat_all), update_frac_impervious=F))
     
-    if(any(is.na(dat_all$rainy_season)) | nrow(dat_all$rainy_season) == 0)
-      stop("There are missing values in table 'rainy_season'!")
+    #if(any(is.na(dat_all$rainy_season)) | nrow(dat_all$rainy_season) == 0)
+    #  stop("There are missing values in table 'rainy_season'!")
     
     ### sort data, i.e. wildcards at the last lines
     
@@ -1234,8 +1245,8 @@ db_wasa_input <- function(
                                con = con,
                                tbl_exist = names(dat_all), update_frac_impervious=F))
       
-      if(any(is.na(dat_all$x_seasons)) | nrow(dat_all$x_seasons) == 0)
-        stop("There are missing values in table 'x_seasons.dat'!")
+      #if(any(is.na(dat_all$x_seasons)) | nrow(dat_all$x_seasons) == 0)
+      #  stop("There are missing values in table 'x_seasons.dat'!")
       
       params = unique(dat_all$x_seasons$parameter)
         
@@ -1415,8 +1426,116 @@ db_wasa_input <- function(
     
   } # reservoir/reservoir.dat
   
+  ### Reservoir/lake.dat
+  if("Reservoir/lake.dat" %in% files) {
+    if(verbose) message("%")
+    if(verbose) message("% Create Reservoir/lake.dat ...")
+    
+    # create file
+    if(!file.exists(paste0(dest_dir, "/Reservoir/lake.dat")) | overwrite){
+      file.create(paste0(dest_dir, "/Reservoir/lake.dat"))
+    } else {
+      stop("File 'Reservoir/lake.dat' exists!")
+    }
+    
+    # get data
+    dat_all <- c(dat_all,
+                 read_db_dat(tbl = c("reservoirs_small_classes"),
+                             con = con,
+                             tbl_exist = names(dat_all), update_frac_impervious=FALSE))
+    
+        tt = dat_all[["reservoirs_small_classes"]]
+        tt$name=NULL #omit "name" column
+
+    # write output
+    header_str <- "Reservoir_class-ID, maxlake0[m**3], lake_vol0_factor[-], lake_change[-], alpha_Molle[-], damk_Molle[-], damc_hrr[-], damd_hrr[-]"
+    write(file=paste0(dest_dir, "/Reservoir/lake.dat"),
+              x=c("Specification of parameters for the reservoir size classes", header_str))
+        # write data
+    write.table(tt, paste0(dest_dir, "/Reservoir/lake.dat"), append=T, quote=F,
+                sep="\t", row.names=F, col.names=F)
+ 
+    if(verbose) message("% OK")
+    
+  } # reservoir/lake.dat
+  
+  ### Reservoir/lake_number.dat
+  if("Reservoir/lake_number.dat" %in% files) {
+    if(verbose) message("%")
+    if(verbose) message("% Create Reservoir/lake_number.dat ...")
+    
+    # create file
+    if(!file.exists(paste0(dest_dir, "/Reservoir/lake_number.dat")) | overwrite){
+      file.create(paste0(dest_dir, "/Reservoir/lake_number.dat"))
+    } else {
+      stop("File 'Reservoir/lake_number.dat' exists!")
+    }
+    
+  # get data
+    dat_all <- c(dat_all,
+                 read_db_dat(tbl = c("r_subbas_contains_reservoirs_small"),
+                             con = con,
+                             tbl_exist = names(dat_all), update_frac_impervious=FALSE))
+    tt = dat_all[["r_subbas_contains_reservoirs_small"]][,c("subbas_id", "res_class_id", "n_reservoirs")]
+    dat_out = reshape(data=tt, direction = "wide", v.names = "n_reservoirs", idvar = "subbas_id", timevar = "res_class_id")
+    
+    # prepare output file
+    header_str <- paste0("Sub-basin-ID, acud[-] (", ncol(dat_out)-1," reservoir size classes)")
+
+    
+    write(file=paste0(dest_dir, "/Reservoir/lake_number.dat"),
+          x=c("Specification of total number of reservoirs in the size classes", header_str))
+    
+    # write output
+    write.table(dat_out, paste0(dest_dir, "/Reservoir/lake_number.dat"), append=T, quote=F,
+                sep="\t", row.names=F, col.names=F)
+    
+    
+    if(verbose) message("% OK")
+    
+  } # reservoir/lake_number.dat
+  
+  ### Reservoir/lake_maxvol.dat
+  if("Reservoir/lake_maxvol.dat" %in% files) {
+    if(verbose) message("%")
+    if(verbose) message("% Create Reservoir/reservoir.dat ...")
+    
+    # create file
+    if(!file.exists(paste0(dest_dir, "/Reservoir/lake_maxvol.dat")) | overwrite){
+      file.create(paste0(dest_dir, "/Reservoir/lake_maxvol.dat"))
+    } else {
+      stop("File 'Reservoir/lake_maxvol.dat' exists!")
+    }
+    
+    # get data
+    dat_all <- c(dat_all,
+                 read_db_dat(tbl = c("r_subbas_contains_reservoirs_small"),
+                             con = con,
+                             tbl_exist = names(dat_all), update_frac_impervious=FALSE))
+    tt = dat_all[["r_subbas_contains_reservoirs_small"]][,c("subbas_id", "res_class_id", "maxlake")]
+    dat_out = reshape(data=tt, direction = "wide", v.names = "maxlake", idvar = "subbas_id", timevar = "res_class_id")
+    
+    # prepare output file
+    header_str <- paste0("Sub-basin-ID, maxlake[m**3]  (", ncol(dat_out)-1," reservoir size classes)")
+    
+    
+    write(file=paste0(dest_dir, "/Reservoir/lake_maxvol.dat"),
+          x=c("Specification of water storage capacity for the reservoir size classes", header_str))
+    
+    # write output
+    write.table(round(dat_out, digits = 1), paste0(dest_dir, "/Reservoir/lake_maxvol.dat"), append=T, quote=F,
+                sep="\t", row.names=F, col.names=F)
+    
+    
+    
+    if(verbose) message("% OK")
+    
+  } # reservoir/lake_maxvol.dat
   
   
+  
+
+   
 
 
 ###############################################################################

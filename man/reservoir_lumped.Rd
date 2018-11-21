@@ -5,12 +5,12 @@
 \title{Generation of WASA parameter files for simulation of lumped reservoirs ("small reservoirs")}
 \usage{
 reservoir_lumped(res_vect = NULL, subbas = NULL,
-  res_vect_classified = NULL, dir_out = "./", lake_file = "lake.dat",
-  lakenum_file = "lake_number.dat",
-  lakemaxvol_file = "lake_maxvol.dat", res_param = data.frame(class =
-  1:5, f_vol_init = 0.2, class_change = 0, alpha_Molle = 2.7, damk_Molle =
-  1500, damc_hrr = c(7, 14, 21, 28, 35), damd_hrr = 1.5), keep_temp = F,
-  overwrite = F, silent = F)
+  res_vect_classified = NULL, dir_out = "./",
+  reservoirs_small_classes_file = "reservoirs_small_classes.dat",
+  r_subbas_contains_reservoirs_small_file = "r_subbas_contains_reservoirs_small.dat",
+  res_param = data.frame(class = 1:5, f_vol_init = 0.2, class_change = 0,
+  alpha_Molle = 2.7, damk_Molle = 1500, damc_hrr = c(7, 14, 21, 28, 35),
+  damd_hrr = 1.5), keep_temp = F, overwrite = F, silent = F)
 }
 \arguments{
 \item{res_vect}{Name of reservoir vector map in GRASS location. Can be point
@@ -30,14 +30,11 @@ appended to the attribute table. If \code{NULL} (default) it will not be created
 \item{dir_out}{Character string specifying output directory (will be created if
 not available and files will be overwritten if \code{overwrite = TRUE}.}
 
-\item{lake_file}{Output: WASA file of parameters for the reservoir size classes.
-See \code{Details}.}
+\item{reservoirs_small_classes_file}{Parameters for the reservoir size classes.
+See \code{\link{db_fill}}.}
 
-\item{lakenum_file}{Output: WASA file containing specification of total number
-of reservoirs in the size classes for a specific subbasin. See \code{Details}.}
-
-\item{lakemaxvol_file}{Output: WASA file containing specification of maximum volume
-of small reservoirs for a specific subbasin - size class combination.}
+\item{r_subbas_contains_reservoirs_small_file}{Distribution of small reservoirs in subbasins.
+See \code{\link{db_fill}}.}
 
 \item{res_param}{A \code{data.frame} object containing parameters for the reservoir
 size classes. The default parameter set is adjusted to semi-arid Brazil.
@@ -54,7 +51,7 @@ Default: \code{FALSE}.}
 of internally used GRASS functions)? Default: \code{FALSE}.}
 }
 \value{
-The three output files specified in \code{lake_file} , \code{lakenum_file} and \code{lakemaxvol_file}; and
+The two output files specified in \code{reservoirs_small_classes_file} and \code{r_subbas_contains_reservoirs_small_file}; and
      the vector map \code{res_vect_class} in GRASS
 }
 \description{
@@ -100,29 +97,7 @@ This function creates WASA input files which are needed to run the model
      \emph{damc_hrr, damd_hrr}\cr
      Parameters of the spillway rating curve in the reservoir size classes:
      Overflow = damc_hrr * Height^(damd_hrr). 
-     Unit of Overflow: \emph{m^3/s}, unit of Height (over spillway): \emph{m}. 
-     
-     
-     \bold{lakenum_file}\cr
-     Specification of total number of reservoirs for the size classes for a specific
-     subbasin.
-     
-     \emph{Subasin-ID}\cr
-     Subbasin ID.
-     
-     \emph{acud}\cr
-     Total number of reservoirs in the size classes.
-     
-     
-     \bold{lakemaxvol_file}\cr
-     Specification of the maximum volume of reservoirs for the size classes for a
-     specific subbasin.
-     
-     \emph{Subasin-ID}\cr
-     Subbasin ID.
-     
-     \emph{maxlake}\cr
-     Maximum volumes in \emph{m^3} of reservoirs in the size classes.
+     Unit of Overflow: \emph{m^3/s}, unit of Height (over spillway): \emph{m}.
 }
 \note{
 Prepare GRASS location and necessary spatial objects in advance and start
