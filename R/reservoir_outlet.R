@@ -19,7 +19,7 @@
 #' 
 #' Takes a flow accumulation raster (or DEM for computation) and reservoir vector
 #' file from a GRASS location and estimates the outlet coordinates of each reservoir
-#' polygon. Can be run before \code{\link[lumpR]{reservoir_strategic}} to produce the required input. 
+#' polygon. Can be run before \code{\link[lumpR]{reservoir_strategic}} to produce the required input. May also be used to provide outlet points for subbasin delineation. 
 #' 
 #' @param flowacc Flow accumulation raster in GRASS location used for determination
 #'      of reservoir outlets (= highest accumulation value). Set to \code{NULL} if
@@ -234,7 +234,7 @@ reservoir_outlet <- function(
       x <- execGRASS("g.remove", type="raster,vector", pattern="*_t", flags=c("f", "b"), intern=T)
     
     
-    if(!silent) message("% OK")
+    if(!silent) message(paste0("% Outlet points saved in map '",outlets_vect,"'"))
     if(!silent) message("%")
     if(!silent) message("% DONE!")
     if(!silent) message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
