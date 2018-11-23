@@ -42,8 +42,8 @@
 #'      raster (<stream>_rast) maps exported into GRASS location. Only generated if
 #'      \code{river} is not set. Default: \code{NULL}.
 #' @param points_processed Output: Prefix of point vector files exported to GRASS location.
-#'      \code{<points_processed>_snap} are given \code{drain_points} snapped to river.
-#'      \code{<points_processed>_calc} are internally calculated drain points (only if
+#'      \code{<points_processed>_snapped_t} are given \code{drain_points} snapped to river.
+#'      \code{<points_processed>_calc_t} are internally calculated drain points (only if
 #'      parameter \code{thresh_sub} is not \code{NULL}, see below).
 #' @param outlet Integer (row number) defining the catchment outlet in \code{drain_points}.
 #'      If there are \code{drain_points} outside the watershed delineated for the
@@ -74,6 +74,23 @@
 #'      Default: \code{FALSE}.
 #' @param silent \code{logical}. Shall the function be silent (also suppressing warnings
 #'      of internally used GRASS functions)? Default: \code{FALSE}.
+#'      
+#' @value Function returns nothing. Various output is generated in the GRASS-location:
+#'  \itemize{
+#'    \item{stream segments}{If \code{river} is not supplied,  vector (<stream>_vect) and raster (<stream>_rast) will be generated.} 
+#'    \item{Subbasin map}{raster map \code{basin_out}} 
+#'  }  
+#'  If \code{keep_temp=TRUE}, the following temporary maps are preserved and can be used for tracing errors:
+#'  \itemize{
+#'    \item{\code{accum_t}}{If \code{flowaccum} is not supplied, contains map of flow accumulation.} 
+#'    \item{\code{drain_t}}{If \code{flowaccum} is not supplied, contains map of darinage direction.} 
+#'    \item{\code{<points_processed>_t}}{Raw subbasin outlet points.} 
+#'    \item{\code{<points_processed>_centered_t}}{Subbasin outlet points centered at cell centers.} 
+#'    \item{\code{<points_processed>_shifted_t}}{Subbasin outlet points shifted slightly out of centers (for preventing pathological cases while snapping).} 
+#'    \item{\code{<points_processed>_snapped_t}}{Raw subbasin outlet points snapped to closest river.} 
+#'    \item{\code{<points_processed>_calc_t}}{internally calculated drain points (only if parameter thresh_sub is not NULL).} 
+#'    \item{\code{<points_processed>_all_t}}{combined drain points as raster (easier to identify double drain points sharing one raster cell).} 
+#'  }  
 #'      
 #'      
 #' @note \bold{Prepare GRASS} location and necessary raster files in advance and start
@@ -148,6 +165,8 @@ calc_subbas <- function(
     stop("drain_points has to be given as SpatialPoints* object with at least one catchment outlet point!")
   if(is.null(river) & (is.null(thresh_stream | is.null(stream))))
     stop("If no river object is given, stream as name prefix for the generated stream maps and the parameter thresh_stream have to be specified for internal calculation of the river network!")
+  if(!is.null(river))
+    check_vector(river, "river")
   if (identical(flowaccum,"")) flowaccum=NULL
   if (identical(drainage_dir,"")) drainage_dir=NULL
   if(xor(!is.null(flowaccum), !is.null(drainage_dir))) 
@@ -246,7 +265,6 @@ calc_subbas <- function(
       # convert to vector
       cmd_out <- execGRASS("r.to.vect", input=paste0(stream, "_thin_t"), output=paste0(stream, "_vect"), type="line", flags="quiet", intern=T)
       river <- paste0(stream, "_vect")
-      
       if(!silent) message("% OK")
       
     } else {
@@ -300,21 +318,21 @@ calc_subbas <- function(
       stop("The column 'subbasin_id' in drain_points contains non-numeric entries.")
     # write to GRASS
     suppressWarnings(proj4string(drain_points) <- CRS(getLocationProj()))
-    suppressWarnings(writeVECT(drain_points, "dp_t", v.in.ogr_flags = c("o","quiet")))
+    suppressWarnings(writeVECT(drain_points, paste0(points_processed,"_t"), v.in.ogr_flags = c("o","quiet")))
     # WINDOWS PROBLEM: delete temporary file otherwise an error occurs when calling writeVECT or readVECT again with the same (or a similar) file name 
     if(.Platform$OS.type == "windows") {
       dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
-      files_del <- grep(substr("dp_t", 1, 8), dir(dir_del), value = T)
+      files_del <- grep(substr(paste0(points_processed,"_t"), 1, 8), dir(dir_del), value = T)
       unlink(paste(dir_del, files_del, sep="/"))
     }
     # move drainage points to centers of raster cells
-    x <- execGRASS("v.to.rast", input="dp_t", output="dp_t", use="attr", attribute_column="subbas_id", flags="overwrite", intern=T)
-    x <- execGRASS("r.to.vect", input="dp_t", output="dp_centered_t", type="point", flags = c("overwrite", "quiet"))
-    drain_points_centered <- readVECT(vname = "dp_centered_t", layer=1)
+    x <- execGRASS("v.to.rast", input=paste0(points_processed,"_t"), output=paste0(points_processed,"_t"), use="attr", attribute_column="subbas_id", flags="overwrite", intern=T)
+    x <- execGRASS("r.to.vect", input=paste0(points_processed,"_t"), output=paste0(points_processed,"_centered_t"), type="point", flags = c("overwrite", "quiet"))
+    drain_points_centered <- readVECT(vname = paste0(points_processed,"_centered_t"), layer=1)
     colnames(drain_points_centered@data) <- c("cat","subbas_id")
     if(.Platform$OS.type == "windows") {
       dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
-      files_del <- grep(substr("dp_centered_t", 1, 8), dir(dir_del), value = T)
+      files_del <- grep(substr(paste0(points_processed,"_centered_t"), 1, 8), dir(dir_del), value = T)
       unlink(paste(dir_del, files_del, sep="/"))
     }
     
@@ -325,10 +343,10 @@ calc_subbas <- function(
     # create shifted version of drainage points (shifted by 1/4 of resolution)
     drain_points_shifted <- drain_points_centered
     drain_points_shifted@coords <- drain_points_shifted@coords + res/4
-    suppressWarnings(writeVECT(drain_points_shifted, "dp_shifted_t", v.in.ogr_flags = c("o","quiet")))
+    suppressWarnings(writeVECT(drain_points_shifted, paste0(points_processed,"_shifted_t"), v.in.ogr_flags = c("o","quiet")))
     if(.Platform$OS.type == "windows") {
       dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
-      files_del <- grep(substr("dp_shifted_t", 1, 8), dir(dir_del), value = T)
+      files_del <- grep(substr(paste0(points_processed,"_shifted_t"), 1, 8), dir(dir_del), value = T)
       unlink(paste(dir_del, files_del, sep="/"))
     }
     
@@ -336,7 +354,6 @@ calc_subbas <- function(
     rm(drain_points_shifted, drain_points_centered)
     
     # read stream vector
-    check_vector(river, "river")
     streams_vect <- readVECT(river)
     # WINDOWS PROBLEM: delete temporary file otherwise an error occurs when calling writeVECT or readVECT again with the same (or a similar) file name 
     if(.Platform$OS.type == "windows") {
@@ -350,11 +367,11 @@ calc_subbas <- function(
     drain_points_snap$nearest_line_id=NULL #we don't need this and this long field name causes trouble
     
     # export drain_points_snap to GRASS
-    suppressWarnings(writeVECT(drain_points_snap, paste0(points_processed, "_snap"), v.in.ogr_flags = c("o","quiet")))
+    suppressWarnings(writeVECT(drain_points_snap, paste0(points_processed, "_snapped_t"), v.in.ogr_flags = c("o","quiet")))
     # WINDOWS PROBLEM: delete temporary file otherwise an error occurs when calling writeVECT or readVECT again with the same (or a similar) file name
     if(.Platform$OS.type == "windows") {
       dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
-      files_del <- grep(substr(paste0(points_processed, "_snap"), 1, 8), dir(dir_del), value = T)
+      files_del <- grep(substr(paste0(points_processed, "_snapped_t"), 1, 8), dir(dir_del), value = T)
       unlink(paste(dir_del, files_del, sep="/"))
     }
     
@@ -430,9 +447,9 @@ calc_subbas <- function(
         drain_points_calc <- SpatialPointsDataFrame(coordinates(outs), outs@data, proj4string = CRS(getLocationProj()))
         
         # write to GRASS location
-        writeVECT(drain_points_calc, paste0(points_processed, "_calc"), ignore.stderr = T, v.in.ogr_flags = c("o","quiet"))
+        writeVECT(drain_points_calc, paste0(points_processed, "_calc_t"), ignore.stderr = T, v.in.ogr_flags = c("o","quiet"))
         
-        # drain_points_snap df requires columns 'cat' and 'subbas_id' as drain_points_calc
+        # drain_points_snap df requires columns 'cat' and 'subbas_id' as drain_points_calc_t
         drain_points_snap@data <- drain_points_snap@data[,c("cat", "subbas_id")]
         suppressWarnings(proj4string(drain_points_snap) <- CRS(getLocationProj()))
         
@@ -485,6 +502,7 @@ calc_subbas <- function(
         warning(paste0("Number of cells in calculated catchment ",id," is very low (",ncells,"). Try using a filled DEM and check outlet points."))
       
       # reclass (for crossing later on)
+      # ii: can this be done with reclass to conserver space?
       cmd_out <- execGRASS("r.mapcalc", expression=paste0("basin_recl_", id, "_t = if(basin_", id, "_t,", id, ")"), intern=T)
       
     }
