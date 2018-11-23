@@ -620,7 +620,7 @@ calc_subbas <- function(
     if(!silent) message("% OK")
     if(!silent) message("%")
     if(!silent) message("% -> Check the results for plausibility (e.g. inaccuracies at snapping of drain_points to streams may occur).")
-    if(!silent) message("% -> If manual adjustments are necessary re-run the function for re-calculation of subbasins.")
+    if(!silent) message("% -> If manual adjustments are necessary re-run this function. Existing grids of flow accumulation and direction may be used for speed-up.")
     if(!silent) message("%")
     if(!silent) message("% DONE!")
     if(!silent) message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
