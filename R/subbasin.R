@@ -319,22 +319,15 @@ calc_subbas <- function(
     # write to GRASS
     suppressWarnings(proj4string(drain_points) <- CRS(getLocationProj()))
     suppressWarnings(writeVECT(drain_points, paste0(points_processed,"_t"), v.in.ogr_flags = c("o","quiet")))
-    # WINDOWS PROBLEM: delete temporary file otherwise an error occurs when calling writeVECT or readVECT again with the same (or a similar) file name 
-    if(.Platform$OS.type == "windows") {
-      dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
-      files_del <- grep(substr(paste0(points_processed,"_t"), 1, 8), dir(dir_del), value = T)
-      unlink(paste(dir_del, files_del, sep="/"))
-    }
+    clean_temp_dir(paste0(points_processed, "_t"))
+
     # move drainage points to centers of raster cells
     x <- execGRASS("v.to.rast", input=paste0(points_processed,"_t"), output=paste0(points_processed,"_t"), use="attr", attribute_column="subbas_id", flags="overwrite", intern=T)
     x <- execGRASS("r.to.vect", input=paste0(points_processed,"_t"), output=paste0(points_processed,"_centered_t"), type="point", flags = c("overwrite", "quiet"))
     drain_points_centered <- readVECT(vname = paste0(points_processed,"_centered_t"), layer=1)
+    clean_temp_dir(paste0(points_processed,"_centered_t"))
+    
     colnames(drain_points_centered@data) <- c("cat","subbas_id")
-    if(.Platform$OS.type == "windows") {
-      dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
-      files_del <- grep(substr(paste0(points_processed,"_centered_t"), 1, 8), dir(dir_del), value = T)
-      unlink(paste(dir_del, files_del, sep="/"))
-    }
     
     # determine raster resolution
     res <- gmeta()
@@ -344,23 +337,15 @@ calc_subbas <- function(
     drain_points_shifted <- drain_points_centered
     drain_points_shifted@coords <- drain_points_shifted@coords + res/4
     suppressWarnings(writeVECT(drain_points_shifted, paste0(points_processed,"_shifted_t"), v.in.ogr_flags = c("o","quiet")))
-    if(.Platform$OS.type == "windows") {
-      dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
-      files_del <- grep(substr(paste0(points_processed,"_shifted_t"), 1, 8), dir(dir_del), value = T)
-      unlink(paste(dir_del, files_del, sep="/"))
-    }
+    clean_temp_dir(paste0(points_processed,"_shifted_t"))
     
-    #drain_points <- drain_points_shifted
+    outlet_id <- drain_points@data$subbas_id[outlet] #remember outlet by ID, not by row
+    drain_points <- drain_points_shifted
     rm(drain_points_shifted, drain_points_centered)
     
     # read stream vector
     streams_vect <- readVECT(river)
-    # WINDOWS PROBLEM: delete temporary file otherwise an error occurs when calling writeVECT or readVECT again with the same (or a similar) file name 
-    if(.Platform$OS.type == "windows") {
-      dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
-      files_del <- grep(substr(river, 1, 8), dir(dir_del), value = T)
-      unlink(paste(dir_del, files_del, sep="/"), force = TRUE)
-    }
+    clean_temp_dir(river)
     
     # snap points to streams
     drain_points_snap <- suppressWarnings(snapPointsToLines(drain_points, streams_vect, maxDist=snap_dist))
@@ -368,12 +353,7 @@ calc_subbas <- function(
     
     # export drain_points_snap to GRASS
     suppressWarnings(writeVECT(drain_points_snap, paste0(points_processed, "_snapped_t"), v.in.ogr_flags = c("o","quiet")))
-    # WINDOWS PROBLEM: delete temporary file otherwise an error occurs when calling writeVECT or readVECT again with the same (or a similar) file name
-    if(.Platform$OS.type == "windows") {
-      dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
-      files_del <- grep(substr(paste0(points_processed, "_snapped_t"), 1, 8), dir(dir_del), value = T)
-      unlink(paste(dir_del, files_del, sep="/"))
-    }
+    clean_temp_dir(paste0(points_processed, "_snapped_t"))
     
     if (length(drain_points_snap) < length(drain_points)) stop("Less points after snapping than in drain_points input!\nComputed stream segments are probably too coarse. Try a smaller value of thresh_stream to create a fine river network.")
     
@@ -385,7 +365,7 @@ calc_subbas <- function(
     if(!silent) message("% Calculate catchments for every drainage point...")
     
     # update index to outlet, as its order may have changed during previous steps
-    outlet <- which(drain_points_snap@data$subbas_id == drain_points@data$subbas_id[outlet])
+    outlet <- which(drain_points_snap@data$subbas_id == outlet_id)
     outlet_coords <- coordinates(drain_points_snap)[outlet,]
     
     cmd_out <- execGRASS("r.water.outlet", input="drain_t", output=paste0("basin_outlet_t"), coordinates=outlet_coords, flags="overwrite", intern = T)
@@ -470,12 +450,8 @@ calc_subbas <- function(
     
     # combined drain points as raster (easier to identify double drain points sharing one raster cell)
     suppressWarnings(writeVECT(drain_points_snap, paste0(points_processed, "_all_t"), v.in.ogr_flags = c("o","quiet")))
-    # WINDOWS PROBLEM: delete temporary file otherwise an error occurs when calling writeVECT or readVECT again with the same (or a similar) file name 
-    if(.Platform$OS.type == "windows") {
-      dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
-      files_del <- grep(substr(paste0(points_processed, "_all_t"), 1, 8), dir(dir_del), value = T)
-      unlink(paste(dir_del, files_del, sep="/"))
-    }
+    clean_temp_dir(paste0(points_processed,"_all_t"))
+    
     x <- execGRASS("v.to.rast", input=paste0(points_processed, "_all_t"), output=paste0(points_processed, "_all_t_t"), use="attr", attribute_column="subbas_id", flags="overwrite", intern=T)
     x <- execGRASS("r.mapcalc", expression=paste0(points_processed, "_all_t=round(", points_processed, "_all_t_t)"), flags = c("overwrite"), intern=T)
     x <- execGRASS("g.remove", type="raster", pattern=paste0(points_processed, "_all_t_t"), flags="f", intern=T) #remove temporary map required in previous line
