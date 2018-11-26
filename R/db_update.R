@@ -219,6 +219,9 @@ db_update <- function(
 
   while(to_ver > db_ver) # other
   { 
+    # update list of tables in database
+    tbls <- sqlTables(con)[,"TABLE_NAME"]
+    
     #fill in update steps
     # read file with sql statements
     sql_file <- system.file(paste0("database/update_db_v", db_ver+1, ".sql"), package="lumpR")
@@ -253,15 +256,15 @@ db_update <- function(
         pos <- grep("create", split, ignore.case = T)
         tbl <- split[pos+2]
         if(tbl %in% tbls) {
-          warning(paste0("Table '", tbl, "' already existed when updating to version ", to_ver, ". Renaming to *_bak, please consider manually migrating value into new table."))
+          warning(paste0("Table '", tbl, "' already existed when updating to version ", db_ver+1, ". Renaming to *_bak, please consider manually migrating value into new table."))
           #create backup and delete -
           #direct renaming apparently not supported in Access
-          statement <- sql_dialect(con, paste0("DROP TABLE ", tbl,"_bak;"))
-          res <- sqlQuery(con, statement, errors=F)
-          statement <- sql_dialect(con, paste0("SELECT * INTO ", tbl,"_bak FROM ", tbl, ";"))
-          res <- sqlQuery2(con, statement, info="creating backup")
-          statement <- sql_dialect(con, paste0("DROP TABLE ", tbl,";"))
-          res <- sqlQuery2(con, statement, info="deleting backed-up table")
+          statement2 <- sql_dialect(con, paste0("DROP TABLE ", tbl,"_bak;"))
+          res <- sqlQuery(con, statement2, errors=F)
+          statement2 <- sql_dialect(con, paste0("SELECT * INTO ", tbl,"_bak FROM ", tbl, ";"))
+          res <- sqlQuery2(con, statement2, info="creating backup")
+          statement2 <- sql_dialect(con, paste0("DROP TABLE ", tbl,";"))
+          res <- sqlQuery2(con, statement2, info="deleting backed-up table")
           
         }
       }

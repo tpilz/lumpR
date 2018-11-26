@@ -160,7 +160,7 @@ db_create <- function(
   } # loop over scriptparts
   
   # delete other tables (those that shall not be preserved and are not part of the base version 19 which is created here)
-  tbls <- sqlTables(con)[,"TABLE_NAME"]
+  tbls <- sqlTables(con, tableType="TABLE")[,"TABLE_NAME"]
   tbls = tbls[!grepl(x = tbls, "^MSys")] #ignore MS Access internal tables
   
   r_tbls_del <- which(!(tbls %in% c(keep_tables, tbls_created)))
@@ -194,10 +194,11 @@ db_create <- function(
   
   if (db_ver > 19)
   {  
+    browser()
     if (!is.null(keep_tables)) #first, update until version encountered before, keeping protected tables
-      db_update(dbname, db_ver_init, keep_tables = keep_tables)
+      db_update(dbname = dbname, to_ver = db_ver_init, keep_tables = keep_tables)
 
-    db_update(dbname, db_ver)
+    db_update(dbname, to_ver = db_ver)
   }
   
     
