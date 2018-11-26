@@ -723,8 +723,9 @@ res = try( #catch unexpected errors
   if(!is.null(qual_rast))
     na_vals <- c(na_vals, apply(!is.finite(qual_vals), MARGIN=2, sum))
   
+  na_vals = na_vals[na_vals != 0] #consioder only those having NAs
   if (any(na_vals>0)) {  # cells found with NAs in auxiliary grids
-    message(paste('% -> WARNING: EHA ', curr_id, ': NAs or zeros in the grid(s) ', paste(names(na_vals[na_vals]), collapse=', ') ,' (max. ', max(na_vals), ' values).', sep=""))
+    message(paste('% -> WARNING: EHA ', curr_id, ': NAs or zeros in the grid(s): ', paste0(names(na_vals), " (", na_vals, ")", collapse=', '), sep="" ))
     errcode <- 7
   }
   
