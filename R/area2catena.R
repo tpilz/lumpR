@@ -197,6 +197,7 @@ area2catena <- function(
   check_raster(eha,"eha")
   check_raster(distriv,"distriv")
   check_raster(elevriv,"elevriv")
+  auto_attributes = c("id","x_coord","shape","x_extent","z_extent") #some attributes are automatically derived. If these are already specified in the table, extract them for later use
   
   if (!is.null(attribute_file)) #attribute description file specified?
   {
@@ -210,7 +211,6 @@ area2catena <- function(
     
     attribute_table = check_attr_table(attribute_table) #check validity of /correct attribute table
     
-    auto_attributes = c("id","x_coord","shape","x_extent","z_extent") #some attributes are automatically derived. If these are already specified in the table, extract them for later use
     exclude = attribute_table$attribute %in% auto_attributes
     attribute_table_auto=attribute_table[ exclude,] #store for later use
     attribute_table     =attribute_table[!exclude,] #exclude from ordinary treatment
@@ -222,7 +222,29 @@ area2catena <- function(
     supp_qual  = attribute_table$attribute[attribute_table$type=="qualitative"]
     supp_quant = attribute_table$attribute[attribute_table$type=="quantitative"]
     
-  } else attribute_file="attribute_file.txt" #so we can create this output anyway
+  } else #no attribute table specified, generate one
+  {
+      attribute_file="attribute_file.txt" #so we can create this output anyway
+      attribute_table=data.frame(
+        attribute=c(supp_quant, supp_qual), 
+        type=c(rep("quantitative", length(supp_quant)), rep("qualitative", length(supp_qual))),
+        group="", 
+        group_weight=1, 
+        is_spatial=1, 
+        n_classes_4lu=NA,
+        weight_4tc=1, 
+        n_datacolumns=0,
+          stringsAsFactors = FALSE)
+      
+    n_auto = length(auto_attributes)
+    attribute_table_auto=attribute_table[ rep(1, n_auto),] #create extra table for autoattributes
+    attribute_table_auto$attribute=auto_attributes
+    attribute_table_auto$type=c(rep("ignored",2), rep("quantitative",n_auto-2))
+    attribute_table_auto$group [auto_attributes %in% c("x_extent", "z_extent")] = "extent"
+    attribute_table_auto$is_spatial=c(0,1,1,0,0)
+    attribute_table_auto$n_classes_4lu=NA
+    attribute_table_auto$n_datacolumns=1
+  }
   
   #check existence of supplementary information maps
    if (length(supp_qual)==0) supp_qual=NULL else
@@ -320,7 +342,7 @@ area2catena <- function(
       rm(list=c("tmp"))
     
     
-    # compare Rasters for extent, no. of rows and cols, CRS, resolution and origin
+    # compare rasters for extent, no. of rows and cols, CRS, resolution and origin
     if (!is.null(qual_rast) & !is.null(quant_rast)) {
       comp_val <- compareRaster(flowaccum_rast, relelev_rast, dist2river_rast, eha_rast, 
                                 qual_rast, quant_rast, res=T, orig=T)
@@ -531,7 +553,6 @@ area2catena <- function(
     attribute_table_new$weight_4tc   [4:5]=0
     attribute_table_new$n_datacolumns[4:5]=0
     
-    #browser()
     #if some of the special attributes have been specified before in the attribute table, restore these values
     if (nrow(attribute_table_auto)>0)
       for (i in 1:nrow(attribute_table_auto))
@@ -539,7 +560,7 @@ area2catena <- function(
         cur_row = attribute_table_new$attribute == attribute_table_auto$attribute[i]
         for (ccol in names(attribute_table_auto))
           if (!is.na(attribute_table_auto[i, ccol]))
-            attribute_table_new[cur_row, ccol] = attribute_table_auto[i, ccol] #copy from original table, is available
+            attribute_table_new[cur_row, ccol] = attribute_table_auto[i, ccol] #copy from original table, if available
       }  
 
     #write modified file
