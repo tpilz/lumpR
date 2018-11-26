@@ -228,12 +228,7 @@ reservoir_lumped <- function(
     options(warn = -1)
   }
   
-  # help function: calculation of reservoir volume / area by empirical relationship of Molle (1989)
-  molle_v <- function(alpha, k, A) 10^(log10(A/alpha/k)*(alpha-1)/alpha+log10(k))
-  molle_a <- function(alpha, k, V) alpha * k * (V/k)^(alpha/(alpha-1))
-  
-  
-  
+
 ### CALCULATIONS ###-----------------------------------------------------------
   tryCatch({
     
@@ -267,6 +262,7 @@ reservoir_lumped <- function(
       cmd_out <- execGRASS("v.info", map=res_vect, flags=c("c", "e"), intern=T)
       if (!any(grepl(cmd_out, pattern="\\|area"))) #add area column
       {  
+        #ii: solve this directly in GRASS using v.to.db 
         res_lump <- readVECT(res_vect)
         projection(res_lump) <- getLocationProj()
         

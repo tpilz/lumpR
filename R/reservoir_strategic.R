@@ -27,8 +27,9 @@
 #'      ID derived from \code{subbasin} will be added to the attribute table.
 #' @param subbasin Subbasin raster map in GRASS location. Can be created with
 #'      \code{\link[lumpR]{calc_subbas}}.
-#' @param res_file tab-delimited file containing reservoir properties (fields see details) and key "res_id". 
-#'       If set to NULL, these attributes must be given via the attribute table of \code{res_vect}
+#' @param res_file tab-delimited file containing reservoir properties (fields see details) and key \code{res_id}. 
+#'       If set to NULL, these attributes must be contained in the attribute table of \code{res_vect}. If they are missing,
+#'       they will be set to deafult values (see Details).
 #' @param dir_out Character string specifying output directory (will be created if it
 #'      does not yet exist).
 #' @param reservoir_file Output: File of parameters for the strategic reservoirs
@@ -164,6 +165,8 @@ reservoir_strategic <- function(
   check_raster(subbasin,"subbasin")
   check_vector(res_vect,"res_vect")
   
+  if (!is.null(res_file) && !file.exists(res_file)) stop(paste0("Input file ", res_file, " not found."))
+  
   if(!silent) message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
   if(!silent) message("% START reservoir_strategic()")
   if(!silent) message("%")
@@ -223,6 +226,12 @@ reservoir_strategic <- function(
     colnames(res@data) <- tolower(colnames(res@data))
     if (!any(names(res@data)  =="res_id")) stop(paste0("Reservoir vector ", res_vect, " must contain the column 'res_id'."))
     
+    
+    # check existence of necessary columns in attribute table
+    cols_mandatory <- c("minlevel", "maxlevel", "vol0", "storecap", "damflow", "damq_frac", 
+                        "withdrawal", "damyear", "maxdamarea", "damdead", "damalert", "dama", "damb", 
+                        "q_outlet", "fvol_botm", "fvol_over", "damc", "damd", "elevbottom")
+    
     # merge data from res_file if available
     if (!is.null(res_file))
     {  
@@ -230,12 +239,89 @@ reservoir_strategic <- function(
       colnames(res_params) <- tolower(colnames(res_params))
       if (!any(names(res_params)=="res_id")) stop(paste0("Reservoir file ", res_file, " must contain the column 'res_id'."))
       res@data = merge(res@data, res_params, by="res_id")
+    } else #no file for reservoir parameters given
+    {
+      warning("Reservoir parameters not specified, dummy default values will be used. Please refine these in the database!")
+      
+      set2default = setdiff(cols_mandatory, colnames(res@data)) #find missing colnames that need to be set to default values
+
+      if ("name" %in% colnames(res@data))
+              res@data$name=paste0("res_",res@data$res_id, ifelse(length(set2default)>0,"_default",""))
+      
+      # if ("maxdamarea" %in% set2default)
+      # {  
+      #   get.area <- function(polygon) {
+      #     row <- data.frame(id=polygon@ID, area=polygon@area, stringsAsFactors=FALSE)
+      #     return(row)
+      #   }
+      #   areas <- do.call(rbind,lapply(res@polygons, get.area))
+      #   res@data  <- merge(res@data, areas, by="res_id")  # append area column
+      #   names(res@data)[names(res@data)=="area"] = "maxdamarea" #rename column
+      # }  
+      
+      if ("maxdamarea" %in% set2default)
+      {  
+        res@data$maxdamarea=res@data$area
+        res@data$area=NULL
+      }
+      
+      if ("maxlevel" %in% set2default)
+        res@data$maxlevel=0
+      
+      if ("minlevel" %in% set2default)
+              res@data$minlevel=0
+      
+ 
+      if ("vol0" %in% set2default)
+        res@data$vol0=molle_v(alpha = 2.7, k = 1500, A = res@data$maxdamarea*1e4)
+      
+      if ("storecap" %in% set2default)
+        res@data$storecap=res@data$vol0
+      
+      if ("damflow" %in% set2default)
+        res@data$damflow = 9.99
+      
+      if ("damq_frac" %in% set2default)
+        res@data$damq_frac = 1
+      
+      if ("withdrawal" %in% set2default)
+        res@data$withdrawal = 0
+      
+      if ("damyear" %in% set2default)
+        res@data$damyear = 1900
+      
+      if ("damdead" %in% set2default)
+        res@data$damdead = 0.01 * res@data$storecap
+      
+      if ("damalert" %in% set2default)
+        res@data$damalert = 0.01 * res@data$storecap
+      
+      if ("dama" %in% set2default)
+        res@data$dama=1500
+      
+      if ("damb" %in% set2default)
+        res@data$damb=2.7
+      
+      if ("q_outlet" %in% set2default)
+        res@data$q_outlet=0.999
+      
+      if ("fvol_botm" %in% set2default)
+        res@data$fvol_botm = 0.01
+      
+      if ("fvol_over" %in% set2default)
+        res@data$fvol_over= 1
+      
+      if ("damc" %in% set2default)
+        res@data$damc=99.99
+      
+      if ("damd" %in% set2default)
+        res@data$damd = 1.5
+      
+      if ("elevbottom" %in% set2default)
+        res@data$elevbottom=99
+      
     }
-    
-    # check existence of necessary columns in attribute table
-    cols_mandatory <- c("minlevel", "maxlevel", "vol0", "storecap", "damflow", "damq_frac", 
-                        "withdrawal", "damyear", "maxdamarea", "damdead", "damalert", "dama", "damb", 
-                        "q_outlet", "fvol_botm", "fvol_over", "damc", "damd", "elevbottom")
+
     chk_cols <- grepl(paste(colnames(res@data), collapse="|^"), cols_mandatory)
     if(any(!chk_cols))
       stop(paste0("Check attribute table of 'res_vect' or provide 'res_file', column(s) ", paste(cols_mandatory[!chk_cols], collapse=", "), " could not be found!"))
@@ -243,7 +329,7 @@ reservoir_strategic <- function(
     # check for duplicates (multiple reservoirs  per subbasin)
     dupl <- duplicated(res@data$subbas_id, incomparables=c(NA))
     if (any(dupl))
-      stop(paste0("Subbasin(s) no. ", paste(unique(res@data$subbas_id[dupl]), collapse=", "), " contain(s) multiple strategic reservoirs! Remove reservoirs or redefine subcatchments."))
+      stop(paste0("Subbasin(s) no. ", paste(unique(res@data$subbas_id[dupl]), collapse=", "), " contain(s) multiple strategic reservoirs! Remove reservoirs, refine their outlet points or redefine subcatchments."))
     
     outside <- is.na(res@data$subbas_id)
     if (any(outside))

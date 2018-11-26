@@ -3,15 +3,18 @@ check_raster <- function(map, argument_name="") { #check existence of raster map
   cur_mapset = execGRASS("g.mapset", flags="p", intern=TRUE) #determine name of current mapset
   if (!grepl(map, pattern = "@"))
     map = paste0(map,"@", cur_mapset)  #add mapset name, unless already given. Otherwise, these checks may fall back on PERMANENT yielding true, but readRAST will fail later
-  cmd_out <-tryCatch(suppressWarnings(execGRASS("r.info", map=map, intern = T)), error=function(e){
+
+  cmd_out <-suppressWarnings(execGRASS("r.info", map=map, intern = T, ignore.stderr = TRUE))
+  
+  if (!is.null(attr(cmd_out, "status")) && attr(cmd_out, "status")==1)
     stop(paste0("Raster map '", map, "' not found", ifelse(argument_name=="", ".", paste0(" (argument '", argument_name,"'). If the map is in another mapset, add '@othermapset' to the name."))))
-  })
 }
 
 check_vector <- function(map, argument_name="") { #check existence of vector map
-  cmd_out <-tryCatch(suppressWarnings(execGRASS("v.info", map=map, intern = T)), error=function(e){
+  cmd_out=suppressWarnings(execGRASS("v.info", map=map, intern = T, ignore.stderr = TRUE))
+  
+  if (!is.null(attr(cmd_out, "status")) && attr(cmd_out, "status")==1)
     stop(paste0("Vector map '", map, "' not found", ifelse(argument_name=="", ".", paste0(" (argument '", argument_name,"'). If the map is in another mapset, add '@othermapset' to the name."))))
-  })
 }
 
 read_raster <- function(raster_name) { 
@@ -41,3 +44,8 @@ clean_temp_dir <- function(file_name) {
       file.remove(paste(dir_del, files_del, sep="/"), showWarnings=FALSE)
   }
 }
+
+# calculation of reservoir volume / area by empirical relationship of Molle (1989) h[m]; A[m2]; V[m3]
+molle_v <- function(alpha, k, A) k* (A/(alpha*k))^(alpha/(alpha-1)) 
+molle_a <- function(alpha, k, V) (V/k * (alpha * k)^(alpha/(alpha-1)))^((alpha-1)/alpha) #cas
+molle_h <- function(alpha, k, A) exp(log(A/alpha/k)/(alpha-1))

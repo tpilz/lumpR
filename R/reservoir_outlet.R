@@ -28,12 +28,14 @@
 #' @param dem Digital elevation model in GRASS location used for calculation of
 #'      flow accumulation if no flow accumulation raster is given. Default: \code{NULL}.
 #'  
-#' @param res_vct Reservoir vector file in GRASS location. For each polygon coordinates
+#' @param res_vct Reservoir vector file (polygon) in GRASS location. For each polygon coordinates
 #'      of the outlet (cell with highest flow accumulation) are determined. Needs
 #'      at least the column \code{res_id} (integer) as reservoir identifier.
+#'      If there are no columns \code{elevation} (double) and \code{area} (double) [hectars], they will be added.
 #'      
 #' @param outlets_vect Output: Name of vector file of outlet locations to be exported
-#'      to GRASS location.
+#'      to GRASS location. Same fields as \code{res_vct}, fields 
+#'       \code{res_id}, \code{elevation} and \code{area} may have been added.
 #'      
 #' @param keep_temp \code{logical}. Set to \code{TRUE} if temporary files shall be kept
 #'      in the GRASS location, e.g. for debugging or further analyses. Default: \code{FALSE}.
@@ -43,7 +45,7 @@
 #' @param silent \code{logical}. Shall the function be silent (also suppressing warnings
 #'      of internally used GRASS functions)? Default: \code{FALSE}.
 #'      
-#' @return Function returns nothing. \bold{WARNING:} Up to version 2.5.0 this function
+#' @return Function returns nothing, but produces \code{outlets_vect}. \bold{WARNING:} Up to version 2.5.0 this function
 #' returned a \code{SpatialPoints} object with the outlet coordinates.
 #'      
 #' @note Prepare GRASS location and necessary files in advance and start GRASS
@@ -110,6 +112,12 @@ reservoir_outlet <- function(
     stop(paste0("Reservoir vector file '",res_vct,"' has no column 'res_id' (INTEGER), please add it."))
   # if (!any(grepl(cmd_out, pattern="CHARACTER\\|name")))
   #   stop(paste0("Reservoir vector file '",res_vct,"' has no column 'name' (CHARACTER), please add it."))
+  
+  if (!any(grepl(cmd_out, pattern="\\|area"))) #add area field in hectars, if not present
+  {  
+    x <- execGRASS("v.db.addcolumn", map=res_vct, columns="area double", intern=TRUE) 
+    x <- execGRASS("v.to.db", map=res_vct, option="area", columns="area", units="hectares", intern=TRUE) 
+  }
   
   
   # suppress annoying GRASS outputs 
@@ -219,15 +227,13 @@ reservoir_outlet <- function(
     #      x <- execGRASS("db.connect", driver="dbf", database="e:\\till\\uni\\r_lib\\package_build\\lumpR\\lumpr_test\\wasa_example\\grassdata\\Esera\\PERMANENT\\dbf\\", intern=TRUE)      
     
     
-    ##read reservoir map
-    #res_t <- readVECT("resv_t")
-    #clean_temp_dir("resv_t")
-    
-    #read outlet point map
-    #outlets_vect<- readVECT("resv_t")
-    #projection(res_t) <- getLocationProj()
-    #res_t@data$t_id = 1:nrow(res_t@data) #create temporary ID
-    
+    #add elevation field, if not present
+    cmd_out <- execGRASS("v.info", map=outlets_vect, flags=c("c", "e"), intern=T)
+    if (!any(grepl(cmd_out, pattern="\\|elevation"))) 
+    {  
+      x <- execGRASS("v.db.addcolumn", map=outlets_vect, columns="elevation double",     intern=TRUE) 
+      x <- execGRASS("v.what.rast",    map=outlets_vect, column="elevation", raster=dem, intern=TRUE)  
+    }
     
     # delete temp
     if(keep_temp == FALSE)
