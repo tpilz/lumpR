@@ -201,7 +201,7 @@ area2catena <- function(
   if (!is.null(attribute_file)) #attribute description file specified?
   {
     if(!file.exists(attribute_file))
-      stop(past0("<attribute_file> ",attribute_file, "not found."))
+      stop(paste0("<attribute_file> ",attribute_file, "not found."))
     
     if (!is.null(supp_qual) | !is.null(supp_quant))
       warning("<attribute_file> specified, ignoring <supp_qual> and <supp_quant>.")
@@ -263,18 +263,22 @@ area2catena <- function(
     # load flow accumulation
     flowaccum <- readRAST(flowacc)
     flowaccum_rast <- raster(flowaccum)
+    clean_temp_dir(flowacc)
     
     # load relative elevation
     relelev <- readRAST(elevriv)
     relelev_rast <- raster(relelev)
+    clean_temp_dir(elevriv)
     
     # load distance to river
     dist2river <- readRAST(distriv)
     dist2river_rast <- raster(dist2river)
+    clean_temp_dir(distriv)
     
     # load EHAs
     eha_in <- readRAST(eha)
     eha_rast <- raster(eha_in)
+    clean_temp_dir(eha)
     
     
     # load qualitative supplemental data
@@ -288,6 +292,7 @@ area2catena <- function(
     {  
       for (i in supp_qual) {
         tmp <- read_raster(i)
+        clean_temp_dir(i)
         qual_rast <- raster::stack(tmp, qual_rast)
         supp_data_classnames[[i]] <- raster::unique(tmp)
         n_supp_data_qual_classes <- c(n_supp_data_qual_classes, length(raster::unique(tmp)))
@@ -304,6 +309,7 @@ area2catena <- function(
     quant_rast <- NULL # initialise object containing all quantitative raster layers
     for (i in rev(supp_quant)) {
       tmp <- read_raster(i)
+      clean_temp_dir(i)
       quant_rast <- raster::stack(tmp, quant_rast)
     }
     
