@@ -197,7 +197,7 @@ area2catena <- function(
   check_raster(eha,"eha")
   check_raster(distriv,"distriv")
   check_raster(elevriv,"elevriv")
-  auto_attributes = c("id","x_coord","shape","x_extent","z_extent") #some attributes are automatically derived. If these are already specified in the table, extract them for later use
+  auto_attributes = c("id","x_coord","shape","x_extent","z_extent","slope_width") #some attributes are automatically derived. If these are already specified in the table, extract them for later use
   
   if (!is.null(attribute_file)) #attribute description file specified?
   {
@@ -224,7 +224,7 @@ area2catena <- function(
     
   } else #no attribute table specified, generate one
   {
-      attribute_file="attribute_file.txt" #so we can create this output anyway
+      attribute_file="attributes.txt" #so we can create this output anyway
       attribute_table=data.frame(
         attribute=c(supp_quant, supp_qual), 
         type=c(rep("quantitative", length(supp_quant)), rep("qualitative", length(supp_qual))),
@@ -241,7 +241,7 @@ area2catena <- function(
     attribute_table_auto$attribute=auto_attributes
     attribute_table_auto$type=c(rep("ignored",2), rep("quantitative",n_auto-2))
     attribute_table_auto$group [auto_attributes %in% c("x_extent", "z_extent")] = "extent"
-    attribute_table_auto$is_spatial=c(0,1,1,0,0)
+    attribute_table_auto$is_spatial=c(0,1,1,0,0,1)
     attribute_table_auto$n_classes_4lu=NA
     attribute_table_auto$n_datacolumns=1
   }
