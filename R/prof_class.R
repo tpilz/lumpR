@@ -297,7 +297,7 @@ prof_class <- function(
       attribute_table$attribute =  gsub(x = attribute_table$attribute, pattern = "p_no",   replacement = "x_extent")
       attribute_table$attribute =  gsub(x = attribute_table$attribute, pattern = "elevation",   replacement = "z_extent")
       
-      save(list = ls(), file="head.RData")
+      #save(list = ls(), file="head.RData")
     }   else
     { #use attribute_table
       check_attr_table(attribute_table, manatory_attribs = c("id", "shape", "x_extent", "z_extent"))
@@ -322,7 +322,7 @@ prof_class <- function(
       #legacy
         attribute_table$n_classes_4lu [1] = -abs(nclasses) 
 
-      save(list = ls(), file="attr.RData")
+      #save(list = ls(), file="attr.RData")
     }
     
     ungrouped_atttribs = is.na(attribute_table$group) | (attribute_table$group=="") #these are the attributes to be treated separately
@@ -660,7 +660,7 @@ prof_class <- function(
         if (!is.null(kmeans_out) & plot_silhouette)
         {
           dists <- daisy(profs_resampled) # compute pairwise distances, TODO: see warnings
-          plot(silhouette(kmeans_out$cluster, dists^2), main=attribute_table$attribute[iw]) # plot silhouette
+          plot(silhouette(kmeans_out$cluster, dists^2), main=attr_group) # plot silhouette
         }  else
           dists <- matrix(-9999, nrow=n_profs, ncol=nclasses)  #dummy, no distance computed
       
@@ -674,7 +674,7 @@ prof_class <- function(
       # originals
       if (make_plots) {
         plot(1,1,type="n", xlim=c(0,max(profs_resampled_stored[,com_length+1])), ylim=c(0,max(profs_resampled_stored[,com_length+2])),
-             main=paste("Original catenas\nclassified according ", attribute_table$attribute[iw], sep=""), xlab="horizontal length [m]", ylab="elevation [m]")
+             main=paste("Original catenas\nclassified by ", attr_group, sep=""), xlab="horizontal length [m]", ylab="elevation [m]")
         for (i in 1:n_profs) {
           lines(   (0:(com_length-1) / (com_length-1)) * profs_resampled_stored[i,com_length+1], 
                 profs_resampled_stored[i,1:com_length] * profs_resampled_stored[i,com_length+2], col=cidx[i])
@@ -683,7 +683,7 @@ prof_class <- function(
       
       # modified
       if (make_plots) {
-        plot(1,1,type="n", xlim=c(0,com_length-1), ylim=c(0,1), main=paste("catenas, resampled, reduced & normalized\nclassified according ", attribute_table$attribute[iw], sep=""), 
+        plot(1,1,type="n", xlim=c(0,com_length-1), ylim=c(0,1), main=paste("catenas, resampled, reduced & normalized\nclassified by ", attr_group, sep=""), 
              xlab="catena point number", ylab="relative elevation")
         for (i in 1:nrow(profs_resampled_stored)) {
           lines(0:(com_length-1), profs_resampled_stored[i,1:com_length], col=cidx[i])
@@ -1113,7 +1113,7 @@ prof_class <- function(
       if (make_plots) {
         # plot orig
         plot(xvec, mean_prof_orig_t[i,1:com_length], type="l", xlab='horizontal length', ylab='relative elevation gain',
-             main=paste("partitioning class ", i, sep=""))
+             main=paste("partitioning class ", i,"(n=",sum(class_i),")", sep=""))
       # plot filled
         points(xvec, mean_prof[i,1:com_length], pch=1)
       
