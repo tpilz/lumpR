@@ -195,7 +195,7 @@ db_check <- function(
   if(verbose) {
     if(fix) {
       message("%")
-      message("% -> fix = TRUE and database will touched and fixed if necessary")
+      message("% -> fix = TRUE and database will be modified and fixed, if necessary")
     } else {
       message("%")
       message("% -> Running report mode, i.e. fix = FALSE and database will not be touched")
@@ -791,20 +791,32 @@ db_check <- function(
     if(verbose & fix) message("% Delete obsolete records ...")
     if(verbose & !fix) message("% Identify obsolete records ...")
     
-    if(!("tbls_preserve" %in% names(option)))
-      stop("Option 'tbls_preserve' to run check 'delete_obsolete'!")
+    if(!("tbls_preserve" %in% names(option))) 
+      stop("Missing option 'tbls_preserve' to run check 'delete_obsolete'!")
+    
+    missing_tables=NULL #record missing tables
     
     for (table_chain in chain_list)
     {
-      # check that all tables in table_chain are in the database to avaoid conflicts with optional tables
-      if(any(!(table_chain$table %in% tbl_db)))
-        next
-      else {
         for (i in 2:nrow(table_chain))
         {
           cur_table = table_chain$table[i]
+          
+          if (cur_table %in% option[["tbls_preserve"]])
+          {
+            message(paste0("% -> Table '", cur_table,"' ignored, because listed in options[['tbls_preserve']]"))
+            next
+          }
+          
           pre_table = table_chain$table[i-1]
-          if (cur_table=="reservoirs_small_classes")
+          
+          if (any(!(c(pre_table, cur_table) %in% tbl_db)))
+          {
+            missing_tables=c(missing_tables, c(pre_table, cur_table))
+            next
+          }
+          
+          
           # exclude wildcards
           dat_cur <- dat_all[[cur_table]][[table_chain$key2prev[i]]]
           dat_cur <- dat_cur[which(dat_cur != -1)]
@@ -841,8 +853,11 @@ db_check <- function(
           } else if(verbose) message(paste0("% -> No obsolete datasets found in '", cur_table,"' with reference to '", pre_table, "'"))
           
         } # loop current table_chain
-      } # all tables of current table_chain in database?
+      
     }  # loop chain_list
+    if (length(missing_tables)>0)
+      message(paste0("% -> Warning: Table(s) '", paste0(setdiff(unique(missing_tables), tbl_db), collapse = "', '")," not found, checks skipped."))
+    else
     if(verbose) message("% OK")
     checks_done <- checks_done+1
   } # check delete_obsolete

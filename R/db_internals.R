@@ -261,7 +261,8 @@ check_fix_fractions <- function(dat_tbl, fix, update_frac_impervious, verbose) {
   } else {
     if (verbose)
     {  
-      message(paste0("%   -> There are ", length(which(dat_contains_sum!=1)), " elements not summing to 1 in their fractions"))
+      message(paste0("%   -> There are ", length(which(dat_contains_sum!=1)), " elements not summing to 1 in their fractions:"))
+      message(paste0("%   ", paste0(names(dat_contains_sum[dat_contains_sum!=1]), ": ", dat_contains_sum[dat_contains_sum!=1], collapse=", ")))
       if (!fix) 
         message(paste0("%   -> Check table '", name_tbl, "'", ifelse(name_tbl=="r_tc_contains_svc" & !update_frac_impervious, " and 'terrain_components' (column frac_rocky)","")," or call db_check(..., check=\"check_fix_fractions\", fix=TRUE)!"))
     }
