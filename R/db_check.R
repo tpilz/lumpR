@@ -235,8 +235,8 @@ db_check <- function(
   checks_done <- 0
   
   
-###############################################################################
-### check current db version
+
+### check current db version ###############################################################################
   if(verbose) message("%")
   if(verbose) message("% Check database version ...")
 
@@ -250,8 +250,7 @@ db_check <- function(
 
   if(verbose) message("% OK")
 
-###############################################################################
-### check fractions (use external function for every relevant table)
+### check fractions (use external function for every relevant table) ###############################################################################
   if (any(grepl("check_fix_fractions", check))) {
     if(verbose) message("%")
     if(verbose) message("% Check fractions ...")
@@ -270,8 +269,8 @@ db_check <- function(
   } # check fractions
   
     
-###############################################################################
-### filter small areas (use external function for every relevant table)
+
+### filter small areas (use external function for every relevant table) ###############################################################################
   if (any(grepl("filter_small_areas", check))) {
     if(verbose) message("%")
     if(verbose) message("% Filter small areas ...")
@@ -294,8 +293,8 @@ db_check <- function(
   } # filter small areas
 
 
-###############################################################################
-### TC with slope <= 0
+
+### TC with slope <= 0 ###############################################################################
   if (any(grepl("tc_slope", check))) {
     if(verbose) message("%")
     if(verbose) message("% Find TCs with slope <= 0 ...")
@@ -404,8 +403,7 @@ db_check <- function(
   } # check tc_slope?
 
 
-###############################################################################
-### Assign special areas (water, impervious surfaces)
+### Assign special areas (water, impervious surfaces) ###############################################################################
   if (any(grepl("special_areas", check))) {
     if(verbose) message("%")
     if(verbose & fix) message("% Define certain SVCs as special areas ...")
@@ -494,8 +492,7 @@ db_check <- function(
 
 
 
-###############################################################################
-### remove water SVCs
+### remove water SVCs ###############################################################################
   if (any(grepl("remove_water_svc", check))) {
     if(verbose) message("%")
     if(verbose & fix) message("% Remove SVCs marked as water ...")
@@ -534,8 +531,7 @@ db_check <- function(
 
 
 
-###############################################################################
-### compute rocky fractions for TCs
+### compute rocky fractions for TCs ###############################################################################
   if (any(grepl("compute_rocky_frac", check))) {
     if(verbose) message("%")
     if(verbose) message("% Compute rocky (i.e. impervious) fractions for TCs ...")
@@ -589,10 +585,16 @@ db_check <- function(
           for (t in 1:length(tc_rocky)) {
             row <- which(dat_all$terrain_components$pid == names(tc_rocky)[t])
             dat_all$terrain_components$frac_rocky[row] <- dat_all$terrain_components$frac_rocky[row] + tc_rocky[t]
+            #also update dummy records in r_tc_contains_svc (used internally for more consistent normalization, removed later)
+            row <- which(dat_all$r_tc_contains_svc$tc_id  == names(tc_rocky)[t] &
+                         dat_all$r_tc_contains_svc$svc_id == -1)   #find dummy record containing rocky fraction
+            dat_all$r_tc_contains_svc$fraction[row] <- dat_all$r_tc_contains_svc$fraction[row] + tc_rocky[t]
           }
           attr(dat_all$terrain_components, "altered") <- TRUE
         } else
           if(verbose) message("% -> No impervious SVCs found.")
+        if (!("remove_impervious_svc" %in% check))
+          message("% Please remember to call db_check(check='compute_rocky_frac', ...) later.")
     } # if fix
     
     if(verbose) message("% OK")
@@ -604,8 +606,7 @@ db_check <- function(
 
 
 
-###############################################################################
-### remove impervious SVCs
+### remove impervious SVCs ###############################################################################
   if (any(grepl("remove_impervious_svc", check))) {
     if(verbose) message("%")
     if(verbose & fix) message("% Remove SVCs marked as impervious ...")
@@ -648,8 +649,7 @@ db_check <- function(
 
 
 
-###############################################################################
-### estimate frgw_delay
+### estimate frgw_delay ###############################################################################
   if (any(grepl("proxy_frgw_delay", check))) {
     if(verbose) message("%")
     if(verbose) message("% Estimate frgw_delay for LUs ...")
@@ -696,8 +696,7 @@ db_check <- function(
 
 
 
-###############################################################################
-### delete obsolete datasets or check for completeness
+### delete obsolete datasets or check for completeness ###############################################################################
 ### define chains of table dependencies
   if (any(grepl("delete_obsolete", check)) | any(grepl("completeness", check))) {
     
@@ -783,8 +782,7 @@ db_check <- function(
     chain_list = list(table_chain1, table_chain2, table_chain3, table_chain4, table_chain5, table_chain6, table_chain7, table_chain8, table_chain9) #list of all relation chains that need to be checked
   }
     
-###############################################################################
-### delete obsolete datasets
+### delete obsolete datasets ###############################################################################
     
   if (any(grepl("delete_obsolete", check))) {
     if(verbose) message("%")
@@ -865,8 +863,8 @@ db_check <- function(
 
 
 
-###############################################################################
-### check completeness
+
+### check completeness ###############################################################################
   if (any(grepl("completeness", check))){
     if(verbose) message("%")
     if(verbose) message("% Search referenced datasets without specification...")
@@ -917,8 +915,7 @@ db_check <- function(
 
 
 
-###############################################################################
-### determine subbasin order
+### determine subbasin order ###############################################################################
   if (any(grepl("subbasin_order", check))) {
     if(verbose) message("%")
     if(verbose & fix) message("% Determine subbasin order (write into column 'a_stream_order' of table 'subbasins') ...")
@@ -994,8 +991,7 @@ db_check <- function(
 
 
 
-###############################################################################
-### POST-PROCESSING
+### POST-PROCESSING ###############################################################################
   
   if(checks_done != length(check))
     stop(paste0("Number of processed checks (", checks_done, ") is not equal to the number of specified checks (", length(check), ")! Maybe you misspelled a check? Check your argument 'check' and re-run the function. Database will not be touched."))
@@ -1013,8 +1009,8 @@ db_check <- function(
         if(!("terrain_components" %in% names(dat_all)))
           dat_all <- c(dat_all, read_db_dat(tbl = c("terrain_components"), con = con, tbl_exist = names(dat_all), update_frac_impervious=option[["update_frac_impervious"]]))
         terrain_components <- merge(dat_all$terrain_components, rocky_frac, by.x="pid", by.y="tc_id")
-        
-        if (!identical(terrain_components$frac_rocky, terrain_components$fraction))
+
+        if (!identical(terrain_components$frac_rocky, terrain_components$fraction)) #ii: this is crap
           dat_all$terrain_components$frac_rocky <- terrain_components$fraction #correct to adjusted rocky fraction
       }
     }
