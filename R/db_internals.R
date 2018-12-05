@@ -261,7 +261,8 @@ check_fix_fractions <- function(dat_tbl, fix, update_frac_impervious, verbose) {
   } else {
     if (verbose)
     {  
-      message(paste0("%   -> There are ", length(which(dat_contains_sum!=1)), " elements not summing to 1 in their fractions"))
+      message(paste0("%   -> There are ", length(which(dat_contains_sum!=1)), " elements not summing to 1 in their fractions:"))
+      message(paste0("%   ", paste0(names(dat_contains_sum[dat_contains_sum!=1]), ": ", dat_contains_sum[dat_contains_sum!=1], collapse=", ")))
       if (!fix) 
         message(paste0("%   -> Check table '", name_tbl, "'", ifelse(name_tbl=="r_tc_contains_svc" & !update_frac_impervious, " and 'terrain_components' (column frac_rocky)","")," or call db_check(..., check=\"check_fix_fractions\", fix=TRUE)!"))
     }
@@ -415,6 +416,7 @@ read_db_dat <- function(tbl, con, tbl_exist, update_frac_impervious) {
   for(t in tbl_read) {
     dat_out[[t]] <- sqlFetch(con, t)
     # information about rocky fractions needed for r_tc_contains_svc, see ?db_check: remove_impervious_svc, option update_frac_impervious = FALSE
+    # internally mask the rocky fraction with svc_id=-1
     if(t == "r_tc_contains_svc" & !update_frac_impervious) {
       res <- sqlQuery(con, "select pid as tc_id, -1 as svc_id, frac_rocky as fraction from terrain_components")
       # replace NA in rocky fraction by zero
@@ -460,7 +462,7 @@ modify_db <- function(con, dat_tbl) {
   if (!attr(dat_tbl, "altered"))
     return(-1)
   
-  # delete removed datasets (sqlUpdate() does not delete)
+  # delete datasets no longer in table (sqlUpdate() does not delete)
   key_t <- tbls_keys[[tbl_name]]
   if (is.null(key_t))
     stop(paste0("Unknown table ",tbl_name,", please report to package mantainer."))
@@ -469,6 +471,7 @@ modify_db <- function(con, dat_tbl) {
   del_query <- sql_dialect(con, del_query)
   res <- sqlQuery(con, del_query, errors=F) # throws an "error" if nothing was deleted, so don't investigate further and hope everything is fine
   
+  #table has a composite key - deleting is more complicated
   if(length(key_t) > 1) {
     for(k in 2:length(key_t)) {
       for(i in unique(dat_tbl[,k-1])) {
@@ -482,7 +485,8 @@ modify_db <- function(con, dat_tbl) {
   }
   
   # update db
-  sqlUpdate(con, dat_tbl, tbl_name, tbls_keys[[tbl_name]])
-  
+  a=try(sqlUpdate(con, dat_tbl, tbl_name, tbls_keys[[tbl_name]]), silent = TRUE)
+  if (class(a)=="try-error")
+    stop(paste0("ERROR: Could not update table '",tbl_name,"'. Additional rows in new data?"))
   return(0)
 } # EOF modify_db
