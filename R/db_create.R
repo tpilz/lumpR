@@ -194,7 +194,6 @@ db_create <- function(
   
   if (db_ver > 19)
   {  
-    browser()
     if (!is.null(keep_tables)) #first, update until version encountered before, keeping protected tables
       db_update(dbname = dbname, to_ver = db_ver_init, keep_tables = keep_tables)
 
