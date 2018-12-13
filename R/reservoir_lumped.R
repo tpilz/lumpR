@@ -53,7 +53,7 @@
 #' @note Prepare GRASS location and necessary spatial objects in advance and start
 #'      GRASS session in R using \code{\link[rgrass7]{initGRASS}}.
 #'      
-#'      Use \code{\link[rgrass7]{reservoir_strategic}} to prepare the input for large / strategic reservoirs. 
+#'      Use \code{\link{reservoir_strategic}} to prepare the input for large / strategic reservoirs. 
 #'      
 #'      Points in \code{res_vect} not overlapping with any \code{subbas} will be
 #'      silently removed during processing!
