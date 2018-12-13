@@ -6,3 +6,7 @@
 .Rproj.user
 *.Rproj
 *.dll
+/WASA_input
+/lumpr_test
+/junk
+/wasweissich
