@@ -620,7 +620,7 @@
 #'      
 #'      
 #'  \bold{reservoirs_small_classes}\cr
-#'  Small reservoir parameters. Fill in output of \code{\link[lumpR]{reservoir_small}} (\code{reservoirs_small_classes.dat}).
+#'  Small reservoir parameters. Fill in output of \code{\link[lumpR]{reservoir_lumped}} (\code{reservoirs_small_classes.dat}).
 #'      \emph{pid}\cr
 #'      reservoir class ID
 #'      \emph{name}\cr
@@ -641,7 +641,7 @@
 #'      Parameters of the spillway rating curve in the reservoir size classes (Qout=damc.Hv^damd) [-]. Values of water height over the spillway and overflow discharges are expressed in m and m³/s, respectively
 #'  
 #'  \bold{r_subbas_contains_reservoirs_small}\cr
-#'  Small reservoir distribution in subbasins. Fill in output of \code{\link[lumpR]{reservoir_small}} (\code{r_subbas_contains_reservoirs_small.dat}).
+#'  Small reservoir distribution in subbasins. Fill in output of \code{\link[lumpR]{reservoir_lumped}} (\code{r_subbas_contains_reservoirs_small.dat}).
 #'      \emph{subbas_id}\cr
 #'        foreign key to subbas',
 #'      \emph{res_class_id}\cr

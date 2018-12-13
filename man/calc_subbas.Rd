@@ -42,8 +42,8 @@ raster (<stream>_rast) maps exported into GRASS location. Only generated if
 \code{river} is not set. Default: \code{NULL}.}
 
 \item{points_processed}{Output: Prefix of point vector files exported to GRASS location.
-\code{<points_processed>_snap} are given \code{drain_points} snapped to river.
-\code{<points_processed>_calc} are internally calculated drain points (only if
+\code{<points_processed>_snapped_t} are given \code{drain_points} snapped to river.
+\code{<points_processed>_calc_t} are internally calculated drain points (only if
 parameter \code{thresh_sub} is not \code{NULL}, see below).}
 
 \item{outlet}{Integer (row number) defining the catchment outlet in \code{drain_points}.
@@ -82,6 +82,24 @@ Default: \code{FALSE}.}
 
 \item{silent}{\code{logical}. Shall the function be silent (also suppressing warnings
 of internally used GRASS functions)? Default: \code{FALSE}.}
+}
+\value{
+Function returns nothing. Various output is generated in the GRASS-location:
+ \itemize{
+   \item{stream segments}{If \code{river} is not supplied,  vector (<stream>_vect) and raster (<stream>_rast) will be generated.} 
+   \item{Subbasin map}{raster map \code{basin_out}} 
+ }  
+ If \code{keep_temp=TRUE}, the following temporary maps are preserved and can be used for tracing errors:
+ \itemize{
+   \item{\code{accum_t}}{If \code{flowaccum} is not supplied, contains map of flow accumulation.} 
+   \item{\code{drain_t}}{If \code{flowaccum} is not supplied, contains map of darinage direction.} 
+   \item{\code{<points_processed>_t}}{Raw subbasin outlet points.} 
+   \item{\code{<points_processed>_centered_t}}{Subbasin outlet points centered at cell centers.} 
+   \item{\code{<points_processed>_shifted_t}}{Subbasin outlet points shifted slightly out of centers (for preventing pathological cases while snapping).} 
+   \item{\code{<points_processed>_snapped_t}}{Raw subbasin outlet points snapped to closest river.} 
+   \item{\code{<points_processed>_calc_t}}{internally calculated drain points (only if parameter thresh_sub is not NULL).} 
+   \item{\code{<points_processed>_all_t}}{combined drain points as raster (easier to identify double drain points sharing one raster cell).} 
+ }
 }
 \description{
 Takes DEM from a GRASS location and a file of drainage locations to calculate 

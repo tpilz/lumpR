@@ -16,12 +16,14 @@ it should be calculated based on a DEM. Default: \code{NULL}.}
 \item{dem}{Digital elevation model in GRASS location used for calculation of
 flow accumulation if no flow accumulation raster is given. Default: \code{NULL}.}
 
-\item{res_vct}{Reservoir vector file in GRASS location. For each polygon coordinates
+\item{res_vct}{Reservoir vector file (polygon) in GRASS location. For each polygon coordinates
 of the outlet (cell with highest flow accumulation) are determined. Needs
-at least the column \code{res_id} (integer) as reservoir identifier.}
+at least the column \code{res_id} (integer) as reservoir identifier.
+If there are no columns \code{elevation} (double) and \code{area} (double) [hectars], they will be added.}
 
 \item{outlets_vect}{Output: Name of vector file of outlet locations to be exported
-to GRASS location.}
+to GRASS location. Same fields as \code{res_vct}, fields 
+ \code{res_id}, \code{elevation} and \code{area} may have been added.}
 
 \item{keep_temp}{\code{logical}. Set to \code{TRUE} if temporary files shall be kept
 in the GRASS location, e.g. for debugging or further analyses. Default: \code{FALSE}.}
@@ -34,13 +36,13 @@ Default: \code{FALSE}.}
 of internally used GRASS functions)? Default: \code{FALSE}.}
 }
 \value{
-Function returns nothing. \bold{WARNING:} Up to version 2.5.0 this function
+Function returns nothing, but produces \code{outlets_vect}. \bold{WARNING:} Up to version 2.5.0 this function
 returned a \code{SpatialPoints} object with the outlet coordinates.
 }
 \description{
 Takes a flow accumulation raster (or DEM for computation) and reservoir vector
 file from a GRASS location and estimates the outlet coordinates of each reservoir
-polygon. Can be run before \code{\link[lumpR]{reservoir_strategic}} to produce the required input.
+polygon. Can be run before \code{\link[lumpR]{reservoir_strategic}} to produce the required input. May also be used to provide outlet points for subbasin delineation.
 }
 \note{
 Prepare GRASS location and necessary files in advance and start GRASS

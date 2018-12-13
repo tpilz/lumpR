@@ -18,8 +18,9 @@ ID derived from \code{subbasin} will be added to the attribute table.}
 \item{subbasin}{Subbasin raster map in GRASS location. Can be created with
 \code{\link[lumpR]{calc_subbas}}.}
 
-\item{res_file}{tab-delimited file containing reservoir properties (fields see details) and key "res_id". 
-If set to NULL, these attributes must be given via the attribute table of \code{res_vect}}
+\item{res_file}{tab-delimited file containing reservoir properties (fields see details) and key \code{res_id}. 
+If set to NULL, these attributes must be contained in the attribute table of \code{res_vect}. If they are missing,
+they will be set to deafult values (see Details).}
 
 \item{dir_out}{Character string specifying output directory (will be created if it
 does not yet exist).}

@@ -75,7 +75,7 @@
 #' @param silent \code{logical}. Shall the function be silent (also suppressing warnings
 #'      of internally used GRASS functions)? Default: \code{FALSE}.
 #'      
-#' @value Function returns nothing. Various output is generated in the GRASS-location:
+#' @return Function returns nothing. Various output is generated in the GRASS-location:
 #'  \itemize{
 #'    \item{stream segments}{If \code{river} is not supplied,  vector (<stream>_vect) and raster (<stream>_rast) will be generated.} 
 #'    \item{Subbasin map}{raster map \code{basin_out}} 
