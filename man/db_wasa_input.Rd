@@ -43,7 +43,7 @@ errors, which might lead to errors or unexpected results during model applicatio
 Note differences in variable notations between parameter database and WASA's
 input files!
 
- Sediment transport specific variables are not yet included (erosion.ctl).
+ Sediment transport specific variables are not yet included, please configure \code{erosion.ctl} manually.
  
  The following files will be created:
  
@@ -128,7 +128,7 @@ input files!
  
  \bold{Hillslope/terrain.dat}\cr
  File contains specification of terrain components. Only TCs
- present in table 'terrain_components' AND 'r_lu_contains_tc' will be considered.
+ present in tables 'terrain_components' AND 'r_lu_contains_tc' will be considered.
  
  \emph{TC-ID}\cr
  ID of terrain component.
@@ -142,7 +142,7 @@ input files!
  \emph{position}\cr
  Number indicating the relative position of TC along the hillslope. 1: highland,
  2: middle, ..., [highest number]: foot slope.
- ATTENTION: Order in WASA input file is reversed in comparison to order within
+ ATTENTION: The order in WASA input file is reversed in comparison to order within
  database!
  
  
