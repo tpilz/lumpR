@@ -15,7 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-#' Assemble of reservoir parameter file for WASA for import into database with \code{\link[lumpR]{db_fill}} 
+#' Assemble of reservoir parameter file for WASA for import into database with \code{\link[lumpR]{db_fill()}} 
 #' 
 #' Function generates the reservoir parameter file from a pre-processed
 #' reservoir vector map and optional supplemental parameter file.
@@ -273,7 +273,7 @@ reservoir_strategic <- function(
       
  
       if ("vol0" %in% set2default)
-        res@data$vol0=molle_v(alpha = 2.7, k = 1500, A = res@data$maxdamarea*1e4)
+        res@data$vol0=molle_v(alpha = 2.7, k = 1500, A = res@data$maxdamarea*1e4)/1e3 #estimate reservoir volume in 1e3 m^3
       
       if ("storecap" %in% set2default)
         res@data$storecap=res@data$vol0

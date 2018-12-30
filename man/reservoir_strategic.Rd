@@ -2,7 +2,7 @@
 % Please edit documentation in R/reservoir_strategic.R
 \name{reservoir_strategic}
 \alias{reservoir_strategic}
-\title{Assemble of reservoir parameter file for WASA for import into database with \code{\link[lumpR]{db_fill}}}
+\title{Assemble of reservoir parameter file for WASA for import into database with \code{\link[lumpR]{db_fill()}}}
 \usage{
 reservoir_strategic(res_vect = NULL, subbasin = NULL,
   res_file = NULL, dir_out = "./", reservoir_file = "reservoir.txt",
