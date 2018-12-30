@@ -12,7 +12,7 @@ reservoir_strategic(res_vect = NULL, subbasin = NULL,
 \item{res_vect}{Name of reservoir vector map in GRASS location. Should be point
 instead of polygon feature (i.e. reservoir outlet locations; consider function
 \code{\link[lumpR]{reservoir_outlet}})! For mandatory columns in attribute table
-see \code{Details}. In any case, column \code{subbas_id} containing the subbasin
+see Details. In any case, column \code{subbas_id} containing the subbasin
 ID derived from \code{subbasin} will be added to the attribute table.}
 
 \item{subbasin}{Subbasin raster map in GRASS location. Can be created with
@@ -23,7 +23,7 @@ If set to NULL, these attributes must be contained in the attribute table of \co
 they will be set to deafult values (see Details).}
 
 \item{dir_out}{Character string specifying output directory (will be created if it
-does not yet exist).}
+does not yet exist). The result file can later be imported to the database with \code{\link[lumpR]{db_fill()}}}
 
 \item{reservoir_file}{Output: File of parameters for the strategic reservoirs
 assigned to subbasins. To be filled into a database using \code{\link[lumpR]{db_fill}}.
