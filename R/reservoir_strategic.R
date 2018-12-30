@@ -55,68 +55,68 @@
 #' 
 #'      \emph{minlevel}\cr
 #'      Initial minimum level in the reservoir [m]. Value varies because of sediment
-#'      accumulation.
+#'      accumulation. Default: 0.
 #'      
 #'      \emph{maxlevel}\cr
-#'      Maximum water level in the reservoir [m].
+#'      Maximum water level in the reservoir [m]. Default: Estimated using Molle's equation (alpha = 2.7, k = 1500).
 #'      
 #'      \emph{vol0}\cr
 #'      Initial volume of the reservoir [10^3 m^3]. Value varies because of sediment
-#'      accumulation. Set to '-999' if information is not available.
+#'      accumulation. Set to '-999' if information is not available.Default: Estimated using Molle's equation (alpha = 2.7, k = 1500).
 #'      
 #'      \emph{storecap}\cr
 #'      Initial storage capacity of the reservoir [10^3 m^3]. Value varies because of
-#'      sediment accumulation.
+#'      sediment accumulation. DEfault: \code{vol0}
 #'      
 #'      \emph{damflow}\cr
-#'      Target outflow discharge of the reservoir (90 \% reliability) [m^3/s].
+#'      Target outflow discharge of the reservoir (90 \% reliability) [m^3/s]. Default: 9.99
 #'      
 #'      \emph{damq_frac}\cr
-#'      Fraction of Q90 released from the reservoir in regular years [-].
+#'      Fraction of Q90 released from the reservoir in regular years [-]. Default: 1 
 #'      
 #'      \emph{withdrawal}\cr
 #'      Water withdrawal discharge from the reservoir to supply the water use sectors 
-#'      [m^3/s]. Outflow discharge through the dam is not considered.
+#'      [m^3/s]. Outflow discharge through the dam is not considered. Default: 0
 #'      
 #'      \emph{damyear}\cr
-#'      Year of construction of the dam (YYYY).
+#'      Year of construction of the dam (YYYY). Default: 1900
 #'      
 #'      \emph{maxdamarea}\cr
 #'      Initial maximum area of the reservoir [ha]. Value varies because of sediment
-#'      accumulation.
+#'      accumulation. Default from GIS
 #'      
 #'      \emph{damdead}\cr
 #'      Initial dead volume of the reservoir [10^3 m^3]. Value varies because of
-#'      sediment accumulation.
+#'      sediment accumulation. Default: 0.01 * storecap
 #'      
 #'      \emph{damalert}\cr
 #'      Initial alert volume of the reservoir [10^3 m^3]. Value varies because of
-#'      sediment accumulation.
+#'      sediment accumulation. Default: 0.01 * storecap
 #'      
 #'      \emph{dama, damb}\cr
 #'      Parameters of the area-volume relationship in the reservoir:
 #'      area = dama * Vol^damb [-]. Values of reservoir area and volume are
-#'      expressed in m^2 and m^3, respectively.
+#'      expressed in m^2 and m^3, respectively. Default: 1500, 2.7
 #'      
 #'      \emph{q_outlet}\cr
 #'      Maximum outflow discharge released through the bottom outlets of the
-#'      reservoir [m^3/s].
+#'      reservoir [m^3/s]. Default: 0.999
 #'      
 #'      \emph{fvol_botm}\cr
 #'      Fraction of storage capacity that indicates the minimum storage volume for
-#'      sediment release through the bottom outlets of the reservoir [-].
+#'      sediment release through the bottom outlets of the reservoir [-]. Default: 0.01
 #'      
 #'      \emph{fvol_over}\cr
 #'      Fraction of storage capacity that indicates the minimum storage volume for
-#'      water release through the spillway of the reservoir [-].
+#'      water release through the spillway of the reservoir [-]. Default: 1
 #'      
 #'      \emph{damc, damd}\cr
 #'      Parameters of the spillway rating curve of the reservoir: Qout = damc * Hv^damd
 #'      [-]. Values of water height over the spillway and overflow discharges are
-#'      expressed in m and m^3/s, respectively.
+#'      expressed in m and m^3/s, respectively. Default: 99.99, 1.5
 #'      
 #'      \emph{elevbottom}\cr
-#'      Bottom outlet elevation of the reservoir [m].
+#'      Bottom outlet elevation of the reservoir [m]. Currently ignored in WASA. Default: 99
 #'      
 #'      The output file \code{reservoir_file} contains the additional column \emph{pid}
 #'      which is the corresponding subbasin ID determined from input \code{subbasin}.
@@ -239,13 +239,22 @@ reservoir_strategic <- function(
       colnames(res_params) <- tolower(colnames(res_params))
       if (!any(names(res_params)=="res_id")) stop(paste0("Reservoir file ", res_file, " must contain the column 'res_id'."))
       res@data = merge(res@data, res_params, by="res_id")
-    } else #no file for reservoir parameters given
+    } 
+  
+    only_nas = apply(res@data, MAR=2, FUN = function(x){all(is.na(x))})
+    
+    #remove columns that contain only NAs
+    res@data = res@data[, !only_nas]
+    set2default = setdiff(cols_mandatory, colnames(res@data)) #find missing colnames that need to be set to default values
+    
+    if (length(set2default) > 0)
     {
-      warning("Reservoir parameters not specified, dummy default values will be used. Please refine these in the database!")
-      
-      set2default = setdiff(cols_mandatory, colnames(res@data)) #find missing colnames that need to be set to default values
+      chk_cols <- grepl(paste(colnames(res@data), collapse="|^"), cols_mandatory)
+      if(any(!chk_cols))
+        warning(paste0("The following column(s) were not found neither in attribute table of 'res_vect' nor in 'res_file'. Using defaults, please check/refine: ", 
+                       paste(cols_mandatory[!chk_cols], collapse=", ") ))
 
-      if ("name" %in% colnames(res@data))
+       if ("name" %in% colnames(res@data)) #set reaervoir names, if not given
               res@data$name=paste0("res_",res@data$res_id, ifelse(length(set2default)>0,"_default",""))
       
       # if ("maxdamarea" %in% set2default)
@@ -261,22 +270,22 @@ reservoir_strategic <- function(
       
       if ("maxdamarea" %in% set2default)
       {  
-        res@data$maxdamarea=res@data$area
+        res@data$maxdamarea = round(res@data$area, digits=1)
         res@data$area=NULL
       }
       
       if ("maxlevel" %in% set2default)
-        res@data$maxlevel=0
+        res@data$maxlevel = round(molle_h (alpha = 2.7, k = 1500, A = res@data$maxdamarea*1e4), digits=1)
       
       if ("minlevel" %in% set2default)
               res@data$minlevel=0
       
  
       if ("vol0" %in% set2default)
-        res@data$vol0=molle_v(alpha = 2.7, k = 1500, A = res@data$maxdamarea*1e4)/1e3 #estimate reservoir volume in 1e3 m^3
+        res@data$vol0 = round(molle_v(alpha = 2.7, k = 1500, A = res@data$maxdamarea*1e4)/1e3, digits=1) #estimate reservoir volume in 1e3 m^3
       
       if ("storecap" %in% set2default)
-        res@data$storecap=res@data$vol0
+        res@data$storecap = res@data$vol0
       
       if ("damflow" %in% set2default)
         res@data$damflow = 9.99
@@ -317,14 +326,11 @@ reservoir_strategic <- function(
       if ("damd" %in% set2default)
         res@data$damd = 1.5
       
-      if ("elevbottom" %in% set2default)
+      if ("elevbottom" %in% set2default) #ii: get from DEM
         res@data$elevbottom=99
       
     }
 
-    chk_cols <- grepl(paste(colnames(res@data), collapse="|^"), cols_mandatory)
-    if(any(!chk_cols))
-      stop(paste0("Check attribute table of 'res_vect' or provide 'res_file', column(s) ", paste(cols_mandatory[!chk_cols], collapse=", "), " could not be found!"))
     
     # check for duplicates (multiple reservoirs  per subbasin)
     dupl <- duplicated(res@data$subbas_id, incomparables=c(NA))
