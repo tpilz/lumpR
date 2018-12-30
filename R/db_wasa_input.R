@@ -44,7 +44,7 @@
 #' Note differences in variable notations between parameter database and WASA's
 #' input files!
 #' 
-#'  Sediment transport specific variables are not yet included (erosion.ctl).
+#'  Sediment transport specific variables are not yet included, please configure \code{erosion.ctl} manually.
 #'  
 #'  The following files will be created:
 #'  
@@ -129,7 +129,7 @@
 #'  
 #'  \bold{Hillslope/terrain.dat}\cr
 #'  File contains specification of terrain components. Only TCs
-#'  present in table 'terrain_components' AND 'r_lu_contains_tc' will be considered.
+#'  present in tables 'terrain_components' AND 'r_lu_contains_tc' will be considered.
 #'  
 #'  \emph{TC-ID}\cr
 #'  ID of terrain component.
@@ -143,7 +143,7 @@
 #'  \emph{position}\cr
 #'  Number indicating the relative position of TC along the hillslope. 1: highland,
 #'  2: middle, ..., [highest number]: foot slope.
-#'  ATTENTION: Order in WASA input file is reversed in comparison to order within
+#'  ATTENTION: The order in WASA input file is reversed in comparison to order within
 #'  database!
 #'  
 #'  
@@ -292,8 +292,8 @@ db_wasa_input <- function(
 
   
 
-###############################################################################
-### info.dat
+
+### info.dat #####
   if("info.dat" %in% files) {
     if(verbose) message("%")
     if(verbose) message("% Create info.dat ...")
@@ -324,8 +324,7 @@ db_wasa_input <- function(
 
 
 
-###############################################################################
-### River/routing.dat
+### River/routing.dat #####
   if("River/routing.dat" %in% files) {
     if(verbose) message("%")
     if(verbose) message("% Create River/routing.dat ...")
@@ -368,8 +367,7 @@ db_wasa_input <- function(
 
 
 
-###############################################################################
-### River/response.dat
+### River/response.dat #####
   if("River/response.dat" %in% files) {
     if(verbose) message("%")
     if(verbose) message("% Create River/response.dat ...")
@@ -408,8 +406,7 @@ db_wasa_input <- function(
 
 
 
-###############################################################################
-### Hillslope/hymo.dat
+### Hillslope/hymo.dat #####
   if("Hillslope/hymo.dat" %in% files) {
     if(verbose) message("%")
     if(verbose) message("% Create Hillslope/hymo.dat ...")
@@ -477,8 +474,7 @@ db_wasa_input <- function(
 
 
 
-###############################################################################
-### Hillslope/soter.dat
+### Hillslope/soter.dat #####
   if("Hillslope/soter.dat" %in% files) {
     if(verbose) message("%")
     if(verbose) message("% Create Hillslope/soter.dat ...")
@@ -550,8 +546,7 @@ db_wasa_input <- function(
 
 
 
-###############################################################################
-### Hillslope/terrain.dat
+### Hillslope/terrain.dat #####
   if("Hillslope/terrain.dat" %in% files) {
     if(verbose) message("%")
     if(verbose) message("% Create Hillslope/terrain.dat ...")
@@ -616,8 +611,7 @@ db_wasa_input <- function(
 
 
 
-###############################################################################
-### Hillslope/svc_in_tc.dat
+### Hillslope/svc_in_tc.dat #####
   if("Hillslope/svc_in_tc.dat" %in% files) {
     if(verbose) message("%")
     if(verbose) message("% Create Hillslope/svc_in_tc.dat ...")
@@ -660,8 +654,7 @@ db_wasa_input <- function(
 
 
 
-###############################################################################
-### Hillslope/soil_vegetation.dat
+### Hillslope/soil_vegetation.dat #####
   if("Hillslope/soil_vegetation.dat" %in% files) {
     if(verbose) message("%")
     if(verbose) message("% Create Hillslope/soil_vegetation.dat ...")
@@ -736,8 +729,7 @@ db_wasa_input <- function(
 
 
 
-###############################################################################
-### Hillslope/svc.dat
+### Hillslope/svc.dat #####
   if("Hillslope/svc.dat" %in% files) {
     if(verbose) message("%")
     if(verbose) message("% Create Hillslope/svc.dat ...")
@@ -778,8 +770,7 @@ db_wasa_input <- function(
   
   
   
-###############################################################################
-### Hillslope/soil.dat
+### Hillslope/soil.dat #####
   if("Hillslope/soil.dat" %in% files) {
     if(verbose) message("%")
     if(verbose) message("% Create Hillslope/soil.dat ...")
@@ -848,8 +839,7 @@ db_wasa_input <- function(
 
 
 
-###############################################################################
-### Hillslope/vegetation.dat
+### Hillslope/vegetation.dat #####
   if("Hillslope/vegetation.dat" %in% files) {
     if(verbose) message("%")
     if(verbose) message("% Create Hillslope/vegetation.dat ...")
@@ -908,8 +898,7 @@ db_wasa_input <- function(
 
 
 
-###############################################################################
-### do.dat
+### do.dat #####
   if("do.dat" %in% files) {
     if(verbose) message("%")
     if(verbose) message("% Create Hillslope/do.dat ...")
@@ -927,7 +916,8 @@ db_wasa_input <- function(
     # get data
     dat_all <- c(dat_all,
                  read_db_dat(tbl = c("subbasins", "landscape_units", "r_subbas_contains_lu", "r_lu_contains_tc",
-                                     "soils", "soil_veg_components", "r_tc_contains_svc", "particle_classes"),
+                                     "soils", "soil_veg_components", "r_tc_contains_svc", "particle_classes", 
+                                     "terrain_components", "vegetation"),
                              con = con,
                              tbl_exist = names(dat_all), update_frac_impervious=F))
     
@@ -1007,8 +997,7 @@ db_wasa_input <- function(
 
 
 
-###############################################################################
-### maxdim.dat
+### maxdim.dat #####
   if("maxdim.dat" %in% files) {
     if(verbose) message("%")
     if(verbose) message("% Create maxdim.dat ...")
@@ -1065,8 +1054,7 @@ db_wasa_input <- function(
 
 
 
-###############################################################################
-### part_class.dat
+### part_class.dat #####
   if("part_class.dat" %in% files) {
     if(verbose) message("%")
     if(verbose) message("% Create part_class.dat ...")
@@ -1104,8 +1092,7 @@ db_wasa_input <- function(
 
 
 
-###############################################################################
-### Hillslope/soil_particles.dat
+### Hillslope/soil_particles.dat #####
   if("Hillslope/soil_particles.dat" %in% files) {
     if(verbose) message("%")
     if(verbose) message("% Create Hillslope/soil_particles.dat ...")
@@ -1154,7 +1141,7 @@ db_wasa_input <- function(
   } # Hillslope/soil_particles.dat
 
 
-### Hillslope/rainy_season.dat
+### Hillslope/rainy_season.dat #####
   if("Hillslope/rainy_season.dat" %in% files) {
     if(verbose) message("%")
     if(verbose) message("% Create Hillslope/rainy_season.dat ...")
@@ -1232,8 +1219,7 @@ db_wasa_input <- function(
   } # Hillslope/rainy_season.dat
   
 
-###############################################################################
-### Hillslope/x_seasons.dat
+### Hillslope/x_seasons.dat #####
   if("Hillslope/x_seasons.dat" %in% files) {
     if(verbose) message("%")
     if (!("x_seasons" %in% sqlTables(con)$TABLE_NAME)) #check existence of table
@@ -1319,8 +1305,8 @@ db_wasa_input <- function(
     } 
   } # Hillslope/x_seasons.dat
   
-  ###############################################################################
-  ### Hillslope/soil_particles.dat
+  
+### Hillslope/soil_particles.dat #####
   if("Hillslope/soil_particles.dat" %in% files) {
     if(verbose) message("%")
     if(verbose) message("% Create Hillslope/soil_particles.dat ...")
@@ -1369,7 +1355,7 @@ db_wasa_input <- function(
   } # Hillslope/soil_particles.dat
   
   
-  ### Reservoir/reservoir.dat
+### Reservoir/reservoir.dat #####
   if("Reservoir/reservoir.dat" %in% files) {
     if(verbose) message("%")
     if(verbose) message("% Create Reservoir/reservoir.dat ...")
@@ -1426,7 +1412,7 @@ db_wasa_input <- function(
     
   } # reservoir/reservoir.dat
   
-  ### Reservoir/lake.dat
+### Reservoir/lake.dat #####
   if("Reservoir/lake.dat" %in% files) {
     if(verbose) message("%")
     if(verbose) message("% Create Reservoir/lake.dat ...")
@@ -1459,7 +1445,7 @@ db_wasa_input <- function(
     
   } # reservoir/lake.dat
   
-  ### Reservoir/lake_number.dat
+### Reservoir/lake_number.dat #####
   if("Reservoir/lake_number.dat" %in% files) {
     if(verbose) message("%")
     if(verbose) message("% Create Reservoir/lake_number.dat ...")
@@ -1495,7 +1481,7 @@ db_wasa_input <- function(
     
   } # reservoir/lake_number.dat
   
-  ### Reservoir/lake_maxvol.dat
+### Reservoir/lake_maxvol.dat #####
   if("Reservoir/lake_maxvol.dat" %in% files) {
     if(verbose) message("%")
     if(verbose) message("% Create Reservoir/reservoir.dat ...")
@@ -1536,8 +1522,6 @@ db_wasa_input <- function(
   
 
    
-
-
 ###############################################################################
 ### end of function, write changes into 'meta_info', close connection
 
