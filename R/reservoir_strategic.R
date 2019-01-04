@@ -15,7 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-#' Assemble of reservoir parameter file for WASA for import into database with \code{\link[lumpR]{db_fill()}} 
+#' Assemble of reservoir parameter file for WASA for import into database with \code{\link[lumpR]{db_fill}()} 
 #' 
 #' Function generates the reservoir parameter file from a pre-processed
 #' reservoir vector map and optional supplemental parameter file.
@@ -31,9 +31,9 @@
 #'       If set to NULL, these attributes must be contained in the attribute table of \code{res_vect}. If they are missing,
 #'       they will be set to deafult values (see Details).
 #' @param dir_out Character string specifying output directory (will be created if it
-#'      does not yet exist). The result file can later be imported to the database with \code{\link[lumpR]{db_fill()}}
+#'      does not yet exist). The result file can later be imported to the database with \code{\link[lumpR]{db_fill}()}
 #' @param reservoir_file Output: File of parameters for the strategic reservoirs
-#'      assigned to subbasins. To be filled into a database using \code{\link[lumpR]{db_fill}}.
+#'      assigned to subbasins. To be filled into a database using \code{\link[lumpR]{db_fill}()}.
 #'      This file is \bold{NOT} directly compatible with WASA-SED!
 #' @param overwrite \code{logical}. Shall output of previous calls of this function be
 #'      deleted? If \code{FALSE} the function returns an error if output already exists.
@@ -62,7 +62,7 @@
 #'      
 #'      \emph{vol0}\cr
 #'      Initial volume of the reservoir [10^3 m^3]. Value varies because of sediment
-#'      accumulation. Set to '-999' if information is not available.Default: Estimated using Molle's equation (alpha = 2.7, k = 1500).
+#'      accumulation. Set to '-999' if information is not available. Default: Estimated using Molle's equation (alpha = 2.7, k = 1500).
 #'      
 #'      \emph{storecap}\cr
 #'      Initial storage capacity of the reservoir [10^3 m^3]. Value varies because of
@@ -96,7 +96,9 @@
 #'      \emph{dama, damb}\cr
 #'      Parameters of the area-volume relationship in the reservoir:
 #'      area = dama * Vol^damb [-]. Values of reservoir area and volume are
-#'      expressed in m^2 and m^3, respectively. Default: 1500, 2.7
+#'      expressed in m^2 and m^3, respectively. Attention: These are not the Molle parameters! The correct values can be derived from them as shown in the default.
+#'      Default: dama = (1/k * (alpha * k)^(alpha/(alpha-1)))^((alpha-1)/alpha), 
+#'      damb = (alpha-1)/alpha
 #'      
 #'      \emph{q_outlet}\cr
 #'      Maximum outflow discharge released through the bottom outlets of the
@@ -249,6 +251,11 @@ reservoir_strategic <- function(
     
     if (length(set2default) > 0)
     {
+      #default Molle parameters
+      alpha = 2.7
+      k = 1500
+      
+      
       chk_cols <- grepl(paste(colnames(res@data), collapse="|^"), cols_mandatory)
       if(any(!chk_cols))
         warning(paste0("The following column(s) were not found neither in attribute table of 'res_vect' nor in 'res_file'. Using defaults, please check/refine: ", 
@@ -275,14 +282,14 @@ reservoir_strategic <- function(
       }
       
       if ("maxlevel" %in% set2default)
-        res@data$maxlevel = round(molle_h (alpha = 2.7, k = 1500, A = res@data$maxdamarea*1e4), digits=1)
+        res@data$maxlevel = round(molle_h (alpha = alpha, k = k, A = res@data$maxdamarea*1e4), digits=1)
       
       if ("minlevel" %in% set2default)
               res@data$minlevel=0
       
  
       if ("vol0" %in% set2default)
-        res@data$vol0 = round(molle_v(alpha = 2.7, k = 1500, A = res@data$maxdamarea*1e4)/1e3, digits=1) #estimate reservoir volume in 1e3 m^3
+        res@data$vol0 = round(molle_v(alpha = alpha, k = k, A = res@data$maxdamarea*1e4)/1e3, digits=1) #estimate reservoir volume in 1e3 m^3
       
       if ("storecap" %in% set2default)
         res@data$storecap = res@data$vol0
@@ -306,10 +313,10 @@ reservoir_strategic <- function(
         res@data$damalert = 0.01 * res@data$storecap
       
       if ("dama" %in% set2default)
-        res@data$dama=1500
+        res@data$dama = round((1/k * (alpha * k)^(alpha/(alpha-1)))^((alpha-1)/alpha))
       
       if ("damb" %in% set2default)
-        res@data$damb=2.7
+        res@data$damb = round((alpha-1)/alpha, digits = 2)
       
       if ("q_outlet" %in% set2default)
         res@data$q_outlet=0.999
@@ -326,7 +333,7 @@ reservoir_strategic <- function(
       if ("damd" %in% set2default)
         res@data$damd = 1.5
       
-      if ("elevbottom" %in% set2default) #ii: get from DEM
+      if ("elevbottom" %in% set2default) #not used currently by WASA
         res@data$elevbottom=99
       
     }

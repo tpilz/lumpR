@@ -2,7 +2,7 @@
 % Please edit documentation in R/reservoir_strategic.R
 \name{reservoir_strategic}
 \alias{reservoir_strategic}
-\title{Assemble of reservoir parameter file for WASA for import into database with \code{\link[lumpR]{db_fill()}}}
+\title{Assemble of reservoir parameter file for WASA for import into database with \code{\link[lumpR]{db_fill}()}}
 \usage{
 reservoir_strategic(res_vect = NULL, subbasin = NULL,
   res_file = NULL, dir_out = "./", reservoir_file = "reservoir.txt",
@@ -23,10 +23,10 @@ If set to NULL, these attributes must be contained in the attribute table of \co
 they will be set to deafult values (see Details).}
 
 \item{dir_out}{Character string specifying output directory (will be created if it
-does not yet exist). The result file can later be imported to the database with \code{\link[lumpR]{db_fill()}}}
+does not yet exist). The result file can later be imported to the database with \code{\link[lumpR]{db_fill}()}}
 
 \item{reservoir_file}{Output: File of parameters for the strategic reservoirs
-assigned to subbasins. To be filled into a database using \code{\link[lumpR]{db_fill}}.
+assigned to subbasins. To be filled into a database using \code{\link[lumpR]{db_fill}()}.
 This file is \bold{NOT} directly compatible with WASA-SED!}
 
 \item{overwrite}{\code{logical}. Shall output of previous calls of this function be
@@ -62,7 +62,7 @@ For each reservoir that should be modelled explicitly within WASA the
      
      \emph{vol0}\cr
      Initial volume of the reservoir [10^3 m^3]. Value varies because of sediment
-     accumulation. Set to '-999' if information is not available.Default: Estimated using Molle's equation (alpha = 2.7, k = 1500).
+     accumulation. Set to '-999' if information is not available. Default: Estimated using Molle's equation (alpha = 2.7, k = 1500).
      
      \emph{storecap}\cr
      Initial storage capacity of the reservoir [10^3 m^3]. Value varies because of
@@ -96,7 +96,9 @@ For each reservoir that should be modelled explicitly within WASA the
      \emph{dama, damb}\cr
      Parameters of the area-volume relationship in the reservoir:
      area = dama * Vol^damb [-]. Values of reservoir area and volume are
-     expressed in m^2 and m^3, respectively. Default: 1500, 2.7
+     expressed in m^2 and m^3, respectively. Attention: These are not the Molle parameters! The correct values can be derived from them as shown in the default.
+     Default: dama = (1/k * (alpha * k)^(alpha/(alpha-1)))^((alpha-1)/alpha), 
+     damb = (alpha-1)/alpha
      
      \emph{q_outlet}\cr
      Maximum outflow discharge released through the bottom outlets of the
