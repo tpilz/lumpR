@@ -17,7 +17,7 @@ CREATE TABLE reservoirs_strategic (
 	damb double COMMENT 'Parameters of the area-volume relationship (area=dama*Vol^damb) [-]',
 	q_outlet double COMMENT 'Maximum outflow discharge released through the bottom outlets [m^3/s]',
 	fvol_botm double COMMENT 'Fraction of storage capacity that indicates the minimum storage volume for sediment release through the bottom outlets [-]',
-	fvol_over double COMMENT 'Fraction of storage capacity that indicates the minimum storage volume for water release through the spillway [-]',
+	fvol_over double COMMENT 'Flag to simulate the retention of reservoir overflow during spillway operation [0 = without time delay; 1 = with time delay]',
 	damc double COMMENT 'Parameters of the spillway rating curve (Qout=damc*Hv^damd) [-]',
 	damd double COMMENT 'Parameters of the spillway rating curve (Qout=damc*Hv^damd) [-]',
 	elevbottom double COMMENT 'bottom outlet elevation [m]',
