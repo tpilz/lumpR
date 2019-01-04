@@ -115,7 +115,8 @@
 #'      \emph{damc, damd}\cr
 #'      Parameters of the spillway rating curve of the reservoir: Qout = damc * Hv^damd
 #'      [-]. Values of water height over the spillway and overflow discharges are
-#'      expressed in m and m^3/s, respectively. Default: 99.99, 1.5
+#'      expressed in m and m^3/s, respectively. 
+#'      Default: 1.6 * 30, 1.5
 #'      
 #'      \emph{elevbottom}\cr
 #'      Bottom outlet elevation of the reservoir [m]. Currently ignored in WASA. Default: 99
@@ -327,8 +328,10 @@ reservoir_strategic <- function(
       if ("fvol_over" %in% set2default)
         res@data$fvol_over= 1
       
+      #http://www.jfccivilengineer.com/broad_crested_weir.htm, eq. 3: Q = C * b * h^(3/2)
+      # C: 1.4..2.1 ~ 1.6
       if ("damc" %in% set2default)
-        res@data$damc=99.99
+        res@data$damc=1.6 * 30
       
       if ("damd" %in% set2default)
         res@data$damd = 1.5

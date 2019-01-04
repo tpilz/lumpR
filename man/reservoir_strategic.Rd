@@ -115,7 +115,8 @@ For each reservoir that should be modelled explicitly within WASA the
      \emph{damc, damd}\cr
      Parameters of the spillway rating curve of the reservoir: Qout = damc * Hv^damd
      [-]. Values of water height over the spillway and overflow discharges are
-     expressed in m and m^3/s, respectively. Default: 99.99, 1.5
+     expressed in m and m^3/s, respectively. 
+     Default: 1.6 * 30, 1.5
      
      \emph{elevbottom}\cr
      Bottom outlet elevation of the reservoir [m]. Currently ignored in WASA. Default: 99
