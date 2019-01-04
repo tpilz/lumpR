@@ -182,6 +182,9 @@ input files!
   modelled. Please note that class numbering has to be continuous, starting with
   1. The particle size classes must be ordered from fine to coarse.
   
+ \bold{gauges_catchment_area.txt}\cr
+ \emph{Optional, auxiliary file not needed by WASA} File relating subcatchment sizes, gauge names and upstream areas. Can be used for calibration workflow.
+  
   \bold{Hillslope/soil_particles.dat}\cr
   File contains particle size distributions of topmost soil horizons.
   
