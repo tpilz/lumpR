@@ -583,5 +583,5 @@ db_wasa_input(dbname = dbname,
       
 # adjust model input data to your needs ...
 
-# Generate WASA input data outside the scope of lumpR (meteo data etc.) ...
+# Generate WASA input data outside the scope of lumpR (meteo data etc.) See WASA documentation (e.g. https://tillf.github.io/WASA-SED/)
  
