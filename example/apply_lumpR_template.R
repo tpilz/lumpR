@@ -569,6 +569,8 @@ db_check(dbname,
          fix=T,
          verbose=T)
 
+db_compute_musleK(dbname)
+
 # generate input files for WASA
 ?db_wasa_input
 db_wasa_input(dbname = dbname,
