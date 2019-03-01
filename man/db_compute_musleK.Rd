@@ -4,11 +4,14 @@
 \alias{db_compute_musleK}
 \title{Compute (M)USLE K-factor (soil erodibility) from properties of topmost soil horizon}
 \usage{
-db_compute_musleK(dbname)
+db_compute_musleK(dbname, verbose = TRUE)
 }
 \arguments{
 \item{dbname}{Name of the data source (DSN) registered at ODBC. See \code{Details} of
 \code{\link[lumpR]{db_create}}.}
+
+\item{verbose}{\code{logical}. Should detailed information during execution be
+printed? Default: \code{TRUE}.}
 }
 \description{
 Function to write parameter values relevant for modelling application with the

@@ -24,6 +24,9 @@
 #' @param dbname Name of the data source (DSN) registered at ODBC. See \code{Details} of
 #' \code{\link[lumpR]{db_create}}.
 #' 
+#' @param verbose \code{logical}. Should detailed information during execution be
+#' printed? Default: \code{TRUE}.
+#' 
 #' @details 
 #'  after Williams (1995). [explanation to be elaborated]
 #'          
@@ -41,7 +44,8 @@
 #'  Till Francke \email{francke@@uni-potsdam.de}
 #' 
 db_compute_musleK <- function(
-  dbname
+  dbname,
+  verbose=TRUE
 ) {
   
   #this is a quick-and-dirty conversion from legacy PHP-code. It could probaby be solved in a couple of lines in R. Sorry for not having had the time, though.
