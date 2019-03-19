@@ -569,7 +569,7 @@ db_check(dbname,
          fix=T,
          verbose=T)
 
-db_compute_musleK(dbname)
+db_prepare_musle(dbname, compute_K = F, setP = 1, copy_from_other_tables = "MUSLE-K", verbose = TRUE)
 
 # generate input files for WASA
 ?db_wasa_input
