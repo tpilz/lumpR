@@ -2,7 +2,7 @@
 % Please edit documentation in R/reservoir_strategic.R
 \name{reservoir_strategic}
 \alias{reservoir_strategic}
-\title{Assemble of reservoir parameter file for WASA for import into database with \code{\link[lumpR]{db_fill}}}
+\title{Assemble of reservoir parameter file for WASA for import into database with \code{\link[lumpR]{db_fill}()}}
 \usage{
 reservoir_strategic(res_vect = NULL, subbasin = NULL,
   res_file = NULL, dir_out = "./", reservoir_file = "reservoir.txt",
@@ -12,7 +12,7 @@ reservoir_strategic(res_vect = NULL, subbasin = NULL,
 \item{res_vect}{Name of reservoir vector map in GRASS location. Should be point
 instead of polygon feature (i.e. reservoir outlet locations; consider function
 \code{\link[lumpR]{reservoir_outlet}})! For mandatory columns in attribute table
-see \code{Details}. In any case, column \code{subbas_id} containing the subbasin
+see Details. In any case, column \code{subbas_id} containing the subbasin
 ID derived from \code{subbasin} will be added to the attribute table.}
 
 \item{subbasin}{Subbasin raster map in GRASS location. Can be created with
@@ -23,10 +23,10 @@ If set to NULL, these attributes must be contained in the attribute table of \co
 they will be set to deafult values (see Details).}
 
 \item{dir_out}{Character string specifying output directory (will be created if it
-does not yet exist).}
+does not yet exist). The result file can later be imported to the database with \code{\link[lumpR]{db_fill}()}}
 
 \item{reservoir_file}{Output: File of parameters for the strategic reservoirs
-assigned to subbasins. To be filled into a database using \code{\link[lumpR]{db_fill}}.
+assigned to subbasins. To be filled into a database using \code{\link[lumpR]{db_fill}()}.
 This file is \bold{NOT} directly compatible with WASA-SED!}
 
 \item{overwrite}{\code{logical}. Shall output of previous calls of this function be
@@ -55,68 +55,71 @@ For each reservoir that should be modelled explicitly within WASA the
 
      \emph{minlevel}\cr
      Initial minimum level in the reservoir [m]. Value varies because of sediment
-     accumulation.
+     accumulation. Default: 0.
      
      \emph{maxlevel}\cr
-     Maximum water level in the reservoir [m].
+     Maximum water level in the reservoir [m]. Default: Estimated using Molle's equation (alpha = 2.7, k = 1500).
      
      \emph{vol0}\cr
      Initial volume of the reservoir [10^3 m^3]. Value varies because of sediment
-     accumulation. Set to '-999' if information is not available.
+     accumulation. Set to '-999' if information is not available. Default: Estimated using Molle's equation (alpha = 2.7, k = 1500).
      
      \emph{storecap}\cr
      Initial storage capacity of the reservoir [10^3 m^3]. Value varies because of
-     sediment accumulation.
+     sediment accumulation. DEfault: \code{vol0}
      
      \emph{damflow}\cr
-     Target outflow discharge of the reservoir (90 \% reliability) [m^3/s].
+     Target outflow discharge of the reservoir (90 \% reliability) [m^3/s]. Default: 9.99
      
      \emph{damq_frac}\cr
-     Fraction of Q90 released from the reservoir in regular years [-].
+     Fraction of Q90 released from the reservoir in regular years [-]. Default: 1 
      
      \emph{withdrawal}\cr
      Water withdrawal discharge from the reservoir to supply the water use sectors 
-     [m^3/s]. Outflow discharge through the dam is not considered.
+     [m^3/s]. Outflow discharge through the dam is not considered. Default: 0
      
      \emph{damyear}\cr
-     Year of construction of the dam (YYYY).
+     Year of construction of the dam (YYYY). Default: 1900
      
      \emph{maxdamarea}\cr
      Initial maximum area of the reservoir [ha]. Value varies because of sediment
-     accumulation.
+     accumulation. Default from GIS
      
      \emph{damdead}\cr
      Initial dead volume of the reservoir [10^3 m^3]. Value varies because of
-     sediment accumulation.
+     sediment accumulation. Default: 0.01 * storecap
      
      \emph{damalert}\cr
      Initial alert volume of the reservoir [10^3 m^3]. Value varies because of
-     sediment accumulation.
+     sediment accumulation. Default: 0.01 * storecap
      
      \emph{dama, damb}\cr
      Parameters of the area-volume relationship in the reservoir:
      area = dama * Vol^damb [-]. Values of reservoir area and volume are
-     expressed in m^2 and m^3, respectively.
+     expressed in m^2 and m^3, respectively. Attention: These are not the Molle parameters! The correct values can be derived from them as shown in the default.
+     Default: dama = (1/k * (alpha * k)^(alpha/(alpha-1)))^((alpha-1)/alpha), 
+     damb = (alpha-1)/alpha
      
      \emph{q_outlet}\cr
      Maximum outflow discharge released through the bottom outlets of the
-     reservoir [m^3/s].
+     reservoir [m^3/s]. Default: 0.999
      
      \emph{fvol_botm}\cr
      Fraction of storage capacity that indicates the minimum storage volume for
-     sediment release through the bottom outlets of the reservoir [-].
+     sediment release through the bottom outlets of the reservoir [-]. Default: 0.01
      
      \emph{fvol_over}\cr
      Fraction of storage capacity that indicates the minimum storage volume for
-     water release through the spillway of the reservoir [-].
+     water release through the spillway of the reservoir [-]. Default: 1
      
      \emph{damc, damd}\cr
      Parameters of the spillway rating curve of the reservoir: Qout = damc * Hv^damd
      [-]. Values of water height over the spillway and overflow discharges are
-     expressed in m and m^3/s, respectively.
+     expressed in m and m^3/s, respectively. 
+     Default: 1.6 * 30, 1.5
      
      \emph{elevbottom}\cr
-     Bottom outlet elevation of the reservoir [m].
+     Bottom outlet elevation of the reservoir [m]. Currently ignored in WASA. Default: 99
      
      The output file \code{reservoir_file} contains the additional column \emph{pid}
      which is the corresponding subbasin ID determined from input \code{subbasin}.

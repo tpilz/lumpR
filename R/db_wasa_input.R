@@ -183,6 +183,9 @@
 #'   modelled. Please note that class numbering has to be continuous, starting with
 #'   1. The particle size classes must be ordered from fine to coarse.
 #'   
+#'  \bold{gauges_catchment_area.txt}\cr
+#'  \emph{Optional, auxiliary file not needed by WASA} File relating subcatchment sizes, gauge names and upstream areas. Can be used for calibration workflow.
+#'   
 #'   \bold{Hillslope/soil_particles.dat}\cr
 #'   File contains particle size distributions of topmost soil horizons.
 #'   
@@ -1054,7 +1057,7 @@ db_wasa_input <- function(
 
 
 
-### part_class.dat #####
+  ### part_class.dat #####
   if("part_class.dat" %in% files) {
     if(verbose) message("%")
     if(verbose) message("% Create part_class.dat ...")
@@ -1088,8 +1091,57 @@ db_wasa_input <- function(
     if(verbose) message("% OK")
     
   } # part_class.dat
+  
+### gauges_catchment_area.txt #####
+  if("gauges_catchment_area.txt" %in% files) {
+    if(verbose) message("%")
+    if(verbose) message("% Create gauges_catchment_area.txt ...")
+    
+    # create file
+    if(!file.exists(paste(dest_dir, "gauges_catchment_area.txt", sep="/")) | overwrite){
+      file.create(paste(dest_dir, "gauges_catchment_area.txt", sep="/"))
+    } else {
+      stop("File 'gauges_catchment_area.txt' exists!")
+    }
+    
+    # get data
+    dat_all <- c(dat_all,
+                 read_db_dat(tbl = c("subbasins"),
+                             con = con,
+                             tbl_exist = names(dat_all), update_frac_impervious=F))
+    
+    # write header
+    writeLines(con=paste(dest_dir, "gauges_catchment_area.txt", sep="/"),
+               text="GAUGE	FOREIGN_ID	SUBBAS_ID	AREA_SUBBAS_KM2	AREA_UPSTREAM_KM2")
+    outdata=dat_all$subbasin[, c("pid", "drains_to", "area", "a_stream_order",  "description")]
+    noname=is.na(outdata$description)
+    outdata$description = as.character(outdata$description)
+    outdata$description[noname] = paste0("sub", outdata$pid[noname])
+    
+    #compute total upstream area
+    outdata$AREA_UPSTREAM_KM2 = outdata$area #initialize total upstream area
+    for (so in sort(unique(outdata$a_stream_order), decreasing = TRUE)[-1])
+    {
+      cur_subbasins = which(outdata$a_stream_order == so)
+      ups_subbasins = which(outdata$drains_to %in% outdata$pid[cur_subbasins])
+      if (length(ups_subbasins)==0) next
+      ups_area = aggregate(outdata$AREA_UPSTREAM_KM2[ups_subbasins], by=list(pid=outdata$drains_to[ups_subbasins]), FUN=sum)
+      subs2update = match(ups_area$pid, table = outdata$pid)
+      outdata$AREA_UPSTREAM_KM2[subs2update] = outdata$AREA_UPSTREAM_KM2[subs2update] + ups_area$x
+    }  
+    outdata$FOREIGN_ID=NA #additional unused column
+    outdata = outdata[,c("description", "FOREIGN_ID", "pid", "area", "AREA_UPSTREAM_KM2")]  #re-order columns
 
-
+    # write output
+    write.table(outdata, paste(dest_dir, "gauges_catchment_area.txt", sep="/"), append=T,
+                quote=F, sep="\t", row.names=F, col.names=F)
+    
+    rm(outdata)
+    if(verbose) message("% OK")
+    
+  } # gauges_catchment_area.txt
+  
+  
 
 
 ### Hillslope/soil_particles.dat #####

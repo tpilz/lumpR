@@ -56,6 +56,8 @@ db_create <- function(
     stop("Argument 'db_ver' less than 19 is not possible.")
   }
   
+  if (is.null(overwrite)) overwrite="" #facilitates following conditionals
+  
   # connect to ODBC registered database
   con <- connect_db(dbname)
   
@@ -93,7 +95,7 @@ db_create <- function(
   scriptparts <- strsplit(script, ";")[[1]]
   scriptparts <- scriptparts[-length(scriptparts)]
   
-  if (is.null(overwrite)) 
+  if (overwrite=="") 
     keep_tables = sqlTables(con)$TABLE_NAME #keep all existing tables
   
   # loop over queries

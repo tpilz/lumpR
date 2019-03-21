@@ -569,6 +569,8 @@ db_check(dbname,
          fix=T,
          verbose=T)
 
+db_prepare_musle(dbname, compute_K = F, setP = 1, copy_from_other_tables = "MUSLE-K", verbose = TRUE)
+
 # generate input files for WASA
 ?db_wasa_input
 db_wasa_input(dbname = dbname,
@@ -583,5 +585,5 @@ db_wasa_input(dbname = dbname,
       
 # adjust model input data to your needs ...
 
-# Generate WASA input data outside the scope of lumpR (meteo data etc.) ...
+# Generate WASA input data outside the scope of lumpR (meteo data etc.) See WASA documentation (e.g. https://tillf.github.io/WASA-SED/)
  
