@@ -1,4 +1,4 @@
-# lumpR/db_compute_musleK.R
+# lumpR/db_prepare_musle.R
 # Copyright (C) 2019 Till Francke
 # 
 # This program is free software: you can redistribute it and/or modify
@@ -15,7 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-#' Compute (M)USLE K-factor (soil erodibility) from properties of topmost soil horizon
+#' Prepare various input related to use of (M)USLE module (erosion)
 #' 
 #' Function to write parameter values relevant for modelling application with the
 #' WASA hydrological model into an existing database, preferably created with
@@ -24,6 +24,12 @@
 #' @param dbname Name of the data source (DSN) registered at ODBC. See \code{Details} of
 #' \code{\link[lumpR]{db_create}}.
 #' 
+#' @param compute_K Compute (M)USLE K-factor (soil erodibility) from properties of topmost soil horizon, write it to table "soil" (use \code{copy_from_other_tables} to transfer it to table "soil_veg_components"). \code{c(TRUE, FALSE)} 
+#' 
+#' @param copy_from_other_tables Copy values to table "soil_veg_components": MUSLE-C and Manning-n from table "vegetation", MUSLE-K from "soils". Array of strings with possible values \code{c("MUSLE-C", "Manning-n" ,"MUSLE-K")} of
+#' \code{\link[lumpR]{db_create}}.
+#' 
+#' @param setP Set entire column of (M)USLE P-factor (protection measures) to a single value (usually 1). Default NULL (do not set).
 #' @param verbose \code{logical}. Should detailed information during execution be
 #' printed? Default: \code{TRUE}.
 #' 
@@ -43,15 +49,20 @@
 #' @author 
 #'  Till Francke \email{francke@@uni-potsdam.de}
 #' 
-db_compute_musleK <- function(
+db_prepare_musle <- function(
   dbname,
+  compute_K=FALSE,
+  copy_from_other_tables=NULL,
+  setP=NULL,
   verbose=TRUE
 ) {
+
   
+    
   #this is a quick-and-dirty conversion from legacy PHP-code. It could probaby be solved in a couple of lines in R. Sorry for not having had the time, though.
   
   if(verbose) message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
-  if(verbose) message("% START db_compute_musleK()")
+  if(verbose) message("% START db_prepare_musle()")
   if(verbose) message("%")
   if(verbose) message("% Connecting to and checking database ...")
   
@@ -73,14 +84,16 @@ db_compute_musleK <- function(
     sqlQuery(con, "SET sql_mode='ANSI';")
   
   # check database (all 'tables' have to exist)
-  tables=c("soils", "horizons", "soil_veg_components")
+  tables=c("soils", "horizons", "soil_veg_components", "vegetation")
   check_tbl <- tables %in% sqlTables(con)$TABLE_NAME
   if (any(!check_tbl))
     stop(paste0("Table(s) ", paste(tables[which(!check_tbl)], sep=", "), " could not be found in database '", dbname, "'."))
  
   if(verbose) message("% OK")
   
-
+  
+  if (compute_K)
+{
   #these are the particle size classes that are converted to (USDA-soil classification), used by Williams (1995)
   clay_upper_limit=0.002
   silt_upper_limit=0.05
@@ -301,11 +314,6 @@ db_compute_musleK <- function(
   statement =  "UPDATE soils SET a_musle_k = a_f_csand*a_f_cl_si*a_f_orgc*a_f_hisand"
   res = sqlQuery2(con, statement, info="computing MUSLE-K")  
   
-  #compute insert K into table soil_veg_components
-  print("inserting MUSLE-K into <soil_veg_components>...")
-  statement =  "UPDATE soil_veg_components INNER JOIN soils ON soils.pid=soil_veg_components.soil_id SET musle_k = a_musle_k"
-  res = sqlQuery2(con, statement, info="inserting MUSLE-K into <soil_veg_components>")  
-  
   statement =  "DROP TABLE t_cum_above"
   res = sqlQuery(con, query = statement, errors = FALSE)  	#delete any existing table
   
@@ -313,9 +321,43 @@ db_compute_musleK <- function(
   res = sqlQuery(con, query = statement, errors = FALSE)  	#delete any existing table
   
   
+  } #end computation musle k
+  
+  
+  #copy from other tables ####
+  if ("MUSLE-K" %in% toupper(copy_from_other_tables))
+  {  
+    statement =  "UPDATE soil_veg_components INNER JOIN soils ON soils.pid=soil_veg_components.soil_id SET musle_k = a_musle_k;"
+    res = sqlQuery2(con, statement, info="copy MUSLE-K")  
+  }
+  
+  if ("MANNING-N" %in% toupper(copy_from_other_tables))
+  {  
+    statement =  "UPDATE soil_veg_components INNER JOIN vegetation ON vegetation.pid=soil_veg_components.veg_id SET manning_n = c_manning_n;"
+    res = sqlQuery2(con, statement, info="copy Manning-n")  
+  }
+  
+  if ("MUSLE-C" %in% toupper(copy_from_other_tables))
+  {  
+    statement =  "UPDATE soil_veg_components INNER JOIN vegetation ON vegetation.pid=soil_veg_components.veg_id SET musle_c = c_musle_c;"
+    res = sqlQuery2(con, statement, info="copy MUSLE-C")  
+  }
+  
+  if (is.finite(setP))
+  {
+    if (setP < 0 | setP>1)
+      warning("P-factor (setP) should be between 0 and 1, ignored.")
+    else
+    {
+      statement = paste0("UPDATE soil_veg_components set musle_p = ", setP,";")
+      res = sqlQuery2(con, statement, info="copy MUSLE-C")  
+    }
+  }
+
+  
   # update table meta_info
   write_metainfo(con,
-                 "db_compute_musleK()",
+                 "db_prepare_musle()",
                  c("soils","soil_veg_components"), "soils.a_*, soil_veg_components.musle_k",
                  "Computation of MUSLE K-factor ",
                  FALSE)
