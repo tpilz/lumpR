@@ -602,25 +602,71 @@ prof_class <- function(
       
       if(!silent) message(paste('% -> profile clustering: fitting index_c = ', round(sqrt(sum(sumd^2)),2), sep=""))
       
+      # compute distances to cluster centres ####
+      #browser()
+      #profs_resampled = cbind(runif(n = 100),runif(n = 100))       
+      #kmeans_out <-  kmeans(profs_resampled, centers=nclasses, nstart=10)
       
+      #profs_resampled2=profs_resampled
+      #profs_resampled[,2] = 10 *profs_resampled[,2]   
+      # kmeans_out2 <- kmeans(profs_resampled, centers=nclasses, nstart=10)
+      # 
+      # kmeans_out$cluster
+      # kmeans_out2$cluster
+      #plot(kmeans_out$cluster, kmeans_out2$cluster)
+      
+      
+      library(fpc) #required to allow for weighted clustering (otherwise, data is scaled and weighting is lost)
+      kmeans_out = kmeansCBI(data = profs_resampled, k = nclasses, runs=10, scaling = FALSE)
+      #plot(kmeans_out$cluster, kmeans_out$partition)
+      
+      # plot(profs_resampled[,1], profs_resampled[,2], col=kmeans_out$cluster)
+      # points(kmeans_out$centers, pch="x")
+      # 
+      # plot(profs_resampled[,1], profs_resampled[,2], col=kmeans_out$result$cluster)
+      #points(kmeans_out$result$centers, pch=as.character(1:nclasses))
+      
+      
+      #head(dists)
+      #head(kmeans_out$result$cluster)
+      
+      #plot(profs_resampled[,1], profs_resampled[,2], col=grey(center_dists/max(center_dists)))
+      
+      #points(profs_resampled[2,1], profs_resampled[2,2], pch="B")
+      
+      # Simplify code by put distance in function
+      distFun=function(mat,centre) apply(mat, 1, function(x) sqrt(sum((x-centre)^2)))
+      
+      centroids=kmeans_out$result$centers
+      dists = matrix(-9999, nrow=n_profs, ncol=nclasses)  #create array for holding distance values
+      for(d in 1:nclasses) dists[,d]=distFun(profs_resampled, centroids[d,])  # Calculate observation distances to centroid d=1..nclasses
+      
+      #center_dists = dists[cbind(1:n_profs,kmeans_out$result$cluster)] #distances to closest cluster center
+       #head(center_dists)
+      
+      #distFun(profs_resampled[2,, drop=FALSE], centroids[1,])
+      
+#      whichMins=apply(dists,1,which.min) # Calculate the closest centroid per observation
+#      table(whichMins) # Tabularize
+      
+      # silhoutte plot ####
       if (length(unique(cidx)) < nclasses) {
         if(!silent) message(paste("% -> WARNING: ", nclasses-length(unique(cidx)), ' empty clusters produced.', sep=""))
       } else if (make_plots) {
         # silhouette plot, doesn't work with empty clusters
         if (!is.null(kmeans_out) & plot_silhouette)
         {
-          dists <- daisy(profs_resampled) # compute pairwise distances, TODO: see warnings
-          plot(silhouette(kmeans_out$cluster, dists^2), main=attr_names[iw]) # plot silhouette
-        }  else
-          dists <- matrix(-9999, nrow=n_profs, ncol=nclasses)  #dummy, no distance computed
-      
+          warning("silhouette plot currently out of stock, sorry.")
+          #dists2 <- daisy(profs_resampled) # compute pairwise distances, TODO: see warnings
+          #plot(silhouette(kmeans_out$cluster, dists2^2), main=attr_names[iw]) # plot silhouette
+        }  
       }
       
       
       
       
       
-      # PLOT classified catenas
+      # PLOT classified catenas ####
       # originals
       if (make_plots) {
         plot(1,1,type="n", xlim=c(0,max(profs_resampled_stored[,com_length+1])), ylim=c(0,max(profs_resampled_stored[,com_length+2])),
@@ -717,20 +763,15 @@ prof_class <- function(
       mean_prof[i,] <- apply(profs_resampled_stored[class_i,, drop=F],2,mean)
       
       # find closest catena (=most representative) to each class centre
-      dists_class_i <- dists[class_i,i]        # retrieve distances of catenas of class i to centroid of class i
-      class_repr[i,2] <- min(dists_class_i)   # find minimum distance of class i
-      j <- min(which(dists_class_i == min(dists_class_i)))
-      class_repr[i,1] <- class_i[j]                 # store internal id of closest catena
+      closest_ix      <- which.min(dists[,i]) # find of catena closest to closest to cluster centre
+      class_repr[i,2] <- dists[closest_ix,i]  #store minimum
+      if (sum(dists[closest_ix,i] == dists[,i]) == 1) 
+      class_repr[i,1] <- closest_ix else           #store ID
+      class_repr[i,1] <- -closest_ix            #multiple closest catenas, store negative ID
+        
       
-      # TODO: what is this good for?!
-      Y <- sort(dists_class_i)
-      ix <- sort(dists_class_i, index.return=T)$ix
-      if (cf_mode=='singlerun') {
-        if(!silent) message(paste('% -> WARNING: three closest catenas to centre of class ', i, ' (ext id): ', p_id_unique[class_i[ix[1:min(3,length(ix))]]], sep=""))
-      }
-      
-      
-      # draw a separate figure with the cluster centre (mean toposequence) and the closest catena
+        
+       # draw a separate figure with the cluster centre (mean toposequence) and the closest catena
       if (make_plots && FALSE) {
         xvec <- c(0:(com_length-1))/(com_length-1)*mean_prof[i,com_length+1]
         yvec <- mean_prof[i,1:com_length] * mean_prof[i,com_length+2]
