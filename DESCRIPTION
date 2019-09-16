@@ -1,8 +1,8 @@
 Package: lumpR
 Type: Package
 Title: Landscape Unit Mapping Program for R
-Version: 3.0.48
-Date: 2019-03-19
+Version: 3.0.49
+Date: 2019-09-16
 Authors@R: c(person("Tobias", "Pilz", email="tpilz@uni-potsdam.de", 
 																		role=c("aut", "cre", "cph")),
 							person("Till", "Francke", email="francke@uni-potsdam.de",
@@ -23,7 +23,8 @@ Depends:
     foreach,
     RODBC,
     rgdal,
-    rgeos
+    rgeos,
+	fpc
 Suggests:
     doMC,
     doParallel
