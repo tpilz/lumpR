@@ -99,6 +99,9 @@
 #'      variance within each TC is minimized considering slope gradient and supplemental
 #'      information.
 #'
+#'		The file \code{luoutfile} contains the properties of the resulting landscape units and is later imported into the WASA-database. 
+#'		Additionally, it contains the ID of the most "representative" catena, i.e. catena most similar to the toposequence for each LU.
+#'
 #' @references Source code based on \code{SHELL} and \code{MATLAB} scripts of Till Francke.
 #' 
 #'      lumpR package introduction with literature study and sensitivity analysis:\cr
