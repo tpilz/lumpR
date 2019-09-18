@@ -99,7 +99,7 @@
 #'      variance within each TC is minimized considering slope gradient and supplemental
 #'      information.
 #'
-#'      \bold{Lanbdscape units properties parameters}\cr
+#'      \bold{Landscape units properties parameters}\cr
 #'		The file \code{luoutfile} contains the properties of the resulting landscape units (i.e. their representative toposequence) and is later imported into the WASA-database with \code{\link[lumpR]{db_fill}}. 
 #'      \emph{LU-ID}\cr
 #'      ID of resulting landscape unit / class. For 'successive' classification, the digits of the ID may reflect the classification according to the involved attributes (i.e. '143' corresponding to class 1, 4 and 3 for attributes 1, 2 and 3, respectively).
