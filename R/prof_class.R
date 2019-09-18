@@ -29,7 +29,7 @@
 #' @param dir_out Character string specifying output directory (will be created;
 #'      nothing will be overwritten).
 #' @param luoutfile Output: Name of file containing the average properties of
-#'      \emph{Landscape Units}.
+#'      \emph{Landscape Units}. See Details.
 #' @param tcoutfile Output: Name of file containing the average properties of
 #'      \emph{Terrain Components}.
 #' @param lucontainstcoutfile Output: Name of file containing information wich
@@ -99,8 +99,24 @@
 #'      variance within each TC is minimized considering slope gradient and supplemental
 #'      information.
 #'
-#'		The file \code{luoutfile} contains the properties of the resulting landscape units and is later imported into the WASA-database. 
-#'		Additionally, it contains the ID of the most "representative" catena, i.e. catena most similar to the toposequence for each LU.
+#'      \bold{Lanbdscape units properties parameters}\cr
+#'		The file \code{luoutfile} contains the properties of the resulting landscape units (i.e. their representative toposequence) and is later imported into the WASA-database with \code{\link[lumpR]{db_fill}}. 
+#'      \emph{LU-ID}\cr
+#'      ID of resulting landscape unit / class. For 'successive' classification, the digits of the ID may reflect the classification according to the involved attributes (i.e. '143' corresponding to class 1, 4 and 3 for attributes 1, 2 and 3, respectively).
+#'      \emph{closest_catena}\cr
+#'      ID of EHA / catena most similar to the resulting toposequence of the LU. Should only be used with 'singlerun' classification.
+#'      \emph{closest_dist}\cr
+#'      Distance of closest catena to cluster centre. Should only be used with 'singlerun' classification.
+#'      \emph{x_length}\cr
+#'      Horizontal extent of toposequence in map units.
+#'      \emph{y_length}\cr
+#'      Vertical extent of toposequence in z-units of DEM.
+#'      \emph{lim_var<ntc-1>}\cr
+#'      Index of toposequence points (see ...) that are the resulting borders of the <ntc> TCs, resulting from minimizing intra-TC variance.
+#'      \emph{lim_clu<ntc-1>}\cr
+#'      Index of toposequence points (see ...) that are the resulting borders of the <ntc> TCs, resulting from within-TC-cluster analysis (currently not used in further steps).
+#'      \emph{<attribute>_p<1..com_length>}\cr
+#'      \code{com_length} contains the number of points, to which all catenas and toposequences were resampled. Thus, the corresponding number of columns are used for each attribute to specify its value at this point. For example, 'LAI_p1' reporesents the value at the very foot of the catena, LAI_p<com_length> the point at the end of the toposequence, i.e. at \code{x_length}. If <attribute> is categorical, <attribute>_p<#point>_c<#class> denotes the fraction of class '#class' at point '#point'.
 #'
 #' @references Source code based on \code{SHELL} and \code{MATLAB} scripts of Till Francke.
 #' 
