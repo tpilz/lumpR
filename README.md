@@ -15,6 +15,7 @@ This project deals with an R-package called "lumpR". The package provides functi
 ```R
 install.packages("devtools") 
 library(devtools)
+Sys.setenv(R_REMOTES_NO_ERRORS_FROM_WARNINGS=TRUE) #tell git_install() to ignore warnings. Otherwise, it gets stuck at each warning
 install_github("tPilz/lumpR")
 ```
 
