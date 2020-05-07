@@ -348,7 +348,7 @@ calc_subbas <- function(
     clean_temp_dir(river)
     
     # snap points to streams
-    drain_points_snap <- suppressWarnings(snapPointsToLines(drain_points, streams_vect, maxDist=snap_dist))
+    drain_points_snap <- suppressWarnings(snapPointsToLines1(drain_points, streams_vect, maxDist=snap_dist))
     drain_points_snap$nearest_line_id=NULL #we don't need this and this long field name causes trouble
     
     # export drain_points_snap to GRASS
