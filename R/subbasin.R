@@ -218,8 +218,8 @@ calc_subbas <- function(
       remove_pattern=paste0("*_t,", basin_out, ",", points_processed, "_*")
       # keep rivermap if prespecified
       if (is.null(river))
-		remove_pattern <- paste0(remove_pattern, paste0(",",stream,"_*")) #keep rivermap if prespecified
-	  cmd_out <- execGRASS("g.remove", type="raster,vector", pattern=remove_pattern, flags=c("f", "b"), intern=T)
+        remove_pattern <- paste0(remove_pattern, paste0(",",stream,"_*")) #keep rivermap if prespecified
+      cmd_out <- execGRASS("g.remove", type="raster,vector", pattern=remove_pattern, flags=c("f", "b"), intern=T)
     } else {
       # remove temporary maps in any case
       cmd_out <- execGRASS("g.remove", type="raster,vector", pattern="*_t", flags=c("f", "b"), intern=T)
@@ -320,7 +320,7 @@ calc_subbas <- function(
     suppressWarnings(proj4string(drain_points) <- CRS(getLocationProj()))
     suppressWarnings(writeVECT(drain_points, paste0(points_processed,"_t"), v.in.ogr_flags = c("o","quiet")))
     clean_temp_dir(paste0(points_processed, "_t"))
-
+    
     # move drainage points to centers of raster cells
     x <- execGRASS("v.to.rast", input=paste0(points_processed,"_t"), output=paste0(points_processed,"_t"), use="attr", attribute_column="subbas_id", flags="overwrite", intern=T)
     x <- execGRASS("r.to.vect", input=paste0(points_processed,"_t"), output=paste0(points_processed,"_centered_t"), type="point", flags = c("overwrite", "quiet"))
@@ -348,7 +348,7 @@ calc_subbas <- function(
     clean_temp_dir(river)
     
     # snap points to streams
-    drain_points_snap <- suppressWarnings(snapPointsToLines(drain_points, streams_vect, maxDist=snap_dist))
+    drain_points_snap <- suppressWarnings(snapPointsToLines1(drain_points, streams_vect, maxDist=snap_dist))
     drain_points_snap$nearest_line_id=NULL #we don't need this and this long field name causes trouble
     
     # export drain_points_snap to GRASS
@@ -386,31 +386,46 @@ calc_subbas <- function(
         
         # read raster data from GRASS for processing
         basins <- raster(readRAST("basin_calc_t", ignore.stderr = T))
+        basins = as.integer(basins)
+        
         accum <- raster(readRAST("accum_t", ignore.stderr = T))
         accum <- abs(accum) # ignore negative accumulation values (warning will be issued)
+        accum = as.integer(accum)
         
         # calculate zonal statistics: Maximum accumulation for every subbasin (=outlet)
         stats <- zonal(accum, basins, fun="max")
-        
+     
         # remove calculated watershed outlet (point of maximum flow accumulation) as this has been given as input
         stats <- stats[-which(stats[2] == max(stats[2])), ]
+        stats = apply(FUN=as.integer, MAR=2, X=stats) #convert to integer
         
         # get coordinates of outlets
         outs <- apply(stats, 1, function(x) {
-          cell_no <- Which(accum==x[2], cells=T)
           
+          #system.time(
+          cell_no <- Which(accum==x[2], cells=T)  
+
           # if there is more than one cell, get the one in the right subbasin
           if(length(cell_no) > 1) {
             cell_bas <- Which(basins==x[1], cells=T)
             cell_no <- cell_no[which(cell_no %in% cell_bas)]
           }
-          
+          #)                                       #74 sec
+        
+          # Test, if joint command can save time -> no, takes longer
+            # system.time(
+            # cell_no <- Which(accum==x[2] & basins==x[1], cells=T)) #145 (float accum & basins, float stats)
+            #                                                       #130 (integer accum, float x, integer stats)
+            #                                                      #110  (all integer)
+
           # get coordinates of cell_no
-          res <- round(xyFromCell(accum, cell_no),0)
-          res <- cbind(res, x[1])
+if (length(cell_no) > 1) warning("Outlet cell could not be found inequivocally (R/GRASS bug). Please check")          
+res <- round(xyFromCell(accum, cell_no),0)[1,] #ignore any potential multiple cells (strange bug in raster comparison wwe don't understand)
+          res <- c(res, x[1])
           return(res)
         })
         
+     
         # delete raster objects
         rm(accum, basins)
         gc(verbose = F); gc(verbose = F)
@@ -637,21 +652,21 @@ calc_subbas <- function(
     
     
     # exception handling
-    }, error = function(e) {
-
+  }, error = function(e) {
+    
     # stop sinking
     closeAllConnections()
-
+    
     # restore original warning mode
     if(silent)
       options(warn = oldw)
-
+    
     # remove mask if there is any (and ignore error in case there is no mask)
     cmd_out <-tryCatch(suppressWarnings(execGRASS("r.mask", flags=c("r"), intern = T)), error=function(e){})
-
+    
     if(keep_temp == FALSE)
       cmd_out <- execGRASS("g.remove", type="raster,vector", pattern=paste0("*_t,",stream,"_*,", basin_out, ",", points_processed, "_*"), flags=c("f", "b"), intern = T)
-
+    
     stop(paste(e))
   })
   
