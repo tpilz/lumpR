@@ -4,15 +4,28 @@
 \alias{calc_subbas}
 \title{Calculation of hydrological subbasins using GRASS GIS}
 \usage{
-calc_subbas(dem = NULL, drain_points = NULL, river = NULL,
-  flowaccum = NULL, drainage_dir = NULL, disk_swap = FALSE,
-  basin_out = NULL, stream = NULL, points_processed = NULL,
-  outlet = NULL, thresh_stream = NULL, thresh_sub = NULL,
-  snap_dist = NULL, rm_spurious = 0.01, keep_temp = F,
-  overwrite = F, silent = F)
+calc_subbas(
+  dem = NULL,
+  drain_points = NULL,
+  river = NULL,
+  flowaccum = NULL,
+  drainage_dir = NULL,
+  disk_swap = FALSE,
+  basin_out = NULL,
+  stream = NULL,
+  points_processed = NULL,
+  outlet = NULL,
+  thresh_stream = NULL,
+  thresh_sub = NULL,
+  snap_dist = NULL,
+  rm_spurious = 0.01,
+  keep_temp = F,
+  overwrite = F,
+  silent = F
+)
 }
 \arguments{
-\item{dem}{Digital elevation model in GRASS location used for delineation of
+\item{dem}{Digital Elevation Model in GRASS location used for delineation of
 subbasins. Should be larger than the expected catchment, otherwise artefacts
 close to boundaries may occur.}
 
@@ -105,22 +118,24 @@ Function returns nothing. Various output is generated in the GRASS-location:
 Takes DEM from a GRASS location and a file of drainage locations to calculate 
 hydrological subbasins for each drainage point using GRASS functions.
 }
+\details{
+The function constructs subbasins based on \code{param drain_points} (if given) and \code{param thresh_sub}
+ (if given). Both are merged, preserving the former outlet points, if present.
+}
 \note{
 \bold{Prepare GRASS} location and necessary raster files in advance and start
      GRASS session in R using \code{\link[rgrass7]{initGRASS}}. Location
      should not contain any maps ending on *_t as these will be removed by
      calling the function to remove temporary maps.
      
-     You should select your \bold{DEM sufficiently large}. Otherwise the resulting
+     You should select your DEM \bold{sufficiently large}. Otherwise, the resulting
      catchment might be truncated or boundaries influence the calculation
      of stream segments.
      
      \bold{Check the results} (subbasins and snapped points). In case points have been snapped
      to the wrong stream segment, adjust point locations manually in GRASS and re-run
      the function with the updated locations (use \code{\link[rgrass7]{readVECT}}
-     to import the updated drainage points). Also check that calculated subbasins and
-     those delineated based on given \code{drain_points} do not interfere (e.g.
-     resulting in very small spurious subbasins).
+     to import the updated drainage points).
      
      Generated raster and vector stream \bold{maps might slightly deviate} from each other
      as the raster map is thinned (GRASS function \emph{r.thin}) prior to conversion

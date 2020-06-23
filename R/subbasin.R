@@ -20,7 +20,7 @@
 #' Takes DEM from a GRASS location and a file of drainage locations to calculate 
 #' hydrological subbasins for each drainage point using GRASS functions.
 #' 
-#' @param dem Digital elevation model in GRASS location used for delineation of
+#' @param dem Digital Elevation Model in GRASS location used for delineation of
 #'      subbasins. Should be larger than the expected catchment, otherwise artefacts
 #'      close to boundaries may occur.
 #' @param drain_points \code{SpatialPoints} object containing drainage locations in
@@ -92,22 +92,23 @@
 #'    \item{\code{<points_processed>_all_t}}{combined drain points as raster (easier to identify double drain points sharing one raster cell).} 
 #'  }  
 #'      
-#'      
+#' @details
+#'  The function constructs subbasins based on \code{param drain_points} (if given) and \code{param thresh_sub}
+#'  (if given). Both are merged, preserving the former outlet points, if present.
+     
 #' @note \bold{Prepare GRASS} location and necessary raster files in advance and start
 #'      GRASS session in R using \code{\link[rgrass7]{initGRASS}}. Location
 #'      should not contain any maps ending on *_t as these will be removed by
 #'      calling the function to remove temporary maps.
 #'      
-#'      You should select your \bold{DEM sufficiently large}. Otherwise the resulting
+#'      You should select your DEM \bold{sufficiently large}. Otherwise, the resulting
 #'      catchment might be truncated or boundaries influence the calculation
 #'      of stream segments.
 #'      
 #'      \bold{Check the results} (subbasins and snapped points). In case points have been snapped
 #'      to the wrong stream segment, adjust point locations manually in GRASS and re-run
 #'      the function with the updated locations (use \code{\link[rgrass7]{readVECT}}
-#'      to import the updated drainage points). Also check that calculated subbasins and
-#'      those delineated based on given \code{drain_points} do not interfere (e.g.
-#'      resulting in very small spurious subbasins).
+#'      to import the updated drainage points).
 #'      
 #'      Generated raster and vector stream \bold{maps might slightly deviate} from each other
 #'      as the raster map is thinned (GRASS function \emph{r.thin}) prior to conversion
@@ -308,6 +309,13 @@ calc_subbas <- function(
     # add data slot and columns subbas_id and cat, if not given
     if(!any(slotNames(drain_points) == "data"))
       drain_points <- SpatialPointsDataFrame(drain_points, data=data.frame(subbas_id=1:length(drain_points)))
+    
+    if (any(duplicated(drain_points@data$subbas_id))) 
+    {  
+      warning("Duplicated subbas_id in drainage points. Ignoring IDs, using row numbers instead.")
+      drain_points@data$subbas_id=NULL 
+    }
+    
     if(!any(colnames(drain_points@data) == "subbas_id"))
       drain_points@data <- cbind(drain_points@data, subbas_id=1:length(drain_points))
     if(!any(colnames(drain_points@data) == "cat"))
@@ -419,8 +427,8 @@ calc_subbas <- function(
             #                                                      #110  (all integer)
 
           # get coordinates of cell_no
-if (length(cell_no) > 1) warning("Outlet cell could not be found inequivocally (R/GRASS bug). Please check")          
-res <- round(xyFromCell(accum, cell_no),0)[1,] #ignore any potential multiple cells (strange bug in raster comparison wwe don't understand)
+          if (length(cell_no) > 1) warning("Outlet cell could not be found inequivocally (R/GRASS bug). Please check")          
+          res <- round(xyFromCell(accum, cell_no),0)[1,] #ignore any potential multiple cells (bug in raster comparison for rasters with large numbers/scientific notation)
           res <- c(res, x[1])
           return(res)
         })
@@ -435,7 +443,10 @@ res <- round(xyFromCell(accum, cell_no),0)[1,] #ignore any potential multiple ce
         colnames(outs) <- c("x", "y", "cat")
         outs <- as.data.frame(outs)
         # subbas_id, make sure they are distinct from drain_points_snap
-        outs <- cbind(outs, subbas_id = seq(1,1e6,by=1)[-drain_points_snap@data$subbas_id][1:nrow(outs)])
+        new_ids = 1:(nrow(outs) + nrow(drain_points_snap@data)) # potential new IDs
+        new_ids = setdiff(new_ids, drain_points_snap@data$subbas_id) #remove IDs that are alredy in use
+        new_ids = new_ids[1:nrow(outs)]  #use only as many as needed
+        outs <- cbind(outs, subbas_id = new_ids)
         coordinates(outs) <- c("x", "y")
         
         # as SPDF
@@ -457,25 +468,20 @@ res <- round(xyFromCell(accum, cell_no),0)[1,] #ignore any potential multiple ce
       cmd_out <- execGRASS("r.mask", flags=c("r"), intern = T)
     }
     
-    if (any(duplicated(drain_points@data$subbas_id))) 
-    {  
-      warning("Duplicated subbas_id in drainage points. Ignoring IDs, using row numbers instead.")
-      drain_points@data$subbas_id=NULL 
-    }
-    
-    # combined drain points as raster (easier to identify double drain points sharing one raster cell)
+    # combine drain points as raster (easier to identify double drain points sharing one raster cell)
     suppressWarnings(writeVECT(drain_points_snap, paste0(points_processed, "_all_t"), v.in.ogr_flags = c("o","quiet")))
     clean_temp_dir(paste0(points_processed,"_all_t"))
     
     x <- execGRASS("v.to.rast", input=paste0(points_processed, "_all_t"), output=paste0(points_processed, "_all_t_t"), use="attr", attribute_column="subbas_id", flags="overwrite", intern=T)
-    x <- execGRASS("r.mapcalc", expression=paste0(points_processed, "_all_t=round(", points_processed, "_all_t_t)"), flags = c("overwrite"), intern=T)
+    #? how do we ensure duplicate drainage points keep the manually assigned subbas_id? i.e., not being overwritten by automatically generated ID.
+    x <- execGRASS("r.mapcalc", expression=paste0(points_processed, "_all_t=round(", points_processed, "_all_t_t)"), flags = c("overwrite"), intern=T) #convert raster map to integer
     x <- execGRASS("g.remove", type="raster", pattern=paste0(points_processed, "_all_t_t"), flags="f", intern=T) #remove temporary map required in previous line
     
     # get coordinates of drain point cells
     drainp_coords <- execGRASS("r.stats", input = paste0(points_processed, "_all_t"), flags=c("n", "g", "quiet"), intern=T)
     drainp_coords <- matrix(as.numeric(unlist(strsplit(drainp_coords, " "))), ncol = 3, byrow = T)
     
-    # loop over drainage points of subbasins TODO: This step is slow!
+    # loop over drainage points of subbasins; TODO: This step is slow!
     for (p in 1:nrow(drainp_coords)) {
       
       # outlet coordinates
@@ -486,6 +492,7 @@ res <- round(xyFromCell(accum, cell_no),0)[1,] #ignore any potential multiple ce
       
       # basin
       cmd_out <- execGRASS("r.water.outlet", input="drain_t", output=paste0("basin_", id, "_t"), coordinates=outlet_coords, intern = T)
+      # TODO: better clip any already existing subbasins from the automatically generated map
       
       cmd_out = execGRASS("r.stats", input=paste0("basin_", id, "_t"), flag=c("c","n","quiet"), intern = TRUE)
       ncells = as.numeric(strsplit(cmd_out, split = " ")[[1]][2])
@@ -493,7 +500,7 @@ res <- round(xyFromCell(accum, cell_no),0)[1,] #ignore any potential multiple ce
         warning(paste0("Number of cells in calculated catchment ",id," is very low (",ncells,"). Try using a filled DEM and check outlet points."))
       
       # reclass (for crossing later on)
-      # ii: can this be done with reclass to conserver space?
+      # ii: can this be done with reclass to conserve space?
       cmd_out <- execGRASS("r.mapcalc", expression=paste0("basin_recl_", id, "_t = if(basin_", id, "_t,", id, ")"), intern=T)
       
     }
@@ -512,6 +519,8 @@ res <- round(xyFromCell(accum, cell_no),0)[1,] #ignore any potential multiple ce
     # put sub-catchments together
     subcatch_rasts <- paste0("basin_recl_",drainp_coords[,3], "_t")
     
+    iteration_nr= 0 #initialise counting variable; number of iterations needed to remove spurious subbas
+    
     # if more than one sub-catchment
     if(no_catch > 1) {
       
@@ -520,13 +529,13 @@ res <- round(xyFromCell(accum, cell_no),0)[1,] #ignore any potential multiple ce
         
         # max 30 maps at once, create multiple cross products if necessary
         x <- execGRASS("g.remove", type="raster", pattern="basin_cross_*", flags="f", intern=T) # remove old basin_cross_*
-        iterations <- ceiling(length(subcatch_rasts)/30)
+        iterations <- ceiling(length(subcatch_rasts)/30) 
         for (j in 1:iterations){
           if (j == iterations) {
-            if(length(subcatch_rasts) %% 30 == 1) {
+            if(length(subcatch_rasts) %% 30 == 1) { #special case: only one subbasin remaining
               x <- execGRASS("g.copy", raster=paste(subcatch_rasts[((j-1)*30+1):length(subcatch_rasts)], paste0("basin_cross_", j, "_t"), sep=","), 
                              intern=T, ignore.stderr=T)
-            } else {
+            } else { #general case: more than one remaining
               x <- execGRASS("r.cross", input=paste(subcatch_rasts[((j-1)*30+1):length(subcatch_rasts)], collapse=","),
                              output=paste0("basin_cross_", j, "_t"), flags = c("overwrite"), intern=T, ignore.stderr=T)
             }
@@ -545,36 +554,116 @@ res <- round(xyFromCell(accum, cell_no),0)[1,] #ignore any potential multiple ce
           x <- execGRASS("r.cross", input=paste(cross_rasts,collapse=","), output="basin_all_t",
                          flags = c("overwrite"), intern=T, ignore.stderr=T)
         }
+  
+  #Former Problem: if thresh_sub and rm_spurious are rather high, 
+  #        subbas with specified outlets (drain_points) are removed, while
+  #        larger subbas (according to thresh_sub) with "artificial" outlets are kept
+  #Aim: keep manually specified outlets, even if produced subbas < rm_spurious
+  #     if specified subbas too small, remove upstream neighbours instead and merge with specified subbas
+        
+        #find out subbas combinations / upstream subbas
+        cmd_out <- execGRASS("r.stats", input="basin_all_t", flags=c("n","l"), intern=T, ignore.stderr = T)
+        #reformat list data
+        cmd_out=  gsub(x=cmd_out, pattern = "^(\\d*) ", repl="\\1;") # seperate 1st ID in line with ;
+        cmd_out = gsub(x=cmd_out, pattern = "category", repl="")     # remove "category"
+        cmd_out = gsub(x=cmd_out, pattern = " *", repl="")           # remove blank space
+        cmd_out = gsub(x=cmd_out, pattern = "NULL", repl="")         # remove "NULL"
+        cmd_out = strsplit(cmd_out, split = ";")                     # split entries
+        
+        #get maximum subbas_id in entire list
+        max_subbas_id=max(as.numeric(sapply(FUN=max, cmd_out))) #number of columns
+        
+        #n_comb = max(sapply(FUN=length, cmd_out))  #get number of columns to produce
+        #subbas_combinations = array(NA, c(length(cmd_out), n_comb))
+        
+        #create array of subbas combinations, 
+        subbas_combinations = array(NA, c(length(cmd_out), max_subbas_id)) #array with n_lines = length(cmd_out) and n_cols = max_subbas_id
+        map_id = array(NA, length(cmd_out))
+        cmd_out2 = list()
+        for(i in 1:length(cmd_out))
+        {
+          col_indices=as.numeric(cmd_out[[i]])
+          map_id[i] = col_indices [1]
+          cmd_out2[[i]] =  na.omit(as.numeric(cmd_out[[i]][-1]))
+          subbas_combinations[i, na.omit(col_indices [-1])] = TRUE
+        }
+        subbas_combinations[is.na(subbas_combinations)] = FALSE #replace NAs with FALSE
         
         # check for and correct error in r.cross, see https://lists.osgeo.org/pipermail/grass-user/2018-February/077934.html
-        cmd_out <- execGRASS("r.stats", input="basin_all_t", flags=c("n"), intern=T, ignore.stderr = T)
-        if(any(as.numeric(cmd_out) == 0)) {
-          cmd_out <- execGRASS("r.mapcalc", expression="basin_all_t=basin_all_t+1", flags=c("overwrite"), intern=T)
+        if(any(map_id == 0)) {
+          cmd_out <- execGRASS("r.mapcalc", expression="basin_all_t2=basin_all_t+1", flags=c("overwrite"), intern=T)
+          cmd_out <- execGRASS("g.rename", raster="basin_all_t2,basin_all_t", flags=c("overwrite"), intern=T)
+          map_id = map_id + 1
         }
         
-        # check size of sub-catcments and identify and remove 'spurious' sub-catchments
+        # check size of sub-catchments and identify and remove 'spurious' sub-catchments
         if(rm_spurious>0) {
-          if(!silent) message("% Iteratively remove spurious subcatchments ...")
-          # get sub-catcments and sizes (cell counts) and identify spurious ones
-          cmd_out <- execGRASS("r.stats", input="basin_all_t", flags=c("n", "c"), intern=T, ignore.stderr = T)
+          if(!silent) message(paste("% Iteratively remove spurious subcatchments ...(Iteration:",iteration_nr,")"))
+          iteration_nr=iteration_nr+1
+          # get sub-catchments and sizes (cell counts) and identify spurious ones
+          cmd_out <- execGRASS("r.stats", input="basin_all_t", flags=c("n", "c"), intern=T, ignore.stderr = T) #internal subbas IDs of basin_all_t
           sub_sizes <- matrix(as.numeric(unlist(strsplit(cmd_out, " "))), ncol=2, byrow=T)
           #sub_sizes <- sub_sizes[-which(sub_sizes[,1] == 0),]
-          sub_rm <- sub_sizes[which(sub_sizes[,2] < rm_spurious*thresh_sub),1]
+          sub_rm <- sub_sizes[which(sub_sizes[,2] < rm_spurious*thresh_sub),1] #internal subbas IDs below removal threshold
           if(length(sub_rm)>0) {
-            # get IDs in basin_recl_* to be removed (not identical with raster values of basin_all_t!)
+          # get external IDs in basin_recl_* to be removed (not identical with internal raster values of basin_all_t!)
             #cmd_out <- execGRASS("r.univar", map=paste0(points_processed, "_all_t"), zones="basin_all_t", separator="comma", flags=c("t"), intern=T, ignore.stderr = T)
             cmd_out <- execGRASS("r.stats", input=paste0("basin_all_t,", points_processed, "_all_t"), flags=c("n"), separator="comma", intern=T, ignore.stderr = T)
-            cmd_out <- strsplit(cmd_out, ",")
+            #todo: do this only once, not in all iterations
+            cmd_out <- strsplit(cmd_out, ",") #conversion table internal "ID of r.cross" to external "ID of subbasins" 
             #cmd_cols <- grep("zone|^mean$", cmd_out[[1]])
             #basins_points <- do.call(rbind, cmd_out)[-1,cmd_cols, drop=F]
-            basins_points = matrix(unlist(cmd_out), ncol=2, byrow = TRUE) #convert output to matrix
-            sub_rm_f <- as.numeric(basins_points[which(as.numeric(basins_points[,1]) %in% sub_rm),2]) #extract IDs to be removed
-            # remove this temporary map from processing and drain points raster map and try again (back to start of while loop)
+            
+          # convert output to matrix; this is the translation of internal temp. subbas IDs (1st column) to external drain point subbas IDs (2nd column)
+            basins_points = matrix(unlist(cmd_out), ncol=2, byrow = TRUE) 
+          # get external subbas IDs to be removed
+            sub_rm_f <- as.numeric(basins_points[which(as.numeric(basins_points[,1]) %in% sub_rm),2]) 
+            
+            manually_specified = intersect(sub_rm_f, drain_points@data$subbas_id) #these points are manually specified outlets (=external IDs) - don't remove them
+            remove_instead = NULL
+            if (length(manually_specified)>0) #if manually specified external subbas ID detected, remove their upstream neighbours instead
+            {
+              for (cur_sub in manually_specified) #cur_sub = external ID
+              {
+                cross_id = basins_points[basins_points[,2] == cur_sub, 1]   #cross_ID = internal ID in temporary basin map
+                #curr_line = subbas_combinations[ as.numeric(cross_id),] #configuration of current subbasin
+                #curr_line = na.omit(as.numeric(cmd_out[[ cross_id ]][-1])) #configuration of current subbasin
+                
+                curr_line = cmd_out2[[ as.numeric(cross_id) ]] #configuration of current subbasin, contains temporary internal subbas IDs of all encompassing higher hierarchy basins
+                
+                #tt =apply(subbas_combinations, MARGIN = 1, FUN= function(x,y){sum(x!=y)}, y=curr_line)
+                tt =unlist(lapply(cmd_out2, FUN= function(x,y){length(c (setdiff(x, y), setdiff(y,x)) )}, y=curr_line)) #number of differences in cofiguration; 0 = currently active subbas; 1 = nearest upstream or downstream neighbour
+                
+                #FUN(x=cmd_out2[[13]], y= curr_line)
+                
+                upstream_neighbours =  which(tt == 1 ) #internal subbas ID
+                for (j in upstream_neighbours)   # remove first downstream internal subbas ID (only preserve upstream neighbours)
+                {
+                  if (!cur_sub %in% cmd_out2[[j]])
+                    upstream_neighbours = setdiff(upstream_neighbours, j)
+                }
+                
+                #& subbas_combinations[ map_id == cur_sub,]
+                #cmd_out2[as.numeric(c(cross_id, upstream_neighbours))]
+                #subbas_combinations[ c(cross_id, upstream_neighbours),]
+                remove_instead = c(remove_instead, upstream_neighbours) #upstream internal subbas IDs to be removed
+
+              }
+              
+              sub_rm_f = setdiff(sub_rm_f, manually_specified) #external ID; don't remove the manually specified ones
+              # translate internal ID of subbas to remove into external ID 
+              remove_instead_ext = basins_points[basins_points[,1] %in% remove_instead, 2]
+              sub_rm_f = unique(c(sub_rm_f, remove_instead_ext)) #external ID; instead, use their upstream neighbours
+              
+            }  
+            
+        # remove this temporary map from processing and drain points raster map and try again (back to start of while loop)
+                  
             subcatch_rasts <- grep(paste0("basin_recl_", sub_rm_f, "_t", collapse="|"), subcatch_rasts, invert = T, value = T)
             x <- execGRASS("g.remove", type="raster", name="basin_all_t", flags = "f", intern=T)
             tmp_file <- tempfile()
-            stats_t <- as.integer(execGRASS("r.stats", input = paste0(points_processed, "_all_t"), flags=c("n", "quiet"), intern=T))
-            stats_t <- stats_t[!(stats_t %in% sub_rm_f)]
+            stats_t <- as.integer(execGRASS("r.stats", input = paste0(points_processed, "_all_t"), flags=c("n", "quiet"), intern=T)) #get external drain point subbas IDs
+            stats_t <- stats_t[!(stats_t %in% sub_rm_f)]  #!!without IDs to be removed
             write(paste(paste(sub_rm_f, "NULL", sep = " = ", collapse = "\n"), paste(stats_t, stats_t, sep=" = ", collapse = "\n"), sep="\n"), file=tmp_file)
             x <- execGRASS("r.reclass", input=paste0(points_processed, "_all_t"), output=paste0(points_processed, "_all2_t"),
                            rules = tmp_file, flags = "overwrite")
@@ -614,9 +703,9 @@ res <- round(xyFromCell(accum, cell_no),0)[1,] #ignore any potential multiple ce
       warning("Drainage point(s) ", paste0(nas, collapse=", "), " seem to lie outside catchment, please check.")
       drain_points_snap@data = drain_points_snap@data[-nas,]
     }  
-    dat_rules <- paste(drain_points_snap@data$temp_id, "=", drain_points_snap@data$subbas_id, collapse = "\n")
+    dat_rules <- paste(drain_points_snap@data$temp_id, "=", drain_points_snap@data$subbas_id, collapse = "\n") 
     tmp_file <- tempfile()
-    write(dat_rules, file=tmp_file)
+    write(dat_rules, file=tmp_file) # GRASS Gis reclass file: Old_ID = New_ID, temp_id is changed to subbas_id
     cmd_out <- execGRASS("r.reclass", input = paste0(basin_out, "_t"), output = paste0(basin_out, "2_t"), rules = tmp_file)
     cmd_out <- execGRASS("r.mapcalc", expression = paste0(basin_out, "=", basin_out, "2_t"), intern = T)
     
@@ -636,6 +725,7 @@ res <- round(xyFromCell(accum, cell_no),0)[1,] #ignore any potential multiple ce
     if(!silent) message("%")
     if(!silent) message("% -> Check the results for plausibility (e.g. inaccuracies at snapping of drain_points to streams may occur).")
     if(!silent) message("% -> If manual adjustments are necessary re-run this function. Existing grids of flow accumulation and direction may be used for speed-up.")
+    if(!silent) message("% -> Note: Subbasin IDs of the calculated map 'subbas' might not be consecutively numbered! Please check.")
     if(!silent) message("%")
     if(!silent) message("% DONE!")
     if(!silent) message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
