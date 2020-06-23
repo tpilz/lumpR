@@ -4,13 +4,28 @@
 \alias{area2catena}
 \title{Calculates mean catena from spatial data}
 \usage{
-area2catena(mask = NULL, flowacc = NULL, eha = NULL,
-  distriv = NULL, elevriv = NULL, supp_quant = NULL,
-  supp_qual = NULL, dir_out = "./", catena_out = NULL,
-  catena_head_out = NULL, ridge_thresh = 1, min_cell_in_slope = 30,
-  min_catena_length = 3, max_riv_dist = 10, plot_catena = F,
-  grass_files = F, ncores = 1, eha_subset = NULL, overwrite = F,
-  silent = F)
+area2catena(
+  mask = NULL,
+  flowacc = NULL,
+  eha = NULL,
+  distriv = NULL,
+  elevriv = NULL,
+  supp_quant = NULL,
+  supp_qual = NULL,
+  dir_out = "./",
+  catena_out = NULL,
+  catena_head_out = NULL,
+  ridge_thresh = 1,
+  min_cell_in_slope = 30,
+  min_catena_length = 3,
+  max_riv_dist = 10,
+  plot_catena = F,
+  grass_files = F,
+  ncores = 1,
+  eha_subset = NULL,
+  overwrite = F,
+  silent = F
+)
 }
 \arguments{
 \item{mask}{Raster file to be used as MASK in the GRASS location defining the
@@ -68,7 +83,7 @@ each area / class (written into sub-directory \emph{plots_area2catena}).}
 \item{grass_files}{logical; produce GRASS reclassification files for qualitative
 raster data. If an attribute name starting with 'svc' is found, the respective reclass file is produced anyway.}
 
-\item{ncores}{Ineger specifying number of cores that should be used for computation.}
+\item{ncores}{Integer specifying number of cores that should be used for computation - allows faster parallel computations (see Details).}
 
 \item{eha_subset}{NULL or integer vector with subset of EHA ids that shall
 be processed (for debugging and testing).}
@@ -103,6 +118,9 @@ Prepare GRASS location and necessary raster files in advance (e.g. using
      the region of interest) and are of type \code{CELL} (i.e. integer) where it makes
      sense (check with \code{r.info} in GRASS).
      
+     Parallel option (\code{ncores}>1) may speed-up computations. It requires the packages 
+     \code{doMC} and \code{doParallel}. Set \code{ncores} to a value less than the number of cores
+     your computer has; larger values will decrease performance.
      GUIs such as RStudio may not produce some runtime messages (within parallel
      foreach loop).
      

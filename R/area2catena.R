@@ -58,7 +58,7 @@
 #'      each area / class (written into sub-directory \emph{plots_area2catena}).
 #' @param grass_files logical; produce GRASS reclassification files for qualitative
 #'      raster data. If an attribute name starting with 'svc' is found, the respective reclass file is produced anyway.
-#' @param ncores Ineger specifying number of cores that should be used for computation.
+#' @param ncores Integer specifying number of cores that should be used for computation - allows faster parallel computations (see Details).
 #' @param eha_subset NULL or integer vector with subset of EHA ids that shall
 #'      be processed (for debugging and testing).
 #' @param overwrite \code{logical}. Shall output of previous calls of this function be
@@ -85,6 +85,9 @@
 #'      the region of interest) and are of type \code{CELL} (i.e. integer) where it makes
 #'      sense (check with \code{r.info} in GRASS).
 #'      
+#'      Parallel option (\code{ncores}>1) may speed-up computations. It requires the packages 
+#'      \code{doMC} and \code{doParallel}. Set \code{ncores} to a value less than the number of cores
+#'      your computer has; larger values will decrease performance.
 #'      GUIs such as RStudio may not produce some runtime messages (within parallel
 #'      foreach loop).
 #'      
