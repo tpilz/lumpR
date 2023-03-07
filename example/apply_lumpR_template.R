@@ -91,7 +91,7 @@ write(str_odbc, file="~/.odbc.ini", ncolumns=1, append=T, sep="\n")
   drain_p <- data.frame(utm_x_m=c(1,2,3), utm_y_m=c(1,2,3)) #enter your coordinates here
   coordinates(drain_p) <- c("utm_x_m", "utm_y_m")
   #B: import from vector layer  in GRASS mapset
-  drain_p = readVECT(vname = "subbas_outlets", layer=1) #specify name of point vector containing subbasin coordinates
+  drain_p = read_VECT(vname = "subbas_outlets", layer=1) #specify name of point vector containing subbasin coordinates
   #plot(drain_p)
   outlet_id = which(drain_p@data$Name=="Barasona") #specify row of outlet point of entire watershed
 
