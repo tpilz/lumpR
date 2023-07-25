@@ -51,7 +51,7 @@
 #'      the vector map \code{res_vect_class} in GRASS
 #'      
 #' @note Prepare GRASS location and necessary spatial objects in advance and start
-#'      GRASS session in R using \code{\link[rgrass7]{initGRASS}}.
+#'      GRASS session in R using \code{\link[rgrass]{initGRASS}}.
 #'      
 #'      Use \code{\link{reservoir_strategic}} to prepare the input for large / strategic reservoirs. 
 #'      
@@ -263,7 +263,8 @@ reservoir_lumped <- function(
       if (!any(grepl(cmd_out, pattern="\\|area"))) #add area column
       {  
         #ii: solve this directly in GRASS using v.to.db 
-        res_lump <- readVECT(res_vect)
+        res_lump <- read_VECT(res_vect)
+		res_lump = as(res_lump, 'Spatial') # convert SpatVector to SpatialPoints
         projection(res_lump) <- getLocationProj()
         
         res_lump@data$t_id = 1:nrow(res_lump@data) #create temporary ID
@@ -277,7 +278,7 @@ reservoir_lumped <- function(
         res_lump@data  <- merge(res_lump@data, areas, by.x="t_id", by.y="id")  # append area column to plt.data
         res_lump@data$t_id = NULL #discard temporary ID
         res_lump@data$cat = NULL #discard internal GRASS ID that will be re-generated anyway
-        writeVECT(SDF = res_lump, vname="t_t", v.in.ogr_flags=c("o","overwrite"))
+        write_VECT(x = vect(res_lump), vname="t_t", flags = "overwrite")
         clean_temp_dir("t_t")
       } else #area column already present
         x <- execGRASS("g.copy", vector=paste(res_vect,"t_t", sep=","), flags="overwrite", intern=TRUE)           
@@ -300,7 +301,8 @@ reservoir_lumped <- function(
     x <- execGRASS("v.db.addcolumn", map=res_vect_classified, columns="subbas_id int", intern=TRUE) 
     x <- execGRASS("v.what.rast", map=res_vect_classified, column="subbas_id", raster=subbas, intern=TRUE)  
     
-    res_lump <- readVECT(res_vect_classified, type = "point") #re-load from GRASS
+    res_lump <- read_VECT(res_vect_classified, type = "point") #re-load from GRASS
+	res_lump = as(res_lump, 'Spatial') # convert SpatVector to SpatialPoints
     clean_temp_dir(res_vect_classified)
     projection(res_lump) <- getLocationProj()
     
@@ -309,7 +311,8 @@ reservoir_lumped <- function(
       if(is.null(res_param$area_max)) {
         # area_max is also not given, i.e. calculate vol_max based on quantiles of sizes given in GRASS data
         res_lump <- readVECT(res_vect_classified, type="point")
-        # WINDOWS PROBLEM: delete temporary file otherwise an error occurs when calling writeVECT or readVECT again with the same (or a similar) file name 
+		res_lump = as(res_lump, 'Spatial') # convert SpatVector to SpatialPoints
+        # WINDOWS PROBLEM: delete temporary file otherwise an error occurs when calling writeVECT or readVECT again with the same (or a similar) file name (still an issue in GRASS8?)
         if(.Platform$OS.type == "windows") {
           dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
           files_del <- grep(substr(res_vect_classified, 1, 8), dir(dir_del), value = T)
@@ -380,7 +383,7 @@ reservoir_lumped <- function(
     
     # res_vect_classified
     if(!is.null(res_vect_classified)) {
-      writeVECT(SDF = res_lump, vname=res_vect_classified, v.in.ogr_flags=c("o","overwrite"))
+      write_VECT(x = vect(res_lump), vname=res_vect_classified, flags = "overwrite")
       clean_temp_dir(res_vect_classified)
     }
     

@@ -1,8 +1,8 @@
 Package: lumpR
 Type: Package
 Title: Landscape Unit Mapping Program for R
-Version: 3.1.0
-Date: 2020-06-23
+Version: 3.1.1
+Date: 2023-07-25
 Authors@R: c(person("Tobias", "Pilz", email="tpilz@uni-potsdam.de", 
 																		role=c("aut", "cre", "cph")),
 							person("Till", "Francke", email="francke@uni-potsdam.de",
@@ -11,7 +11,7 @@ Description: The package provides functions for a semi-automated approach of
     the delineation and description of landscape units and partition into terrain
     components. It can be used for the pre-processing of semi-distributed large-
     scale hydrological and erosion models using catena-representation (WASA-SED,
-    CATFLOW). It is closely connected to and uses functionalities of GRASS GIS.
+    CATFLOW), i.e. the LUMP-algorithm. It is closely connected to and uses functionalities of GRASS GIS.
     Additional pre-processing tools beyond the scope of the original LUMP are
     included.
 Depends:

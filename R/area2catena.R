@@ -72,11 +72,11 @@
 #'  
 #' @note Prepare GRASS location and necessary raster files in advance (e.g. using
 #'      \code{\link[lumpR]{lump_grass_prep}}) and start GRASS session in R using 
-#'      \code{\link[rgrass7]{initGRASS}}.
+#'      \code{\link[rgrass]{initGRASS}}.
 #'      
 #'      \bold{IMPORTANT:} Herein, when specifying the GRASS input maps, please do
 #'      explicitly refer to the mapset if it is different from the mapset given in
-#'      initGRASS() (even PERMANENT!), as otherwise internally used readRAST() command
+#'      initGRASS() (even PERMANENT!), as otherwise internally used read_RAST() command
 #'      resulted in errors under Windows.
 #'      
 #'      In case of \bold{long computation times or memory issues}, try \code{plot_catena = FALSE}
@@ -235,19 +235,19 @@ area2catena <- function(
     cmd_out <- execGRASS("g.copy", raster=paste0(mask,",MASK"), flags = "overwrite", intern = T)
         
     # load flow accumulation
-    flowaccum <- readRAST(flowacc)
+    flowaccum <- read_RAST(flowacc)
     flowaccum_rast <- raster(flowaccum)
     
     # load relative elevation
-    relelev <- readRAST(elevriv)
+    relelev <- read_RAST(elevriv)
     relelev_rast <- raster(relelev)
     
     # load distance to river
-    dist2river <- readRAST(distriv)
+    dist2river <- read_RAST(distriv)
     dist2river_rast <- raster(dist2river)
     
     # load EHAs
-    eha_in <- readRAST(eha)
+    eha_in <- read_RAST(eha)
     eha_rast <- raster(eha_in)
     
     
@@ -267,7 +267,7 @@ area2catena <- function(
         n_supp_data_qual_classes <- c(n_supp_data_qual_classes, length(raster::unique(tmp)))
       }
       
-      # convert (at) symbol to point (in case input comes from another GRASS mapset; readRAST6() converts it to point implicitly which causes errors during later processing)
+      # convert (at) symbol to point (in case input comes from another GRASS mapset; read_RAST6() converts it to point implicitly which causes errors during later processing)
       supp_qual <- gsub("[-+*/@.?!]", ".", supp_qual)
       
       names(n_supp_data_qual_classes) <- supp_qual
@@ -281,7 +281,7 @@ area2catena <- function(
       quant_rast <- raster::stack(tmp, quant_rast)
     }
     
-    # convert (at) symbol to point (in case input comes from another GRASS mapset; readRAST6() converts it to point implicitly which causes errors during later processing)
+    # convert (at) symbol to point (in case input comes from another GRASS mapset; read_RAST6() converts it to point implicitly which causes errors during later processing)
     supp_quant <- gsub("[-+*/@.?!]", ".", supp_quant)
     
     if(exists("tmp"))

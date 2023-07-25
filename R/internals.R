@@ -2,7 +2,7 @@
 check_raster <- function(map, argument_name="") { #check existence of raster map
   cur_mapset = execGRASS("g.mapset", flags="p", intern=TRUE) #determine name of current mapset
   if (!grepl(map, pattern = "@"))
-    map = paste0(map,"@", cur_mapset)  #add mapset name, unless already given. Otherwise, these checks may fall back on PERMANENT yielding true, but readRAST will fail later
+    map = paste0(map,"@", cur_mapset)  #add mapset name, unless already given. Otherwise, these checks may fall back on PERMANENT yielding true, but read_RAST will fail later
 
   cmd_out <-suppressWarnings(execGRASS("r.info", map=map, intern = T, ignore.stderr = TRUE))
   
@@ -19,16 +19,16 @@ check_vector <- function(map, argument_name="") { #check existence of vector map
 
 read_raster <- function(raster_name) { 
   #read raster from GRASS-location
-  #if raster exist both in local mapset and PERMANENT, force the reading of the local version, otherwise readRAST fails
+  #if raster exist both in local mapset and PERMANENT, force the reading of the local version, otherwise read_RAST fails
   cur_mapset = execGRASS("g.mapset", flags="p", intern=TRUE) #determine name of current mapset
   # mapset name in R (meta symbols replaced by ".")
   cur_mapset_r = gsub("[-+*/@.?!]", ".", cur_mapset)
-  if (!grepl(raster_name, pattern = "@")) #expand raster name because of bug in readRAST 
+  if (!grepl(raster_name, pattern = "@")) #expand raster name because of bug in read_RAST 
   {  
     raster_name = paste0(raster_name,"@", cur_mapset) #add mapset name, unless already given. Otherwise, strange errors may occur when the same raster exists in PERMANENT
     name_expanded = TRUE #indicate that 
   }  else name_expanded = FALSE
-  tmp <- readRAST(raster_name)
+  tmp <- read_RAST(raster_name)
   tmp <- raster(tmp)
   if (name_expanded) #"de-expand" name, if expanded before
     tmp@data@names = sub(x = tmp@data@names, pattern = paste0("\\.", cur_mapset_r), repl="")
