@@ -24,6 +24,8 @@ install_github("tPilz/lumpR")
 	* install via R-GUI
 
 
+The main branch relies on GRASS7. The migration of the packaga to GRASS8 is underway, but not fully tested: [https://github.com/tpilz/lumpR/tree/grass8]
+
 ## MORE INFORMATION
 
 Have a look at our wiki for more detailed information: [>LINK<](https://github.com/tpilz/lumpR/wiki)
