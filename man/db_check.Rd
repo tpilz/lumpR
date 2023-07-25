@@ -4,12 +4,16 @@
 \alias{db_check}
 \title{Check and modify parameter database for consistency}
 \usage{
-db_check(dbname, check = c("check_fix_fractions", "filter_small_areas",
-  "tc_slope", "special_areas", "remove_water_svc", "compute_rocky_frac",
-  "remove_impervious_svc", "proxy_frgw_delay", "delete_obsolete",
-  "completeness", "subbasin_order"), option = list(area_thresh = 0.01,
-  treat_slope = c(3, 0.01, 0.1), update_frac_impervious = F, overwrite = F,
-  tbls_preserve = NULL), fix = F, verbose = TRUE)
+db_check(
+  dbname,
+  check = c("check_fix_fractions", "filter_small_areas", "tc_slope", "special_areas",
+    "remove_water_svc", "compute_rocky_frac", "remove_impervious_svc",
+    "proxy_frgw_delay", "delete_obsolete", "completeness", "subbasin_order"),
+  option = list(area_thresh = 0.01, treat_slope = c(3, 0.01, 0.1), update_frac_impervious
+    = F, overwrite = F, tbls_preserve = NULL),
+  fix = F,
+  verbose = TRUE
+)
 }
 \arguments{
 \item{dbname}{Name of the data source (DSN) registered as ODBC-source.}

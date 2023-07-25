@@ -4,14 +4,33 @@
 \alias{lump_grass_prep}
 \title{Pre-processing for Landscape Unit deviation using GRASS GIS}
 \usage{
-lump_grass_prep(mask = NULL, dem = NULL, lcov = NULL, soil = NULL,
-  watermask = NULL, imperviousmask = NULL, eha = NULL,
-  flowdir = NULL, flowacc = NULL, stream = NULL,
-  stream_horton = NULL, elevriv = NULL, distriv = NULL,
-  mask_corr = NULL, svc = NULL, dir_out = NULL, svc_ofile = NULL,
-  eha_thres = NULL, sizefilter = NULL, growrad = NULL,
-  keep_temp = F, overwrite = F, silent = F, addon_path = NULL,
-  things2do = c("eha", "river", "svc"))
+lump_grass_prep(
+  mask = NULL,
+  dem = NULL,
+  lcov = NULL,
+  soil = NULL,
+  watermask = NULL,
+  imperviousmask = NULL,
+  eha = NULL,
+  flowdir = NULL,
+  flowacc = NULL,
+  stream = NULL,
+  stream_horton = NULL,
+  elevriv = NULL,
+  distriv = NULL,
+  mask_corr = NULL,
+  svc = NULL,
+  dir_out = NULL,
+  svc_ofile = NULL,
+  eha_thres = NULL,
+  sizefilter = NULL,
+  growrad = NULL,
+  keep_temp = F,
+  overwrite = F,
+  silent = F,
+  addon_path = NULL,
+  things2do = c("eha", "river", "svc")
+)
 }
 \arguments{
 \item{mask}{Mask in GRASS location defining the catchment area. E.g. subbasin raster map.}
@@ -117,14 +136,14 @@ needed for further Landscape Unit deviation.
 }
 \note{
 Prepare GRASS location and necessary raster files in advance and start
-     GRASS session in R using \code{\link[rgrass7]{initGRASS}}.
+     GRASS session in R using \code{\link[rgrass]{initGRASS}}.
 
      Make sure that the GRASS functions \emph{r.stream.distance} and \emph{r.stream.order}
      are available to your GRASS installation. If not, consider \emph{g.extension} to
      install add-ons. If you installed add-ons locally it might occur that from within R
      the path to add-ons is not recognised. In such a case locate the local installation
      path (in a GRASS terminal check \code{g.extension -a}, \code{echo $GRASS_ADDON_BASE} and \code{which r.stream.distance} / \code{where r.stream.distance}, and specify the
-     absolute path to add-ons via argument \code{addon_path}. In Windows, replace backslahes for slashes. For more information, see also
+     absolute path to add-ons via argument \code{addon_path}. In Windows, replace backslashes for slashes. For more information, see also
      \url{http://grasswiki.osgeo.org/wiki/AddOns/GRASS_7}.
      
      See GRASS documentation for further information on GRASS functions and

@@ -4,8 +4,13 @@
 \alias{db_prepare_musle}
 \title{Prepare various input related to use of (M)USLE module (erosion)}
 \usage{
-db_prepare_musle(dbname, compute_K = FALSE,
-  copy_from_other_tables = NULL, setP = NULL, verbose = TRUE)
+db_prepare_musle(
+  dbname,
+  compute_K = FALSE,
+  copy_from_other_tables = NULL,
+  setP = NULL,
+  verbose = TRUE
+)
 }
 \arguments{
 \item{dbname}{Name of the data source (DSN) registered at ODBC. See \code{Details} of

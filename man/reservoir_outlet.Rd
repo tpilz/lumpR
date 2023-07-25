@@ -4,9 +4,15 @@
 \alias{reservoir_outlet}
 \title{Determine outlet coordinates of reservoirs}
 \usage{
-reservoir_outlet(flowacc = NULL, dem = NULL, res_vct = NULL,
-  outlets_vect = NULL, keep_temp = FALSE, overwrite = FALSE,
-  silent = F)
+reservoir_outlet(
+  flowacc = NULL,
+  dem = NULL,
+  res_vct = NULL,
+  outlets_vect = NULL,
+  keep_temp = FALSE,
+  overwrite = FALSE,
+  silent = F
+)
 }
 \arguments{
 \item{flowacc}{Flow accumulation raster in GRASS location used for determination

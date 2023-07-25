@@ -4,12 +4,29 @@
 \alias{lump_grass_post}
 \title{Post-processing of Landscape Unit deviation using GRASS GIS}
 \usage{
-lump_grass_post(mask = NULL, dem = NULL, recl_lu = NULL, lu = NULL,
-  subbasin = NULL, eha = NULL, flowacc = NULL, flowdir = NULL,
-  stream_horton = NULL, soil_depth = NULL, sdr = NULL,
-  dir_out = "./", sub_ofile = NULL, lu_ofile = NULL,
-  lupar_ofile = NULL, fill_holes = T, groundwater = 0, na_val = NA,
-  keep_temp = F, overwrite = F, silent = F)
+lump_grass_post(
+  mask = NULL,
+  dem = NULL,
+  recl_lu = NULL,
+  lu = NULL,
+  subbasin = NULL,
+  eha = NULL,
+  flowacc = NULL,
+  flowdir = NULL,
+  stream_horton = NULL,
+  soil_depth = NULL,
+  sdr = NULL,
+  dir_out = "./",
+  sub_ofile = NULL,
+  lu_ofile = NULL,
+  lupar_ofile = NULL,
+  fill_holes = T,
+  groundwater = 0,
+  na_val = NA,
+  keep_temp = F,
+  overwrite = F,
+  silent = F
+)
 }
 \arguments{
 \item{mask}{Name of mask raster map masking the study area. E.g. output \code{basin_out}

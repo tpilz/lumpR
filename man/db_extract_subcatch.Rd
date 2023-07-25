@@ -4,8 +4,12 @@
 \alias{db_extract_subcatch}
 \title{Extracts sub-catchment(s) for specific subbasin(s) from a database}
 \usage{
-db_extract_subcatch(dbname = NULL, sub_extract = NULL,
-  dbname_new = NULL, verbose = T)
+db_extract_subcatch(
+  dbname = NULL,
+  sub_extract = NULL,
+  dbname_new = NULL,
+  verbose = T
+)
 }
 \arguments{
 \item{dbname}{Name of the data source (DSN) registered at ODBC. See \code{Details} of

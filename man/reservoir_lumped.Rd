@@ -4,13 +4,19 @@
 \alias{reservoir_lumped}
 \title{Generation of WASA parameter files for simulation of lumped reservoirs ("small reservoirs")}
 \usage{
-reservoir_lumped(res_vect = NULL, subbas = NULL,
-  res_vect_classified = NULL, dir_out = "./",
+reservoir_lumped(
+  res_vect = NULL,
+  subbas = NULL,
+  res_vect_classified = NULL,
+  dir_out = "./",
   reservoirs_small_classes_file = "reservoirs_small_classes.dat",
   r_subbas_contains_reservoirs_small_file = "r_subbas_contains_reservoirs_small.dat",
-  res_param = data.frame(class = 1:5, f_vol_init = 0.2, class_change = 0,
-  alpha_Molle = 2.7, damk_Molle = 1500, damc_hrr = c(7, 14, 21, 28, 35),
-  damd_hrr = 1.5), keep_temp = F, overwrite = F, silent = F)
+  res_param = data.frame(class = 1:5, f_vol_init = 0.2, class_change = 0, alpha_Molle =
+    2.7, damk_Molle = 1500, damc_hrr = c(7, 14, 21, 28, 35), damd_hrr = 1.5),
+  keep_temp = F,
+  overwrite = F,
+  silent = F
+)
 }
 \arguments{
 \item{res_vect}{Name of reservoir vector map in GRASS location. Can be point
