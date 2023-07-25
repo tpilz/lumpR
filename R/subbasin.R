@@ -26,7 +26,7 @@
 #' @param drain_points \code{SpatialPoints} object containing drainage locations in
 #'      units of and compliant with the projection of your respective GRASS location.
 #'      Can, e.g., be imported from GRASS with
-#'      drain_points = read_VECT(vname = "subbas_outlets", layer=1).
+#'      drain_points = readVECT(vname = "subbas_outlets", layer=1).
 #'      At least the watershed drainage point has to be given. If it contains column
 #'      'subbas_id' in the attribute table, this will be used for numbering the subbasins.
 #'      IDs of additionally delineated subbasins (if \code{thresh_sub != NULL}) will be appended.
@@ -176,6 +176,8 @@ calc_subbas <- function(
     stop("You have to specify basin_out as name for the subbasin map to be generated!")
   if(is.null(points_processed))
     stop("You have to specify points_processed!")
+  if(!is.null(outlet) & !is.integer(outlet))
+    stop("'outlet' has to be an integer number!")
   if(!is.numeric(snap_dist))
     stop("You have to specify snap_dist as a number!")
   if(is.null(outlet)) {
@@ -343,7 +345,7 @@ calc_subbas <- function(
     # move drainage points to centers of raster cells
     x <- execGRASS("v.to.rast", input=paste0(points_processed,"_t"), output=paste0(points_processed,"_t"), use="attr", attribute_column="subbas_id", flags="overwrite", intern=T)
     x <- execGRASS("r.to.vect", input=paste0(points_processed,"_t"), output=paste0(points_processed,"_centered_t"), type="point", flags = c("overwrite", "quiet"))
-    drain_points_centered <- read_VECT(vname = paste0(points_processed,"_centered_t"), layer=1)
+    drain_points_centered <- readVECT(vname = paste0(points_processed,"_centered_t"), layer=1)
     
     
     clean_temp_dir(paste0(points_processed,"_centered_t"))
@@ -363,13 +365,12 @@ calc_subbas <- function(
     drain_points_shifted@coords <- drain_points_shifted@coords + res/4
     suppressWarnings(write_VECT(vect(drain_points_shifted), paste0(points_processed,"_shifted_t"), flags = "overwrite"))
     clean_temp_dir(paste0(points_processed,"_shifted_t"))
-    
     outlet_id <- drain_points@data$subbas_id[outlet] #remember outlet by ID, not by row
     drain_points <- drain_points_shifted
     rm(drain_points_shifted, drain_points_centered)
     
     # read stream vector
-    streams_vect <- read_VECT(river)
+    streams_vect <- readVECT(river)
     streams_vect = as(streams_vect, 'Spatial')
     
     clean_temp_dir(river)
@@ -382,7 +383,7 @@ calc_subbas <- function(
     suppressWarnings(write_VECT(vect(drain_points_snap), paste0(points_processed, "_snapped_t"), flags = "overwrite"))
     clean_temp_dir(paste0(points_processed, "_snapped_t"))
     
-    if (length(drain_points_snap) < length(drain_points)) stop("Less points after snapping than in drain_points input!\nComputed stream segments are probably too coarse. Try a smaller value of thresh_stream to create a fine river network.")
+    if (length(drain_points_snap) < length(drain_points)) stop("Less points after snapping than in drain_points input, some points could not be snapped to stream!\nIncrease snap_dist. Likewise, computed stream segments are probably too coarse. Try a smaller value of thresh_stream to create a fine river network.")
     
     if(!silent) message("% OK") 
     
@@ -534,7 +535,7 @@ calc_subbas <- function(
     ### merge all sub-catchments-------------------------------------------------
     if(!silent) message("%")
     if(!silent) message("% Merge calculated catchments...")
-    
+    #browser()
     # put sub-catchments together
     subcatch_rasts <- paste0("basin_recl_",drainp_coords[,3], "_t")
     
@@ -583,14 +584,15 @@ calc_subbas <- function(
         #find out subbas combinations / upstream subbas
         cmd_out <- execGRASS("r.stats", input="basin_all_t", flags=c("n","l"), intern=T, ignore.stderr = T)
         #reformat list data
-        cmd_out=  gsub(x=cmd_out, pattern = "^(\\d*) ", repl="\\1;") # seperate 1st ID in line with ;
+        cmd_out=  gsub(x=cmd_out, pattern = "^(\\d*) ", repl="\\1;") # separate 1st ID in line with ;
         cmd_out = gsub(x=cmd_out, pattern = "category", repl="")     # remove "category"
         cmd_out = gsub(x=cmd_out, pattern = " *", repl="")           # remove blank space
         cmd_out = gsub(x=cmd_out, pattern = "NULL", repl="")         # remove "NULL"
         cmd_out = strsplit(cmd_out, split = ";")                     # split entries
+        cmd_out = lapply(FUN=as.numeric, cmd_out)
         
         #get maximum subbas_id in entire list
-        max_subbas_id=max(as.numeric(sapply(FUN=max, cmd_out))) #number of columns
+        max_subbas_id=max(as.numeric(sapply(FUN=max, cmd_out, na.rm=TRUE))) #number of columns
         
         #n_comb = max(sapply(FUN=length, cmd_out))  #get number of columns to produce
         #subbas_combinations = array(NA, c(length(cmd_out), n_comb))
@@ -606,6 +608,8 @@ calc_subbas <- function(
           cmd_out2[[i]] =  na.omit(as.numeric(cmd_out[[i]][-1]))
           subbas_combinations[i, na.omit(col_indices [-1])] = TRUE
         }
+        
+        
         subbas_combinations[is.na(subbas_combinations)] = FALSE #replace NAs with FALSE
         
         # check for and correct error in r.cross, see https://lists.osgeo.org/pipermail/grass-user/2018-February/077934.html
@@ -637,6 +641,7 @@ calc_subbas <- function(
             basins_points = matrix(unlist(cmd_out), ncol=2, byrow = TRUE) 
           # get external subbas IDs to be removed
             sub_rm_f <- as.numeric(basins_points[which(as.numeric(basins_points[,1]) %in% sub_rm),2]) 
+            #browser()
             
             manually_specified = intersect(sub_rm_f, drain_points@data$subbas_id) #these points are manually specified outlets (=external IDs) - don't remove them
             remove_instead = NULL
@@ -668,6 +673,7 @@ calc_subbas <- function(
                 remove_instead = c(remove_instead, upstream_neighbours) #upstream internal subbas IDs to be removed
 
               }
+              #browser()
               
               sub_rm_f = setdiff(sub_rm_f, manually_specified) #external ID; don't remove the manually specified ones
               # translate internal ID of subbas to remove into external ID 
@@ -677,7 +683,8 @@ calc_subbas <- function(
             }  
             
         # remove this temporary map from processing and drain points raster map and try again (back to start of while loop)
-                  
+            #browser()
+            
             subcatch_rasts <- grep(paste0("basin_recl_", sub_rm_f, "_t", collapse="|"), subcatch_rasts, invert = T, value = T)
             x <- execGRASS("g.remove", type="raster", name="basin_all_t", flags = "f", intern=T)
             tmp_file <- tempfile()
@@ -715,7 +722,7 @@ calc_subbas <- function(
                          type = "point", column = "subbas_id", flags = c("overwrite", "quiet"), intern=T)
     cmd_out <- execGRASS("v.db.addcolumn", map=paste0(points_processed, "_all_t"), columns="temp_id int", intern=TRUE) 
     cmd_out <- execGRASS("v.what.rast", raster=paste0(basin_out, "_t"), map=paste0(points_processed, "_all_t"), column="temp_id" ,intern=T, ignore.stderr = T)
-    drain_points_snap <- read_VECT(paste0(points_processed, "_all_t"))
+    drain_points_snap <- readVECT(paste0(points_processed, "_all_t"))
     drain_points_snap = as(drain_points_snap, 'Spatial')
     nas = which(is.na(drain_points_snap@data$temp_id))
     if (any(nas))
