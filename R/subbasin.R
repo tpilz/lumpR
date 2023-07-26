@@ -26,7 +26,7 @@
 #' @param drain_points \code{SpatialPoints} object containing drainage locations in
 #'      units of and compliant with the projection of your respective GRASS location.
 #'      Can, e.g., be imported from GRASS with
-#'      drain_points = readVECT(vname = "subbas_outlets", layer=1).
+#'      drain_points = read_VECT(vname = "subbas_outlets", layer=1).
 #'      At least the watershed drainage point has to be given. If it contains column
 #'      'subbas_id' in the attribute table, this will be used for numbering the subbasins.
 #'      IDs of additionally delineated subbasins (if \code{thresh_sub != NULL}) will be appended.
@@ -176,6 +176,7 @@ calc_subbas <- function(
     stop("You have to specify basin_out as name for the subbasin map to be generated!")
   if(is.null(points_processed))
     stop("You have to specify points_processed!")
+  outlet = as.integer(round(outlet))
   if(!is.null(outlet) & !is.integer(outlet))
     stop("'outlet' has to be an integer number!")
   if(!is.numeric(snap_dist))
@@ -345,7 +346,7 @@ calc_subbas <- function(
     # move drainage points to centers of raster cells
     x <- execGRASS("v.to.rast", input=paste0(points_processed,"_t"), output=paste0(points_processed,"_t"), use="attr", attribute_column="subbas_id", flags="overwrite", intern=T)
     x <- execGRASS("r.to.vect", input=paste0(points_processed,"_t"), output=paste0(points_processed,"_centered_t"), type="point", flags = c("overwrite", "quiet"))
-    drain_points_centered <- readVECT(vname = paste0(points_processed,"_centered_t"), layer=1)
+    drain_points_centered <- read_VECT(vname = paste0(points_processed,"_centered_t"), layer=1)
     
     
     clean_temp_dir(paste0(points_processed,"_centered_t"))
@@ -370,7 +371,7 @@ calc_subbas <- function(
     rm(drain_points_shifted, drain_points_centered)
     
     # read stream vector
-    streams_vect <- readVECT(river)
+    streams_vect <- read_VECT(river)
     streams_vect = as(streams_vect, 'Spatial')
     
     clean_temp_dir(river)
@@ -722,7 +723,7 @@ calc_subbas <- function(
                          type = "point", column = "subbas_id", flags = c("overwrite", "quiet"), intern=T)
     cmd_out <- execGRASS("v.db.addcolumn", map=paste0(points_processed, "_all_t"), columns="temp_id int", intern=TRUE) 
     cmd_out <- execGRASS("v.what.rast", raster=paste0(basin_out, "_t"), map=paste0(points_processed, "_all_t"), column="temp_id" ,intern=T, ignore.stderr = T)
-    drain_points_snap <- readVECT(paste0(points_processed, "_all_t"))
+    drain_points_snap <- read_VECT(paste0(points_processed, "_all_t"))
     drain_points_snap = as(drain_points_snap, 'Spatial')
     nas = which(is.na(drain_points_snap@data$temp_id))
     if (any(nas))
