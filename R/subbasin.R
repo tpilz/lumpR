@@ -236,14 +236,23 @@ calc_subbas <- function(
     # remove output of previous function calls if overwrite=T
     if (overwrite) {
       remove_pattern=paste0("*_t,", basin_out, ",", points_processed, "_*")
-      # keep rivermap if prespecified
-      if (is.null(river))
-        remove_pattern <- paste0(remove_pattern, paste0(",",stream,"_*")) #keep rivermap if prespecified
-      cmd_out <- execGRASS("g.remove", type="raster,vector", pattern=remove_pattern, flags=c("f", "b"), intern=T)
-    } else {
-      # remove temporary maps in any case
-      cmd_out <- execGRASS("g.remove", type="raster,vector", pattern="*_t", flags=c("f", "b"), intern=T)
-    }
+      #remove_pattern=paste0("*")
+  
+      cmd_out <- execGRASS("g.list", type="raster,vector", pattern=remove_pattern, intern=TRUE) #get all layers to be removed
+      if (!is.null(attr(cmd_out, "status")) && attr(cmd_out, "status")!=0) stop("Error in listing layers to be deleted.")
+      if (length(cmd_out > 0))
+      {
+        remove_pattern = cmd_out
+        if (is.null(river))
+          remove_pattern <- remove_pattern[remove_pattern!=river] #keep rivermap if prespecified
+        if (is.null(flowaccum))
+          remove_pattern <- remove_pattern[remove_pattern!=flowaccum] #keep flowaccum if prespecified
+        if (is.null(drainage_dir))
+          remove_pattern <- remove_pattern[remove_pattern!=drainage_dir] #keep drainage_dir if prespecified
+        
+        cmd_out <- execGRASS("g.remove", type="raster,vector", pattern=remove_pattern, flags=c("f", "b"), intern=TRUE)
+      }
+    } 
     
     if(!is.null(flowaccum) )
     {
@@ -276,6 +285,7 @@ calc_subbas <- function(
   }
   # check flowaccum raster for negative values
   cmd_out <- execGRASS("r.univar", map="accum_t", separator="comma", flags=c("t"), intern=TRUE, ignore.stderr = TRUE)
+  if (!is.null(attr(cmd_out, "status")) && attr(cmd_out, "status")!=0) stop(paste0("Could not get stats of ", flowaccum) )
   cmd_out <- strsplit(cmd_out, ",")
   if (!is.list(cmd_out)) stop("Error in computing stats of flow accumulation.")
   cmd_cols <- grep("^min$", cmd_out[[1]])
