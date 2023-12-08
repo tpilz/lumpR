@@ -52,7 +52,7 @@ polygon. Can be run before \code{\link[lumpR]{reservoir_strategic}} to produce t
 }
 \note{
 Prepare GRASS location and necessary files in advance and start GRASS
-     session in R using \code{\link[rgrass7]{initGRASS}}. Location should not
+     session in R using \code{\link[rgrass]{initGRASS}}. Location should not
      contain any maps ending on *_t as these will be removed by calling the
      function to remove temporary maps.
      

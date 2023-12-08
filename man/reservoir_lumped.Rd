@@ -107,7 +107,7 @@ This function creates WASA input files which are needed to run the model
 }
 \note{
 Prepare GRASS location and necessary spatial objects in advance and start
-     GRASS session in R using \code{\link[rgrass7]{initGRASS}}.
+     GRASS session in R using \code{\link[rgrass]{initGRASS}}.
      
      Use \code{\link{reservoir_strategic}} to prepare the input for large / strategic reservoirs. 
      

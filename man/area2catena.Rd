@@ -105,11 +105,11 @@ Takes raster data from a GRASS location and calculates catena properties.
 \note{
 Prepare GRASS location and necessary raster files in advance (e.g. using
      \code{\link[lumpR]{lump_grass_prep}}) and start GRASS session in R using 
-     \code{\link[rgrass7]{initGRASS}}.
+     \code{\link[rgrass]{initGRASS}}.
      
      \bold{IMPORTANT:} Herein, when specifying the GRASS input maps, please do
      explicitly refer to the mapset if it is different from the mapset given in
-     initGRASS() (even PERMANENT!), as otherwise internally used readRAST() command
+     initGRASS() (even PERMANENT!), as otherwise internally used read_RAST() command
      resulted in errors under Windows.
      
      In case of \bold{long computation times or memory issues}, try \code{plot_catena = FALSE}
