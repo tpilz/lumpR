@@ -563,6 +563,12 @@ calc_subbas <- function(
       # iterate until configuration without 'spurious' sub-catchments is found (if rm_spurious > 0) TODO: This step is slow in case many iterations are needed!
       while (TRUE) {
         
+        if(iteration_nr > 100)
+        {
+          if(!silent) message("% Could not resolve all spurious subcatchments, iteration limit exceeded. Check results manually.")
+          break # exit while loop
+        }
+        
         # max 30 maps at once, create multiple cross products if necessary
         x <- execGRASS("g.remove", type="raster", pattern="basin_cross_*", flags="f", intern=T) # remove old basin_cross_*
         iterations <- ceiling(length(subcatch_rasts)/30) # "r.cross" can only handle up to 30 layers, so we may have to make several iterations
@@ -632,7 +638,7 @@ calc_subbas <- function(
         
         
         # check for and correct bug in r.cross, see https://lists.osgeo.org/pipermail/grass-user/2018-February/077934.html
-        if((grass_version < 8) && any(map_id == 0)) {
+        if((ver_no < 8) && any(map_id == 0)) {
           cmd_out <- execGRASS("r.mapcalc", expression="basin_all_t2=basin_all_t+1", flags=c("overwrite"), intern=T)
           cmd_out <- execGRASS("g.rename", raster="basin_all_t2,basin_all_t", flags=c("overwrite"), intern=T)
           map_id = map_id + 1
@@ -663,8 +669,8 @@ calc_subbas <- function(
             #browser()
             
             manually_specified_ext = intersect(sub_rm_ext, drain_points@data$subbas_id) #these points are manually specified outlets (=external IDs) - don't remove them
-            remove_instead = NULL
-            if (length(manually_specified_ext)>0) #if manually specified external subbas ID detected as "too small", remove their upstream neighbours instead
+            remove_instead_int = NULL
+            if (length(manually_specified_ext)>0) #if manually specified external subbas ID detected as "too small", remove their upstream neighbours instead and merge to too-small basin 
             {
               for (cur_sub in manually_specified_ext) #cur_sub = external ID
               {
@@ -690,14 +696,14 @@ calc_subbas <- function(
                 #& subbas_combinations[ map_id == cur_sub,]
                 #cmd_out2[as.numeric(c(cross_id, upstream_neighbours_int))]
                 #subbas_combinations[ c(cross_id, upstream_neighbours_int),]
-                remove_instead = c(remove_instead, upstream_neighbours_int) #upstream internal subbas IDs to be removed
+                remove_instead_int = c(remove_instead_int, upstream_neighbours_int) #upstream internal subbas IDs to be removed
 
               }
               #browser()
               
               sub_rm_ext = setdiff(sub_rm_ext, manually_specified_ext) #external ID; don't remove the manually specified ones
               # translate internal ID of subbas to remove into external ID 
-              remove_instead_ext = basins_points[basins_points[,1] %in% remove_instead, 2]
+              remove_instead_ext = basins_points[basins_points[,1] %in% remove_instead_int, 2]
               sub_rm_ext = unique(c(sub_rm_ext, remove_instead_ext)) #external ID; instead, use their upstream neighbours
               
             }  
