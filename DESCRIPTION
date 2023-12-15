@@ -1,8 +1,8 @@
 Package: lumpR
 Type: Package
 Title: Landscape Unit Mapping Program for R
-Version: 3.1.5
-Date: 2023-08-12
+Version: 3.1.6
+Date: 2023-12-15
 Authors@R: c(person("Tobias", "Pilz", email="tpilz@uni-potsdam.de", 
 																		role=c("aut", "cre", "cph")),
 							person("Till", "Francke", email="francke@uni-potsdam.de",
@@ -23,7 +23,8 @@ Depends:
     RODBC,
     rgdal,
     rgeos,
-    terra
+    terra,
+    sf
 Suggests:
     rgrass,
     doMC,
