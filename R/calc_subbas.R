@@ -1,5 +1,5 @@
 # lumpR/subbasin.R
-# Copyright (C) 2014-2018 Tobias Pilz
+# Copyright (C) 2014-2023 Tobias Pilz
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
