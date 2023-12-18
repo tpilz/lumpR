@@ -52,16 +52,8 @@ library(devtools)
 library(pryr)
 library(remotes)
 library(terra)
-
-grass_version = 8 #choose between 7 and 8 (recommended)
-
-if (grass_version == 8)
-{
-    library(rgrass)
-} else
-{ 
-  library(rgrass7) #use this when using GRASS7
-}
+#support of grass7 deprecated
+library(rgrass)
 
 ### INSTALLATION of package lumpR ###
 if("lumpR" %in% rownames(installed.packages())) {
@@ -71,13 +63,7 @@ if("lumpR" %in% rownames(installed.packages())) {
   if(!"devtools" %in% rownames(installed.packages())) 
      install.packages("devtools")
   library(devtools)
-  if (grass_version == 8)
-  {
-    install_github("tpilz/lumpR", ref="grass8")
-  }  else
-  { 
-    install_github("tpilz/lumpR", ref="3.0.49") #last version for GRASS7
-  }
+  install_github("tpilz/lumpR", ref="grass8")
   library(lumpR)
 } 
 
@@ -87,35 +73,39 @@ if("lumpR" %in% rownames(installed.packages())) {
 #setwd("D:/Ptoject/UP/SPS_Blue_Nile/WASA_SED/LUMP_R/lumpR-master/example/Data/Didessa") #use "/" instead of "\" in Windows
 
 
-
 # GRASS-settings ####
-# ATTENTION: tested with GRASS7 and GRASS 8, not compatible to GRASS 6.x!
+# ATTENTION: tested with GRASS 8, (probably) not compatible with lower versions!
 # 1. install GRASS8 as standalone. Using the GRASS-version included in QGIS seems to be tricky...
-# 2. import the necessary geodata (see package directory etc/data_import.sh for examples)
+# 2. import the necessary geodata (see package directory of lumpR in etc/data_import.sh for examples)
 # 3. proceed in this script
-
 
 
 # initialisation of GRASS session
 # Set the path to your GRASS installation and the GRASS location
 #addon_path="C:/Program Files/GRASS GIS 7.8/addons/" # path to your locally installed GRASS add-ons. Must only be given if necessary, see ?lump_grass_prep
 gisBase <- "C:/Program Files/GRASS GIS 8.3"  # path to GRASS installation (use / instead of / under windows, e.g. "d:/programme/GRASS7.0" )
-location <- "Didessa"  # GRASS location name
+location <- "Blue_Nile"  # GRASS location name
 mapset <- "PERMANENT"  # GRASS mapset name
 #gisDbase <- "D:/Ptoject/UP/SPS_Blue_Nile/WASA_SED/LUMP_R/lumpR-master/example/Data/Didessa/GRASS" # Set the path to the 'grassdata' directory containing the location and data
 gisDbase="e:/till/uni/grass-db/Didessa/GRASS"  # path to 'grassdata' directory containing the location specified above and all corresp. data
 
 # Initialize the GRASS session
-  initGRASS(gisBase = gisBase, home = getwd(), location = location,
+  tt = initGRASS(gisBase = gisBase, home = getwd(), location = location,
             mapset = mapset, gisDbase = gisDbase, override = TRUE)
-#test if its working
+  if (tt$rows == 1 & tt$cols==1)
+  {
+    print(tt)
+    stop("There seems to be an  problem initiating the GRASS session.")
+  }
+  
+  #test if its working
   testGRass = try(execGRASS("g.version"), silent=TRUE) #test if GRASS is responding
   if (class(testGRass)=="try-error") stop("GRASS session could not be initialized. Check the output of the initGRASS command for errors.")
 
-  # List available rasters in the GRASS GIS mapset
-  rasters_list <- execGRASS("g.list", type = "raster", flags = "m")
-  # List available vecors in the GRASS GIS mapset
-  vecrors_list <- execGRASS("g.list", type = "vector", flags = "m")
+  # # List available rasters in the GRASS GIS mapset
+  # rasters_list <- execGRASS("g.list", type = "raster", flags = "m")
+  # # List available vectors in the GRASS GIS mapset
+  # vectors_list <- execGRASS("g.list", type = "vector", flags = "m")
 
 
 # INPUT #
@@ -129,18 +119,15 @@ gisDbase="e:/till/uni/grass-db/Didessa/GRASS"  # path to 'grassdata' directory c
   #A: manually specify (coordinates in projection of GRASS location!) 
   drain_p <- data.frame(utm_x_m=c(794233.558339), utm_y_m=c(1100383.7141)) #enter your coordinates here
   coordinates(drain_p) <- c("utm_x_m", "utm_y_m")
-  #B: import from vector layer  in GRASS mapset
-  drain_p = read_VECT(vname = "Subbasin_outlet", layer=1) #specify name of point vector containing subbasin coordinates
+  #B: import from vector layer in GRASS mapset
+  drain_p = read_VECT(vname = "subbas_outlets", layer=1) #specify name of point vector containing subbasin coordinates
   #plot(drain_p) #check location of drainage points
   outlet_id = 1 #specify the row of outlet point of entire watershed
 
   library(sp)
   # convert SpatVector to SpatialPoints
-  #drain_p_sp <- SpatialPointsDataFrame(coords=geom(drain_p)[, c("x", "y"), drop=FALSE], data=data.frame(drain_p))
-  #proj4string(drain_p_sp) <- CRS(getLocationProj())
   drain_p_sp <- as(drain_p, "Spatial")
 
-  
 # input geodata (specify the names used in the GRASS location)
   dem <- "dem90_filled" # DEM raster - MANDATORY
   lcov <- "Land_Use" # land / vegetation cover raster map in GRASS location - MANDATORY
@@ -159,15 +146,16 @@ gisDbase="e:/till/uni/grass-db/Didessa/GRASS"  # path to 'grassdata' directory c
   soil_path <- "D:/Ptoject/UP/SPS_Blue_Nile/WASA_SED/LUMP_R/lumpR-master/example/Data/Didessa/soil"
 
 # OUTPUT #
-  # outputs marked MANDATORY have to be given, the rest can be NULL
+  # normally, the follwoing names don't need to be changed:
+  # names for outputs marked MANDATORY have to be given, the rest can be NULL
   # some outputs are inputs for other functions (e.g. flow accumulation)
   
-  subbas <- "subbas" # subbasin raster map - MANDATORY
+  subbas <- "subbas" # name of resulting subbasin raster map - MANDATORY
   
   # prefix of calculated stream segments raster and vector maps
   stream_pref <- "stream_accum"
   
-  # prefix of drainage point vector files (given points snapped to river and internally calculated points, respectively) - MANDATORY
+  # prefix of drainage point vector files (given points snapped to river) - MANDATORY
   drainp_processed <- "drain_points"
   
   # elementary hillslope areas raster map - MANDATORY
@@ -225,15 +213,15 @@ gisDbase="e:/till/uni/grass-db/Didessa/GRASS"  # path to 'grassdata' directory c
 # STRONGLY CASE-STUDY SPECIFIC! Try out what suits your needs / data
 
 # MISCELLANEOUS PARAMETERS #
-# parameters influecing some outputs but not directly discretisation complexity
+# parameters influencing some outputs but not directly discretisation complexity
 
 # Raster cells in accumulation map with values greater than thresh_stream are considered as streams. Needs to be set only if river is not set - MANDATORY
 thresh_stream <- 1000
 
-# maximum distance for snapping of drain_points to stream segments in units of your GRASS location - MANDATORY
+# maximum distance for snapping of drain_points (if given) to stream segments in units of your GRASS location - MANDATORY
 snap_dist <- 500
 
-# threshold for small spurious subbasins created within calc_subbas() to be removed? For details, see ?calc_subbas
+# threshold for small spurious subbasins created within calc_subbas() to be removed. For details, see ?calc_subbas
 rm_spurious <- 0.01  
 
 # minimum size of EHAs (in map units) not to be removed, smaller EHAs (artefacts) are removed; parameter for GRASS function r.reclass.area - MANDATORY
@@ -248,14 +236,14 @@ min_cell_in_slope <- 10
 # minimum number of sampling points (cells) a catena should have. If there are less, the catena is not saved
 min_catena_length <- 3
 
-# maximum distance to river [in cells]: if the closest cell of an EHA is farther than max_riv_dist, the EHA is skipped, otherwise all distances within the EHA are redurced by the distance of the closest cell to river
+# maximum distance to river [in cells]: if the closest cell of an EHA is farther than max_riv_dist, the EHA is skipped, otherwise all distances within the EHA are reduced by the distance of the closest cell to river
 max_riv_dist <- 15
 
 
 # RUN TIME PARAMETERS #
 
-# shall temporary files be kept in the GRASS location, e.g. for debugging or further analyses?
-keep_temp <- FALSE
+# shall temporary files be kept in the GRASS location, e.g. for repeated trials, debugging or further analyses?
+keep_temp <- TRUE
 
 # Shall output of previous calls of this function be deleted? If FALSE the function returns an error if output already exists
 overwrite <- TRUE
@@ -323,11 +311,20 @@ write(str_odbc, file="~/.odbc.ini", ncolumns=1, append=T, sep="\n")
 
 ?calc_subbas # read the documentation!
 
+#for debug:
+river="stream_accum_vect"
+flowaccum="accum_t"
+drain_points=drain_p_sp
+points_processed=drainp_processed
+stream=stream_pref
+
 calc_subbas(
   # INPUT #
   dem=dem,
   drain_points=drain_p_sp, 
-  river=river,
+  river=NULL,
+  flowaccum = "accum_t",
+  drainage_dir = "drain_t",
   # OUTPUT #
   basin_out=subbas,
   stream=stream_pref,
