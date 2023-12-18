@@ -247,7 +247,7 @@ calc_subbas <- function(
       if (!is.null(drainage_dir))
         keep_maps <- c(keep_maps, drainage_dir) #keep drainage_dir if prespecified
         
-      cmd_out <- execGRASS("g.remove", type="raster,vector", pattern=remove_pattern, exclude=paste0(keep_maps, collapse="|"),
+      cmd_out <- execGRASS("g.remove", type="raster,vector", pattern=remove_pattern, exclude=paste0(keep_maps, collapse=","),
                              flags=c("f", "b"), intern=TRUE)
     } 
     
