@@ -427,7 +427,8 @@ calc_subbas <- function(
     drain_points_snap$cat   = NULL #delete obsolete columns
     drain_points_snap$label = NULL
     drain_points_snap$subbas_id = drain_points$subbas_id #correct subbas_id, which strangely is not correctly transferred during r.to.vect
-    drain_points_snap = drain_points_snap[-beyond_snapping_dist ,]
+    if (length(beyond_snapping_dist) > 0) #discard drainage points that could not be snapped
+      drain_points_snap = drain_points_snap[-beyond_snapping_dist ,]
 
     # export drain_points_snap to GRASS
     suppressWarnings(write_VECT(vect(drain_points_snap), paste0(points_processed, "_snapped_t"), flags = "overwrite"))
@@ -560,7 +561,7 @@ calc_subbas <- function(
     
     # loop over drainage points of subbasins; TODO: This step is slow!
     for (p in 1:nrow(drainp_coords)) {
-      
+      if(!silent) message(paste0("% ",p, "/", nrow(drainp_coords))) #progress indicator
       # outlet coordinates
       outlet_coords <- drainp_coords[p,c(1,2)]
       
