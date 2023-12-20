@@ -254,8 +254,10 @@ calc_subbas <- function(
     if(!is.null(flowaccum) )
     {
       # copy existing maps
-      x <- execGRASS("g.copy", raster=paste0(flowaccum,",accum_t"), intern=TRUE, ignore.stderr = TRUE)
-      x <- execGRASS("g.copy", raster=paste0(drainage_dir,",drain_t"), intern=TRUE, ignore.stderr = TRUE)
+      if (flowaccum != "accum_t")
+        x <- execGRASS("g.copy", raster=paste0(flowaccum,",accum_t"), intern=TRUE, ignore.stderr = TRUE)
+      if (drainage_dir != "drain_t")
+        x <- execGRASS("g.copy", raster=paste0(drainage_dir,",drain_t"), intern=TRUE, ignore.stderr = TRUE)
     }
     
     if(!silent) message("% OK")
@@ -300,11 +302,11 @@ calc_subbas <- function(
       if(thresh_stream > max_acc)
         stop(paste0("Parameter 'thresh_stream' (", thresh_stream, ") is larger than the maximum flow accumulation within the study area (", max_acc, "). Choose a smaller parameter value!"))
       # calculate stream segments (don't use output of r.watershed as streams should be finer than generated therein)
-      cmd_out <- execGRASS("r.mapcalc", expression=paste0(stream, "_rast = if(abs(accum_t)>", format(thresh_stream, scientific = F), ",1,null())"), intern=T)
+      cmd_out <- execGRASS("r.mapcalc", expression=paste0(stream, "_rast = if(abs(accum_t)>", format(thresh_stream, scientific = F), ",1,null())"), flags="overwrite", intern=T)
       # thin
-      cmd_out <- execGRASS("r.thin", input=paste0(stream, "_rast"), output=paste0(stream, "_thin_t"), iterations=10000, intern=T)
+      cmd_out <- execGRASS("r.thin", input=paste0(stream, "_rast"), output=paste0(stream, "_thin_t"), iterations=10000, flags=c("quiet", "overwrite"), intern=T)
       # convert to vector
-      cmd_out <- execGRASS("r.to.vect", input=paste0(stream, "_thin_t"), output=paste0(stream, "_vect"), type="line", flags="quiet", intern=T)
+      cmd_out <- execGRASS("r.to.vect", input=paste0(stream, "_thin_t"), output=paste0(stream, "_vect"), type="line", flags=c("quiet", "overwrite"), intern=T)
       river <- paste0(stream, "_vect")
       if(!silent) message("% OK")
       
@@ -453,7 +455,7 @@ calc_subbas <- function(
     drain_points_snap = as(drain_points_snap, "Spatial")
     
     #coordinates(drain_points_snap2)
-    outlet_coords <- coordinates(drain_points_snap2)[outlet,]
+    outlet_coords <- coordinates(drain_points_snap)[outlet,]
     
     cmd_out <- execGRASS("r.water.outlet", input="drain_t", output=paste0("basin_outlet_t"), coordinates=outlet_coords, flags="overwrite", intern = T)
     cmd_out = execGRASS("r.stats", input=paste0("basin_outlet_t"), flag=c("c","n","quiet"), intern = TRUE)
@@ -472,11 +474,10 @@ calc_subbas <- function(
       if(no_catch_calc > 1) {
         
         # read raster data from GRASS for processing
-        a= try(basins <- read_RAST(vname = "basin_calc_t", ignore.stderr = T), silent = TRUE)
+        a = try(basins <- read_RAST(vname = "basin_calc_t", ignore.stderr = T), silent = TRUE)
         if (class(a)== "try-error")
-          stop("Could not read basin map bacause of bug in read_RAST (https://github.com/rsbivand/rgrass/issues/82). You have too many subbasins anyway, if this occurs. Increase 'thresh_sub'")
-        basins <- raster(basin)
-        
+          stop("Could not read basin map because of bug in read_RAST (https://github.com/rsbivand/rgrass/issues/82). You have too many subbasins anyway, if this occurs. Increase 'thresh_sub'")
+        basins <- raster(basins)
         basins = as.integer(basins)
         
         accum <- raster(read_RAST("accum_t", ignore.stderr = T))
