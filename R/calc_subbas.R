@@ -203,7 +203,7 @@ calc_subbas <- function(
   sink(tmp_file, type="output")
   
   
-  # also supress warnings in silent mode
+  # also suppress warnings in silent mode
   if(silent){
     tmp_file2 <- file(tempfile(), open="wt")
     sink(tmp_file2, type="message")
@@ -416,7 +416,7 @@ calc_subbas <- function(
     
     library(sf)
     streams_points <- read_VECT(paste0(stream,"_clipped_vec_t"))
-    streams_points = as(streams_points, 'Spatial') #we need this intermeidate step, as direct conversion fails
+    streams_points = as(streams_points, 'Spatial') #we need this intermediate step, as direct conversion fails
     streams_points = as(streams_points, 'sf')
     clean_temp_dir(paste0(stream,"_clipped_vec_t"))
     
@@ -428,8 +428,8 @@ calc_subbas <- function(
     beyond_snapping_dist = which(min_dist > snap_dist)    #find drainage points that only found stream beyond snapping distance
     
     drain_points_snap = streams_points[min_ix,]
-    drain_points_snap$cat   = NULL #delete obsolete columns
-    drain_points_snap$label = NULL
+    #drain_points_snap$cat   = NULL 
+    drain_points_snap$label = NULL #delete obsolete columns
     drain_points_snap$subbas_id = drain_points$subbas_id #correct subbas_id, which strangely is not correctly transferred during r.to.vect
     if (length(beyond_snapping_dist) > 0) #discard drainage points that could not be snapped
       drain_points_snap = drain_points_snap[-beyond_snapping_dist ,]
