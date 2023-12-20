@@ -216,7 +216,7 @@ calc_subbas <- function(
  tryCatch({
     
     # remove mask if there is any (and ignore error in case there is no mask)
-    tryCatch(suppressWarnings(execGRASS("r.mask", flags=c("r","quiet"))), error=function(e){})
+    tryCatch(suppressWarnings(execGRASS("r.mask", flags=c("r","-quiet"))), error=function(e){})
     
     
     if (!is.null(drain_points))
@@ -287,6 +287,8 @@ calc_subbas <- function(
   if (!is.list(cmd_out)) stop("Error in computing stats of flow accumulation.")
   cmd_cols <- grep("^min$", cmd_out[[1]])
   min_acc <- as.numeric(cmd_out[[2]][cmd_cols])
+  if(!is.finite(min_acc)) stop("Could not read stats of flow accumlation grid. Please check region setting with g.region() in GRASS.")
+  
   if(min_acc < 0) warning("Negative flow accumulation values detected! This happens if cells get runoff from regions outside the study area, i.e. the extension of your DEM might be too small. Check if this could be a problem!")
   
 
@@ -446,8 +448,12 @@ calc_subbas <- function(
     if(!silent) message("% Calculate catchments for every drainage point...")
     
     # update index to outlet, as its order may have changed during previous steps
-    outlet <- which(drain_points_snap@data$subbas_id == outlet_id)
-    outlet_coords <- coordinates(drain_points_snap)[outlet,]
+    outlet <- which(drain_points_snap$subbas_id == outlet_id)
+    
+    drain_points_snap = as(drain_points_snap, "Spatial")
+    
+    #coordinates(drain_points_snap2)
+    outlet_coords <- coordinates(drain_points_snap2)[outlet,]
     
     cmd_out <- execGRASS("r.water.outlet", input="drain_t", output=paste0("basin_outlet_t"), coordinates=outlet_coords, flags="overwrite", intern = T)
     cmd_out = execGRASS("r.stats", input=paste0("basin_outlet_t"), flag=c("c","n","quiet"), intern = TRUE)
@@ -466,7 +472,11 @@ calc_subbas <- function(
       if(no_catch_calc > 1) {
         
         # read raster data from GRASS for processing
-        basins <- raster(read_RAST("basin_calc_t", ignore.stderr = T))
+        a= try(basins <- read_RAST(vname = "basin_calc_t", ignore.stderr = T), silent = TRUE)
+        if (class(a)== "try-error")
+          stop("Could not read basin map bacause of bug in read_RAST (https://github.com/rsbivand/rgrass/issues/82). You have too many subbasins anyway, if this occurs. Increase 'thresh_sub'")
+        basins <- raster(basin)
+        
         basins = as.integer(basins)
         
         accum <- raster(read_RAST("accum_t", ignore.stderr = T))
@@ -561,7 +571,7 @@ calc_subbas <- function(
     
     # loop over drainage points of subbasins; TODO: This step is slow!
     for (p in 1:nrow(drainp_coords)) {
-      if(!silent) message(paste0("% ",p, "/", nrow(drainp_coords))) #progress indicator
+      if(!silent) message(paste0("% ",p, " / ", nrow(drainp_coords))) #progress indicator
       # outlet coordinates
       outlet_coords <- drainp_coords[p,c(1,2)]
       
