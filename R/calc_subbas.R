@@ -291,7 +291,7 @@ calc_subbas <- function(
   min_acc <- as.numeric(cmd_out[[2]][cmd_cols])
   if(!is.finite(min_acc)) stop("Could not read stats of flow accumlation grid. Please check region setting with g.region() in GRASS.")
   
-  if(min_acc < 0) warning("Negative flow accumulation values detected! This happens if cells get runoff from regions outside the study area, i.e. the extension of your DEM might be too small. Check if this could be a problem!")
+  if(min_acc < 0) warning("Negative flow accumulation values detected! This happens if cells get runoff from regions outside the study area, i.e. the extent of your DEM might be too small. Check if this could be a problem!")
   
 
   if(is.null(river)) {
@@ -572,7 +572,7 @@ calc_subbas <- function(
     
     # loop over drainage points of subbasins; TODO: This step is slow!
     for (p in 1:nrow(drainp_coords)) {
-      if(!silent) message(paste0("% ",p, " / ", nrow(drainp_coords))) #progress indicator
+      if(!silent) message(paste0("% subbasin ",p, " of ", nrow(drainp_coords))) #progress indicator
       # outlet coordinates
       outlet_coords <- drainp_coords[p,c(1,2)]
       

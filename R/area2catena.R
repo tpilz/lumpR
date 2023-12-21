@@ -232,7 +232,8 @@ area2catena <- function(
     if(!silent) message("% Load data from GRASS...")
 
     # set mask to make sure calculations are done exactly within expected area
-    cmd_out <- execGRASS("g.copy", raster=paste0(mask,",MASK"), flags = "overwrite", intern = T)
+    if (mask != "MASK") 
+      cmd_out <- execGRASS("g.copy", raster=paste0(mask,",MASK"), flags = "overwrite", intern = T)
         
     # load flow accumulation
     flowaccum <- read_RAST(flowacc)
