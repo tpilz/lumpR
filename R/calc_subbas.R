@@ -605,9 +605,9 @@ calc_subbas <- function(
         }
         
         if(!silent) message(" ...merging subbasins...")
-    
+        
         # derive overlap/neighbourhood information of identified subbasins
-          # max 30 maps at once, create multiple cross products if necessary
+        # max 30 maps at once, create multiple cross products if necessary
         x <- execGRASS("g.remove", type="raster", pattern="basin_cross_*", flags="f", intern=T) # remove old basin_cross_*
         iterations <- ceiling(length(subcatch_rasts)/30) # "r.cross" can only handle up to 30 layers, so we may have to make several iterations
         for (j in 1:iterations){
@@ -626,7 +626,7 @@ calc_subbas <- function(
         }
         
         cross_rasts <- execGRASS("g.list", type="raster", pattern=paste0("basin_cross_[0-9]*_t"), intern=T) #get names of resulting rasters
-      
+        
         if(length(cross_rasts) == 1) 
         { #only single iteration, just rename
           x <- execGRASS("g.rename", raster=paste(cross_rasts, "basin_all_t", sep=","), intern=T, ignore.stderr=T)
@@ -637,11 +637,11 @@ calc_subbas <- function(
         }
         # --> results available in raster "basin_all_t"
         
-
-  #Aim: keep manually specified outlets, even if produced subbas < rm_spurious
-  #     if specified subbas too small, remove upstream neighbours instead and merge with specified subbas
         
-
+        #Aim: keep manually specified outlets, even if produced subbas < rm_spurious
+        #     if specified subbas too small, remove upstream neighbours instead and merge with specified subbas
+        
+        
         #find out subbas combinations / upstream subbas, and their area (in cells)
         cmd_out <- execGRASS("r.stats", input="basin_all_t", flags=c("n","l", "c"), intern=T, ignore.stderr = T)
         #reformat list data
@@ -651,7 +651,7 @@ calc_subbas <- function(
         # cmd_out = gsub(x=cmd_out, pattern = "NULL", repl="")         # remove "NULL"
         # cmd_out = strsplit(cmd_out, split = ";")                     # split entries
         # cmd_out = lapply(FUN=as.numeric, cmd_out)
-
+        
         cmd_out = gsub(x=cmd_out, pattern = "category | *NULL", repl="")     # remove "category " and "NULL"
         cmd_out = strsplit(cmd_out, split = ";| ")                     # split entries
         cmd_out = lapply(FUN=as.numeric, cmd_out) #convert to numbers
@@ -692,15 +692,15 @@ calc_subbas <- function(
           #check if there have been any changes since the last iteration
           if (!is.null(sub_sizes_int_prev) & identical(sub_sizes_int_prev, sub_sizes_int))
           { #no changes
-              if(!silent) message("% Could not resolve some subcatchments below threshold (", paste0(sub_rm_int, collapse=", "),"). Refine manually, if required.")
-              break # exit while loop
+            if(!silent) message("% Could not resolve some subcatchments below threshold (", paste0(sub_rm_int, collapse=", "),"). Refine manually, if required.")
+            break # exit while loop
           } else
           { #something changed, keep going
             sub_sizes_int_prev = sub_sizes_int #save for comparison in next iteration
           }
-
+          
           if(length(sub_rm_int)>0) {
-          # get external IDs in basin_recl_* to be removed (not identical with internal raster values of basin_all_t!)
+            # get external IDs in basin_recl_* to be removed (not identical with internal raster values of basin_all_t!)
             #cmd_out <- execGRASS("r.univar", map=paste0(points_processed, "_all_t"), zones="basin_all_t", separator="comma", flags=c("t"), intern=T, ignore.stderr = T)
             #ii: could this be combined with the prior call?
             cmd_out <- execGRASS("r.stats", input=paste0("basin_all_t,", points_processed, "_all_t"), flags=c("n"), separator="comma", intern=T, ignore.stderr = T)
@@ -708,7 +708,7 @@ calc_subbas <- function(
             
             # convert output to matrix; this is the translation of internal temp. subbas IDs (1st column) to external drain point subbas IDs (2nd column)
             basins_points = matrix(as.numeric(unlist(cmd_out)), ncol=2, byrow = TRUE, dimnames = list(NULL, c("intern", "extern")))
-
+            
             # get external subbas IDs to be removed
             sub_rm_ext <- basins_points[which(basins_points[,"intern"] %in% sub_rm_int), "extern"]
             #browser()
@@ -716,7 +716,7 @@ calc_subbas <- function(
             manual_subs_ext       = drain_points@data$subbas_id #these points are manually specified outlets (=external IDs) 
             manual_subs_int       = basins_points[basins_points[, "extern"] %in% manual_subs_ext, "intern"] 
             manual_subs_ext_2small = intersect(sub_rm_ext, manual_subs_ext) #manually specified outlets (=external IDs), which are too small, but should not be removed
-
+            
             remove_instead_int = NULL
             if (length(manual_subs_ext_2small)>0) #if manually specified external subbas ID detected as "too small", remove their upstream neighbours instead and merge to too-small basin 
             {
@@ -747,9 +747,9 @@ calc_subbas <- function(
                 
                 upstream_neighbours_int =  cross_ids[which(tt == 1)] #internal subbas ID of upstream neighbours. Use only the 
                 upstream_neighbours_int =  setdiff(upstream_neighbours_int, manual_subs_int) #exclude subbas, that also have been manually specified, from removing
-                if (lenght(upstream_neighbours_int) > 0) #found any? mark for removing
+                if (length(upstream_neighbours_int) > 0) #found any? mark for removing
                   remove_instead_int = c(remove_instead_int, upstream_neighbours_int[1]) #internal ID of upstream  subbas to be removed
-
+                
               }
               #browser()
               
@@ -759,7 +759,7 @@ calc_subbas <- function(
               sub_rm_ext = unique(c(sub_rm_ext, remove_instead_ext)) #external ID; instead, use their upstream neighbours
             }  
             
-        # remove this temporary map from processing and drain points raster map and try again (back to start of while loop)
+            # remove this temporary map from processing and drain points raster map and try again (back to start of while loop)
             #browser()
             
             subcatch_rasts <- grep(paste0("basin_recl_", sub_rm_ext, "_t", collapse="|"), subcatch_rasts, invert = T, value = T)
