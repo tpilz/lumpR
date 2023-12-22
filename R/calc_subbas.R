@@ -83,12 +83,10 @@
 #'  \itemize{
 #'    \item{\code{accum_t}:}{ If argument \code{flowaccum} is not supplied, contains map of flow accumulation.} 
 #'    \item{\code{drain_t}:}{ If argument \code{drainage_dir} is not supplied, contains map of drainage direction.} 
-#'    \item{\code{<points_processed>_t}:} { Raw subbasin outlet points.} 
-#'    \item{\code{<points_processed>_centered_t}:}{ Subbasin outlet points centered at cell centers.} 
-#'    \item{\code{<points_processed>_shifted_t}:}{ Subbasin outlet points shifted slightly out of centers (for preventing pathological cases while snapping).} 
-#'    \item{\code{<points_processed>_snapped_t}:}{ Raw subbasin outlet points snapped to closest river.} 
-#'    \item{\code{<points_processed>_calc_t}:}{ internally calculated subbasin outlet points (only if parameter \code{thresh_sub} is not NULL).} 
-#'    \item{\code{<points_processed>_all_t}:}{ combined subbasin outlet points as raster (easier to identify double subbasin outlet points sharing one raster cell).} 
+#'    \item{\code{<points_processed>_t}:} { Prespecified subbasin outlet points.} 
+#'    \item{\code{<points_processed>_snapped_t}:}{ Prespecified subbasin outlet points snapped to closest river.} 
+#'    \item{\code{<points_processed>_calc_t}:}{ Automatically calculated subbasin outlet points (only if parameter \code{thresh_sub} is not NULL).} 
+#'    \item{\code{<points_processed>_all_t}:}{ Combined subbasin outlet points (manual and automatically-computed ones) as raster (easier to identify double subbasin outlet points sharing one raster cell).} 
 #'  }  
 #'      
 #' @details
@@ -283,7 +281,7 @@ calc_subbas <- function(
     if(!silent) message("% OK")
   }
   # check flowaccum raster for negative values
-  cmd_out <- execGRASS("r.univar", map="accum_t", separator="comma", flags=c("t"), intern=TRUE, ignore.stderr = TRUE)
+  cmd_out <- execGRASS("r.univar", map="accum_t", separator="comma", flags=c("t"), intern=TRUE, ignore.stderr = TRUE) #ii: use "r.info -r" instead (faster)
   if (!is.null(attr(cmd_out, "status")) && attr(cmd_out, "status")!=0) stop(paste0("Could not get stats of ", flowaccum) )
   cmd_out <- strsplit(cmd_out, ",")
   if (!is.list(cmd_out)) stop("Error in computing stats of flow accumulation.")
@@ -416,8 +414,9 @@ calc_subbas <- function(
     
     library(sf)
     streams_points <- read_VECT(paste0(stream,"_clipped_vec_t"))
-    streams_points = as(streams_points, 'Spatial') #we need this intermediate step, as direct conversion fails
-    streams_points = as(streams_points, 'sf')
+    #streams_points = as(streams_points, 'Spatial') #we need this intermediate step, as direct conversion fails
+    #streams_points = as(streams_points, 'sf')
+    streams_points = st_as_sf(streams_points) #convert to sf
     clean_temp_dir(paste0(stream,"_clipped_vec_t"))
     
     #find nearest river point for each drainage point
@@ -436,6 +435,7 @@ calc_subbas <- function(
 
     # export drain_points_snap to GRASS
     suppressWarnings(write_VECT(vect(drain_points_snap), paste0(points_processed, "_snapped_t"), flags = "overwrite"))
+    #drain_points_snap = read_VECT(paste0(points_processed, "_snapped_t")) #re-omit, for debugging only
     clean_temp_dir(paste0(points_processed, "_snapped_t"))
     
     if (nrow(drain_points_snap) < nrow(drain_points)) {
@@ -459,97 +459,77 @@ calc_subbas <- function(
     
     cmd_out <- execGRASS("r.water.outlet", input="drain_t", output=paste0("basin_outlet_t"), coordinates=outlet_coords, flags="overwrite", intern = T)
     cmd_out = execGRASS("r.stats", input=paste0("basin_outlet_t"), flag=c("c","n","quiet"), intern = TRUE)
+    if (length(cmd_out)==0)
+      stop("Could not get stats of 'basin_outlet_t' (entire basin). Please check it and set GRASS region as 'g.region raster=basin_outlet_t'")
     ncells = as.numeric(strsplit(cmd_out, split = " ")[[1]][2])
     if (!is.finite(ncells) | ncells < 100)
       stop(paste0("Number of cells in calculated catchment is very low (",ncells,"). Try using a filled DEM or correcting this point."))
     
     # get drainage points of calculated subbasins (optional)
     if(is.numeric(thresh_sub)) {
-      
-      # set watershed of outlet point as mask
-      cmd_out <- execGRASS("g.copy", raster=paste0("basin_outlet_t,MASK"), flags = "overwrite", intern = T)
-      
       # the following calculations only make sense if thresh_sub is small enough to produce more subbasins than determined by drain_points
       no_catch_calc <- length(as.numeric(execGRASS("r.stats", input="basin_calc_t", flags=c("n"), intern=T, ignore.stderr = T)))
       if(no_catch_calc > 1) {
         
-        # read raster data from GRASS for processing
-        a = try(basins <- read_RAST(vname = "basin_calc_t", ignore.stderr = T), silent = TRUE)
-        if (class(a)== "try-error")
-          stop("Could not read basin map because of bug in read_RAST (https://github.com/rsbivand/rgrass/issues/82). You have too many subbasins anyway, if this occurs. Increase 'thresh_sub'")
-        basins <- raster(basins)
-        basins = as.integer(basins)
+        # identify automatically-gnerated outlet points and merge to pre-specified ones
+        if (!is.null(attr(cmd_out, "status")) && attr(cmd_out, "status")!=0) stop(paste0("Could not get zonal stats of accum_t (floaw accumulation) and basin_calc_t (automatically calclulated subcatchments). Check both rasters."))
+        cmd_out <- strsplit(cmd_out, ",")
+        if (!is.list(cmd_out)) stop("Error in computing stats of flow accumulation.")
+        cmd_cols <- grep("^min$", cmd_out[[1]])
+        min_acc <- as.numeric(cmd_out[[2]][cmd_cols])
+        if(!is.finite(min_acc)) stop("Could not read stats of flow accumlation grid. Please check region setting with g.region() in GRASS.")
         
-        accum <- raster(read_RAST("accum_t", ignore.stderr = T))
-        accum <- abs(accum) # ignore negative accumulation values (warning will be issued)
-        accum = as.integer(accum)
+        #assemble expression for identifying the outlet cells
+        expr = paste0(paste0("(basin_calc_t==",subbas_stats$zone, " && abs(accum_t)==",subbas_stats$max,")"), collapse =" || ")
         
-        # calculate zonal statistics: Maximum accumulation for every subbasin (=outlet)
-        stats <- zonal(accum, basins, fun="max")
-     
-        # remove calculated watershed outlet (point of maximum flow accumulation) as this has been given as input
-        stats <- stats[-which(stats[2] == max(stats[2])), ]
-        stats = apply(FUN=as.integer, MAR=2, X=stats) #convert to integer
+        #generate map designating output cells
+        cmd_out2 <- execGRASS("r.mapcalc", expression=paste0("drain_points_calc_t=", expr), flags=c("overwrite"), intern=TRUE, ignore.stderr = FALSE)
         
-        # get coordinates of outlets
-        outs <- apply(stats, 1, function(x) {
-          
-          #system.time(
-          cell_no <- Which(accum==x[2], cells=T)  
-
-          # if there is more than one cell, get the one in the right subbasin
-          if(length(cell_no) > 1) {
-            cell_bas <- Which(basins==x[1], cells=T)
-            cell_no <- cell_no[which(cell_no %in% cell_bas)]
-          }
-          #)                                       #74 sec
+        if (length(cmd_out2) > 0)
+          stop("Could not detect threashold-based outlet points. Threshold too small, too many subbasins? Check raster map 'basin_calc_t' and report number of subbasins to developer.")
         
-          # Test, if joint command can save time -> no, takes longer
-            # system.time(
-            # cell_no <- Which(accum==x[2] & basins==x[1], cells=T)) #145 (float accum & basins, float stats)
-            #                                                       #130 (integer accum, float x, integer stats)
-            #                                                      #110  (all integer)
-
-          # get coordinates of cell_no
-          if (length(cell_no) > 1) warning("Outlet cell could not be found inequivocally (R/GRASS bug). Please check")          
-          res <- round(xyFromCell(accum, cell_no),0)[1,] #ignore any potential multiple cells (bug in raster comparison for rasters with large numbers/scientific notation)
-          res <- c(res, x[1])
-          return(res)
-        })
+        #intersect identified points with subbasin map to get their IDs
+        system.time(
+          cmd_out2 <- execGRASS("r.mapcalc", expression="drain_points_calc2_t=if(drain_points_calc_t,basin_calc_t,null())", flags=c("overwrite"), intern=TRUE, ignore.stderr = FALSE)
+        ) 
         
-     
-        # delete raster objects
-        rm(accum, basins)
-        gc(verbose = F); gc(verbose = F)
         
-        # re-arrange data
-        outs <- t(outs)
-        colnames(outs) <- c("x", "y", "cat")
-        outs <- as.data.frame(outs)
-        # subbas_id, make sure they are distinct from drain_points_snap
-        new_ids = 1:(nrow(outs) + nrow(drain_points_snap@data)) # potential new IDs
-        new_ids = setdiff(new_ids, drain_points_snap@data$subbas_id) #remove IDs that are already in use
-        new_ids = new_ids[1:nrow(outs)]  #use only as many as needed
-        outs <- cbind(outs, subbas_id = new_ids)
-        coordinates(outs) <- c("x", "y")
+        # #alternative: loop though all subbasins and find their outlet points 
+        # #(slower by factor 2, but possibly necessary if the expression becomes too long? Although docu claims "There is no limit to the possible number of input lines or to the length of a formula."
+        # cmd_out2 <- execGRASS("r.mapcalc", expression="drain_points_calc_t3=null()", flags=c("overwrite"), intern=TRUE, ignore.stderr = FALSE)
+        # for (i in 1:nrow(subbas_stats))
+        # {
+        #   cmd_out2 <- execGRASS("r.mapcalc", expression=paste0("drain_points_calc_t3=if(basin_calc_t==",subbas_stats$zone[i], " && abs(accum_t)==",subbas_stats$max[i],",basin_calc_t,null())"), flags=c("overwrite"), intern=TRUE, ignore.stderr = FALSE)
+        # } 
         
-        # as SPDF
-        drain_points_calc <- SpatialPointsDataFrame(coordinates(outs), outs@data, proj4string = CRS(getLocationProj()))
+        #convert raster points to vector
+        cmd_out <- execGRASS("r.to.vect", input="drain_points_calc2_t", output=paste0(points_processed, "_calc_vec_t"), type="point", flags=c("quiet", "overwrite"), intern=T)
+        
+        drain_points_calc <- read_VECT(paste0(points_processed, "_calc_vec_t")) #re-import to R
+        drain_points_calc = st_as_sf(drain_points_calc) #convert to sf
+        clean_temp_dir(paste0(drain_points, "_calc_vec_t"))
+        
+        #drain_points_snap = read_VECT(paste0(points_processed, "_snapped_t")) #re-import, for debugging only
+        #drain_points_snap = as(drain_points_snap, "Spatial")
+        
+        # create consistent subbas_ids before merging prespecified and automatic drainage points
+        new_ids = 1:(nrow(drain_points_calc) + nrow(drain_points_snap@data)) # potential new IDs for the automatically-identified basins
+        new_ids = setdiff(new_ids, drain_points_snap@data$subbas_id) #remove IDs that are already in use from pre-specified points
+        new_ids = new_ids[1:nrow(drain_points_calc)]  #use only as many as needed for the automatically-generated ones
+        drain_points_calc$subbas_id = new_ids #set new IDs
         
         # write to GRASS location
-        write_VECT(vect(drain_points_calc), paste0(points_processed, "_calc_t"), ignore.stderr = T, flags = "overwrite")
+        write_VECT(vect(drain_points_calc), paste0(points_processed, "_calc_vec_t"), ignore.stderr = T, flags = "overwrite")
         
-        # drain_points_snap df requires columns 'cat' and 'subbas_id' as drain_points_calc_t
+        # set the same attributes to drain_points_snap and drain_points_calc_t to allow merging
         drain_points_snap@data <- drain_points_snap@data[,c("cat", "subbas_id")]
         suppressWarnings(proj4string(drain_points_snap) <- CRS(getLocationProj()))
+        drain_points_calc = drain_points_calc[, c("cat", "subbas_id")]
         
-        # merge with existing drain points object (snapped points first as there the outlet is identified)
-        drain_points_snap <- rbind(drain_points_snap, drain_points_calc)
-        
+        # merge with pre-specified drainage points object (pre-specified points first as there the outlet is identified)
+        drain_points_snap <- rbind(drain_points_snap, as(drain_points_calc2, "Spatial"))
       } # more than one subbasin
-      
-      # remove mask
-      cmd_out <- execGRASS("r.mask", flags=c("r"), intern = T)
+
     }
     
     # combine drain points as raster (easier to identify double drain points sharing one raster cell)
