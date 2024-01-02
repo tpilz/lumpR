@@ -209,12 +209,37 @@ calc_subbas <- function(
     options(warn = -1)
   }
   
-  
-  ### CALCULATIONS ###-----------------------------------------------------------
- tryCatch({
+  cleanup = function() {
+    #cleanup function in case of errors or normal termination 
+    
+    # stop sinking
+    closeAllConnections()
+    
+    # restore original warning mode
+    if(silent)
+      options(warn = oldw)
+    
+    #if (geterrmessage()!= fake_error) #check if this is a real error having been raised
+    #  print("real")
     
     # remove mask if there is any (and ignore error in case there is no mask)
-    tryCatch(suppressWarnings(execGRASS("r.mask", flags=c("r","-quiet"))), error=function(e){})
+    tt = try(execGRASS("r.mask", flags=c("r"), intern = TRUE, ignore.stderr = TRUE), silent = TRUE)
+    
+    #delete temporarily created maps
+    if(keep_temp == FALSE)
+      try(execGRASS("g.remove", type="raster,vector", pattern=paste0("*_t,",stream,"_*,", basin_out, ",", points_processed, "_*"), flags=c("f", "b"), intern = TRUE, ignore.stderr = TRUE), silent=TRUE)
+    
+    options(error=NULL) #release error handling
+    
+  }
+  options(error=cleanup) #in case of errors, clean up and reset to original warning and messaging state
+  
+    
+  ### CALCULATIONS ###-----------------------------------------------------------
+ #tryCatch({
+    
+    # remove mask if there is any (and ignore error in case there is no mask)
+   cmd_out= try(execGRASS("r.mask", flags=c("r","-quiet")), silent=TRUE)
     
     
     if (!is.null(drain_points))
@@ -372,7 +397,7 @@ calc_subbas <- function(
     # 
     # #create raster template
     # cmd_out = execGRASS("r.info", map=flowaccum, flag=c("g"), intern = TRUE)
-    # cmd_out_list = sapply(X=cmd_out, FUN=function(x){as.numeric(strsplit(x, split="=")[[1]][2])})  #split, convert ot list
+    # cmd_out_list = sapply(X=cmd_out, FUN=function(x){as.numeric(strsplit(x, split="=")[[1]][2])})  #split, convert to list
     # options(warn=0)
     # names(cmd_out_list)  = gsub(names(cmd_out_list), pattern="=.*", repl="") #fix list names
     # 
@@ -449,14 +474,12 @@ calc_subbas <- function(
     if(!silent) message("%")
     if(!silent) message("% Calculate catchments for every drainage point...")
     
-    # update index to outlet, as its order may have changed during previous steps
-    outlet <- which(drain_points_snap$subbas_id == outlet_id)
-    
+    #compute entire catchment
+    outlet <- which(drain_points_snap$subbas_id == outlet_id) # update index to outlet, as its order may have changed during previous steps
     drain_points_snap = as(drain_points_snap, "Spatial")
-    
-    #coordinates(drain_points_snap2)
     outlet_coords <- coordinates(drain_points_snap)[outlet,]
     
+    if(!silent) message("%  ...for outlet point...")
     cmd_out <- execGRASS("r.water.outlet", input="drain_t", output=paste0("basin_outlet_t"), coordinates=outlet_coords, flags="overwrite", intern = T)
     cmd_out = execGRASS("r.stats", input=paste0("basin_outlet_t"), flag=c("c","n","quiet"), intern = TRUE)
     if (length(cmd_out)==0)
@@ -468,30 +491,30 @@ calc_subbas <- function(
     # get drainage points of calculated subbasins (optional)
     if(is.numeric(thresh_sub)) {
       # the following calculations only make sense if thresh_sub is small enough to produce more subbasins than determined by drain_points
-      no_catch_calc <- length(as.numeric(execGRASS("r.stats", input="basin_calc_t", flags=c("n"), intern=T, ignore.stderr = T)))
+      #no_catch_calc <- length(as.numeric(execGRASS("r.stats", input="basin_calc_t", flags=c("n"), intern=T, ignore.stderr = T)))
+      if(!silent) message("%  ...extracting outlet points of threshold-based subbasins...")
+      cmd_out <- execGRASS("r.univar", map="accum_t", zones="basin_calc_t", separator="comma", flags=c("t", "g"), intern=TRUE, ignore.stderr = TRUE) 
+      
+      if ((!is.null(attr(cmd_out, "status")) && attr(cmd_out, "status")!=0))
+        stop(paste0("Could not get zonal stats of 'accum_t' (flow accumulation) and 'basin_calc_t' (automatically calculated subcatchments). Check both rasters."))
+      
+      subbas_stats = read.table(text=cmd_out, sep=",", header=TRUE) #convert command output to dataframe
+      no_catch_calc = nrow(subbas_stats)
+      
       if(no_catch_calc > 1) {
-        
-        # identify automatically-gnerated outlet points and merge to pre-specified ones
-        if (!is.null(attr(cmd_out, "status")) && attr(cmd_out, "status")!=0) stop(paste0("Could not get zonal stats of accum_t (floaw accumulation) and basin_calc_t (automatically calclulated subcatchments). Check both rasters."))
-        cmd_out <- strsplit(cmd_out, ",")
-        if (!is.list(cmd_out)) stop("Error in computing stats of flow accumulation.")
-        cmd_cols <- grep("^min$", cmd_out[[1]])
-        min_acc <- as.numeric(cmd_out[[2]][cmd_cols])
-        if(!is.finite(min_acc)) stop("Could not read stats of flow accumlation grid. Please check region setting with g.region() in GRASS.")
+        # identify automatically-generated outlet points and merge to pre-specified ones
         
         #assemble expression for identifying the outlet cells
-        expr = paste0(paste0("(basin_calc_t==",subbas_stats$zone, " && abs(accum_t)==",subbas_stats$max,")"), collapse =" || ")
+        expr = paste0(paste0("(basin_calc_t==", subbas_stats$zone, " && abs(accum_t)==",subbas_stats$max,")"), collapse =" || ")
         
         #generate map designating output cells
         cmd_out2 <- execGRASS("r.mapcalc", expression=paste0("drain_points_calc_t=", expr), flags=c("overwrite"), intern=TRUE, ignore.stderr = FALSE)
         
         if (length(cmd_out2) > 0)
-          stop("Could not detect threashold-based outlet points. Threshold too small, too many subbasins? Check raster map 'basin_calc_t' and report number of subbasins to developer.")
+          stop("Could not detect threshold-based outlet points. Threshold too small, too many subbasins? Check raster map 'basin_calc_t' and report number of subbasins to developer.")
         
         #intersect identified points with subbasin map to get their IDs
-        system.time(
-          cmd_out2 <- execGRASS("r.mapcalc", expression="drain_points_calc2_t=if(drain_points_calc_t,basin_calc_t,null())", flags=c("overwrite"), intern=TRUE, ignore.stderr = FALSE)
-        ) 
+        cmd_out2 <- execGRASS("r.mapcalc", expression="drain_points_calc2_t=if(drain_points_calc_t,basin_calc_t,null())", flags=c("overwrite"), intern=TRUE, ignore.stderr = FALSE)
         
         
         # #alternative: loop though all subbasins and find their outlet points 
@@ -507,7 +530,7 @@ calc_subbas <- function(
         
         drain_points_calc <- read_VECT(paste0(points_processed, "_calc_vec_t")) #re-import to R
         drain_points_calc = st_as_sf(drain_points_calc) #convert to sf
-        clean_temp_dir(paste0(drain_points, "_calc_vec_t"))
+        clean_temp_dir(paste0(points_processed, "_calc_vec_t"))
         
         #drain_points_snap = read_VECT(paste0(points_processed, "_snapped_t")) #re-import, for debugging only
         #drain_points_snap = as(drain_points_snap, "Spatial")
@@ -527,7 +550,7 @@ calc_subbas <- function(
         drain_points_calc = drain_points_calc[, c("cat", "subbas_id")]
         
         # merge with pre-specified drainage points object (pre-specified points first as there the outlet is identified)
-        drain_points_snap <- rbind(drain_points_snap, as(drain_points_calc2, "Spatial"))
+        drain_points_snap <- rbind(drain_points_snap, as(drain_points_calc, "Spatial"))
       } # more than one subbasin
 
     }
@@ -836,36 +859,34 @@ calc_subbas <- function(
     if(!silent) message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
     
     
-    # stop sinking
-    closeAllConnections()
+    # # stop sinking
+    # closeAllConnections()
+    # 
+    # # restore original warning mode
+    # if(silent)
+    #   options(warn = oldw)
     
-    # restore original warning mode
-    if(silent)
-      options(warn = oldw)
-    
-    
+    cleanup() #remove sinks and temporary maps
     
     
     # exception handling
-  
-    
-    }, error = function(e) {
-
-    # stop sinking
-    closeAllConnections()
-
-    # restore original warning mode
-    if(silent)
-      options(warn = oldw)
-
-    # remove mask if there is any (and ignore error in case there is no mask)
-    cmd_out <-tryCatch(suppressWarnings(execGRASS("r.mask", flags=c("r"), intern = T)), error=function(e){})
-
-    if(keep_temp == FALSE)
-      cmd_out <- execGRASS("g.remove", type="raster,vector", pattern=paste0("*_t,",stream,"_*,", basin_out, ",", points_processed, "_*"), flags=c("f", "b"), intern = T)
-
-    stop(paste(e))
-  })
-  
+  #   }, error = function(e) {
+  # 
+  #   # stop sinking
+  #   closeAllConnections()
+  # 
+  #   # restore original warning mode
+  #   if(silent)
+  #     options(warn = oldw)
+  # 
+  #   # remove mask if there is any (and ignore error in case there is no mask)
+  #   cmd_out <-tryCatch(suppressWarnings(execGRASS("r.mask", flags=c("r"), intern = T)), error=function(e){})
+  # 
+  #   if(keep_temp == FALSE)
+  #     cmd_out <- execGRASS("g.remove", type="raster,vector", pattern=paste0("*_t,",stream,"_*,", basin_out, ",", points_processed, "_*"), flags=c("f", "b"), intern = T)
+  # 
+  #   stop(paste(e))
+  # })
+  # 
   
 } # EOF
