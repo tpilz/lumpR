@@ -118,3 +118,27 @@ snapPointsToLines1 <-  function (points, lines, maxDist = NA, withAttrs = TRUE, 
   SpatialPointsDataFrame(coords = t(mNewCoords), data = df, 
                          proj4string = CRS(proj4string(points)))
 }
+
+cleanup = function() {
+  #cleanup function in case of errors or normal termination 
+  
+  # stop sinking
+  closeAllConnections()
+  
+  # restore original warning mode
+  if(silent)
+    options(warn = oldw)
+  
+  #if (geterrmessage()!= fake_error) #check if this is a real error having been raised
+  #  print("real")
+  
+  # remove mask if there is any (and ignore error in case there is no mask)
+  tt = try(execGRASS("r.mask", flags=c("r"), intern = TRUE, ignore.stderr = TRUE), silent = TRUE)
+  
+  #delete temporarily created maps
+  if(keep_temp == FALSE)
+    try(execGRASS("g.remove", type="raster,vector", pattern=paste0("*_t,",stream,"_*,", basin_out, ",", points_processed, "_*"), flags=c("f", "b"), intern = TRUE, ignore.stderr = TRUE), silent=TRUE)
+  
+  options(error=NULL) #release error handling
+  
+}
