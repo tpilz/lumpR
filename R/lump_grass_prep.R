@@ -233,7 +233,7 @@ lump_grass_prep <- function(
   
   # add slash to end of addon_path if necessary
   addontest = try(execGRASS("g.extension", flags="a", intern=TRUE), silent = TRUE)
-  if (class(addon)=="try-error")
+  if (class(addontest)=="try-error")
     stop("Cannot execute GRASS commands. Maybe you forgot to run initGRASS()?")
   
   #doesn't work for Windows
