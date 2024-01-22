@@ -211,7 +211,7 @@ area2catena <- function(
   tmp_file <- file(tempfile(), open="wt")
   sink(tmp_file, type="output")
   
-  # supress warnings in silent mode
+  # suppress warnings in silent mode
   if(silent){
     tmp_file2 <- file(tempfile(), open="wt")
     sink(tmp_file2, type="message")
@@ -222,10 +222,12 @@ area2catena <- function(
   if(!silent) message("% OK")
   
   
+  options(error=cleanup) #in case of errors, clean up and reset to original warning and messaging state
   
+   
   
 ### CALCULATIONS ###-----------------------------------------------------------
-  tryCatch({
+  
     
 # load files from grass #------------------------------------------------------
     if(!silent) message("%")
@@ -263,9 +265,10 @@ area2catena <- function(
     {  
       for (i in supp_qual) {
         tmp <- read_raster(i)
-        qual_rast <- raster::stack(tmp, qual_rast)
-        supp_data_classnames[[i]] <- raster::unique(tmp)
-        n_supp_data_qual_classes <- c(n_supp_data_qual_classes, length(raster::unique(tmp)))
+        #qual_rast <- raster::stack(tmp, qual_rast) #this doesn't seem to work any longer
+        qual_rast = c(tmp, qual_rast) #stack raster layers
+        supp_data_classnames[[i]] <- terra::unique(tmp)[,1]
+        n_supp_data_qual_classes <- c(n_supp_data_qual_classes, length(supp_data_classnames[[i]]))
       }
       
       # convert (at) symbol to point (in case input comes from another GRASS mapset; read_RAST6() converts it to point implicitly which causes errors during later processing)
@@ -273,13 +276,15 @@ area2catena <- function(
       
       names(n_supp_data_qual_classes) <- supp_qual
       names(supp_data_classnames) <- supp_qual
+      names(qual_rast)            = supp_qual
     }  
     
     # load quantitative supplemental data
     quant_rast <- NULL # initialise object containing all quantitative raster layers
     for (i in rev(supp_quant)) {
       tmp <- read_raster(i)
-      quant_rast <- raster::stack(tmp, quant_rast)
+      #quant_rast <- raster::stack(quant_rast, tmp) #this doesn't seem to work any longer
+      quant_rast = c(quant_rast, tmp) #stack raster layers
     }
     
     # convert (at) symbol to point (in case input comes from another GRASS mapset; read_RAST6() converts it to point implicitly which causes errors during later processing)
@@ -291,16 +296,16 @@ area2catena <- function(
     
     # compare Rasters for extent, no. of rows and cols, CRS, resolution and origin
     if (!is.null(qual_rast) & !is.null(quant_rast)) {
-      comp_val <- compareRaster(flowaccum_rast, relelev_rast, dist2river_rast, eha_rast, 
-                                qual_rast, quant_rast, res=T, orig=T)
+      comp_val <- compareRaster_i(list(flowaccum_rast, relelev_rast, dist2river_rast, eha_rast, 
+                                qual_rast, quant_rast), res=T, orig=T)
     } else if(is.null(qual_rast) & !is.null(quant_rast)) {
-      comp_val <- compareRaster(flowaccum_rast, relelev_rast, dist2river_rast, eha_rast, 
-                                quant_rast, res=T, orig=T)
+      comp_val <- compareRaster_i(list(flowaccum_rast, relelev_rast, dist2river_rast, eha_rast, 
+                                quant_rast), res=T, orig=T)
     } else if(!is.null(qual_rast) & is.null(quant_rast)) {
-      comp_val <- compareRaster(flowaccum_rast, relelev_rast, dist2river_rast, eha_rast, 
-                                qual_rast, res=T, orig=T)
+      comp_val <- compareRaster_i(list(flowaccum_rast, relelev_rast, dist2river_rast, eha_rast, 
+                                qual_rast), res=T, orig=T)
     } else if(is.null(qual_rast) & is.null(quant_rast)) {
-      comp_val <- compareRaster(flowaccum_rast, relelev_rast, dist2river_rast, eha_rast, 
+      comp_val <- compareRaster_i(list(flowaccum_rast, relelev_rast, dist2river_rast, eha_rast), 
                                 res=T, orig=T)
     }
     
@@ -322,10 +327,10 @@ area2catena <- function(
     
 # process ehas #---------------------------------------------------------------
     # get resolution of spatial data
-    xres <- xres(eha_rast)
+    xres <- terra::xres(eha_rast)
     
     # identify EHAs
-    eha_ids <- raster::unique(eha_rast)
+    eha_ids <- terra::unique(eha_rast)
     if (!is.null(eha_subset)) eha_ids <- eha_subset
     
     # LOOP over EHAs
@@ -489,17 +494,7 @@ area2catena <- function(
     
   
   # if an error occurs delete all temporary output
-  }, error = function(e) {
-    
-    # stop sinking
-    closeAllConnections()
-    
-    # restore original warning mode
-    if(silent)
-      options(warn = oldw)
-    
-    stop(paste(e))  
-  })
+  
   
 } # EOF
 
@@ -522,7 +517,7 @@ res = try( #catch unexpected errors
 
     # EHA: CHECKS and PREPARATIONS #-----------------------------------------------
   # determine cell indices of curr_id
-  curr_cells <- which(eha_rast@data@values == curr_id)
+  curr_cells <- which(values(eha_rast) == curr_id)
   
   # determine number of cells in eha and skip processing if less than min_cell_in_slope
   # ERROR CODE 1
@@ -539,9 +534,16 @@ res = try( #catch unexpected errors
   if(!is.null(quant_rast)) quant_vals <- raster::extract(quant_rast, curr_cells)
   if(!is.null(qual_rast))  qual_vals  <- raster::extract(qual_rast,  curr_cells)
   
-  na_vals = is.na(flowaccum_vals) | is.na(dist2river_vals) | is.na(relelev_vals) #detect NA values
-  if (any(na_vals)) {  # cells found with NAs in the mandatory grids
-    message(paste('% -> WARNING: EHA ', curr_id, " has NA cells in rasters 'flowacc', 'distriv' or 'elevriv'. May be OK for EHAs at divide. Cells ignored.", sep=""))
+  #detect NA values
+  
+  na_rasters= NULL
+  if (any(is.na(flowaccum_vals)))  na_rasters = c(na_rasters, "'flowacc'")
+  if (any(is.na(dist2river_vals))) na_rasters = c(na_rasters, "'distriv'")
+  if (any(is.na(relelev_vals)))    na_rasters = c(na_rasters, "'elevriv'")
+
+  if (!is.null(na_rasters)) {  # cells found with NAs in the mandatory grids
+    na_vals = is.na(flowaccum_vals) | is.na(dist2river_vals) | is.na(relelev_vals) #detect NA values 
+    message(paste('% -> WARNING: EHA ', curr_id, " has NA cells in raster(s) ", paste(na_rasters, collapse=","),". May be OK for EHAs at divide. Cells ignored.", sep=""))
     curr_cells <- curr_cells[!na_vals]
     flowaccum_vals  <- flowaccum_vals [!na_vals]
     dist2river_vals <- dist2river_vals[!na_vals]
@@ -551,10 +553,14 @@ res = try( #catch unexpected errors
   
   na_vals <- NULL
   if(!is.null(quant_rast))
-    na_vals <-            apply(!is.finite(quant_vals), MARGIN=2, sum)
+    #na_vals <-            apply(!is.finite(quant_vals), MARGIN=2, sum)
+    #na_vals <- sum(!is.finite(as.matrix(quant_vals)))
+    na_vals <- c(na_vals, apply(!is.finite(as.matrix(quant_vals)), MARGIN=2, sum))
   if(!is.null(qual_rast))
-    na_vals <- c(na_vals, apply(!is.finite(qual_vals), MARGIN=2, sum))
-  
+    #na_vals <- c(na_vals, apply(!is.finite(qual_vals), MARGIN=2, sum))
+    #na_vals <-  c(na_vals, sum(!is.finite(as.matrix(qual_rast2))))
+    na_vals <- c(na_vals, apply(!is.finite(as.matrix(qual_vals)), MARGIN=2, sum))
+    
   if (any(na_vals>0)) {  # cells found with NAs in auxiliary grids
     message(paste('% -> WARNING: EHA ', curr_id, ': NAs or zeros in the grid(s) ', paste(names(na_vals[na_vals]), collapse=', ') ,' (max. ', max(na_vals), ' values).', sep=""))
     errcode <- 7
@@ -682,7 +688,7 @@ res = try( #catch unexpected errors
 
           # check averages (should sum up to one for each attribute), SEVERE ERROR CODE 666
           if(sum(supp_attrib_mean[(quant_columns+col_counter+1):(quant_columns+col_counter+n_supp_data_qual_classes[k]),j+1]) < 0.999) {
-            message(paste('% -> WARNING: For EHA ', curr_id, ' areal fractions of qualitative supplemental attribute ', k, ' does not sum to one for profile point ', j+1, sep=""))
+            message(paste("% -> WARNING: For EHA ", curr_id, " areal fractions of qualitative supplemental attribute '", k, "' does not sum to one for profile point ", j+1, sep=""))
             if (plot_catena) dev.off()
             return(data.frame(output=t(c(curr_id, rep(NA, sum(n_supp_data_qual_classes) + length(supp_quant) + 4 - 1))), error=666))
           }

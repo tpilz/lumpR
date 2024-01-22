@@ -15,6 +15,7 @@ lump_grass_prep(
   flowdir = NULL,
   flowacc = NULL,
   stream = NULL,
+  disk_swap = FALSE,
   stream_horton = NULL,
   elevriv = NULL,
   distriv = NULL,
@@ -33,7 +34,7 @@ lump_grass_prep(
 )
 }
 \arguments{
-\item{mask}{Mask in GRASS location defining the catchment area. E.g. subbasin raster map.}
+\item{mask}{Mask in GRASS location defining the catchment area (e.g. subbasin raster map).}
 
 \item{dem}{Digital elevation model in GRASS location used for delineation of
 environmental hillslope areas. Should be larger than the expected catchment,
@@ -69,6 +70,8 @@ surface runoff from outside the defined region.}
 \item{stream}{Output: Name of stream segments raster map exported into GRASS
 location. If you want to convert it into a vector map apply GRASS function
 \emph{r.thin} beforehand!}
+
+\item{disk_swap}{(optional, default: FALSE) Only needed if memory requirements exceed available RAM (large DEMs): If set to \code{TRUE}, \code{r.watershed} uses the "-m"-flag (slow)}
 
 \item{stream_horton}{Output: Name of stream segments raster map in Horton stream
 order exported into GRASS location.}
@@ -148,6 +151,10 @@ Prepare GRASS location and necessary raster files in advance and start
      
      See GRASS documentation for further information on GRASS functions and
      parameters.
+     
+     If you run into \bold{memory issues}, consider argument \code{disk_swap} (see also 
+     \link[GRASS homepage]{https://grass.osgeo.org/grass74/manuals/r.watershed.html#in-memory-mode-and-disk-swap-mode})
+     and see discussion on \link[lumpR's github page]{https://github.com/tpilz/lumpR/issues/16}.
 }
 \references{
 Source code based on \code{SHELL} and \code{MATLAB} scripts of Till Francke.

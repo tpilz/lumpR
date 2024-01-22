@@ -18,21 +18,26 @@ check_vector <- function(map, argument_name="") { #check existence of vector map
 }
 
 read_raster <- function(raster_name) { 
-  #read raster from GRASS-location
-  #if raster exist both in local mapset and PERMANENT, force the reading of the local version, otherwise read_RAST fails
-  cur_mapset = execGRASS("g.mapset", flags="p", intern=TRUE) #determine name of current mapset
-  # mapset name in R (meta symbols replaced by ".")
-  cur_mapset_r = gsub("[-+*/@.?!]", ".", cur_mapset)
-  if (!grepl(raster_name, pattern = "@")) #expand raster name because of bug in read_RAST 
-  {  
-    raster_name = paste0(raster_name,"@", cur_mapset) #add mapset name, unless already given. Otherwise, strange errors may occur when the same raster exists in PERMANENT
-    name_expanded = TRUE #indicate that 
-  }  else name_expanded = FALSE
+  #as of GRASS 8.3.1, read_RAST() on Windows does not seem to work in other than the active mapset
+  
+  # #read raster from GRASS-location
+  # #if raster exist both in local mapset and PERMANENT, force the reading of the local version, otherwise read_RAST fails
+  # cur_mapset = execGRASS("g.mapset", flags="p", intern=TRUE) #determine name of current mapset
+  # # mapset name in R (meta symbols replaced by ".")
+  # cur_mapset_r = gsub("[-+*/@.?!]", ".", cur_mapset)
+  # if (!grepl(raster_name, pattern = "@")) #expand raster name because of bug in read_RAST 
+  # {  
+  #   raster_name = paste0(raster_name,"@", cur_mapset) #add mapset name, unless already given. Otherwise, strange errors may occur when the same raster exists in PERMANENT
+  #   name_expanded = TRUE #indicate that 
+  # }  else name_expanded = FALSE
   tmp <- read_RAST(raster_name)
-  tmp <- raster(tmp)
-  if (name_expanded) #"de-expand" name, if expanded before
-    tmp@data@names = sub(x = tmp@data@names, pattern = paste0("\\.", cur_mapset_r), repl="")
+  # tmp <- raster(tmp)
+  # if (name_expanded) #"de-expand" name, if expanded before
+  #   tmp@data@names = sub(x = tmp@data@names, pattern = paste0("\\.", cur_mapset_r), repl="")
   return(tmp)
+  
+  
+  
 }
 
 clean_temp_dir <- function(file_name) {
@@ -141,4 +146,24 @@ cleanup = function() {
   
   options(error=NULL) #release error handling
   
+}
+
+
+check_raster_i = function(rasterlist)
+{
+  #rasterlist = list(flowaccum_rast, relelev_rast, dist2river_rast, eha_rast, 
+  #                  qual_rast)
+  #check congruence of raster maps in list
+  #internal analogoin to raster::check_raster, which no longer seems to work on stacks
+  for (rr in rasterlist[-1])
+  {
+    if (
+      !all(terra::res(rr) ==   terra::res(rasterlist[[1]]))
+      ||
+      !(terra::ncell(rr) ==   terra::ncell(rasterlist[[1]]))
+    )
+      return(TRUE)
+      #stop("Some raster maps do not match in resolution or extent. Please check.")
+  }
+  return(TRUE)
 }
