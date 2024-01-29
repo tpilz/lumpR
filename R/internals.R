@@ -12,8 +12,15 @@ check_raster <- function(map, argument_name="", raiseerror=TRUE) { #check existe
         stop(paste0("Raster map '", map, "' not found", ifelse(argument_name=="", ".", paste0(" (argument '", argument_name,"'). If the map is in another mapset, add '@othermapset' to the name."))))
       else
         return(FALSE)
-  }
-  return(ifelse(raiseerror, NULL, FALSE))
+  } else
+  {
+    if (raiseerror)
+      return(TRUE)
+    else
+      return()
+  }  
+  
+  
 }
 
 
