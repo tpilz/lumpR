@@ -1,5 +1,5 @@
 #internal functions
-check_raster <- function(map, argument_name="") { #check existence of raster map
+check_raster <- function(map, argument_name="", raiseerror=TRUE) { #check existence of raster map
   cur_mapset = execGRASS("g.mapset", flags="p", intern=TRUE) #determine name of current mapset
   if (!grepl(map, pattern = "@"))
     map = paste0(map,"@", cur_mapset)  #add mapset name, unless already given. Otherwise, these checks may fall back on PERMANENT yielding true, but read_RAST will fail later
@@ -7,8 +7,15 @@ check_raster <- function(map, argument_name="") { #check existence of raster map
   cmd_out <-suppressWarnings(execGRASS("r.info", map=map, intern = T, ignore.stderr = TRUE))
   
   if (!is.null(attr(cmd_out, "status")) && attr(cmd_out, "status")==1)
-    stop(paste0("Raster map '", map, "' not found", ifelse(argument_name=="", ".", paste0(" (argument '", argument_name,"'). If the map is in another mapset, add '@othermapset' to the name."))))
+  {
+    if (raiseerror)
+        stop(paste0("Raster map '", map, "' not found", ifelse(argument_name=="", ".", paste0(" (argument '", argument_name,"'). If the map is in another mapset, add '@othermapset' to the name."))))
+      else
+        return(FALSE)
+  }
+  return(ifelse(raiseerror, NULL, FALSE))
 }
+
 
 check_vector <- function(map, argument_name="") { #check existence of vector map
   cmd_out=suppressWarnings(execGRASS("v.info", map=map, intern = T, ignore.stderr = TRUE))
@@ -18,7 +25,8 @@ check_vector <- function(map, argument_name="") { #check existence of vector map
 }
 
 read_raster <- function(raster_name) { 
-  #as of GRASS 8.3.1, read_RAST() on Windows does not seem to work in other than the active mapset
+  #as of GRASS 8.3.1, rgrass0.4-1  read_RAST() on Windows does not seem to work in other than the active mapset
+  # rGRASS 0.4-2 seems to solve this issue
   
   # #read raster from GRASS-location
   # #if raster exist both in local mapset and PERMANENT, force the reading of the local version, otherwise read_RAST fails
@@ -149,12 +157,12 @@ cleanup = function() {
 }
 
 
-check_raster_i = function(rasterlist)
+compareRaster_i = function(rasterlist, ...)
 {
   #rasterlist = list(flowaccum_rast, relelev_rast, dist2river_rast, eha_rast, 
   #                  qual_rast)
   #check congruence of raster maps in list
-  #internal analogoin to raster::check_raster, which no longer seems to work on stacks
+  #internal analogoin to raster::compareRaster, which no longer seems to work on stacks
   for (rr in rasterlist[-1])
   {
     if (

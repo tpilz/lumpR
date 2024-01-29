@@ -342,7 +342,9 @@ lump_grass_prep <- function(
     
       if(!silent) message("%")
       if(!silent) message("% Calculate river network and morphological parameters...")
-      
+      if (!check_raster(stream, "stream", raiseerror = FALSE))  
+        stop(paste0("Couldn't find stream raster ", stream, ". Generate it yourself or re-run with 'things2do='eha' to produce it."))
+
       # set mask
       cmd_out <-tryCatch(suppressWarnings(execGRASS("r.mask", flags=c("r"), intern = T)), error=function(e){})
       cmd_out <- execGRASS("r.mask", raster=mask, intern = T)
