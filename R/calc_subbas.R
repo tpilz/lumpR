@@ -227,7 +227,7 @@ calc_subbas <- function(
     
     #delete temporarily created maps
     if(keep_temp == FALSE)
-      try(execGRASS("g.remove", type="raster,vector", pattern=paste0("*_t,",stream,"_*,", basin_out, ",", points_processed, "_*"), flags=c("f", "b"), intern = TRUE, ignore.stderr = TRUE), silent=TRUE)
+      try(execGRASS("g.remove", type="raster,vector", pattern=paste0("*_t,",stream,"_*,", points_processed, "_*"), flags=c("f", "b"), intern = TRUE, ignore.stderr = TRUE), silent=TRUE)
     
     options(error=NULL) #release error handling
     
