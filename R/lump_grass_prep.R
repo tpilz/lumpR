@@ -299,7 +299,7 @@ lump_grass_prep <- function(
       if(!silent) message("% Calculate and process EHAs...")
       
       # remove mask if there is any (and ignore error in case there is no mask)
-      tt=tryCatch(suppressWarnings(execGRASS("r.mask", flags=c("r")), intern=TRUE), error=function(e){})
+      tt=tryCatch(suppressWarnings(execGRASS("r.mask", flags=c("r"), intern=TRUE)), error=function(e){})
       
       # set mask and region
       cmd_out <- execGRASS("r.mask", raster=mask, intern = T)
