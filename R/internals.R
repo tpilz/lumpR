@@ -1,4 +1,16 @@
 #internal functions
+test_grass = function() #test if connection to GRASS is working properly
+{  
+  #test if its working
+  testGRASS = suppressWarnings(try(execGRASS("g.version", intern = TRUE), silent=TRUE)) #test if GRASS is responding
+  if (class(testGRASS)=="try-error") stop("GRASS session could not be initialized. Check the output of the initGRASS command for errors.")
+  
+  stat = attr(testGRASS, "status")
+  if (!is.null(stat) && stat != 0)
+   stop(paste0("Error in connecting to GRASS. Please check name of location and mapset.\n ", testGRASS))
+}
+
+
 check_raster <- function(map, argument_name="", raiseerror=TRUE) { #check existence of raster map
   cur_mapset = execGRASS("g.mapset", flags="p", intern=TRUE) #determine name of current mapset
   if (!grepl(map, pattern = "@"))
@@ -139,9 +151,16 @@ snapPointsToLines1 <-  function (points, lines, maxDist = NA, withAttrs = TRUE, 
                          proj4string = CRS(proj4string(points)))
 }
 
-cleanup = function() {
-  #cleanup function in case of errors or normal termination 
+cleanup = function(cleanup_pattern = NULL) {
+  if (is.null(cleanup_pattern))
+  {  
+    cleanup_pattern = try(get("cleanup_pattern"), silent = TRUE)
+    if (class(cleanup_pattern) == "try-error") #no cleanup pattern defined
+      #cleanup_pattern = paste0("*_t,",stream,"_*,", ",", points_processed, "_*")
+      cleanup_pattern = paste0("*_t")
+  }
   
+  #cleanup function in case of errors or normal termination 
   # stop sinking
   closeAllConnections()
   
@@ -153,8 +172,8 @@ cleanup = function() {
   tt = try(execGRASS("r.mask", flags=c("r"), intern = TRUE, ignore.stderr = TRUE), silent = TRUE)
   
   #delete temporarily created maps
-  if(keep_temp == FALSE)
-    try(execGRASS("g.remove", type="raster,vector", pattern=paste0("*_t,",stream,"_*,", ",", points_processed, "_*"), flags=c("f", "b"), intern = TRUE, ignore.stderr = TRUE), silent=TRUE)
+  if(keep_temp == FALSE & cleanup_pattern != "")
+    try(execGRASS("g.remove", type="raster,vector", pattern=cleanup_pattern, flags=c("f", "b"), intern = TRUE, ignore.stderr = TRUE), silent=TRUE)
   
   options(error=NULL) #release error handling
   

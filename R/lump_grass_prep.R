@@ -170,15 +170,16 @@ lump_grass_prep <- function(
   if(!silent) message("% Initialise function...")
   
 # checks #---------------------------------------------------------------------
-  tryCatch(gmeta(), error = function(e) stop("Cannot execute GRASS commands. Maybe you forgot to run initGRASS()?"))
+  #tryCatch(gmeta(), error = function(e) stop("Cannot execute GRASS commands. Maybe you forgot to run initGRASS()?"))
+  test_grass()
   if(is.null(mask))
     stop("The name of a raster within the mapset of your initialised GRASS session to be used as catchment MASK in GRASS has to be given!")
   check_raster(mask, "mask")
   
   if(disk_swap) {
-    ws_flags <- c("overwrite","m", "a", "b")
+    ws_flags <- c("overwrite","m", "a", "b", "s")
   } else {
-    ws_flags <- c("overwrite", "a", "b")
+    ws_flags <- c("overwrite", "a", "b", "s")
   }
   
   if ("eha" %in% things2do)

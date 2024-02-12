@@ -155,7 +155,8 @@ area2catena <- function(
   if(!silent) message("% Initialise function...")
   
 # checks #---------------------------------------------------------------------
-  tryCatch(gmeta(), error = function(e) stop("Cannot execute GRASS commands. Maybe you forgot to run initGRASS()?"))
+  #tryCatch(gmeta(), error = function(e) stop("Cannot execute GRASS commands. Maybe you forgot to run initGRASS()?"))
+  test_grass()
   
   # check output directory
   if (!overwrite & ( file.exists(paste(dir_out,catena_out,sep="/")) | file.exists(paste(dir_out,catena_head_out,sep="/")) ) ) 
