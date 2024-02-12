@@ -284,7 +284,8 @@ lump_grass_post <- function(
   if(!silent) message("% Initialise function...")
   
 # checks #---------------------------------------------------------------------
-  tryCatch(gmeta(), error = function(e) stop("Cannot execute GRASS commands. Maybe you forgot to run initGRASS()?"))
+  test_grass()
+#  tryCatch(gmeta(), error = function(e) stop("Cannot execute GRASS commands. Maybe you forgot to run initGRASS()?"))
   if(is.null(mask))
     stop("The name of a raster within the mapset of your initialised GRASS session to be used as catchment MASK in GRASS has to be given!")
   if(!is.character(mask))
@@ -320,13 +321,15 @@ lump_grass_post <- function(
   tmp_file <- file(tempfile(), open="wt")
   sink(tmp_file, type="output")
   
-  # also supress warnings in silent mode
+  # also suppress warnings in silent mode
   if(silent){
     tmp_file2 <- file(tempfile(), open="wt")
     sink(tmp_file2, type="message")
     oldw <- getOption("warn")
     options(warn = -1)
   }
+  cleanup_pattern = paste0("*_t,", lu)
+  options(error=cleanup) #in case of errors, clean up and reset to original warning and messaging state
   
   # create output dir
   dir.create(dir_out, recursive=T, showWarnings=F)
@@ -357,31 +360,38 @@ lump_grass_post <- function(
 ### CALCULATIONS ###-----------------------------------------------------------
   
 # prepare output directory, read GRASS data #-----------------------------
-  tryCatch({
+  cleanup_pattern = "" #no files to be removed in case of error
+  
     if(!silent) message("%")
     if(!silent) message("% Prepare output and import GRASS data...")
     
     # load rasters into R
     dem_rast <- read_raster(dem)
+    dem_mat = as.matrix(dem_rast, wide=TRUE)
+    rm(dem_rast)
+    
     accum_rast <- read_raster(flowacc)
+    accum_mat = as.matrix(accum_rast, wide=TRUE)
+    rm(accum_rast)
+    
     dir_rast <- read_raster(flowdir)
-    cur_mapset = execGRASS("g.mapset", flags="p", intern=TRUE) #determine name of current mapset
+    dir_mat = as.matrix(dir_rast, wide=TRUE)
+    rm(dir_rast)
     
     sub_rast <- read_raster(subbasin)
-    horton_rast <- read_raster(stream_horton)
-    # ... raster values as matrix
-    dem_mat <- values(dem_rast, format="matrix")
-    rm(dem_rast)
-    sub_mat <- values(sub_rast, format="matrix")
-    coords <- xyFromCell(sub_rast, 1:length(sub_rast))
+    sub_mat = as.matrix(sub_rast, wide=TRUE)
+#    coords  <- terra::xyFromCell(sub_rast, 1:length(sub_rast))
+#    coords2 <- terra::xyFromCell(sub_mat, 1:length(sub_rast))
     rm(sub_rast)
-    accum_mat <- values(accum_rast, format="matrix")
-    rm(accum_rast)
-    dir_mat <- values(dir_rast, format="matrix")
-    rm(dir_rast)
-    horton_mat <- values(horton_rast, format="matrix")
+    
+    horton_rast <- read_raster(stream_horton)
+    horton_mat = as.matrix(horton_rast, wide=TRUE)
     rm(horton_rast)
+    
     gc(); gc()
+    
+    cur_mapset = execGRASS("g.mapset", flags="p", intern=TRUE) #determine name of current mapset
+    
     
     # resolution
     g_meta <- gmeta()
@@ -389,25 +399,13 @@ lump_grass_post <- function(
     
     if(!silent) message("% OK")
     
-  }, error = function(e) {
-    
-    # stop sinking
-    closeAllConnections()
-    
-    # restore original warning mode
-    if(silent)
-      options(warn = oldw)
-    
-    # remove mask
-    tryCatch(suppressWarnings(execGRASS("r.mask", flags=c("r"))), error=function(e){})
-    
-    stop(paste(e))
-  })
+  
   
   
   
 # generate lu raster #---------------------------------------------------------
-  tryCatch({
+  cleanup_pattern = paste0("grow_eval_t,", lu) #files to be removed in case of error
+  
     if(!silent) message("%")
       
     if (is.null(recl_lu)) #use existing LU-map
@@ -468,32 +466,14 @@ lump_grass_post <- function(
     } # recl_lu was given
     
     
-  },
-  error = function(e) {
-    
-    # stop sinking
-    closeAllConnections()
-    
-    # restore original warning mode
-    if(silent)
-      options(warn = oldw)
-    
-    # remove mask
-    tryCatch(suppressWarnings(execGRASS("r.mask", flags=c("r"))), error=function(e){})
-    
-    # remove output so far
-    if(!keep_temp)
-      x=execGRASS("g.remove", type="raster", pattern=paste0("grow_eval_t,", lu), flags=c("f", "b"), intern=TRUE)
-    
-    stop(paste(e))
-  }
-  )
+  
   
     
     
 # subbasin statistics #--------------------------------------------------------
-  tryCatch({
-    if(!is.null(sub_ofile)) {
+  cleanup_pattern = paste0("*_t,", lu) #files to be removed in case of error
+  
+  if(!is.null(sub_ofile)) {
       if(!silent) message("%")
       if(!silent) message("% Calculate subbasin statistics...")
       
@@ -510,6 +490,24 @@ lump_grass_post <- function(
       # calculate stats of LUs in each subbasin and subbasin drainage ("drains_to")
       sub_stats <- cbind(sub_stats, na_val, na_val, na_val, na_val, na_val, na_val, na_val, na_val, na_val, na_val, na_val)
       colnames(sub_stats)[c(3:13)] <- c("x", "y", "lon", "lat", "elev", "drains_to", "lag_time", "retention", "description", "a_stream_order", "chan_len")
+      
+      #compute subbasin centroids
+      tt = execGRASS("r.volume", input=subbasin, clump=subbasin, flags=c("f", "quiet"), intern=TRUE) #determine name of current mapset
+      subbasin_data = read.table(text = tt, sep=":", header=FALSE)    
+      names(subbasin_data) = c("subbas_id", "subbas_id2", "ncells", "ncells2", "x", "y", "volume")    
+      
+      index_reordered = match(sub_stats[, "pid"], subbasin_data$subbas_id)
+      sub_stats[, c("x", "y")] = as.matrix(subbasin_data [index_reordered, c("x", "y")]) #copy centroids to subbasin table
+      rm("subbasin_data","index_reordered", "tt")
+      
+      # convert to decimal degree
+      #sub_centr = st_multipoint(x=sub_stats[, c("x", "y")])
+      sub_centr = st_as_sf(data.frame(sub_stats[, c("x", "y")]), coords = c("x","y"), remove = FALSE)
+      st_crs(sub_centr) <- getLocationProj()
+      longlat = st_transform(x = sub_centr, crs = "+proj=longlat")
+      sub_stats[, "lon"] <- round(st_coordinates(longlat)[,"X"], 4)
+      sub_stats[, "lat"] <- round(st_coordinates(longlat)[,"Y"], 4)
+
       sub_lu_stats <- NULL
       s_row <- 0
       for (SUB in sub_stats[,1]) {
@@ -531,7 +529,7 @@ lump_grass_post <- function(
         accum_crop <- accum_mat[rmin:rmax, cmin:cmax]
         
         # get coordinates of cells
-        coords_crop <- coords[which(t(sub_mat) == SUB),]
+#        coords_crop <- coords[which(t(sub_mat) == SUB),]
         
         # set all values not overlapping with the current subbasin to NA
         na_cells <- which(sub_crop != SUB)
@@ -541,25 +539,6 @@ lump_grass_post <- function(
         dir_crop[na_cells] <- NA
         accum_crop[na_cells] <- NA
         
-    # COORDINATES OF SUBBASIN centroids in GRASS units #
-        sub_centr <- centroid(coords_crop)
-        
-        sub_stats[s_row, "x"] <- round(sub_centr[,"x"])
-        sub_stats[s_row, "y"] <- round(sub_centr[,"y"])
-        
-    		# convert to decimal degree
-        sub_centr <- data.frame(x = sub_centr[,"x"], y = sub_centr[,"y"])
-        coordinates(sub_centr) <- c("x", "y")
-        proj4string(sub_centr) <- getLocationProj()
-    		longlat <- spTransform(sub_centr, "+proj=longlat")
-    		sub_stats[s_row, "lon"] <- round(coordinates(longlat)[,"x"], 4)
-    		sub_stats[s_row, "lat"] <- round(coordinates(longlat)[,"y"], 4)
-    		
-    		# longitude as decimal degrees west of Greenwich
-    		if(sub_stats[s_row, "lon"] < 0)
-    			sub_stats[s_row, "lon"] <- -1*sub_stats[s_row, "lon"]
-    		else
-    			sub_stats[s_row, "lon"] <- 360 - sub_stats[s_row, "lon"]
   			
   	# AVERAGE SUBBASIN ELEVATION #
     		sub_stats[s_row, "elev"] <- round(mean(dem_crop, na.rm=T))
@@ -613,29 +592,13 @@ lump_grass_post <- function(
     } # sub_ofile given?
   
   
-  }, error = function(e) {
-    
-    # stop sinking
-    closeAllConnections()
-    
-    # restore original warning mode
-    if(silent)
-      options(warn = oldw)
-    
-    # remove mask
-    tryCatch(suppressWarnings(execGRASS("r.mask", flags=c("r"))), error=function(e){})
-    
-    # remove output so far
-    if(!keep_temp)
-      x=execGRASS("g.remove", type="raster", pattern=paste0("*_t,", lu), flags=c("f", "b"), intern=TRUE)
-    
-    stop(paste(e))
-  })
+  
 
 
 
 # lu statistics #--------------------------------------------------------------
-  tryCatch({
+  cleanup_pattern = paste0("*_t,", lu) #files to be removed in case of error
+  
     if(!is.null(lu_ofile)) {
       if(!silent) message("%")
       if(!silent) message("% Calculate LU statistics...")
@@ -661,30 +624,15 @@ lump_grass_post <- function(
       
     } # lu_ofile given?
     
-  }, error = function(e) {
-    # stop sinking
-    closeAllConnections()
-    
-    # restore original warning mode
-    if(silent)
-      options(warn = oldw)
-    
-    # remove mask
-    tryCatch(suppressWarnings(execGRASS("r.mask", flags=c("r"))), error=function(e){})
-    
-    # remove output so far
-    if(!keep_temp)
-      x=execGRASS("g.remove", type="raster", pattern=paste0("*_t,", lu), flags=c("f", "b"), intern=TRUE)
-    
-    stop(paste(e))
-  })
+  
 
 
 
 
     
 # lu parameters #--------------------------------------------------------------
-  tryCatch({
+  cleanup_pattern = paste0("*_t,", lu) #files to be removed in case of error
+    
     if(!is.null(lupar_ofile)) {
       if(!silent) message("%")
       if(!silent) message("% Calculate LU parameters")
@@ -762,44 +710,19 @@ lump_grass_post <- function(
     
     } # lupar_ofile fiven?
 
-  }, error = function(e) {
-    
-    # stop sinking
-    closeAllConnections()
-    
-    # restore original warning mode
-    if(silent)
-      options(warn = oldw)
-    
-    # remove mask
-    tryCatch(suppressWarnings(execGRASS("r.mask", flags=c("r"))), error=function(e){})
-    
-    # remove output so far
-    if(!keep_temp)
-      x=execGRASS("g.remove", type="raster", pattern=paste0("*_t,", lu), flags=c("f", "b"), intern=TRUE)
-    
-    stop(paste(e))
-  })
   
   
-  
-  
+
   
   # remove temp files
-  if(!keep_temp)
-    x=execGRASS("g.remove", type="raster", pattern="*_t", flags=c("f", "b"), intern=TRUE)
+    cleanup_pattern = "*_t" #files to be removed for cleanup
+        
+#    x=execGRASS("g.remove", type="raster", pattern="*_t", flags=c("f", "b"), intern=TRUE)
   
+  cleanup(cleanup_pattern)
   if(!silent) message("%")
   if(!silent) message("% DONE!")
   if(!silent) message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
-  
-  
-  # stop sinking
-  closeAllConnections()
-  
-  # restore original warning mode
-  if(silent)
-    options(warn = oldw)
   
 
 } # EOF
@@ -827,17 +750,15 @@ centroid <- function(coords_sub) {
 # determined from flow accumulation and flow direction map
 sub_route <- function(sub_no,sub_mat,accum_mat,dir_mat) {
   
-  # extract highest flowacc in subbasin sub_no
   sub_ids <- which(sub_mat == sub_no)
-  accum_sub <- accum_mat[sub_ids]
-  accum_sub_max <- which.max(accum_sub)
-  
-  # extract corresp. flowdir
-  dir_sub_out <- dir_mat[sub_ids[accum_sub_max]]
-  
-  # determine row and col no in sub_mat
-  sub_rowcol <- arrayInd(sub_ids[accum_sub_max], dim(sub_mat))
 
+   # extract highest flowacc in subbasin sub_no
+  sub_rowcol <- which(accum_mat==max(accum_mat[sub_ids], na.rm=TRUE), arr.ind = TRUE) #find index of outlet cell
+ 
+  # extract corresp. flowdir
+  dir_sub_out <- dir_mat[sub_rowcol]
+
+  
   # determine value of sub_mat (subbasin no.) of neighbour cell according to dir_sub_out
   if (dir_sub_out < 0) { # outlet of catchment
     return(9999)
@@ -867,13 +788,16 @@ sub_route <- function(sub_no,sub_mat,accum_mat,dir_mat) {
     
     # determine subbasin the current subbasin drains to
     sub_out <- sub_mat[sub_rowcol_out]
+    #sub_mat[sub_rowcol[1]+(-10:10), sub_rowcol[2]+(-10:10)]
+    #accum_mat[sub_rowcol[1]+(-1:1), sub_rowcol[2]+(-1:1)]
+    #sub_mat[sub_rowcol[1]+(-1:1), sub_rowcol[2]+(-1:1)]
     
     # update stats table
-    if (is.na(sub_out)) { # catchment outlet
+    if (length(sub_out)==0 || is.na(sub_out)) { # catchment outlet
       return(9999)
     } else {
       if (sub_out == sub_no)
-        stop(paste0("In subbasin no. ", sub_no, " the determined downstream subbasin is this subbasin!"))
+        stop(paste0("Recursive downstream detection for subbasin no. ", sub_no, ". Inconsistent drainage direction?"))
       
       return(sub_out)
     }  
