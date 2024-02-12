@@ -859,34 +859,9 @@ calc_subbas <- function(
     if(!silent) message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
     
     
-    # # stop sinking
-    # closeAllConnections()
-    # 
-    # # restore original warning mode
-    # if(silent)
-    #   options(warn = oldw)
-    
     cleanup() #remove sinks and temporary maps
     
     
-    # exception handling
-  #   }, error = function(e) {
-  # 
-  #   # stop sinking
-  #   closeAllConnections()
-  # 
-  #   # restore original warning mode
-  #   if(silent)
-  #     options(warn = oldw)
-  # 
-  #   # remove mask if there is any (and ignore error in case there is no mask)
-  #   cmd_out <-tryCatch(suppressWarnings(execGRASS("r.mask", flags=c("r"), intern = T)), error=function(e){})
-  # 
-  #   if(keep_temp == FALSE)
-  #     cmd_out <- execGRASS("g.remove", type="raster,vector", pattern=paste0("*_t,",stream,"_*,", basin_out, ",", points_processed, "_*"), flags=c("f", "b"), intern = T)
-  # 
-  #   stop(paste(e))
-  # })
-  # 
+  
   
 } # EOF

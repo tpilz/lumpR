@@ -44,7 +44,7 @@
 #'      as input for \code{\link[lumpR]{prof_class}}; manual adjustment necessary.
 #' @param ridge_thresh Integer specifying threshold of flow accumulation, below
 #'      which a cell is considered a start of a flowpath (usually 1 for D8
-#'      flowaccumulation grids, DEFAULT).
+#'      flowaccumulation grids, (DEFAULT), 1.5 for MFD-grids).
 #' @param min_cell_in_slope Integer specifying minimum number of cells a hillslope
 #'      area must have, all smaller ones are skipped. Default: 30.
 #' @param min_catena_length Integer specifying minimum number of sampling points
