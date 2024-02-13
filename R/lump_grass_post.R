@@ -544,7 +544,7 @@ lump_grass_post <- function(
     		sub_stats[s_row, "elev"] <- round(mean(dem_crop, na.rm=T))
         
     # SUBBASIN drainage #
-        sub_stats[s_row,"drains_to"] <- sub_route(SUB,sub_mat,accum_mat,dir_mat) # internal function, see below
+        sub_stats[s_row,"drains_to"] <- sub_route(SUB,sub_mat,accum_mat,dir_mat,dem_mat) # internal function, see below
     
     # SUBBASIN PARAMETERS #
         # calc main channel length
@@ -748,23 +748,37 @@ centroid <- function(coords_sub) {
 # subbasin routing #-----------------------------------------------------------
 # returns ID of downstream subbasin for the current subbasin 'sub_no'
 # determined from flow accumulation and flow direction map
-sub_route <- function(sub_no,sub_mat,accum_mat,dir_mat) {
+sub_route <- function(sub_no, sub_mat, accum_mat, dir_mat, dem_mat) {
   
   sub_ids <- which(sub_mat == sub_no)
 
    # extract highest flowacc in subbasin sub_no
-  sub_rowcol <- which(accum_mat==max(accum_mat[sub_ids], na.rm=TRUE), arr.ind = TRUE) #find index of outlet cell
+  #sub_rowcol <- which(accum_mat==max(accum_mat[sub_ids], na.rm=TRUE), arr.ind = TRUE) #find index of outlet cell
  
-  # extract corresp. flowdir
-  dir_sub_out <- dir_mat[sub_rowcol]
-
+  lowest_ix <- which(dem_mat[sub_ids] == min(dem_mat[sub_ids], na.rm=TRUE), arr.ind = TRUE) #find lowest cell(s) in subbas
+  highest_fa_ix <- which(accum_mat[sub_ids][lowest_ix] == max(accum_mat[sub_ids][lowest_ix], na.rm=TRUE)) #find cells with highest flowaccum among lowest cells
   
-  # determine value of sub_mat (subbasin no.) of neighbour cell according to dir_sub_out
-  if (dir_sub_out < 0) { # outlet of catchment
-    return(9999)
+  sub_rowcol = sub_ids[lowest_ix[highest_fa_ix[1]]]
+  sub_rowcol = arrayInd(sub_rowcol, .dim = dim(sub_mat)) #convert single to row-column-index
+  #accum_mat[sub_rowcol]
+  #sub_mat  [sub_rowcol]
+  #dem_mat  [sub_rowcol]
+  
+  
+  sub_out = 9999 #default value for "not determined"
+  for (i in 1:300)
+  {  
+    # extract corresp. flowdir
+    dir_sub_out <- dir_mat[sub_rowcol]
+    #print(paste(i, paste0(sub_rowcol, collapse=":"), dir_sub_out))
     
-  } else {
-    
+    # determine value of sub_mat (subbasin no.) of neighbour cell according to dir_sub_out
+    if (dir_sub_out < 0)
+    { # outlet of catchment
+      sub_out = 9999 
+      break  
+    } 
+
     if (dir_sub_out == 1) { # NE
       sub_rowcol_out <- sub_rowcol + c(-1,1)
     } else if (dir_sub_out == 2) { # N
@@ -792,16 +806,30 @@ sub_route <- function(sub_no,sub_mat,accum_mat,dir_mat) {
     #accum_mat[sub_rowcol[1]+(-1:1), sub_rowcol[2]+(-1:1)]
     #sub_mat[sub_rowcol[1]+(-1:1), sub_rowcol[2]+(-1:1)]
     
-    # update stats table
-    if (length(sub_out)==0 || is.na(sub_out)) { # catchment outlet
-      return(9999)
-    } else {
-      if (sub_out == sub_no)
-        stop(paste0("Recursive downstream detection for subbasin no. ", sub_no, ". Inconsistent drainage direction?"))
-      
-      return(sub_out)
-    }  
+    # sub_mat2 = sub_mat
+    # sub_mat2[sub_rowcol_out[1]+(-5:5), sub_rowcol_out[2]+(-5:5)] = 5
+    # image(sub_mat2)
+    
+    if (length(sub_out)==0 || is.na(sub_out))  # draining to outside matrix: catchment outlet
+    { 
+      sub_out = 9999
+      break
+    }
+     
+    if (sub_out== sub_no) #are we still in the same basin
+    {   
+      sub_rowcol = sub_rowcol_out
+      next #outlet not yet found, continue searching by following the flow path further
+    } else
+      break #we found the downstream catchment
+
+   
   } 
+  if (sub_out == sub_no)
+    message(paste0("Could not determine routing of subbasin no. ", sub_no, ". Please fix manually."))
+  
+  return(sub_out)
+  
 } # EOF
 
 
