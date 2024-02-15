@@ -151,9 +151,12 @@ snapPointsToLines1 <-  function (points, lines, maxDist = NA, withAttrs = TRUE, 
                          proj4string = CRS(proj4string(points)))
 }
 
-cleanup = function(cleanup_pattern = NULL) {
+cleanup = function(cleanup_pattern_ = NULL) {
+  if (!is.null(cleanup_pattern_))
+    cleanup_pattern = cleanup_pattern_ #use supplied argument, if any. Otherwise try to get a global variable
+  
   if (is.null(cleanup_pattern))
-  {  
+    {  
     cleanup_pattern = try(get("cleanup_pattern"), silent = TRUE)
     if (class(cleanup_pattern) == "try-error") #no cleanup pattern defined
       #cleanup_pattern = paste0("*_t,",stream,"_*,", ",", points_processed, "_*")
@@ -165,6 +168,10 @@ cleanup = function(cleanup_pattern = NULL) {
   closeAllConnections()
   
   # restore original warning mode
+  oldw = try(get("oldw"), silent = TRUE)
+  if (class(oldw) == "try-error") #no old warning defined
+    oldw=0  
+    
   if(silent)
     options(warn = oldw)
   
@@ -172,6 +179,10 @@ cleanup = function(cleanup_pattern = NULL) {
   tt = try(execGRASS("r.mask", flags=c("r"), intern = TRUE, ignore.stderr = TRUE), silent = TRUE)
   
   #delete temporarily created maps
+  keep_temp = try(get("keep_temp"), silent = TRUE)
+  if (class(keep_temp) == "try-error") #no keeptemp warning defined
+    keep_temp=FALSE  
+  
   if(keep_temp == FALSE & cleanup_pattern != "")
     try(execGRASS("g.remove", type="raster,vector", pattern=cleanup_pattern, flags=c("f", "b"), intern = TRUE, ignore.stderr = TRUE), silent=TRUE)
   
