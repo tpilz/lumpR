@@ -153,15 +153,13 @@ snapPointsToLines1 <-  function (points, lines, maxDist = NA, withAttrs = TRUE, 
 
 cleanup = function(cleanup_pattern_ = NULL) {
   if (!is.null(cleanup_pattern_))
-    cleanup_pattern = cleanup_pattern_ #use supplied argument, if any. Otherwise try to get a global variable
-  
-  if (is.null(cleanup_pattern))
+    cleanup_pattern = cleanup_pattern_ else#use supplied argument, if any. Otherwise try to get a global variable
     {  
-    cleanup_pattern = try(get("cleanup_pattern"), silent = TRUE)
-    if (class(cleanup_pattern) == "try-error") #no cleanup pattern defined
-      #cleanup_pattern = paste0("*_t,",stream,"_*,", ",", points_processed, "_*")
-      cleanup_pattern = paste0("*_t")
-  }
+      cleanup_pattern = try(get("cleanup_pattern"), silent = TRUE)
+      if (class(cleanup_pattern) == "try-error") #no cleanup pattern defined
+        #cleanup_pattern = paste0("*_t,",stream,"_*,", ",", points_processed, "_*")
+        cleanup_pattern = paste0("*_t")
+    }
   
   #cleanup function in case of errors or normal termination 
   # stop sinking
@@ -177,6 +175,7 @@ cleanup = function(cleanup_pattern_ = NULL) {
   
   # remove mask if there is any (and ignore error in case there is no mask)
   tt = try(execGRASS("r.mask", flags=c("r"), intern = TRUE, ignore.stderr = TRUE), silent = TRUE)
+  tt <- try(execGRASS("g.region", region="region_org_t", intern = T), silent=TRUE) #restore original region settings, if any
   
   #delete temporarily created maps
   keep_temp = try(get("keep_temp"), silent = TRUE)

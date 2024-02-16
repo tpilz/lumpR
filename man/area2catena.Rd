@@ -23,6 +23,7 @@ area2catena(
   grass_files = F,
   ncores = 1,
   eha_subset = NULL,
+  zones = NULL,
   overwrite = F,
   silent = F
 )
@@ -63,7 +64,7 @@ as input for \code{\link[lumpR]{prof_class}}; manual adjustment necessary.}
 
 \item{ridge_thresh}{Integer specifying threshold of flow accumulation, below
 which a cell is considered a start of a flowpath (usually 1 for D8
-flowaccumulation grids, DEFAULT).}
+flowaccumulation grids, (DEFAULT), 1.5 for MFD-grids).}
 
 \item{min_cell_in_slope}{Integer specifying minimum number of cells a hillslope
 area must have, all smaller ones are skipped. Default: 30.}
@@ -87,6 +88,9 @@ raster data. If an attribute name starting with 'svc' is found, the respective r
 
 \item{eha_subset}{NULL or integer vector with subset of EHA ids that shall
 be processed (for debugging and testing).}
+
+\item{zones}{NULL or a map of zones (e.g. the subbasins) that are used to perform the computations successively (instead of all at once)
+to avoid memory issues}
 
 \item{overwrite}{\code{logical}. Shall output of previous calls of this function be
 deleted? If \code{FALSE} the function returns an error if output already exists.
