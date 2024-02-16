@@ -309,26 +309,27 @@ area2catena <- function(
       execGRASS("g.region", zoom = "MASK", flags = "o")
       cmd_out <- execGRASS("g.region", save="selected_area_t", flags = "overwrite", intern = T) #save extent of currently selected area (to be restored later)
       # cmd_out <- execGRASS("g.region", region="area_total_t") #set region to entire area
-      # cmd_out <- execGRASS("g.region", region="selected_area_t") #set region to focus area
+      #browser()
+      cmd_out <- execGRASS("g.region", region="selected_area_t") #set region to focus area
       catena_out_zone = paste0(catena_out, "_", zone_id)
     } 
 
     
     # load flow accumulation
-    flowaccum <- read_raster(flowacc)
-    flowaccum_rast <- raster(flowaccum)
+    flowaccum_rast <- read_raster(flowacc)
+    #flowaccum_rast <- raster(flowaccum)
     
     # load relative elevation
-    relelev <- read_raster(elevriv)
-    relelev_rast <- raster(relelev)
+    relelev_rast <- read_raster(elevriv)
+    #relelev_rast <- raster(relelev)
     
     # load distance to river
-    dist2river <- read_raster(distriv)
-    dist2river_rast <- raster(dist2river)
+    dist2river_rast <- read_raster(distriv)
+    #dist2river_rast <- raster(dist2river)
     
     # load EHAs
-    eha_in <- read_raster(eha)
-    eha_rast <- raster(eha_in)
+    eha_rast <- read_raster(eha)
+    #eha_rast <- raster(eha_in)
     
     
     # load qualitative supplemental data
@@ -398,7 +399,7 @@ area2catena <- function(
     xres <- terra::xres(eha_rast)
     
     # identify EHAs
-    eha_ids <- terra::unique(eha_rast)
+    eha_ids <- terra::unique(eha_rast)[,1]
     if (!is.null(eha_subset)) eha_ids <- eha_subset
     
     # LOOP over EHAs
@@ -455,8 +456,9 @@ area2catena <- function(
     if(any(logdata$error == 666))
       stop("Error: A problem occurred when averaging qualitative supplemental information. Check your data and contact the package author(s) if the problem remains.")
     
-    if(any(logdata$error == 999))
-      warning("WARNING: An unexpected errors occurred in the EHA processing loop. Check your data and contact the package author(s) if the problem remains.")
+    strange_errs = sum(logdata$error == 999)
+    if(strange_errs > 0)
+      warning(paste0("WARNING: An unexpected errors occurred for ", strange_errs," EHA(s), which were ignored. Check your data and contact the package author(s) if the problem remains."))
     
     
     
@@ -588,11 +590,17 @@ res = try( #catch unexpected errors
   }
   
   # extract values out of raster objects into ordinary vectors to save time (internal calls to raster objects take time)
-  flowaccum_vals  <- flowaccum_rast [curr_cells] #?Till: in parallel mode, this requires all the large rasters to be available to each thread. I wonder is this consumes too much replicates and overhead. Passing just the area of the current curr_cells may save ressources
-  dist2river_vals <- dist2river_rast[curr_cells]
-  relelev_vals    <- relelev_rast   [curr_cells]
-  if(!is.null(quant_rast)) quant_vals <- raster::extract(quant_rast, curr_cells)
-  if(!is.null(qual_rast))  qual_vals  <- raster::extract(qual_rast,  curr_cells)
+  #browser()
+  flowaccum_vals  <- flowaccum_rast [curr_cells][,1] #?Till: in parallel mode, this requires all the large rasters to be available to each thread. I wonder is this consumes too much replicates and overhead. Passing just the area of the current curr_cells may save ressources
+  dist2river_vals <- dist2river_rast[curr_cells][,1]
+  relelev_vals    <- relelev_rast   [curr_cells][,1]
+  #browser()
+  #if(!is.null(quant_rast)) quant_vals <- raster::extract(quant_rast, curr_cells)
+  #if(!is.null(qual_rast))  qual_vals  <- raster::extract(qual_rast,  curr_cells)
+  
+  if(!is.null(quant_rast)) quant_vals <- terra::extract(quant_rast, curr_cells)
+  if(!is.null(qual_rast))  qual_vals  <- terra::extract(qual_rast,  curr_cells)
+  
   
   #detect NA values
   

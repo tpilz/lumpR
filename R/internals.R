@@ -195,7 +195,7 @@ compareRaster_i = function(rasterlist, ...)
   #rasterlist = list(flowaccum_rast, relelev_rast, dist2river_rast, eha_rast, 
   #                  qual_rast)
   #check congruence of raster maps in list
-  #internal analogoin to raster::compareRaster, which no longer seems to work on stacks
+  #internal analogon to raster::compareRaster, which no longer seems to work on stacks
   for (rr in rasterlist[-1])
   {
     if (
