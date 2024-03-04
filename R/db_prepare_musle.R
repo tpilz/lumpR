@@ -18,7 +18,7 @@
 #' Prepare various input related to use of (M)USLE module (erosion)
 #' 
 #' Function to write parameter values relevant for modelling application with the
-#' WASA hydrological model into an existing database, preferably created with
+#' WASA-SED hydrological model into an existing database, preferably created with
 #' \code{\link[lumpR]{db_create}}.
 #' 
 #' @param dbname Name of the data source (DSN) registered at ODBC. See \code{Details} of
@@ -133,9 +133,16 @@ db_prepare_musle <- function(
   statement =  "DROP TABLE t_cum_above"
   res = sqlQuery(con, query = statement, errors = FALSE)  	#delete any existing table
   
-  statement =  paste0("SELECT soil_id, sum(fraction) AS a_cum_above INTO t_cum_above
-               FROM r_soil_contains_particles WHERE class_id<=", class_above_usda_clay, " GROUP BY soil_id")
   
+  
+  if(grepl("MariaDB", odbcGetInfo(con)["DBMS_Name"], ignore.case=T))
+  {  
+    statement =  paste0("create TABLE t_cum_above (soil_id INT NOT NULL, a_cum_above real) SELECT soil_id, sum(fraction) AS a_cum_above FROM r_soil_contains_particles WHERE class_id<=", class_above_usda_clay, " GROUP BY soil_id")
+  }  else
+  {  
+    statement =  paste0("SELECT soil_id, sum(fraction) AS a_cum_above INTO t_cum_above
+               FROM r_soil_contains_particles WHERE class_id<=", class_above_usda_clay, " GROUP BY soil_id")  
+  }
   res = sqlQuery2(con, statement, info="create temporary table <t_cum_above>")  	#produce a table containing the cumulative fractions up to class_above_usda_clay for each soil
   
   statement =  "DROP TABLE t_cum_below"
@@ -145,8 +152,10 @@ db_prepare_musle <- function(
   if (class_below_usda_clay==0)	#no lower classes that can be used as a point for interpolation
   {
     class_below_usda_clay_limit=0 #interpolation starts at 0
-    statement="SELECT soil_id, 0 AS a_cum_below INTO t_cum_below
-     FROM r_soil_contains_particles GROUP BY soil_id"		#statement-statement that produces a table containing zeros for each soil
+    #statement-statement that produces a table containing zeros for each soil
+    if(grepl("MariaDB", odbcGetInfo(con)["DBMS_Name"], ignore.case=T))
+      statement="create TABLE t_cum_below (soil_id INT NOT NULL, a_cum_below real) SELECT soil_id, 0 AS a_cum_below FROM r_soil_contains_particles GROUP BY soil_id"		      else
+      statement="SELECT soil_id, 0 AS a_cum_below INTO t_cum_below FROM r_soil_contains_particles GROUP BY soil_id"		
   } else	#use the nearest lower class as a point for interpolation
   {
     statement =  paste0("select upper_limit from particle_classes where class_id<=",class_below_usda_clay)
@@ -154,9 +163,13 @@ db_prepare_musle <- function(
     if (nrow(res) == 0)
       stop("USER-Class below USDA-clay not found.")
     class_below_usda_clay_limit=res[1,"upper_limit"]	#get uppper limit of respective class
-    statement=paste0("SELECT soil_id, sum(fraction) AS a_cum_below  INTO t_cum_below",
-    " FROM r_soil_contains_particles WHERE class_id<=",class_below_usda_clay, 
-    " GROUP BY soil_id")		#statement-statement that produces a table containing the cumulative fractions up to class_below_usda_clay for each soil
+    
+    if(grepl("MariaDB", odbcGetInfo(con)["DBMS_Name"], ignore.case=T))
+      statement=paste0("create TABLE t_cum_below (soil_id INT NOT NULL, a_cum_below real) SELECT soil_id, sum(fraction) AS a_cum_below ",
+                       " FROM r_soil_contains_particles WHERE class_id<=",class_below_usda_clay, " GROUP BY soil_id")	else
+      statement=paste0("SELECT soil_id, sum(fraction) AS a_cum_below  INTO t_cum_below",
+      " FROM r_soil_contains_particles WHERE class_id<=",class_below_usda_clay, 
+      " GROUP BY soil_id")		#statement-statement that produces a table containing the cumulative fractions up to class_below_usda_clay for each soil
   }
   
   res = sqlQuery2(con, statement, info="create temporary table <t_cum_below>")  	#produce a table containing the cumulative fractions up to class_below_usda_clay for each soil
@@ -192,6 +205,9 @@ db_prepare_musle <- function(
   statement =  "DROP TABLE t_cum_above"
   res = sqlQuery(con, query = statement, errors = FALSE)  	#delete any existing table
   
+  if(grepl("MariaDB", odbcGetInfo(con)["DBMS_Name"], ignore.case=T))
+    statement =  paste0("create TABLE t_cum_above (soil_id INT NOT NULL, a_cum_above real) SELECT soil_id, sum(fraction) AS a_cum_above ",
+                        " FROM r_soil_contains_particles WHERE class_id<=",class_above_usda_silt," GROUP BY soil_id") else  
   statement =  paste0("SELECT soil_id, sum(fraction) AS a_cum_above INTO t_cum_above",
   " FROM r_soil_contains_particles WHERE class_id<=",class_above_usda_silt," GROUP BY soil_id")
   res = sqlQuery2(con, statement, info="t_cum_above for silt")  	#produce a table containing the cumulative fractions up to class_above_usda_silt for each soil
@@ -202,18 +218,26 @@ db_prepare_musle <- function(
   class_below_usda_silt=class_above_usda_silt-1		#the class below USDA silt
   if (class_below_usda_silt==0)	#no lower classes that can be used as a point for interpolation
   {
+    #statement-statement that produces a table containing zeros for each soil  
     class_below_usda_silt_limit=0 #interpolation starts at 0
+    if(grepl("MariaDB", odbcGetInfo(con)["DBMS_Name"], ignore.case=T))
+    statement=paste0("create TABLE t_cum_below (soil_id INT NOT NULL, a_cum_below real) SELECT soil_id, 0 AS a_cum_below ",
+                       " FROM r_soil_contains_particles GROUP BY soil_id") else	
     statement=paste0("SELECT soil_id, 0 AS a_cum_below INTO t_cum_below",
-    " FROM r_soil_contains_particles GROUP BY soil_id")		#statement-statement that produces a table containing zeros for each soil
+    " FROM r_soil_contains_particles GROUP BY soil_id")	
   } else	#use the nearest lower class as a point for interpolation
   {
     statement =  paste0("select upper_limit from particle_classes where class_id=",class_below_usda_silt) #?
     res = sqlQuery2(con, statement, info="USER-Class below USDA-silt not found.")  
     
+    #statement-statement that produces a table containing the cumulative fractions up to class_below_usda_silt for each soil
     class_below_usda_silt_limit=res[1,"upper_limit"]	#get uppper limit of respective class
+    
+    if(grepl("MariaDB", odbcGetInfo(con)["DBMS_Name"], ignore.case=T))
+    statement=paste0("create TABLE t_cum_below (soil_id INT NOT NULL, a_cum_below real) SELECT soil_id, sum(fraction) AS a_cum_below ",
+    " FROM r_soil_contains_particles WHERE class_id<=",class_below_usda_silt, " GROUP BY soil_id")    else
     statement=paste0("SELECT soil_id, sum(fraction) AS a_cum_below  INTO t_cum_below",
-    " FROM r_soil_contains_particles WHERE class_id<=",class_below_usda_silt, 
-    " GROUP BY soil_id")		#statement-statement that produces a table containing the cumulative fractions up to class_below_usda_silt for each soil
+    " FROM r_soil_contains_particles WHERE class_id<=",class_below_usda_silt, " GROUP BY soil_id")		
   }
   
   res = sqlQuery2(con, statement, info="cumulative fractions up to class_below_usda_silt")  	#produce a table containing the  for each soil
@@ -243,7 +267,9 @@ db_prepare_musle <- function(
   
   statement =  "DROP TABLE t_cum_above"
   res = sqlQuery(con, query = statement, errors = FALSE)  	#delete any existing table
-  
+  if(grepl("MariaDB", odbcGetInfo(con)["DBMS_Name"], ignore.case=T))
+    statement =  paste0("create TABLE t_cum_above (soil_id INT NOT NULL, a_cum_above real) SELECT soil_id, sum(fraction) AS a_cum_above ",
+                        " FROM r_soil_contains_particles WHERE class_id<=", class_above_usda_sand," GROUP BY soil_id")  else
   statement =  paste0("SELECT soil_id, sum(fraction) AS a_cum_above INTO t_cum_above",
   " FROM r_soil_contains_particles WHERE class_id<=", class_above_usda_sand," GROUP BY soil_id")
   res = sqlQuery2(con, statement, info="cumulative fractions up to class_above_usda_sand")  	#produce a table containing the cumulative fractions up to class_above_usda_sand for each soil
@@ -263,10 +289,13 @@ db_prepare_musle <- function(
     res = sqlQuery2(con, statement, info="compute sand")  
     if (nrow(res)==0)
       stop("USER-Class below USDA-sand not found.")
+    #statement-statement that produces a table containing the cumulative fractions up to class_below_usda_sand for each soil
     class_below_usda_sand_limit=res[1, "upper_limit"]	#get uppper limit of respective class
+    if(grepl("MariaDB", odbcGetInfo(con)["DBMS_Name"], ignore.case=T))
+      statement =  paste0("create TABLE t_cum_below (soil_id INT NOT NULL, a_cum_below real) SELECT soil_id, sum(fraction) AS a_cum_below ",
+    " FROM r_soil_contains_particles WHERE class_id<=", class_below_usda_sand, " GROUP BY soil_id") else
     statement=paste0("SELECT soil_id, sum(fraction) AS a_cum_below  INTO t_cum_below",
-    " FROM r_soil_contains_particles WHERE class_id<=", class_below_usda_sand, 
-    " GROUP BY soil_id")		#statement-statement that produces a table containing the cumulative fractions up to class_below_usda_sand for each soil
+    " FROM r_soil_contains_particles WHERE class_id<=", class_below_usda_sand, " GROUP BY soil_id")		
   }
   
   res = sqlQuery2(con, statement, info="fractions up to class_below_usda_sand")  	#produce a table containing the cumulative fractions up to class_below_usda_sand for each soil
@@ -339,20 +368,22 @@ db_prepare_musle <- function(
   
   if ("MUSLE-C" %in% toupper(copy_from_other_tables))
   {  
-    statement =  "UPDATE soil_veg_components INNER JOIN vegetation ON vegetation.pid=soil_veg_components.veg_id SET musle_c = c_musle_c;"
+    statement =  "UPDATE soil_veg_components INNER JOIN vegetation ON vegetation.pid=soil_veg_components.veg_id SET musle_c1 = c_musle_c1, musle_c2 = c_musle_c2, musle_c3 = c_musle_c3, musle_c4 = c_musle_c4;"
     res = sqlQuery2(con, statement, info="copy MUSLE-C")  
   }
   
-  if (is.finite(setP))
-  {
-    if (setP < 0 | setP>1)
-      warning("P-factor (setP) should be between 0 and 1, ignored.")
-    else
+  if (!is.null(setP))
+    if (!is.finite(setP))
+    warning("P-factor (setP) should be numeric, ignored.") else
     {
-      statement = paste0("UPDATE soil_veg_components set musle_p = ", setP,";")
-      res = sqlQuery2(con, statement, info="copy MUSLE-C")  
+      if (setP < 0 | setP>1)
+        warning("P-factor (setP) should be between 0 and 1, ignored.")
+      else
+      {
+        statement = paste0("UPDATE soil_veg_components set musle_p = ", setP,";")
+        res = sqlQuery2(con, statement, info="copy MUSLE-C")  
+      }
     }
-  }
 
   
   # update table meta_info
