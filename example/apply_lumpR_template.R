@@ -39,7 +39,6 @@
 #### installation ####
 #install these packages from CRAN, if you don't have them:
 library(raster)
-library(rgdal)
 library(rpart)
 library(sp)
 library(gWidgets)
