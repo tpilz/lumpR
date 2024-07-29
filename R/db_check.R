@@ -936,7 +936,7 @@ db_check <- function(
       stop("Could not identify outlet subbasin from column 'drains_to' in table 'subbasins'. Must be one of values c(9999,-9999,999,-999).")
     
     if((length(r_outlet) > 1))
-      stop("More than one subbasin has been identified as outlet. Check column 'drains_to' in table 'subbasins'!")
+      stop("More than one subbasin has been identified as outlet ('drains_to'=9999). Check column 'drains_to' in table 'subbasins'!")
     
     # determine stream order
     stream_order <- rep(NA, nrow(dat_all$subbasins))
@@ -966,7 +966,7 @@ db_check <- function(
       
       # throw an error if i is already very large (In this case there must be something wrong)
       if (i > 10000)
-        stop("Cannot successfully determine subbasin order (column 'a_stream_order' of table 'subbasins'). Check the table for errors!")
+        stop("Cannot successfully determine subbasin order (column 'a_stream_order' of table 'subbasins'). Check the table for errors (recursive drainage in 'drain_to'?)")
     }
     
     if (all(!is.na(dat_all$subbasins$a_stream_order)) & all(dat_all$subbasins$a_stream_order==stream_order)) 

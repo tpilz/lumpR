@@ -21,7 +21,6 @@ Depends:
     xts,
     foreach,
     RODBC,
-    rgdal,
     rgeos,
     terra,
     sf

@@ -129,7 +129,7 @@ gisDbase="e:/till/uni/grass-db/Didessa/GRASS"  # path to 'grassdata' directory c
   drain_p_sp <- as(drain_p, "Spatial")
 
 # input geodata (specify the names used in the GRASS location)
-  dem <- "dem90_filled" # DEM raster - MANDATORY
+  dem <- "BN_DEM30_UTM1" # DEM raster - MANDATORY
   lcov <- "Land_Use" # land / vegetation cover raster map in GRASS location - MANDATORY
   soil <- "Soil_itm" # soil raster map in GRASS location - MANDATORY
   
@@ -258,7 +258,7 @@ plot_catena <- TRUE
 plot_profclass <- TRUE
 
 # produce GRASS reclassification files for qualitative raster data
-grass_files <- FALSE
+grass_files <- TRUE
 
 # number of cores that should be used for parallel computation (where possible)
 ncores <- 1
@@ -266,7 +266,7 @@ ncores <- 1
 # LANDSCAPE DISCRETISATION PARAMETERS #
 
 # Parameter for GRASS function r.watershed defining the minimum size of an exterior watershed basin in number of grid cells. If NULL only the given drainage points are used for subbasin delineation
-thresh_sub <- 5000
+thresh_sub <- round(4000e6/(30*30))
   
 # parameter for GRASS function r.watershed. This is a crucial parameter affecting the size of delineated hillslopes - MANDATORY
 eha_thres <- 200
@@ -323,8 +323,8 @@ calc_subbas(
   dem=dem,
   drain_points=drain_p_sp, 
   river=NULL,
-  flowaccum = "accum_t",
-  drainage_dir = "drain_t",
+  flowaccum = "accum_t", #If the program has already been executed once and this file was prepared by Grass GIS, the name of the file can be given ("accum_t"). Otherwise, we use NULL.
+  drainage_dir = "drain_t", #If the program has already been executed once and this file was prepared by Grass GIS, the name of the file can be given ("drain_t"). Otherwise, we use NULL.
   # OUTPUT #
   basin_out=subbas,
   stream=stream_pref,
