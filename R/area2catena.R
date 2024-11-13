@@ -69,6 +69,8 @@
 #' @param silent \code{logical}. Shall the function be silent (also suppressing summary
 #'      after function execution)? Default: \code{FALSE}.
 #'      
+#' @param allow_debug \code{logical}. Enable debugging by not modifying error handler Default: \code{FALSE}.
+#'      
 #' @return Function returns nothing. Output files are written into output directory
 #'      as specified in arguments.
 #'  
@@ -147,7 +149,8 @@ area2catena <- function(
   eha_subset=NULL,
   zones=NULL,
   overwrite=F,
-  silent=F
+  silent=F,
+  allow_debug=FALSE
 ) {
   
 ### PREPROCESSING ###----------------------------------------------------------
@@ -213,10 +216,7 @@ area2catena <- function(
     for (i in supp_quant) 
         check_raster(i,paste0("supp_quant[",i,"]"))
 
-  # suppress annoying GRASS outputs
-  tmp_file <- file(tempfile(), open="wt")
-  sink(tmp_file, type="output")
-  
+
   # suppress warnings in silent mode
   if(silent){
     tmp_file2 <- file(tempfile(), open="wt")
@@ -228,7 +228,13 @@ area2catena <- function(
   if(!silent) message("% OK")
   
   
-  options(error=cleanup) #in case of errors, clean up and reset to original warning and messaging state
+  if (!allow_debug) 
+  {  
+    # suppress annoying GRASS outputs
+    tmp_file <- file(tempfile(), open="wt")
+    sink(tmp_file, type="output")
+    options(error=cleanup) #in case of errors, clean up and reset to original warning and messaging state
+  }  
   
    
   
@@ -353,32 +359,46 @@ area2catena <- function(
     
     # load quantitative supplemental data
     quant_rast <- NULL # initialise object containing all quantitative raster layers
-    for (i in rev(supp_quant)) {
-      tmp <- read_raster(i)
-      quant_rast = c(quant_rast, tmp) #stack raster layers
-    }
     
-    # convert (at) symbol to point (in case input comes from another GRASS mapset; read_RAST6() converts it to point implicitly which causes errors during later processing)
-    supp_quant <- gsub("[-+*/@.?!]", ".", supp_quant)
+    if (!is.null(supp_quant)) 
+      supp_quant=supp_quant[supp_quant!=""]
+    
+    if (!is.null(supp_quant)) 
+    {  
+      for (i in rev(supp_quant)) {
+        tmp <- read_raster(i)
+        quant_rast = c(tmp, quant_rast) #stack raster layers
+      }
+      
+      # convert (at) symbol to point (in case input comes from another GRASS mapset; read_RAST6() converts it to point implicitly which causes errors during later processing)
+      supp_quant <- gsub("[-+*/@.?!]", ".", supp_quant)
+      names(supp_quant)            = supp_quant
+    }
     
     if(exists("tmp"))
       rm(list=c("tmp"))
     
     
-    # compare Rasters for extent, no. of rows and cols, CRS, resolution and origin
-    if (!is.null(qual_rast) & !is.null(quant_rast)) {
-      comp_val <- compareRaster_i(list(flowaccum_rast, relelev_rast, dist2river_rast, eha_rast, 
-                                       qual_rast, quant_rast), res=T, orig=T)
-    } else if(is.null(qual_rast) & !is.null(quant_rast)) {
-      comp_val <- compareRaster_i(list(flowaccum_rast, relelev_rast, dist2river_rast, eha_rast, 
-                                       quant_rast), res=T, orig=T)
-    } else if(!is.null(qual_rast) & is.null(quant_rast)) {
-      comp_val <- compareRaster_i(list(flowaccum_rast, relelev_rast, dist2river_rast, eha_rast, 
-                                       qual_rast), res=T, orig=T)
-    } else if(is.null(qual_rast) & is.null(quant_rast)) {
-      comp_val <- compareRaster_i(list(flowaccum_rast, relelev_rast, dist2river_rast, eha_rast), 
-                                  res=T, orig=T)
-    }
+    rasterlist = list(flowaccum_rast, relelev_rast, dist2river_rast, eha_rast)
+    if (!is.null(qual_rast)) rasterlist = c(rasterlist, quant_rast)
+    if (!is.null(quant_rast)) rasterlist = c(rasterlist, qual_rast)
+
+    comp_val = do.call(compareRaster, args= c(rasterlist, list(res=T, orig=T)))
+  
+    # # compare Rasters for extent, no. of rows and cols, CRS, resolution and origin
+    # if (!is.null(qual_rast) & !is.null(quant_rast)) {
+    #   comp_val <- compareRaster_i(list(flowaccum_rast, relelev_rast, dist2river_rast, eha_rast, 
+    #                                    qual_rast, quant_rast), res=T, orig=T)
+    # } else if(is.null(qual_rast) & !is.null(quant_rast)) {
+    #   comp_val <- compareRaster_i(list(flowaccum_rast, relelev_rast, dist2river_rast, eha_rast, 
+    #                                    quant_rast), res=T, orig=T)
+    # } else if(!is.null(qual_rast) & is.null(quant_rast)) {
+    #   comp_val <- compareRaster_i(list(flowaccum_rast, relelev_rast, dist2river_rast, eha_rast, 
+    #                                    qual_rast), res=T, orig=T)
+    # } else if(is.null(qual_rast) & is.null(quant_rast)) {
+    #   comp_val <- compareRaster_i(list(flowaccum_rast, relelev_rast, dist2river_rast, eha_rast), 
+    #                               res=T, orig=T)
+    # }
     
     
     if (comp_val) {

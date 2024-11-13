@@ -190,21 +190,21 @@ cleanup = function(cleanup_pattern_ = NULL) {
 }
 
 
-compareRaster_i = function(rasterlist, ...)
-{
-  #rasterlist = list(flowaccum_rast, relelev_rast, dist2river_rast, eha_rast, 
-  #                  qual_rast)
-  #check congruence of raster maps in list
-  #internal analogon to raster::compareRaster, which no longer seems to work on stacks
-  for (rr in rasterlist[-1])
-  {
-    if (
-      !all(terra::res(rr) ==   terra::res(rasterlist[[1]]))
-      ||
-      !(terra::ncell(rr) ==   terra::ncell(rasterlist[[1]]))
-    )
-      return(TRUE)
-      #stop("Some raster maps do not match in resolution or extent. Please check.")
-  }
-  return(TRUE)
-}
+# compareRaster_i = function(rasterlist, ...)
+# {
+#   rasterlist = list(flowaccum_rast, relelev_rast, dist2river_rast, eha_rast, 
+#                     qual_rast)
+#   #check congruence of raster maps in list
+#   #internal analogon to raster::compareRaster, which no longer seems to work on stacks [correction: seems to wiórk again, function is now obsolete]
+#   for (rr in rasterlist[-1])
+#   {
+#     if (
+#       !all(terra::res(rr) ==   terra::res(rasterlist[[1]]))
+#       ||
+#       !(terra::ncell(rr) ==   terra::ncell(rasterlist[[1]]))
+#     )
+#       return(TRUE)
+#       #stop("Some raster maps do not match in resolution or extent. Please check.")
+#   }
+#   return(TRUE)
+# }
