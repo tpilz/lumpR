@@ -384,8 +384,9 @@ area2catena <- function(
     if (!is.null(qual_rast)) rasterlist = c(rasterlist, quant_rast)
     if (!is.null(quant_rast)) rasterlist = c(rasterlist, qual_rast)
 
-    comp_val = do.call(compareRaster, args= c(rasterlist, list(res=T, orig=T)))
-  
+    comp_val = do.call(compareGeom, args= c(rasterlist, res=T, rowcol=T))
+    
+
     # # compare Rasters for extent, no. of rows and cols, CRS, resolution and origin
     # if (!is.null(qual_rast) & !is.null(quant_rast)) {
     #   comp_val <- compareRaster_i(list(flowaccum_rast, relelev_rast, dist2river_rast, eha_rast, 
