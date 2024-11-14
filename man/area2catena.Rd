@@ -25,7 +25,8 @@ area2catena(
   eha_subset = NULL,
   zones = NULL,
   overwrite = F,
-  silent = F
+  silent = F,
+  allow_debug = FALSE
 )
 }
 \arguments{
@@ -98,6 +99,8 @@ Default: \code{FALSE}.}
 
 \item{silent}{\code{logical}. Shall the function be silent (also suppressing summary
 after function execution)? Default: \code{FALSE}.}
+
+\item{allow_debug}{\code{logical}. Enable debugging by not modifying error handler Default: \code{FALSE}.}
 }
 \value{
 Function returns nothing. Output files are written into output directory

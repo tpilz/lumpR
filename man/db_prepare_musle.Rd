@@ -28,7 +28,7 @@ printed? Default: \code{TRUE}.}
 }
 \description{
 Function to write parameter values relevant for modelling application with the
-WASA hydrological model into an existing database, preferably created with
+WASA-SED hydrological model into an existing database, preferably created with
 \code{\link[lumpR]{db_create}}.
 }
 \details{
