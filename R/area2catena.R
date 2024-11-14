@@ -233,6 +233,7 @@ area2catena <- function(
     # suppress annoying GRASS outputs
     tmp_file <- file(tempfile(), open="wt")
     sink(tmp_file, type="output")
+    olderror <- getOption("error")
     options(error=cleanup) #in case of errors, clean up and reset to original warning and messaging state
   }  
   
@@ -569,7 +570,7 @@ area2catena <- function(
     if(!silent) message(paste("% -> ", sum(error_ehas$error == 4), ' slopes skipped that have a mean length shorter than ', min_catena_length, sep=""))
     if(!silent) message(paste("% -> ", sum(error_ehas$error == 3), ' slopes skipped that have only cells with dist2river=0.', sep=""))
     if(!silent) message(paste("% -> ", sum(warn_ehas$error  == 5), ' warnings due to slopes with no flow_accum less than ', ridge_thresh, sep=""))
-    if(!silent) message(paste("% -> ", sum(warn_ehas$error  == 6), ' warnings due to slopes with NAs in topographics grids', sep=""))
+    if(!silent) message(paste("% -> ", sum(warn_ehas$error  == 6), ' warnings due to slopes with NAs in included grids', sep=""))
     if(!silent) message(paste("% -> ", sum(warn_ehas$error  == 7), ' warnings due to slopes with NAs in auxiliary grids', sep=""))
     if(!silent) message('%')
     if(!silent) message("% DONE!")
@@ -594,8 +595,8 @@ eha_calc <- function(curr_id, eha_rast, flowaccum_rast, dist2river_rast, relelev
   
   errcode <- 0
   
-res = try( #catch unexpected errors
-  {  
+
+    
 
     # EHA: CHECKS and PREPARATIONS #-----------------------------------------------
   # determine cell indices of curr_id
@@ -834,11 +835,7 @@ res = try( #catch unexpected errors
   # output aggregation by foreach loop via .combine method
   return(data.frame(output=out_combined, error=errcode))
   
-}, silent=TRUE) #end of try
 
-if (class(res)=="try-error")  #unexpected error
-{  
-  print(paste0("Unexpected error: ", attr(res, "condition")))
-  return(data.frame(output=t(c(curr_id, rep(NA, sum(n_supp_data_qual_classes) + length(supp_quant) + 4 - 1))), error=999))
-}  
+
+
 } # EOF

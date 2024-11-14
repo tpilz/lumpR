@@ -152,8 +152,14 @@ snapPointsToLines1 <-  function (points, lines, maxDist = NA, withAttrs = TRUE, 
 }
 
 cleanup = function(cleanup_pattern_ = NULL) {
+  # restore original error handling routine
+  olderror = try(get("olderror"), silent = TRUE)
+  if (class(olderror) != "try-error") #no old error handler found
+    options(error = olderror) else
+    options(error = NULL)
+  
   if (!is.null(cleanup_pattern_))
-    cleanup_pattern = cleanup_pattern_ else#use supplied argument, if any. Otherwise try to get a global variable
+    cleanup_pattern = cleanup_pattern_ else #use supplied argument, if any. Otherwise try to get a global variable
     {  
       cleanup_pattern = try(get("cleanup_pattern"), silent = TRUE)
       if (class(cleanup_pattern) == "try-error") #no cleanup pattern defined
@@ -185,7 +191,7 @@ cleanup = function(cleanup_pattern_ = NULL) {
   if(keep_temp == FALSE & cleanup_pattern != "")
     try(execGRASS("g.remove", type="raster,vector", pattern=cleanup_pattern, flags=c("f", "b"), intern = TRUE, ignore.stderr = TRUE), silent=TRUE)
   
-  options(error=NULL) #release error handling
+  #olderror() #release error handling
   
 }
 
