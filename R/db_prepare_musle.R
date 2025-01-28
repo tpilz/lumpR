@@ -24,14 +24,12 @@
 #' @param dbname Name of the data source (DSN) registered at ODBC. See \code{Details} of
 #' \code{\link[lumpR]{db_create}}.
 #' 
-#' @param compute_K Compute (M)USLE K-factor (soil erodibility) from properties of topmost soil horizon, write it to table "soil" (use \code{copy_from_other_tables} to transfer it to table "soil_veg_components"). \code{c(TRUE, FALSE)} 
+#' @param compute_K Compute (M)USLE K-factor (soil erodibility) from properties of topmost soil horizon (i.e. use texture of topmost soil layer), write it to table "soil" (use \code{copy_from_other_tables} to transfer it to table "soil_veg_components"). \code{c(TRUE, FALSE)} 
 #' 
-#' @param copy_from_other_tables Copy values to table "soil_veg_components": MUSLE-C and Manning-n from table "vegetation", MUSLE-K from "soils". Array of strings with possible values \code{c("MUSLE-C", "Manning-n" ,"MUSLE-K")} of
-#' \code{\link[lumpR]{db_create}}.
+#' @param copy_from_other_tables Copy values to table "soil_veg_components": MUSLE-C and Manning-n from table "vegetation", MUSLE-K from "soils", coarse_frag from "horizons". Array of strings with possible values \code{c("musle-c", "manning-n" ,"musle-k" , "coarse_frac")} 
 #' 
 #' @param setP Set entire column of (M)USLE P-factor (protection measures) to a single value (usually 1). Default NULL (do not set).
-#' @param verbose \code{logical}. Should detailed information during execution be
-#' printed? Default: \code{TRUE}.
+#' @param verbose \code{logical}. Enable printing of information during execution. Default: \code{TRUE}.
 #' 
 #' @details 
 #'  after Williams (1995). [explanation to be elaborated]
@@ -354,21 +352,27 @@ db_prepare_musle <- function(
   
   
   #copy from other tables ####
-  if ("MUSLE-K" %in% toupper(copy_from_other_tables))
+  if ("musle-k" %in% tolower(copy_from_other_tables))
   {  
     statement =  "UPDATE soil_veg_components INNER JOIN soils ON soils.pid=soil_veg_components.soil_id SET musle_k = a_musle_k;"
     res = sqlQuery2(con, statement, info="copy MUSLE-K")  
   }
   
-  if ("MANNING-N" %in% toupper(copy_from_other_tables))
+  if ("manning-n" %in% tolower(copy_from_other_tables))
   {  
     statement =  "UPDATE soil_veg_components INNER JOIN vegetation ON vegetation.pid=soil_veg_components.veg_id SET manning_n = c_manning_n;"
     res = sqlQuery2(con, statement, info="copy Manning-n")  
   }
   
-  if ("MUSLE-C" %in% toupper(copy_from_other_tables))
+  if ("musle-c" %in% tolower(copy_from_other_tables))
   {  
     statement =  "UPDATE soil_veg_components INNER JOIN vegetation ON vegetation.pid=soil_veg_components.veg_id SET musle_c1 = c_musle_c1, musle_c2 = c_musle_c2, musle_c3 = c_musle_c3, musle_c4 = c_musle_c4;"
+    res = sqlQuery2(con, statement, info="copy MUSLE-C")  
+  }
+  
+  if ("coarse_frac" %in% tolower(copy_from_other_tables))
+  {  
+    statement =  "UPDATE soil_veg_components INNER JOIN soils ON soils.pid=soil_veg_components.soil_id INNER JOIN horizons ON horizons.soil_id=soils.pid and horizons.position=1 SET coarse_frac = horizons.coarse_frag;"
     res = sqlQuery2(con, statement, info="copy MUSLE-C")  
   }
   
