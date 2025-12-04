@@ -5,7 +5,7 @@ Landscape Unit Mapping Program for R
 
 ## DESCRIPTION
 
-This project deals with an R-package called "lumpR". The package provides functions for a semi-automated approach of the delineation and description of landscape units and partition into terrain components. It can be used for the pre-processing of semi-distributed large-scale hydrological and erosion models using catena-representation (WASA-SED, CATFLOW). It is closely connected to and uses functionalities of GRASS GIS. Additional pre-processing tools beyond the scope of the original LUMP algorithm are included.
+This project deals with an R-package called "lumpR". The package provides functions for a semi-automated approach of the delineation and description of landscape units and their partitioning into terrain components. It can be used for the pre-processing of semi-distributed large-scale hydrological and erosion models using catena-representation (e.g. [WASA-SED](https://github.com/TillF/WASA-SED), CATFLOW). Additional pre-processing tools beyond the scope of the original LUMP algorithm are included.
 
 
 ## INSTALLATION
@@ -24,7 +24,12 @@ install_github("tPilz/lumpR")
 	* install via R-GUI
 
 
-The main branch relies on GRASS7. The migration of the packaga to GRASS8 is underway, but not fully tested: [https://github.com/tpilz/lumpR/tree/grass8]
+The main branch relies on GRASS8. For legacy support of GRASS7 (no further development and support), use branch [https://github.com/tpilz/lumpR/tree/grass7]
+
+## DEPENDENCIES
+* [R language](https://www.r-project.org/)
+* [GRASS GIS](https://grass.osgeo.org/), version 8.
+* data base (e.g. sqlite, MariaDB, LibreOffice Base or other DBs with ODBC-driver)
 
 ## MORE INFORMATION
 
