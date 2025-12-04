@@ -44,7 +44,7 @@
 #'      as input for \code{\link[lumpR]{prof_class}}; manual adjustment necessary.
 #' @param ridge_thresh Integer specifying threshold of flow accumulation, below
 #'      which a cell is considered a start of a flowpath (usually 1 for D8
-#'      flowaccumulation grids, DEFAULT).
+#'      flowaccumulation grids, (DEFAULT), 1.5 for MFD-grids).
 #' @param min_cell_in_slope Integer specifying minimum number of cells a hillslope
 #'      area must have, all smaller ones are skipped. Default: 30.
 #' @param min_catena_length Integer specifying minimum number of sampling points
@@ -61,22 +61,26 @@
 #' @param ncores Integer specifying number of cores that should be used for computation - allows faster parallel computations (see Details).
 #' @param eha_subset NULL or integer vector with subset of EHA ids that shall
 #'      be processed (for debugging and testing).
+#' @param zones NULL or a map of zones (e.g. the subbasins) that are used to perform the computations successively (instead of all at once)
+#'      to avoid memory issues
 #' @param overwrite \code{logical}. Shall output of previous calls of this function be
 #'      deleted? If \code{FALSE} the function returns an error if output already exists.
 #'      Default: \code{FALSE}.
 #' @param silent \code{logical}. Shall the function be silent (also suppressing summary
 #'      after function execution)? Default: \code{FALSE}.
 #'      
+#' @param allow_debug \code{logical}. Enable debugging by not modifying error handler Default: \code{FALSE}.
+#'      
 #' @return Function returns nothing. Output files are written into output directory
 #'      as specified in arguments.
 #'  
 #' @note Prepare GRASS location and necessary raster files in advance (e.g. using
 #'      \code{\link[lumpR]{lump_grass_prep}}) and start GRASS session in R using 
-#'      \code{\link[rgrass7]{initGRASS}}.
+#'      \code{\link[rgrass]{initGRASS}}.
 #'      
 #'      \bold{IMPORTANT:} Herein, when specifying the GRASS input maps, please do
 #'      explicitly refer to the mapset if it is different from the mapset given in
-#'      initGRASS() (even PERMANENT!), as otherwise internally used readRAST() command
+#'      initGRASS() (even PERMANENT!), as otherwise internally used read_RAST() command
 #'      resulted in errors under Windows.
 #'      
 #'      In case of \bold{long computation times or memory issues}, try \code{plot_catena = FALSE}
@@ -143,8 +147,10 @@ area2catena <- function(
   grass_files=F,
   ncores=1,
   eha_subset=NULL,
+  zones=NULL,
   overwrite=F,
-  silent=F
+  silent=F,
+  allow_debug=FALSE
 ) {
   
 ### PREPROCESSING ###----------------------------------------------------------
@@ -155,7 +161,8 @@ area2catena <- function(
   if(!silent) message("% Initialise function...")
   
 # checks #---------------------------------------------------------------------
-  tryCatch(gmeta(), error = function(e) stop("Cannot execute GRASS commands. Maybe you forgot to run initGRASS()?"))
+  #tryCatch(gmeta(), error = function(e) stop("Cannot execute GRASS commands. Maybe you forgot to run initGRASS()?"))
+  test_grass()
   
   # check output directory
   if (!overwrite & ( file.exists(paste(dir_out,catena_out,sep="/")) | file.exists(paste(dir_out,catena_head_out,sep="/")) ) ) 
@@ -178,7 +185,7 @@ area2catena <- function(
   
   # argument checks
   if(is.null(mask))
-    stop("The name of a raster used as mask within the GRASS region has to be given to make sure calculations are done in the expected area!")
+    stop("The name of a raster used as mask within the GRASS region has to be given to make sure calculations are done in the expected area. You can use the subbasin map for instance.")
   if(is.null(flowacc))
     stop("The name of a flow accumulation raster map within the mapset of your initialised GRASS session has to be given!")
   if(is.null(eha))
@@ -197,6 +204,8 @@ area2catena <- function(
   check_raster(eha,"eha")
   check_raster(distriv,"distriv")
   check_raster(elevriv,"elevriv")
+  if (!is.null(zones))
+    check_raster(zones,"zones")
   
   #check existence of supplementary information maps
    if (length(supp_qual)==0) supp_qual=NULL else
@@ -207,11 +216,8 @@ area2catena <- function(
     for (i in supp_quant) 
         check_raster(i,paste0("supp_quant[",i,"]"))
 
-  # suppress annoying GRASS outputs
-  tmp_file <- file(tempfile(), open="wt")
-  sink(tmp_file, type="output")
-  
-  # supress warnings in silent mode
+
+  # suppress warnings in silent mode
   if(silent){
     tmp_file2 <- file(tempfile(), open="wt")
     sink(tmp_file2, type="message")
@@ -222,39 +228,120 @@ area2catena <- function(
   if(!silent) message("% OK")
   
   
+  if (!allow_debug) 
+  {  
+    # suppress annoying GRASS outputs
+    tmp_file <- file(tempfile(), open="wt")
+    sink(tmp_file, type="output")
+    olderror <- getOption("error")
+    options(error=cleanup) #in case of errors, clean up and reset to original warning and messaging state
+  }  
   
+   
   
 ### CALCULATIONS ###-----------------------------------------------------------
-  tryCatch({
-    
-# load files from grass #------------------------------------------------------
-    if(!silent) message("%")
-    if(!silent) message("% Load data from GRASS...")
+  
+  ## get number of zones, if any  (used to split up memory requirements during computation)
 
-    # set mask to make sure calculations are done exactly within expected area
-    cmd_out <- execGRASS("g.copy", raster=paste0(mask,",MASK"), flags = "overwrite", intern = T)
-        
+  # Execute r.stats to get the list of unique zone IDs
+  if (is.null(zones))
+    zone_ids=0 else #no zones specified
+    zone_ids <- execGRASS("r.stats", input = zones, flags=c("n", "quiet"), intern = TRUE)
+  
+  if(length(zone_ids)==0)
+    stop(paste0("Zones map '", zones, " must contain at least one zone demarked with the same integer value."))
+
+  #browser()
+  # preserve full mask and region
+  if (mask != "MASK") 
+    cmd_out <- execGRASS("g.copy", raster=paste0(mask,",MASK_total_t"), flags = "overwrite", intern = T) #this is the total area of interest
+  #cmd_out <- execGRASS("g.region", raster="MASK_total_t", save="area_total_t", flags = "overwrite", intern = T) #save region to entire area of subbasins map - required to capture all classes of catergorical attributes present
+  cmd_out <- execGRASS("g.region", save="region_org_t", flags = "overwrite", intern = T) #save original region settings
+  
+  # get number of classes in qualitative supplemental data for entire MASK area
+  
+  supp_data_classnames <- list() # initialise object containing different classnames per attribute
+  n_supp_data_qual_classes <- NULL # initialise object containing number of classes per attribute
+  if (!is.null(supp_qual)) 
+    supp_qual=supp_qual[supp_qual!=""]
+  
+  if (!is.null(supp_qual)) 
+  {
+    if(!silent) message("% scanning categorical map(s)...")
+    for (i in supp_qual) {
+      if(!silent) message(paste0("% ... ", i))
+      cats <- try(execGRASS("r.stats", input = i, flags=c("n", "quiet"), intern = TRUE), silent=TRUE)
+      if (class(cats) == "try-error" || identical(attr(cats, "status"), 1))
+        stop(paste0("Classes in categorical map '", i, " could not be determined, please check."))
+      
+      cats2 = as.numeric(cats)
+      non_int = which(is.na(cats2))
+      if (length(non_int)>0)
+        if(!silent) message(paste0("% WARNING: Non-numeric return from classes in map ", i,": \n",  paste0(cats[head(non_int)], collpase=", ")))
+      cats = na.omit(cats2)
+      
+      supp_data_classnames[i] <- list(cats)
+      n_supp_data_qual_classes[i] <-length(supp_data_classnames[[i]])
+    }
+    
+    # convert (at) symbol to point (in case input comes from another GRASS mapset; read_RAST6() converts it to point implicitly which causes errors during later processing)
+    supp_qual <- gsub("[-+*/@.?!]", ".", supp_qual)
+    
+    names(n_supp_data_qual_classes) <- supp_qual
+    names(supp_data_classnames) <- supp_qual
+  }  
+  
+  # load files from grass #------------------------------------------------------
+  if(!silent) message("% Load data from GRASS...")
+  
+  
+  for (zone_id in zone_ids) #iterate through computational zones (useful for saving memory requirements)
+  {
+    
+    #browser()
+    if (is.null(zones)) #no zones specified
+    {
+      cmd_out <- execGRASS("g.rename", raster=paste0("MASK_total_t,MASK"), flags = "overwrite", intern = T) #this is the total area of interest
+      catena_out_zone = catena_out
+    } else
+    {      
+      if (!silent) message(paste0("% ... zone ", zone_id, " (", which(zone_id== zone_ids), "/", length(zone_ids), ")"))
+      # Create the zone- mask and region
+      #browser()
+      expression <- paste0("MASK_zone_t = if(", zones, " == ", zone_id, ", 1, null())")
+      tt = execGRASS("r.mapcalc", expression = expression , flags = "overwrite")
+      execGRASS("g.copy", raster="MASK_zone_t,MASK", flags = "overwrite", intern = T) #set mask to zone
+
+      # Set region to the current zone
+      execGRASS("g.region", zoom = "MASK", flags = "o")
+      cmd_out <- execGRASS("g.region", save="selected_area_t", flags = "overwrite", intern = T) #save extent of currently selected area (to be restored later)
+      # cmd_out <- execGRASS("g.region", region="area_total_t") #set region to entire area
+      #browser()
+      cmd_out <- execGRASS("g.region", region="selected_area_t") #set region to focus area
+      catena_out_zone = paste0(catena_out, "_", zone_id)
+    } 
+
+    
     # load flow accumulation
-    flowaccum <- readRAST(flowacc)
-    flowaccum_rast <- raster(flowaccum)
+    flowaccum_rast <- read_raster(flowacc)
+    #flowaccum_rast <- raster(flowaccum)
     
     # load relative elevation
-    relelev <- readRAST(elevriv)
-    relelev_rast <- raster(relelev)
+    relelev_rast <- read_raster(elevriv)
+    #relelev_rast <- raster(relelev)
     
     # load distance to river
-    dist2river <- readRAST(distriv)
-    dist2river_rast <- raster(dist2river)
+    dist2river_rast <- read_raster(distriv)
+    #dist2river_rast <- raster(dist2river)
     
     # load EHAs
-    eha_in <- readRAST(eha)
-    eha_rast <- raster(eha_in)
+    eha_rast <- read_raster(eha)
+    #eha_rast <- raster(eha_in)
     
     
     # load qualitative supplemental data
     qual_rast <- NULL # initialise object containing all qualitative raster layers
-    supp_data_classnames <- NULL # initialise object containing different classnames per attribute
-    n_supp_data_qual_classes <- NULL # initialise object containing number of classes per attribute
+
     if (!is.null(supp_qual)) 
       supp_qual=supp_qual[supp_qual!=""]
     
@@ -262,46 +349,58 @@ area2catena <- function(
     {  
       for (i in supp_qual) {
         tmp <- read_raster(i)
-        qual_rast <- raster::stack(tmp, qual_rast)
-        supp_data_classnames[[i]] <- raster::unique(tmp)
-        n_supp_data_qual_classes <- c(n_supp_data_qual_classes, length(raster::unique(tmp)))
+        qual_rast = c(tmp, qual_rast) #stack raster layers
       }
       
-      # convert (at) symbol to point (in case input comes from another GRASS mapset; readRAST6() converts it to point implicitly which causes errors during later processing)
+      # convert (at) symbol to point (in case input comes from another GRASS mapset; read_RAST6() converts it to point implicitly which causes errors during later processing)
       supp_qual <- gsub("[-+*/@.?!]", ".", supp_qual)
-      
-      names(n_supp_data_qual_classes) <- supp_qual
-      names(supp_data_classnames) <- supp_qual
+
+      names(qual_rast)            = supp_qual
     }  
     
     # load quantitative supplemental data
     quant_rast <- NULL # initialise object containing all quantitative raster layers
-    for (i in rev(supp_quant)) {
-      tmp <- read_raster(i)
-      quant_rast <- raster::stack(tmp, quant_rast)
-    }
     
-    # convert (at) symbol to point (in case input comes from another GRASS mapset; readRAST6() converts it to point implicitly which causes errors during later processing)
-    supp_quant <- gsub("[-+*/@.?!]", ".", supp_quant)
+    if (!is.null(supp_quant)) 
+      supp_quant=supp_quant[supp_quant!=""]
+    
+    if (!is.null(supp_quant)) 
+    {  
+      for (i in rev(supp_quant)) {
+        tmp <- read_raster(i)
+        quant_rast = c(tmp, quant_rast) #stack raster layers
+      }
+      
+      # convert (at) symbol to point (in case input comes from another GRASS mapset; read_RAST6() converts it to point implicitly which causes errors during later processing)
+      supp_quant <- gsub("[-+*/@.?!]", ".", supp_quant)
+      names(supp_quant)            = supp_quant
+    }
     
     if(exists("tmp"))
       rm(list=c("tmp"))
     
     
-    # compare Rasters for extent, no. of rows and cols, CRS, resolution and origin
-    if (!is.null(qual_rast) & !is.null(quant_rast)) {
-      comp_val <- compareRaster(flowaccum_rast, relelev_rast, dist2river_rast, eha_rast, 
-                                qual_rast, quant_rast, res=T, orig=T)
-    } else if(is.null(qual_rast) & !is.null(quant_rast)) {
-      comp_val <- compareRaster(flowaccum_rast, relelev_rast, dist2river_rast, eha_rast, 
-                                quant_rast, res=T, orig=T)
-    } else if(!is.null(qual_rast) & is.null(quant_rast)) {
-      comp_val <- compareRaster(flowaccum_rast, relelev_rast, dist2river_rast, eha_rast, 
-                                qual_rast, res=T, orig=T)
-    } else if(is.null(qual_rast) & is.null(quant_rast)) {
-      comp_val <- compareRaster(flowaccum_rast, relelev_rast, dist2river_rast, eha_rast, 
-                                res=T, orig=T)
-    }
+    rasterlist = list(flowaccum_rast, relelev_rast, dist2river_rast, eha_rast)
+    if (!is.null(qual_rast)) rasterlist = c(rasterlist, quant_rast)
+    if (!is.null(quant_rast)) rasterlist = c(rasterlist, qual_rast)
+
+    comp_val = do.call(compareGeom, args= c(rasterlist, res=T, rowcol=T))
+    
+
+    # # compare Rasters for extent, no. of rows and cols, CRS, resolution and origin
+    # if (!is.null(qual_rast) & !is.null(quant_rast)) {
+    #   comp_val <- compareRaster_i(list(flowaccum_rast, relelev_rast, dist2river_rast, eha_rast, 
+    #                                    qual_rast, quant_rast), res=T, orig=T)
+    # } else if(is.null(qual_rast) & !is.null(quant_rast)) {
+    #   comp_val <- compareRaster_i(list(flowaccum_rast, relelev_rast, dist2river_rast, eha_rast, 
+    #                                    quant_rast), res=T, orig=T)
+    # } else if(!is.null(qual_rast) & is.null(quant_rast)) {
+    #   comp_val <- compareRaster_i(list(flowaccum_rast, relelev_rast, dist2river_rast, eha_rast, 
+    #                                    qual_rast), res=T, orig=T)
+    # } else if(is.null(qual_rast) & is.null(quant_rast)) {
+    #   comp_val <- compareRaster_i(list(flowaccum_rast, relelev_rast, dist2river_rast, eha_rast), 
+    #                               res=T, orig=T)
+    # }
     
     
     if (comp_val) {
@@ -317,14 +416,12 @@ area2catena <- function(
     
     
     
-    
-    
-# process ehas #---------------------------------------------------------------
+    # process ehas #---------------------------------------------------------------
     # get resolution of spatial data
-    xres <- xres(eha_rast)
+    xres <- terra::xres(eha_rast)
     
     # identify EHAs
-    eha_ids <- raster::unique(eha_rast)
+    eha_ids <- terra::unique(eha_rast)[,1]
     if (!is.null(eha_subset)) eha_ids <- eha_subset
     
     # LOOP over EHAs
@@ -333,7 +430,7 @@ area2catena <- function(
     if (!is.null(eha_subset) & !silent) message("% -> Note that this is just a subset as specified in the argument 'eha_subset'.")
     
     id <- NULL # to remove "R CMD CHECK ..." Note of "no visible binding for global variable 'id'"
-  
+    
     
     ##initialize parallelism
     if (ncores>1)
@@ -353,19 +450,20 @@ area2catena <- function(
     }
     
     if (ncores==1) registerDoSEQ() # specify that %dopar% should run sequentially
-    
+    #browser()
     #parallel call using dopar (if no parallel backend is registered, this falls back to serial execution) 
     # NOTE: in case of problems within the foreach-loop set foreach argument .errorhandling="pass" and execute str(logdata) after the loop to show error messages
     logdata <- foreach (id = eha_ids, .combine=rbind, .errorhandling='remove', .options.multicore=list(silent=FALSE),
                         .inorder=FALSE, .export="eha_calc") %dopar% {
-      eha_calc(id, eha_rast, flowaccum_rast, dist2river_rast, relelev_rast, supp_quant, supp_qual,
-               n_supp_data_qual_classes, quant_rast, qual_rast, supp_data_classnames,
-               min_cell_in_slope, max_riv_dist, plot_catena, ridge_thresh, min_catena_length,
-               xres,dir_out)
-    }
+                          eha_calc(id, eha_rast, flowaccum_rast, dist2river_rast, relelev_rast, supp_quant, supp_qual,
+                                   n_supp_data_qual_classes, quant_rast, qual_rast, supp_data_classnames,
+                                   min_cell_in_slope, max_riv_dist, plot_catena, ridge_thresh, min_catena_length,
+                                   xres,dir_out)
+                        }
     
     if(!silent) message("% OK.")
-# check output #---------------------------------------------------------------
+    #browser()
+    # check output #---------------------------------------------------------------
     if(!silent) message("%")
     if(!silent) message("% Check and write output...")
     
@@ -380,8 +478,9 @@ area2catena <- function(
     if(any(logdata$error == 666))
       stop("Error: A problem occurred when averaging qualitative supplemental information. Check your data and contact the package author(s) if the problem remains.")
     
-    if(any(logdata$error == 999))
-      stop("Error: An unexpected error occurred in the EHA processing loop. Check your data and contact the package author(s) if the problem remains.")
+    strange_errs = sum(logdata$error == 999)
+    if(strange_errs > 0)
+      warning(paste0("WARNING: An unexpected errors occurred for ", strange_errs," EHA(s), which were ignored. Check your data and contact the package author(s) if the problem remains."))
     
     
     
@@ -389,8 +488,8 @@ area2catena <- function(
     
     # sort out erroneous values and store for diagnostics
     warn_ehas  <- unique(logdata[logdata$error == 5 | logdata$error == 6 | logdata$error == 7, c(1,ncol(logdata))])
-     
-    erroneous <- (logdata$error > 0 & logdata$error < 5)
+    
+    erroneous <- logdata$error %in% c(1:4, 999)
     error_ehas <- logdata[erroneous, c(1,ncol(logdata))]
     
     
@@ -405,17 +504,19 @@ area2catena <- function(
     
     
     
-# write output #---------------------------------------------------------------
+    # write output #---------------------------------------------------------------
     #out_pre <- mapply(logdata[,c(3:length(logdata))], FUN=function(x) formatC(x, format="f", digits=3))
     #out_fmt <- cbind(logdata[,c(1,2)], out_pre)
     #format output to reasonable number of digits
     logdata <- round(logdata,3)
-  
+    
     if(grepl(".RData$", catena_out)) {
-      save(logdata, file=paste(dir_out,catena_out, sep="/"))
+      save(logdata, file=paste(dir_out,catena_out_zone, sep="/"))
     } else {
-      write.table(logdata, paste(dir_out,catena_out, sep="/"), col.names=F, row.names=F, quote=F, sep="\t")
+      write.table(logdata, paste(dir_out,catena_out_zone, sep="/"), col.names=F, row.names=F, quote=F, sep="\t")
     }
+  } #end loop through zones
+
     
     # write header file
     write("#This file works as a header to the output of area2catena. Don't add additional headerlines.",
@@ -445,7 +546,7 @@ area2catena <- function(
     
     #generate qualitative-data reclassification file
     #Generate output files for reclassification (input class-IDs vs. internally used IDs)
-    #(area2catena creates continuous class numbering; restoring the orginal classes will require these files)
+    #(area2catena creates continuous class numbering; restoring the original classes will require these files)
 
     for (i in 1:length(supp_qual)) {
       if (grass_files | grepl("^svc", supp_qual[i])) {
@@ -470,35 +571,14 @@ area2catena <- function(
     if(!silent) message(paste("% -> ", sum(error_ehas$error == 4), ' slopes skipped that have a mean length shorter than ', min_catena_length, sep=""))
     if(!silent) message(paste("% -> ", sum(error_ehas$error == 3), ' slopes skipped that have only cells with dist2river=0.', sep=""))
     if(!silent) message(paste("% -> ", sum(warn_ehas$error  == 5), ' warnings due to slopes with no flow_accum less than ', ridge_thresh, sep=""))
-    if(!silent) message(paste("% -> ", sum(warn_ehas$error  == 6), ' warnings due to slopes with NAs in topographics grids', sep=""))
+    if(!silent) message(paste("% -> ", sum(warn_ehas$error  == 6), ' warnings due to slopes with NAs in included grids', sep=""))
     if(!silent) message(paste("% -> ", sum(warn_ehas$error  == 7), ' warnings due to slopes with NAs in auxiliary grids', sep=""))
     if(!silent) message('%')
     if(!silent) message("% DONE!")
     if(!silent) message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
     
-    # stop sinking
-    closeAllConnections()
-    
-    # restore original warning mode
-    if(silent)
-      options(warn = oldw)
-    
-    
-    
-    
-  
-  # if an error occurs delete all temporary output
-  }, error = function(e) {
-    
-    # stop sinking
-    closeAllConnections()
-    
-    # restore original warning mode
-    if(silent)
-      options(warn = oldw)
-    
-    stop(paste(e))  
-  })
+    cleanup() 
+
   
 } # EOF
 
@@ -516,31 +596,51 @@ eha_calc <- function(curr_id, eha_rast, flowaccum_rast, dist2river_rast, relelev
   
   errcode <- 0
   
-res = try( #catch unexpected errors
-  {  
+
+    
 
     # EHA: CHECKS and PREPARATIONS #-----------------------------------------------
   # determine cell indices of curr_id
-  curr_cells <- which(eha_rast@data@values == curr_id)
+  curr_cells <- which(values(eha_rast) == curr_id)
   
   # determine number of cells in eha and skip processing if less than min_cell_in_slope
   # ERROR CODE 1
   if (length(curr_cells) < min_cell_in_slope) {
-    message(paste('% -> WARNING: EHA ', curr_id, ' skipped because of low number of cells (', length(curr_cells), ')', sep=""))
+    message(paste('% -> WARNING: EHA ', curr_id, ' with low number of cells (', length(curr_cells), '), skipped.', sep=""))
     errcode <- 1
     return(data.frame(output=t(c(curr_id, rep(NA, sum(n_supp_data_qual_classes) + length(supp_quant) + 4 - 1))), error=errcode))
   }
   
   # extract values out of raster objects into ordinary vectors to save time (internal calls to raster objects take time)
-  flowaccum_vals  <- flowaccum_rast [curr_cells] #?Till: in parallel mode, this requires all the large rasters to be available to each thread. I wonder is this consumes too much replicates and overhead. Passing just the area of the current curr_cells may save ressources
-  dist2river_vals <- dist2river_rast[curr_cells]
-  relelev_vals    <- relelev_rast   [curr_cells]
-  if(!is.null(quant_rast)) quant_vals <- raster::extract(quant_rast, curr_cells)
-  if(!is.null(qual_rast))  qual_vals  <- raster::extract(qual_rast,  curr_cells)
+  #browser()
+  flowaccum_vals  <- flowaccum_rast [curr_cells][,1] #?Till: in parallel mode, this requires all the large rasters to be available to each thread. I wonder is this consumes too much replicates and overhead. Passing just the area of the current curr_cells may save ressources
+  dist2river_vals <- dist2river_rast[curr_cells][,1]
+  relelev_vals    <- relelev_rast   [curr_cells][,1]
+  #browser()
+  #if(!is.null(quant_rast)) quant_vals <- raster::extract(quant_rast, curr_cells)
+  #if(!is.null(qual_rast))  qual_vals  <- raster::extract(qual_rast,  curr_cells)
   
-  na_vals = is.na(flowaccum_vals) | is.na(dist2river_vals) | is.na(relelev_vals) #detect NA values
-  if (any(na_vals)) {  # cells found with NAs in the mandatory grids
-    message(paste('% -> WARNING: EHA ', curr_id, " has NA cells in rasters 'flowacc', 'distriv' or 'elevriv'. May be OK for EHAs at divide. Cells ignored.", sep=""))
+  if(!is.null(quant_rast)) quant_vals <- terra::extract(quant_rast, curr_cells)
+  if(!is.null(qual_rast))  qual_vals  <- terra::extract(qual_rast,  curr_cells)
+  
+  
+  #detect NA values
+  
+  na_rasters= NULL
+  if (any(is.na(flowaccum_vals)))  na_rasters = c(na_rasters, "'flowacc'")
+  if (any(is.na(dist2river_vals))) na_rasters = c(na_rasters, "'distriv'")
+  if (any(is.na(relelev_vals)))    na_rasters = c(na_rasters, "'elevriv'")
+
+  if (!is.null(na_rasters)) {  # cells found with NAs in the mandatory grids
+    na_vals = is.na(flowaccum_vals) | is.na(dist2river_vals) | is.na(relelev_vals) #detect NA values 
+    n_valid = sum(!na_vals) #number of cells with valid data
+    if (n_valid < min_cell_in_slope) 
+    {
+      message(paste('% -> WARNING: EHA ', curr_id, ' with low number of cells with data (', length(curr_cells), '), skipped.', sep=""))
+      errcode <- 1
+      return(data.frame(output=t(c(curr_id, rep(NA, sum(n_supp_data_qual_classes) + length(supp_quant) + 4 - 1))), error=errcode))
+    } 
+    message(paste('% -> WARNING: EHA ', curr_id, " has ", length(na_vals) - n_valid," NA-cells in raster(s) ", paste(na_rasters, collapse=","),". May be OK for EHAs at divide. Cells ignored.", sep=""))
     curr_cells <- curr_cells[!na_vals]
     flowaccum_vals  <- flowaccum_vals [!na_vals]
     dist2river_vals <- dist2river_vals[!na_vals]
@@ -550,19 +650,24 @@ res = try( #catch unexpected errors
   
   na_vals <- NULL
   if(!is.null(quant_rast))
-    na_vals <-            apply(!is.finite(quant_vals), MARGIN=2, sum)
+    #na_vals <-            apply(!is.finite(quant_vals), MARGIN=2, sum)
+    #na_vals <- sum(!is.finite(as.matrix(quant_vals)))
+    na_vals <- c(na_vals, apply(!is.finite(as.matrix(quant_vals)), MARGIN=2, sum))
   if(!is.null(qual_rast))
-    na_vals <- c(na_vals, apply(!is.finite(qual_vals), MARGIN=2, sum))
-  
+    #na_vals <- c(na_vals, apply(!is.finite(qual_vals), MARGIN=2, sum))
+    #na_vals <-  c(na_vals, sum(!is.finite(as.matrix(qual_rast2))))
+    na_vals <- c(na_vals, apply(!is.finite(as.matrix(qual_vals)), MARGIN=2, sum))
+    
   if (any(na_vals>0)) {  # cells found with NAs in auxiliary grids
-    message(paste('% -> WARNING: EHA ', curr_id, ': NAs or zeros in the grid(s) ', paste(names(na_vals[na_vals]), collapse=', ') ,' (max. ', max(na_vals), ' values).', sep=""))
+    #browser()
+    message(paste('% -> WARNING: EHA ', curr_id, ': NAs or zeros in the grid(s) [', paste(names(na_vals[na_vals!=0]), collapse=', ') ,'] (max. ', max(na_vals), ' of ', length(flowaccum_vals),' values).', sep=""))
     errcode <- 7
   }
   
   # determine closest distance to river and skip processing if more than max_riv_dist
   # ERROR CODE 2
   if(min(dist2river_vals) > max_riv_dist) {
-    message(paste("% -> WARNING: EHA ", curr_id, ' skipped, not adjacent to channel / farther than ', max_riv_dist, ' cells (',min(dist2river_vals),')', sep=""))
+    message(paste("% -> WARNING: EHA ", curr_id, ' skipped, not adjacent to channel / farther than ', max_riv_dist, ' cells (', round(min(dist2river_vals), digits = 1),')', sep=""))
     return(data.frame(output=t(c(curr_id, rep(NA, sum(n_supp_data_qual_classes) + length(supp_quant) + 4 - 1))), error=2))
   } else {
     dist2river_vals <- dist2river_vals - min(dist2river_vals)
@@ -580,9 +685,10 @@ res = try( #catch unexpected errors
   # find all cells that are the beginning of a flowpath
   curr_entries <- which(flowaccum_vals<=ridge_thresh)
   if (!any(curr_entries)) {  # no cells found, strange, but try to fix this problem
-    message(paste('% -> WARNING: EHA ', curr_id, ' has no cells with flowpath start (below ', ridge_thresh, ')', sep=""))
+    new_thresh = min(flowaccum_vals, na.rm=TRUE)
+    message(paste('% -> WARNING: EHA ', curr_id, ' has no cells with flowpath start < ', ridge_thresh, ', using ', round(new_thresh, digits=1), ' instead. Check param ridge_thresh', sep=""))
     # reduce threshold to minimum flow accumulation found in current slope
-    curr_entries <- which(flowaccum_vals <= min(flowaccum_vals))
+    curr_entries <- which(flowaccum_vals <= new_thresh)
     errcode <- 5
   }
 
@@ -680,8 +786,10 @@ res = try( #catch unexpected errors
           }
 
           # check averages (should sum up to one for each attribute), SEVERE ERROR CODE 666
-          if(sum(supp_attrib_mean[(quant_columns+col_counter+1):(quant_columns+col_counter+n_supp_data_qual_classes[k]),j+1]) < 0.999) {
-            message(paste('% -> WARNING: For EHA ', curr_id, ' areal fractions of qualitative supplemental attribute ', k, ' does not sum to one for profile point ', j+1, sep=""))
+          #browser()
+          frac_sum = sum(supp_attrib_mean[(quant_columns+col_counter+1):(quant_columns+col_counter+n_supp_data_qual_classes[k]),j+1])
+          if(!is.na(frac_sum) & frac_sum < 0.999) {
+            message(paste("% -> WARNING: For EHA ", curr_id, " areal fractions of qualitative supplemental attribute '", k, "' does not sum to one for profile point ", j+1, sep=""))
             if (plot_catena) dev.off()
             return(data.frame(output=t(c(curr_id, rep(NA, sum(n_supp_data_qual_classes) + length(supp_quant) + 4 - 1))), error=666))
           }
@@ -728,11 +836,7 @@ res = try( #catch unexpected errors
   # output aggregation by foreach loop via .combine method
   return(data.frame(output=out_combined, error=errcode))
   
-}, silent=TRUE) #end of try
 
-if (class(res)=="try-error")  #unexpected error
-{  
-  print(paste0("Unexpected error: ", attr(res, "condition")))
-  return(data.frame(output=t(c(curr_id, rep(NA, sum(n_supp_data_qual_classes) + length(supp_quant) + 4 - 1))), error=999))
-}  
+
+
 } # EOF

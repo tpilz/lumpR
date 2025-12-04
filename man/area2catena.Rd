@@ -23,8 +23,10 @@ area2catena(
   grass_files = F,
   ncores = 1,
   eha_subset = NULL,
+  zones = NULL,
   overwrite = F,
-  silent = F
+  silent = F,
+  allow_debug = FALSE
 )
 }
 \arguments{
@@ -63,7 +65,7 @@ as input for \code{\link[lumpR]{prof_class}}; manual adjustment necessary.}
 
 \item{ridge_thresh}{Integer specifying threshold of flow accumulation, below
 which a cell is considered a start of a flowpath (usually 1 for D8
-flowaccumulation grids, DEFAULT).}
+flowaccumulation grids, (DEFAULT), 1.5 for MFD-grids).}
 
 \item{min_cell_in_slope}{Integer specifying minimum number of cells a hillslope
 area must have, all smaller ones are skipped. Default: 30.}
@@ -88,12 +90,17 @@ raster data. If an attribute name starting with 'svc' is found, the respective r
 \item{eha_subset}{NULL or integer vector with subset of EHA ids that shall
 be processed (for debugging and testing).}
 
+\item{zones}{NULL or a map of zones (e.g. the subbasins) that are used to perform the computations successively (instead of all at once)
+to avoid memory issues}
+
 \item{overwrite}{\code{logical}. Shall output of previous calls of this function be
 deleted? If \code{FALSE} the function returns an error if output already exists.
 Default: \code{FALSE}.}
 
 \item{silent}{\code{logical}. Shall the function be silent (also suppressing summary
 after function execution)? Default: \code{FALSE}.}
+
+\item{allow_debug}{\code{logical}. Enable debugging by not modifying error handler Default: \code{FALSE}.}
 }
 \value{
 Function returns nothing. Output files are written into output directory
@@ -105,11 +112,11 @@ Takes raster data from a GRASS location and calculates catena properties.
 \note{
 Prepare GRASS location and necessary raster files in advance (e.g. using
      \code{\link[lumpR]{lump_grass_prep}}) and start GRASS session in R using 
-     \code{\link[rgrass7]{initGRASS}}.
+     \code{\link[rgrass]{initGRASS}}.
      
      \bold{IMPORTANT:} Herein, when specifying the GRASS input maps, please do
      explicitly refer to the mapset if it is different from the mapset given in
-     initGRASS() (even PERMANENT!), as otherwise internally used readRAST() command
+     initGRASS() (even PERMANENT!), as otherwise internally used read_RAST() command
      resulted in errors under Windows.
      
      In case of \bold{long computation times or memory issues}, try \code{plot_catena = FALSE}

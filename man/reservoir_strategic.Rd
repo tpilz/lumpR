@@ -4,9 +4,15 @@
 \alias{reservoir_strategic}
 \title{Assemble of reservoir parameter file for WASA for import into database with \code{\link[lumpR]{db_fill}()}}
 \usage{
-reservoir_strategic(res_vect = NULL, subbasin = NULL,
-  res_file = NULL, dir_out = "./", reservoir_file = "reservoir.txt",
-  overwrite = F, silent = F)
+reservoir_strategic(
+  res_vect = NULL,
+  subbasin = NULL,
+  res_file = NULL,
+  dir_out = "./",
+  reservoir_file = "reservoir.txt",
+  overwrite = F,
+  silent = F
+)
 }
 \arguments{
 \item{res_vect}{Name of reservoir vector map in GRASS location. Should be point

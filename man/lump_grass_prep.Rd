@@ -4,17 +4,37 @@
 \alias{lump_grass_prep}
 \title{Pre-processing for Landscape Unit deviation using GRASS GIS}
 \usage{
-lump_grass_prep(mask = NULL, dem = NULL, lcov = NULL, soil = NULL,
-  watermask = NULL, imperviousmask = NULL, eha = NULL,
-  flowdir = NULL, flowacc = NULL, stream = NULL,
-  stream_horton = NULL, elevriv = NULL, distriv = NULL,
-  mask_corr = NULL, svc = NULL, dir_out = NULL, svc_ofile = NULL,
-  eha_thres = NULL, sizefilter = NULL, growrad = NULL,
-  keep_temp = F, overwrite = F, silent = F, addon_path = NULL,
-  things2do = c("eha", "river", "svc"))
+lump_grass_prep(
+  mask = NULL,
+  dem = NULL,
+  lcov = NULL,
+  soil = NULL,
+  watermask = NULL,
+  imperviousmask = NULL,
+  eha = NULL,
+  flowdir = NULL,
+  flowacc = NULL,
+  stream = NULL,
+  disk_swap = FALSE,
+  stream_horton = NULL,
+  elevriv = NULL,
+  distriv = NULL,
+  mask_corr = NULL,
+  svc = NULL,
+  dir_out = NULL,
+  svc_ofile = NULL,
+  eha_thres = NULL,
+  sizefilter = NULL,
+  growrad = NULL,
+  keep_temp = F,
+  overwrite = F,
+  silent = F,
+  addon_path = NULL,
+  things2do = c("eha", "river", "svc")
+)
 }
 \arguments{
-\item{mask}{Mask in GRASS location defining the catchment area. E.g. subbasin raster map.}
+\item{mask}{Mask in GRASS location defining the catchment area (e.g. subbasin raster map).}
 
 \item{dem}{Digital elevation model in GRASS location used for delineation of
 environmental hillslope areas. Should be larger than the expected catchment,
@@ -50,6 +70,8 @@ surface runoff from outside the defined region.}
 \item{stream}{Output: Name of stream segments raster map exported into GRASS
 location. If you want to convert it into a vector map apply GRASS function
 \emph{r.thin} beforehand!}
+
+\item{disk_swap}{(optional, default: FALSE) Only needed if memory requirements exceed available RAM (large DEMs): If set to \code{TRUE}, \code{r.watershed} uses the "-m"-flag (slow)}
 
 \item{stream_horton}{Output: Name of stream segments raster map in Horton stream
 order exported into GRASS location.}
@@ -117,18 +139,22 @@ needed for further Landscape Unit deviation.
 }
 \note{
 Prepare GRASS location and necessary raster files in advance and start
-     GRASS session in R using \code{\link[rgrass7]{initGRASS}}.
+     GRASS session in R using \code{\link[rgrass]{initGRASS}}.
 
      Make sure that the GRASS functions \emph{r.stream.distance} and \emph{r.stream.order}
      are available to your GRASS installation. If not, consider \emph{g.extension} to
      install add-ons. If you installed add-ons locally it might occur that from within R
      the path to add-ons is not recognised. In such a case locate the local installation
      path (in a GRASS terminal check \code{g.extension -a}, \code{echo $GRASS_ADDON_BASE} and \code{which r.stream.distance} / \code{where r.stream.distance}, and specify the
-     absolute path to add-ons via argument \code{addon_path}. In Windows, replace backslahes for slashes. For more information, see also
+     absolute path to add-ons via argument \code{addon_path}. In Windows, replace backslashes for slashes. For more information, see also
      \url{http://grasswiki.osgeo.org/wiki/AddOns/GRASS_7}.
      
      See GRASS documentation for further information on GRASS functions and
      parameters.
+     
+     If you run into \bold{memory issues}, consider argument \code{disk_swap} (see also 
+     \link[GRASS homepage]{https://grass.osgeo.org/grass74/manuals/r.watershed.html#in-memory-mode-and-disk-swap-mode})
+     and see discussion on \link[lumpR's github page]{https://github.com/tpilz/lumpR/issues/16}.
 }
 \references{
 Source code based on \code{SHELL} and \code{MATLAB} scripts of Till Francke.

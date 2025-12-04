@@ -223,7 +223,8 @@ reservoir_strategic <- function(
     
     
     # get reservoir data
-    res <- readVECT(res_vect)
+    res <- read_VECT(res_vect)
+	res = as(res, 'Spatial') # convert SpatVector to SpatialPoints
     
     # make sure column names are in in lowercase only
     colnames(res@data) <- tolower(colnames(res@data))

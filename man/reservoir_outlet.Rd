@@ -4,9 +4,15 @@
 \alias{reservoir_outlet}
 \title{Determine outlet coordinates of reservoirs}
 \usage{
-reservoir_outlet(flowacc = NULL, dem = NULL, res_vct = NULL,
-  outlets_vect = NULL, keep_temp = FALSE, overwrite = FALSE,
-  silent = F)
+reservoir_outlet(
+  flowacc = NULL,
+  dem = NULL,
+  res_vct = NULL,
+  outlets_vect = NULL,
+  keep_temp = FALSE,
+  overwrite = FALSE,
+  silent = F
+)
 }
 \arguments{
 \item{flowacc}{Flow accumulation raster in GRASS location used for determination
@@ -46,7 +52,7 @@ polygon. Can be run before \code{\link[lumpR]{reservoir_strategic}} to produce t
 }
 \note{
 Prepare GRASS location and necessary files in advance and start GRASS
-     session in R using \code{\link[rgrass7]{initGRASS}}. Location should not
+     session in R using \code{\link[rgrass]{initGRASS}}. Location should not
      contain any maps ending on *_t as these will be removed by calling the
      function to remove temporary maps.
      

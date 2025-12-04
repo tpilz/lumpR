@@ -4,9 +4,17 @@
 \alias{db_echse_input}
 \title{Create ECHSE input files}
 \usage{
-db_echse_input(dbname, start_year = NULL, end_year = NULL,
-  res_hourly = FALSE, tz = NULL, proj_dir = "./", proj_name = "",
-  overwrite = F, verbose = TRUE)
+db_echse_input(
+  dbname,
+  start_year = NULL,
+  end_year = NULL,
+  res_hourly = FALSE,
+  tz = NULL,
+  proj_dir = "./",
+  proj_name = "",
+  overwrite = F,
+  verbose = TRUE
+)
 }
 \arguments{
 \item{dbname}{Name of the data source (DSN) registered at ODBC.}

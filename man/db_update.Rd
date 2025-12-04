@@ -4,8 +4,7 @@
 \alias{db_update}
 \title{Update parameter database}
 \usage{
-db_update(dbname, to_ver = Inf, checkOnly = FALSE,
-  keep_tables = NULL)
+db_update(dbname, to_ver = Inf, checkOnly = FALSE, keep_tables = NULL)
 }
 \arguments{
 \item{dbname}{Name of the data source (DSN) registered at ODBC.}

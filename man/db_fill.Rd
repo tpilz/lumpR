@@ -4,13 +4,18 @@
 \alias{db_fill}
 \title{Fill parameter database}
 \usage{
-db_fill(dbname, tables = c("r_subbas_contains_lu", "subbasins",
-  "landscape_units", "r_lu_contains_tc", "terrain_components",
-  "r_tc_contains_svc", "vegetation", "soils", "horizons",
-  "soil_veg_components", "particle_classes", "r_soil_contains_particles",
-  "rainy_season", "reservoirs_strategic", "reservoirs_small",
-  "r_subbas_contains_reservoirs_small"), dat_files, dat_dir,
-  overwrite = FALSE, verbose = TRUE)
+db_fill(
+  dbname,
+  tables = c("r_subbas_contains_lu", "subbasins", "landscape_units", "r_lu_contains_tc",
+    "terrain_components", "r_tc_contains_svc", "vegetation", "soils", "horizons",
+    "soil_veg_components", "particle_classes", "r_soil_contains_particles",
+    "rainy_season", "reservoirs_strategic", "reservoirs_small",
+    "r_subbas_contains_reservoirs_small"),
+  dat_files,
+  dat_dir,
+  overwrite = FALSE,
+  verbose = TRUE
+)
 }
 \arguments{
 \item{dbname}{Name of the data source (DSN) registered at ODBC. See \code{Details} of

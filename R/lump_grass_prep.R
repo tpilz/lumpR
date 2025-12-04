@@ -21,7 +21,7 @@
 #' soil-vegetation-components, and Horton stream order using GRASS functions
 #' needed for further Landscape Unit deviation.
 #' 
-#' @param mask Mask in GRASS location defining the catchment area. E.g. subbasin raster map.
+#' @param mask Mask in GRASS location defining the catchment area (e.g. subbasin raster map).
 #' @param dem Digital elevation model in GRASS location used for delineation of
 #'      environmental hillslope areas. Should be larger than the expected catchment,
 #'      otherwise artefacts close to boundaries may occur.
@@ -48,6 +48,7 @@
 #' @param stream Output: Name of stream segments raster map exported into GRASS
 #'      location. If you want to convert it into a vector map apply GRASS function
 #'      \emph{r.thin} beforehand!
+#' @param disk_swap (optional, default: FALSE) Only needed if memory requirements exceed available RAM (large DEMs): If set to \code{TRUE}, \code{r.watershed} uses the "-m"-flag (slow)      
 #' @param stream_horton Output: Name of stream segments raster map in Horton stream
 #'      order exported into GRASS location.
 #' @param elevriv Output: Name of relative elevation raster map exported into GRASS
@@ -93,18 +94,22 @@
 #'      (see above) are written into GRASS location.
 #'
 #' @note Prepare GRASS location and necessary raster files in advance and start
-#'      GRASS session in R using \code{\link[rgrass7]{initGRASS}}.
+#'      GRASS session in R using \code{\link[rgrass]{initGRASS}}.
 #' 
 #'      Make sure that the GRASS functions \emph{r.stream.distance} and \emph{r.stream.order}
 #'      are available to your GRASS installation. If not, consider \emph{g.extension} to
 #'      install add-ons. If you installed add-ons locally it might occur that from within R
 #'      the path to add-ons is not recognised. In such a case locate the local installation
 #'      path (in a GRASS terminal check \code{g.extension -a}, \code{echo $GRASS_ADDON_BASE} and \code{which r.stream.distance} / \code{where r.stream.distance}, and specify the
-#'      absolute path to add-ons via argument \code{addon_path}. In Windows, replace backslahes for slashes. For more information, see also
+#'      absolute path to add-ons via argument \code{addon_path}. In Windows, replace backslashes for slashes. For more information, see also
 #'      \url{http://grasswiki.osgeo.org/wiki/AddOns/GRASS_7}.
 #'      
 #'      See GRASS documentation for further information on GRASS functions and
 #'      parameters.
+#'      
+#'      If you run into \bold{memory issues}, consider argument \code{disk_swap} (see also 
+#'      \link[GRASS homepage]{https://grass.osgeo.org/grass74/manuals/r.watershed.html#in-memory-mode-and-disk-swap-mode})
+#'      and see discussion on \link[lumpR's github page]{https://github.com/tpilz/lumpR/issues/16}.
 #'        
 #' @references Source code based on \code{SHELL} and \code{MATLAB} scripts of Till Francke.
 #' 
@@ -137,6 +142,7 @@ lump_grass_prep <- function(
   flowdir=NULL,
   flowacc=NULL,
   stream=NULL,
+  disk_swap=FALSE,
   stream_horton=NULL,
   elevriv=NULL,
   distriv=NULL,
@@ -164,9 +170,17 @@ lump_grass_prep <- function(
   if(!silent) message("% Initialise function...")
   
 # checks #---------------------------------------------------------------------
-  tryCatch(gmeta(), error = function(e) stop("Cannot execute GRASS commands. Maybe you forgot to run initGRASS()?"))
+  #tryCatch(gmeta(), error = function(e) stop("Cannot execute GRASS commands. Maybe you forgot to run initGRASS()?"))
+  test_grass()
   if(is.null(mask))
     stop("The name of a raster within the mapset of your initialised GRASS session to be used as catchment MASK in GRASS has to be given!")
+  check_raster(mask, "mask")
+  
+  if(disk_swap) {
+    ws_flags <- c("overwrite","m", "a", "b", "s")
+  } else {
+    ws_flags <- c("overwrite", "a", "b", "s")
+  }
   
   if ("eha" %in% things2do)
   {
@@ -219,7 +233,27 @@ lump_grass_prep <- function(
 
   
   # add slash to end of addon_path if necessary
+  addontest = try(execGRASS("g.extension", flags="a", intern=TRUE), silent = TRUE)
+  if (class(addontest)=="try-error")
+    stop("Cannot execute GRASS commands. Maybe you forgot to run initGRASS()?")
   
+  #doesn't work for Windows
+  #if (any(grepl(addon, pattern="No extension"))) #no extensions found
+  #  stop("No GRASS extension found. Please check section Note in help of lump_grass_prep()")
+  
+  # addontest = try(execGRASS("r.stream.order", intern=TRUE), silent = TRUE)
+  # if (class(addon)=="try-error")
+  #   stop("Cannot run GRASS extension 'r.stream.order'. Please check section Note in help of lump_grass_prep()")
+  # 
+  # addontest = try(execGRASS("r.stream.distance", intern=TRUE), silent = TRUE)
+  # if (class(addon)=="try-error")
+  #   stop("Cannot run GRASS extension 'r.stream.distance'. Please check section Note in help of lump_grass_prep()")
+  
+  #try to install automatically: doesn't work on window
+  #res = try(execGRASS("g.extension",extension="r.stream.distance", operation="add", intern=TRUE), silent = TRUE)
+  
+    
+    
   if(!is.null(addon_path))
       if((addon_path!="") & substr(addon_path, nchar(addon_path), nchar(addon_path)) != "/")
       addon_path <- paste0(addon_path, "/")
@@ -238,6 +272,7 @@ lump_grass_prep <- function(
     options(warn = -1)
   }
   
+  options(error=cleanup) #in case of errors, clean up and reset to original warning and messaging state
   
   # remove output of previous function calls if overwrite=T (remove only relevant maps according to things2do)
   if (overwrite) {
@@ -261,22 +296,27 @@ lump_grass_prep <- function(
   
 # eha #------------------------------------------------------------------------
   if ("eha" %in% things2do) {
-    tryCatch({
       if(!silent) message("%")
       if(!silent) message("% Calculate and process EHAs...")
       
       # remove mask if there is any (and ignore error in case there is no mask)
-      tryCatch(suppressWarnings(execGRASS("r.mask", flags=c("r"))), error=function(e){})
-      
-      # calculate EHA etc.
-      cmd_out <- execGRASS("r.watershed", elevation=dem, threshold=eha_thres, half_basin="eha_t1", stream=stream,
-                accumulation="flow_accum_t", drainage=flowdir, flags = c("s"), intern=T)
-  
-      #border cells that receive inflow from outside get negative values, which propagate through entire basin. Check if this is a real problem or just an artefact!
-      cmd_out <- execGRASS("r.mapcalc", expression=paste0(flowacc, "= abs(flow_accum_t)"), intern=T)
+      tt=tryCatch(suppressWarnings(execGRASS("r.mask", flags=c("r"), intern=TRUE)), error=function(e){})
       
       # set mask and region
       cmd_out <- execGRASS("r.mask", raster=mask, intern = T)
+      
+      # calculate EHA etc.
+      #cmd_out <- execGRASS("r.watershed", elevation=dem, threshold=eha_thres, half_basin="eha_t1", stream=stream,
+      #          accumulation="flow_accum_t", drainage=flowdir, flags = c("s", "a"), intern=TRUE)
+      cmd_out <- execGRASS("r.watershed", elevation=dem, threshold=eha_thres, half_basin="eha_t1", stream=stream,
+                           accumulation=flowacc, drainage=flowdir, flags = ws_flags, intern=TRUE)
+
+      if (!is.null(attr(cmd_out, "status")) && attr(cmd_out, "status")!=0) stop(cat(paste0("Error running r.watershed:", paste0(cmd_out, collapse="\n"))))
+      
+      ##border cells that receive inflow from outside get negative values, which propagate through entire basin. Check if this is a real problem or just an artefact!
+      #cmd_out <- execGRASS("r.mapcalc", expression=paste0(flowacc, "= abs(flow_accum_t)"), intern=T)
+      
+      
       
       #remove fragments
       cmd_out <- execGRASS("r.reclass.area", input="eha_t1", mode="greater", value=sizefilter, output="eha_t2", intern = T)
@@ -294,32 +334,18 @@ lump_grass_prep <- function(
 
       if(!silent) message("% OK")
       # if an error occurs delete all temporary output
-    }, error = function(e) {
-      
-      # stop sinking
-      closeAllConnections()
-      
-      # restore original warning mode
-      if(silent)
-        options(warn = oldw)
-      
-      # remove mask if there is any (and ignore error in case there is no mask)
-      cmd_out <-tryCatch(suppressWarnings(execGRASS("r.mask", flags=c("r"), intern = T)), error=function(e){})
-      
-      if(keep_temp == FALSE)
-        cmd_out <- execGRASS("g.remove", type="raster", pattern=paste("*_t,*_t1,*_t2,*_t3", eha, flowdir, flowacc, stream, sep=","), flags=c("f", "b"), intern=T)
-      
-      stop(paste(e))  
-    })
+    
   } # things2do: eha
      
   
 # river #----------------------------------------------------------------------
   if ("river" %in% things2do) {
-    tryCatch({
+    
       if(!silent) message("%")
       if(!silent) message("% Calculate river network and morphological parameters...")
-      
+      if (!check_raster(stream, "stream", raiseerror = FALSE))  
+        stop(paste0("Couldn't find stream raster ", stream, ". Generate it yourself or re-run with 'things2do='eha' to produce it."))
+
       # set mask
       cmd_out <-tryCatch(suppressWarnings(execGRASS("r.mask", flags=c("r"), intern = T)), error=function(e){})
       cmd_out <- execGRASS("r.mask", raster=mask, intern = T)
@@ -351,30 +377,13 @@ lump_grass_prep <- function(
       
       if(!silent) message("% OK")
     # if an error occurs delete all temporary output
-    }, error = function(e) {
-      
-      # stop sinking
-      closeAllConnections()
-      
-      # restore original warning mode
-      if(silent)
-        options(warn = oldw)
-      
-      # remove mask if there is any (and ignore error in case there is no mask)
-      cmd_out <-tryCatch(suppressWarnings(execGRASS("r.mask", flags=c("r"), intern = T)), error=function(e){})
-      
-      if(keep_temp == FALSE)
-        cmd_out <- execGRASS("g.remove", type="raster", pattern=paste("*_t,*_t1,*_t2,*_t3", stream_horton, elevriv, distriv, sep=","), flags=c("f", "b"), intern=T)
-      
-      stop(paste(e)) 
-    })
+    
   } # things2do: river
 
   
 # svc #------------------------------------------------------------------------
   if ("svc" %in% things2do) {
-    tryCatch({
-
+    
       if(!silent) message("%")
       if(!silent) message("% Calculate soil vegetation components...")
       
@@ -522,23 +531,7 @@ lump_grass_prep <- function(
   
       if(!silent) message("% OK")
       # if an error occurs delete all temporary output
-    }, error = function(e) {
-      
-      # stop sinking
-      closeAllConnections()
-      
-      # restore original warning mode
-      if(silent)
-        options(warn = oldw)
-      
-      # remove mask if there is any (and ignore error in case there is no mask)
-      cmd_out <-tryCatch(suppressWarnings(execGRASS("r.mask", flags=c("r"), intern = T)), error=function(e){})
-      
-      if(keep_temp == FALSE)
-        cmd_out <- execGRASS("g.remove", type="raster", pattern=paste("*_t,*_t1,*_t2,*_t3", svc, sep=","), flags=c("f", "b"), intern = T)
-      
-      stop(paste(e))  
-    })
+    
   } # things2do: svc
   
   

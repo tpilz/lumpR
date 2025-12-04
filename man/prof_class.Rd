@@ -4,16 +4,30 @@
 \alias{prof_class}
 \title{Classification of mean catenas}
 \usage{
-prof_class(catena_file = NULL, catena_head_file = NULL,
-  svc_column = "svc", dir_out = "./", luoutfile = "lu.dat",
-  tcoutfile = "tc.dat", lucontainstcoutfile = "lucontainstc.dat",
+prof_class(
+  catena_file = NULL,
+  catena_head_file = NULL,
+  svc_column = "svc",
+  dir_out = "./",
+  luoutfile = "lu.dat",
+  tcoutfile = "tc.dat",
+  lucontainstcoutfile = "lucontainstc.dat",
   tccontainssvcoutfile = "r_tc_contains_svc.dat",
   terraincomponentsoutfile = "terraincomponents.dat",
-  recl_lu = "reclass_lu.txt", saved_clusters = NULL, seed = 1312,
-  resolution = NULL, classify_type = " ", max_com_length = NULL,
-  com_length = NULL, make_plots = F, eha_subset = NULL,
-  eha_blacklist = NULL, overwrite = F, silent = F,
-  plot_silhouette = T)
+  recl_lu = "reclass_lu.txt",
+  saved_clusters = NULL,
+  seed = 1312,
+  resolution = NULL,
+  classify_type = " ",
+  max_com_length = NULL,
+  com_length = NULL,
+  make_plots = F,
+  eha_subset = NULL,
+  eha_blacklist = NULL,
+  overwrite = F,
+  silent = F,
+  plot_silhouette = T
+)
 }
 \arguments{
 \item{catena_file}{Name of file containing mean catena information derived from
