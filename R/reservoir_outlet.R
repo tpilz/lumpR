@@ -116,7 +116,7 @@ reservoir_outlet <- function(
   if (!any(grepl(cmd_out, pattern="\\|area"))) #add area field in hectars, if not present
   {  
     x <- execGRASS("v.db.addcolumn", map=res_vct, columns="area double", intern=TRUE) 
-    x <- execGRASS("v.to.db", map=res_vct, option="area", columns="area", units="hectares", intern=TRUE) 
+    x <- execGRASS("v.to.db", map=res_vct, option="area", columns="area", units="hectares", intern=TRUE, flags="overwrite") 
   }
   
   
