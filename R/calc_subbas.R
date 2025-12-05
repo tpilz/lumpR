@@ -350,7 +350,6 @@ calc_subbas <- function(
     ### snap given drainage points to streams------------------------------------
     if(!silent) message("%")
     if(!silent) message("% Snap given drainage points to streams...")
-    
     # add data slot and columns subbas_id and cat, if not given
     if(!any(slotNames(drain_points) == "data"))
       drain_points <- SpatialPointsDataFrame(drain_points, data=data.frame(subbas_id=1:length(drain_points)))
@@ -371,8 +370,7 @@ calc_subbas <- function(
       stop("The column 'subbasin_id' in drain_points contains non-numeric entries.")
     # write to GRASS
     suppressWarnings(proj4string(drain_points) <- CRS(getLocationProj()))
-    suppressWarnings(write_VECT(vect(drain_points), paste0(points_processed,"_t"), flags = "overwrite"))
-
+    suppressWarnings(write_VECT(vect(drain_points), paste0(points_processed,"_t"), flags = c("overwrite", "o")))
     clean_temp_dir(paste0(points_processed, "_t"))
     
     #alternative snapping (done in R. Very slow for some export/conversion steps, rasterization of stream vector is not thin - ambiguous snapping!)
@@ -427,6 +425,7 @@ calc_subbas <- function(
     cmd_out = execGRASS("g.rename", raster="MASK,MASK_bak", flags="overwrite", intern = TRUE) #save existing mask
     
     cmd_out = execGRASS("r.mask", vector=paste0(points_processed,"_buffered_t"), flags="overwrite", intern = TRUE) #create MASK from buffer
+
     cmd_out = execGRASS("r.mapcalc", expression=paste0(stream,"_clipped_t=", stream, "_thin_t"), flags="overwrite", intern = TRUE)
 
     cmd_out = execGRASS("g.remove", type="raster", name="MASK", flag="f", intern = TRUE) #remove MASK
@@ -476,7 +475,7 @@ calc_subbas <- function(
     if(!silent) message("% Calculate catchments for every drainage point...")
     
     #compute entire catchment
-    outlet <- which(drain_points_snap$subbas_id == outlet_id) # update index to outlet, as its order may have changed during previous steps
+    outlet <- which(drain_points_snap$subbas_id == outlet) # update index to outlet, as its order may have changed during previous steps
     drain_points_snap = as(drain_points_snap, "Spatial")
     outlet_coords <- coordinates(drain_points_snap)[outlet,]
     
@@ -543,7 +542,7 @@ calc_subbas <- function(
         drain_points_calc$subbas_id = new_ids #set new IDs
         
         # write to GRASS location
-        write_VECT(vect(drain_points_calc), paste0(points_processed, "_calc_vec_t"), ignore.stderr = T, flags = "overwrite")
+        write_VECT(vect(drain_points_calc), paste0(points_processed, "_calc_vec_t"), ignore.stderr = T, flags = c("overwrite", "o"))
         
         # set the same attributes to drain_points_snap and drain_points_calc_t to allow merging
         drain_points_snap@data <- drain_points_snap@data[,c("cat", "subbas_id")]
@@ -557,7 +556,7 @@ calc_subbas <- function(
     }
     
     # combine drain points as raster (easier to identify double drain points sharing one raster cell)
-    suppressWarnings(write_VECT(vect(drain_points_snap), paste0(points_processed, "_all_t"), flags = "overwrite"))
+    suppressWarnings(write_VECT(vect(drain_points_snap), paste0(points_processed, "_all_t"), flags = c("overwrite", "o")))
     clean_temp_dir(paste0(points_processed,"_all_t"))
     
     x <- execGRASS("v.to.rast", input=paste0(points_processed, "_all_t"), output=paste0(points_processed, "_all_t_t"), use="attr", attribute_column="subbas_id", flags="overwrite", intern=T)
