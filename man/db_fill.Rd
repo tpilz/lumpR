@@ -625,31 +625,43 @@ For each table a single file has to be prepared manually and/or using functions 
  Small reservoir parameters. Fill in output of \code{\link[lumpR]{reservoir_lumped}} (\code{reservoirs_small_classes.dat}).
      \emph{pid}\cr
      reservoir class ID
+     
      \emph{name}\cr
      optional name tag. Leave empty if not used.
+     
      \emph{maxlake0}\cr
      Upper limit of reservoir size class in terms of volume [m^3]
+     
      \emph{lake_vol0_factor}\cr
      Fraction of storage capacity that indicates the initial water volume in the reservoir size classes [-]
+     
      \emph{lake_change}\cr
      Factor that indicates yearly variation in the number of reservoirs of the size classes [-]
+     
      \emph{alpha_Molle}\cr
      Parameters of the area-volume relationship in the reservoir size classes (Area=alpha.k.(Vol/k)alpha/(alpha-1)) [-]. Values of reservoir area and volume are expressed in m² and m³, respectively
+     
      \emph{k_Molle}\cr
      Parameters of the area-volume relationship in the reservoir size classes (Area=alpha.k.(Vol/k)alpha/(alpha-1)) [-]. Values of reservoir area and volume are expressed in m² and m³, respectively
+     
      \emph{damc}\cr
      Parameters of the spillway rating curve in the reservoir size classes (Qout=damc.Hv^damd) [-]. Values of water height over the spillway and overflow discharges are expressed in m and m³/s, respectively
+     
      \emph{damd}\cr
      Parameters of the spillway rating curve in the reservoir size classes (Qout=damc.Hv^damd) [-]. Values of water height over the spillway and overflow discharges are expressed in m and m³/s, respectively
+     
  
  \bold{r_subbas_contains_reservoirs_small}\cr
  Small reservoir distribution in subbasins. Fill in output of \code{\link[lumpR]{reservoir_lumped}} (\code{r_subbas_contains_reservoirs_small.dat}).
      \emph{subbas_id}\cr
        foreign key to subbas',
+       
      \emph{res_class_id}\cr
        foreign key to reservoirs_small_classes',
+       
      \emph{n_reservoirs}\cr
        number of reservoirs [-]',
+       
      \emph{maxlake}\cr
        Mean value of initial storage capacity of the hypothetical representative reservoirs of the size classes [m^3]',
 }
