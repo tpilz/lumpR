@@ -27,7 +27,7 @@ install_github("tPilz/lumpR")
 The main branch relies on GRASS8. For legacy support of GRASS7 (no further development and support), use branch [https://github.com/tpilz/lumpR/tree/grass7]
 
 ## DEPENDENCIES
-* [R language](https://www.r-project.org/)
+* [R language](https://www.r-project.org/), including extensions r.stream.distance and r.stream.order
 * [GRASS GIS](https://grass.osgeo.org/), version 8.
 * data base (e.g. sqlite, MariaDB, LibreOffice Base or other DBs with ODBC-driver)
 
