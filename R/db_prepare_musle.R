@@ -57,7 +57,7 @@ db_prepare_musle <- function(
 
   
     
-  #this is a quick-and-dirty conversion from legacy PHP-code. It could probaby be solved in a couple of lines in R. Sorry for not having had the time, though.
+  #this is a quick-and-dirty conversion from legacy PHP-code. It could probably be solved in a couple of lines in R. Sorry for not having had the time, though.
   
   if(verbose) message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
   if(verbose) message("% START db_prepare_musle()")
@@ -132,16 +132,24 @@ db_prepare_musle <- function(
   res = sqlQuery(con, query = statement, errors = FALSE)  	#delete any existing table
   
   
-  
-  if(grepl("MariaDB", odbcGetInfo(con)["DBMS_Name"], ignore.case=T))
-  {  
+  #generate command according to SQL-engine
+  if(grepl("MariaDB", odbcGetInfo(con)["DBMS_Name"], ignore.case=T)) 
+  {  #MariaDB
     statement =  paste0("create TABLE t_cum_above (soil_id INT NOT NULL, a_cum_above real) SELECT soil_id, sum(fraction) AS a_cum_above FROM r_soil_contains_particles WHERE class_id<=", class_above_usda_clay, " GROUP BY soil_id")
   }  else
-  {  
-    statement =  paste0("SELECT soil_id, sum(fraction) AS a_cum_above INTO t_cum_above
-               FROM r_soil_contains_particles WHERE class_id<=", class_above_usda_clay, " GROUP BY soil_id")  
-  }
-  res = sqlQuery2(con, statement, info="create temporary table <t_cum_above>")  	#produce a table containing the cumulative fractions up to class_above_usda_clay for each soil
+  if(grepl("SQLite", odbcGetInfo(con)["DBMS_Name"], ignore.case=T))  
+  { #SQLite
+    statement = "CREATE TABLE t_cum_above (soil_id INTEGER, a_cum_above REAL);"
+    res = sqlQuery2(con, statement, info="create temporary table <t_cum_above>")  	#produce a table containing the cumulative fractions up to class_above_usda_clay for each soil
+    
+    statement = "INSERT INTO t_cum_above (soil_id, a_cum_above) SELECT soil_id, SUM(fraction) AS a_cum_above
+                 FROM r_soil_contains_particles WHERE class_id <= 1 GROUP BY soil_id;"
+  } else
+  { #all other DBs  
+    statement =  paste0("SELECT soil_id, sum(fraction) AS a_cum_above INTO t_cum_above FROM r_soil_contains_particles WHERE class_id<=", class_above_usda_clay, " GROUP BY soil_id;")  
+  }  
+  
+  res = sqlQuery2(con, statement, info="create and fill temporary table <t_cum_above>")  	#produce a table containing the cumulative fractions up to class_above_usda_clay for each soil
   
   statement =  "DROP TABLE t_cum_below"
   res = sqlQuery(con, query = statement, errors = FALSE)  	#delete any existing table
@@ -150,27 +158,51 @@ db_prepare_musle <- function(
   if (class_below_usda_clay==0)	#no lower classes that can be used as a point for interpolation
   {
     class_below_usda_clay_limit=0 #interpolation starts at 0
-    #statement-statement that produces a table containing zeros for each soil
+    #statement that produces a table containing zeros for each soil
+    #generate command according to SQL-engine
     if(grepl("MariaDB", odbcGetInfo(con)["DBMS_Name"], ignore.case=T))
-      statement="create TABLE t_cum_below (soil_id INT NOT NULL, a_cum_below real) SELECT soil_id, 0 AS a_cum_below FROM r_soil_contains_particles GROUP BY soil_id"		      else
+    {  
+      #MariaDB
+      statement="create TABLE t_cum_below (soil_id INT NOT NULL, a_cum_below REAL) SELECT soil_id, 0 AS a_cum_below FROM r_soil_contains_particles GROUP BY soil_id"		      
+    } else
+    if(grepl("SQLite", odbcGetInfo(con)["DBMS_Name"], ignore.case=T))  
+    { #SQLite
+      statement = "CREATE TABLE t_cum_below (soil_id INTEGER, a_cum_below REAL);"
+      res = sqlQuery2(con, statement, info="create temporary table <t_cum_below>")  	#produce a table containing the cumulative fractions for each soil
+      statement = "INSERT INTO t_cum_below (soil_id, a_cum_below) SELECT soil_id, 0 AS a_cum_below FROM r_soil_contains_particles GROUP BY soil_id;"
+    } else
+    { #all other DBs  
       statement="SELECT soil_id, 0 AS a_cum_below INTO t_cum_below FROM r_soil_contains_particles GROUP BY soil_id"		
+    }
   } else	#use the nearest lower class as a point for interpolation
   {
     statement =  paste0("select upper_limit from particle_classes where class_id<=",class_below_usda_clay)
     res = sqlQuery2(con, statement, info="get class limit")  
     if (nrow(res) == 0)
       stop("USER-Class below USDA-clay not found.")
-    class_below_usda_clay_limit=res[1,"upper_limit"]	#get uppper limit of respective class
+    class_below_usda_clay_limit=res[1,"upper_limit"]	#get upper limit of respective class
     
     if(grepl("MariaDB", odbcGetInfo(con)["DBMS_Name"], ignore.case=T))
+    {  
       statement=paste0("create TABLE t_cum_below (soil_id INT NOT NULL, a_cum_below real) SELECT soil_id, sum(fraction) AS a_cum_below ",
-                       " FROM r_soil_contains_particles WHERE class_id<=",class_below_usda_clay, " GROUP BY soil_id")	else
+                       " FROM r_soil_contains_particles WHERE class_id<=",class_below_usda_clay, " GROUP BY soil_id")
+    }
+    else
+    if(grepl("SQLite", odbcGetInfo(con)["DBMS_Name"], ignore.case=T))  
+    {
+      statement = "CREATE TABLE t_cum_below (soil_id INTEGER, a_cum_below REAL);"
+      res = sqlQuery2(con, statement, info="create temporary table <t_cum_below>")  	#produce a table containing the cumulative fractions for each soil
+      statement = paste0("INSERT INTO t_cum_below (soil_id, a_cum_below) SELECT soil_id, sum(fraction) AS a_cum_below FROM r_soil_contains_particles WHERE class_id<=",class_below_usda_clay, " GROUP BY soil_id")
+    }
+    else
+    { #all other DBs  
       statement=paste0("SELECT soil_id, sum(fraction) AS a_cum_below  INTO t_cum_below",
       " FROM r_soil_contains_particles WHERE class_id<=",class_below_usda_clay, 
       " GROUP BY soil_id")		#statement-statement that produces a table containing the cumulative fractions up to class_below_usda_clay for each soil
+    }
   }
   
-  res = sqlQuery2(con, statement, info="create temporary table <t_cum_below>")  	#produce a table containing the cumulative fractions up to class_below_usda_clay for each soil
+  res = sqlQuery2(con, statement, info="create and fill temporary table <t_cum_below>")  	#produce a table containing the cumulative fractions up to class_below_usda_clay for each soil
   
   statement =  "select count(*) from soils"
   res = sqlQuery2(con, statement, info="checking entries in <soil>")  
@@ -180,9 +212,23 @@ db_prepare_musle <- function(
   statement =  "UPDATE soils SET a_clay=0,a_silt=0,a_sand=0"
   res = sqlQuery2(con, statement, info="initialise USDA-fractions columns in <soil>")  
   
+  #browser()
+  #con <- connect_db(dbname)
+  
   print("computing USDA-clay-content...")
+  
+  if(grepl("SQLite", odbcGetInfo(con)["DBMS_Name"], ignore.case=T))  
+  { #SQLite
+    statement =  paste0("UPDATE soils
+    SET a_clay = (
+      (
+        (SELECT a_cum_above FROM t_cum_above WHERE t_cum_above.soil_id = soils.pid) -
+          (SELECT a_cum_below FROM t_cum_below WHERE t_cum_below.soil_id = soils.pid)
+      ) * ",clay_upper_limit-class_below_usda_clay_limit,") / 0.002;")
+  }   else #all other DBs  
   statement =  paste0("UPDATE (soils LEFT JOIN t_cum_above ON soils.pid=t_cum_above.soil_id) LEFT JOIN t_cum_below ON soils.pid=t_cum_below.soil_id",
-  " SET a_clay = ((a_cum_above-a_cum_below)*(",clay_upper_limit-class_below_usda_clay_limit,"))/(",class_above_usda_clay_limit-class_below_usda_clay_limit,")")
+                      " SET a_clay = ((a_cum_above-a_cum_below)*(",clay_upper_limit-class_below_usda_clay_limit,"))/",class_above_usda_clay_limit-class_below_usda_clay_limit,";")
+  
   res = sqlQuery2(con, statement, info="compute USDA-clay content")  
   
   print("OK")
@@ -204,10 +250,22 @@ db_prepare_musle <- function(
   res = sqlQuery(con, query = statement, errors = FALSE)  	#delete any existing table
   
   if(grepl("MariaDB", odbcGetInfo(con)["DBMS_Name"], ignore.case=T))
+  #MariaDB  
+  {  
     statement =  paste0("create TABLE t_cum_above (soil_id INT NOT NULL, a_cum_above real) SELECT soil_id, sum(fraction) AS a_cum_above ",
-                        " FROM r_soil_contains_particles WHERE class_id<=",class_above_usda_silt," GROUP BY soil_id") else  
-  statement =  paste0("SELECT soil_id, sum(fraction) AS a_cum_above INTO t_cum_above",
-  " FROM r_soil_contains_particles WHERE class_id<=",class_above_usda_silt," GROUP BY soil_id")
+                        " FROM r_soil_contains_particles WHERE class_id<=",class_above_usda_silt," GROUP BY soil_id")
+  }  else 
+  if(grepl("SQLite", odbcGetInfo(con)["DBMS_Name"], ignore.case=T))  
+  { #SQLite
+    statement = "CREATE TABLE t_cum_above (soil_id INTEGER, a_cum_above REAL);"
+    res = sqlQuery2(con, statement, info="create temporary table <t_cum_below>")  	#produce a table containing the cumulative fractions for each soil
+    statement = paste0("INSERT INTO t_cum_above (soil_id, a_cum_above) SELECT soil_id, sum(fraction) AS a_cum_above ",
+    " FROM r_soil_contains_particles WHERE class_id<=",class_above_usda_silt," GROUP BY soil_id")
+  } else
+  { #all other DBs    
+    statement =  paste0("SELECT soil_id, sum(fraction) AS a_cum_above INTO t_cum_above",
+                        " FROM r_soil_contains_particles WHERE class_id<=",class_above_usda_silt," GROUP BY soil_id")
+  }
   res = sqlQuery2(con, statement, info="t_cum_above for silt")  	#produce a table containing the cumulative fractions up to class_above_usda_silt for each soil
   
   statement =  "DROP TABLE t_cum_below"
@@ -219,10 +277,23 @@ db_prepare_musle <- function(
     #statement-statement that produces a table containing zeros for each soil  
     class_below_usda_silt_limit=0 #interpolation starts at 0
     if(grepl("MariaDB", odbcGetInfo(con)["DBMS_Name"], ignore.case=T))
-    statement=paste0("create TABLE t_cum_below (soil_id INT NOT NULL, a_cum_below real) SELECT soil_id, 0 AS a_cum_below ",
-                       " FROM r_soil_contains_particles GROUP BY soil_id") else	
-    statement=paste0("SELECT soil_id, 0 AS a_cum_below INTO t_cum_below",
-    " FROM r_soil_contains_particles GROUP BY soil_id")	
+    #MariaDB
+    {
+      statement=paste0("create TABLE t_cum_below (soil_id INT NOT NULL, a_cum_below real) SELECT soil_id, 0 AS a_cum_below ",
+                         " FROM r_soil_contains_particles GROUP BY soil_id")
+    } else	
+    if(grepl("SQLite", odbcGetInfo(con)["DBMS_Name"], ignore.case=T))  
+    { #SQLite
+      statement = "CREATE TABLE t_cum_below (soil_id INTEGER, a_cum_below REAL);"
+      res = sqlQuery2(con, statement, info="create temporary table <t_cum_below>")  	#produce a table containing the cumulative fractions for each soil
+      statement = paste0("INSERT INTO t_cum_below (soil_id, a_cum_below) SELECT soil_id, 0 AS a_cum_below ",
+      " FROM r_soil_contains_particles GROUP BY soil_id")
+    } else  
+    {  
+        #all other DBs      
+      statement=paste0("SELECT soil_id, 0 AS a_cum_below INTO t_cum_below",
+      " FROM r_soil_contains_particles GROUP BY soil_id")	
+    }
   } else	#use the nearest lower class as a point for interpolation
   {
     statement =  paste0("select upper_limit from particle_classes where class_id=",class_below_usda_silt) #?
@@ -232,8 +303,17 @@ db_prepare_musle <- function(
     class_below_usda_silt_limit=res[1,"upper_limit"]	#get uppper limit of respective class
     
     if(grepl("MariaDB", odbcGetInfo(con)["DBMS_Name"], ignore.case=T))
-    statement=paste0("create TABLE t_cum_below (soil_id INT NOT NULL, a_cum_below real) SELECT soil_id, sum(fraction) AS a_cum_below ",
-    " FROM r_soil_contains_particles WHERE class_id<=",class_below_usda_silt, " GROUP BY soil_id")    else
+    {  
+      statement=paste0("create TABLE t_cum_below (soil_id INT NOT NULL, a_cum_below real) SELECT soil_id, sum(fraction) AS a_cum_below ",
+      " FROM r_soil_contains_particles WHERE class_id<=",class_below_usda_silt, " GROUP BY soil_id")    
+    }  else
+    if(grepl("SQLite", odbcGetInfo(con)["DBMS_Name"], ignore.case=T))  
+    { #SQLite
+      statement = "CREATE TABLE t_cum_below (soil_id INTEGER, a_cum_below REAL);"
+      res = sqlQuery2(con, statement, info="create temporary table <t_cum_below>")  	#produce a table containing the cumulative fractions for each soil
+      statement = paste0("INSERT INTO t_cum_below (soil_id, a_cum_below) SELECT soil_id, sum(fraction) AS a_cum_below ",
+      " FROM r_soil_contains_particles WHERE class_id<=",class_below_usda_silt, " GROUP BY soil_id") 
+    } else 
     statement=paste0("SELECT soil_id, sum(fraction) AS a_cum_below  INTO t_cum_below",
     " FROM r_soil_contains_particles WHERE class_id<=",class_below_usda_silt, " GROUP BY soil_id")		
   }
@@ -266,8 +346,17 @@ db_prepare_musle <- function(
   statement =  "DROP TABLE t_cum_above"
   res = sqlQuery(con, query = statement, errors = FALSE)  	#delete any existing table
   if(grepl("MariaDB", odbcGetInfo(con)["DBMS_Name"], ignore.case=T))
+  {  
     statement =  paste0("create TABLE t_cum_above (soil_id INT NOT NULL, a_cum_above real) SELECT soil_id, sum(fraction) AS a_cum_above ",
-                        " FROM r_soil_contains_particles WHERE class_id<=", class_above_usda_sand," GROUP BY soil_id")  else
+                        " FROM r_soil_contains_particles WHERE class_id<=", class_above_usda_sand," GROUP BY soil_id")
+  }  else
+  if(grepl("SQLite", odbcGetInfo(con)["DBMS_Name"], ignore.case=T))  
+  { #SQLite
+    statement = "CREATE TABLE t_cum_above (soil_id INTEGER, a_cum_above REAL);"
+    res = sqlQuery2(con, statement, info="create temporary table <t_cum_above>")  	#produce a table containing the cumulative fractions for each soil
+    statement = paste0("INSERT INTO t_cum_above (soil_id, a_cum_above) SELECT soil_id, sum(fraction) AS a_cum_above ",
+                       " FROM r_soil_contains_particles WHERE class_id<=", class_above_usda_sand," GROUP BY soil_id") 
+  }  else
   statement =  paste0("SELECT soil_id, sum(fraction) AS a_cum_above INTO t_cum_above",
   " FROM r_soil_contains_particles WHERE class_id<=", class_above_usda_sand," GROUP BY soil_id")
   res = sqlQuery2(con, statement, info="cumulative fractions up to class_above_usda_sand")  	#produce a table containing the cumulative fractions up to class_above_usda_sand for each soil
@@ -290,8 +379,17 @@ db_prepare_musle <- function(
     #statement-statement that produces a table containing the cumulative fractions up to class_below_usda_sand for each soil
     class_below_usda_sand_limit=res[1, "upper_limit"]	#get uppper limit of respective class
     if(grepl("MariaDB", odbcGetInfo(con)["DBMS_Name"], ignore.case=T))
+    {  
       statement =  paste0("create TABLE t_cum_below (soil_id INT NOT NULL, a_cum_below real) SELECT soil_id, sum(fraction) AS a_cum_below ",
-    " FROM r_soil_contains_particles WHERE class_id<=", class_below_usda_sand, " GROUP BY soil_id") else
+    " FROM r_soil_contains_particles WHERE class_id<=", class_below_usda_sand, " GROUP BY soil_id")
+    } else
+    if(grepl("SQLite", odbcGetInfo(con)["DBMS_Name"], ignore.case=T))  
+    { #SQLite
+      statement = "CREATE TABLE t_cum_below (soil_id INTEGER, a_cum_below REAL);"
+      res = sqlQuery2(con, statement, info="create temporary table <t_cum_below>")  	#produce a table containing the cumulative fractions for each soil
+      statement = paste0("INSERT INTO t_cum_below (soil_id, a_cum_below) SELECT soil_id, sum(fraction) AS a_cum_below ",
+                         " FROM r_soil_contains_particles WHERE class_id<=", class_below_usda_sand, " GROUP BY soil_id")
+    } else   
     statement=paste0("SELECT soil_id, sum(fraction) AS a_cum_below  INTO t_cum_below",
     " FROM r_soil_contains_particles WHERE class_id<=", class_below_usda_sand, " GROUP BY soil_id")		
   }
@@ -299,13 +397,23 @@ db_prepare_musle <- function(
   res = sqlQuery2(con, statement, info="fractions up to class_below_usda_sand")  	#produce a table containing the cumulative fractions up to class_below_usda_sand for each soil
   
   print("computing USDA-sand-content...")
-  statement =  paste0("UPDATE (soils LEFT JOIN t_cum_above ON soils.pid=t_cum_above.soil_id) LEFT JOIN t_cum_below ON soils.pid=t_cum_below.soil_id",
-  " SET a_sand = ((a_cum_above-a_cum_below)*(",sand_upper_limit-class_below_usda_sand_limit, "))/(",class_above_usda_sand_limit-class_below_usda_sand_limit,")")
+  if(grepl("SQLite", odbcGetInfo(con)["DBMS_Name"], ignore.case=T))  
+  { #SQLite
+    statement =  paste0("UPDATE soils
+    SET a_sand = (
+      (
+        (SELECT a_cum_above FROM t_cum_above WHERE t_cum_above.soil_id = soils.pid) -
+          (SELECT a_cum_below FROM t_cum_below WHERE t_cum_below.soil_id = soils.pid)
+      ) * ",sand_upper_limit-class_below_usda_sand_limit,") / ",class_above_usda_sand_limit-class_below_usda_sand_limit, "")
+  }   else 
+  {
+    statement =  paste0("UPDATE (soils LEFT JOIN t_cum_above ON soils.pid=t_cum_above.soil_id) LEFT JOIN t_cum_below ON soils.pid=t_cum_below.soil_id",
+  " SET a_sand = ((a_cum_above-a_cum_below)*(",sand_upper_limit-class_below_usda_sand_limit, "))/",class_above_usda_sand_limit-class_below_usda_sand_limit,"")
+  }
   res = sqlQuery2(con, statement, info="compute USDA-sand")  
   print("OK")
   
-  statement = paste0("UPDATE (soils LEFT JOIN t_cum_above ON soils.pid=t_cum_above.soil_id) LEFT JOIN t_cum_below ON soils.pid=t_cum_below.soil_id",
-  " SET a_silt=1-a_sand-a_clay")
+  statement = "UPDATE soils SET a_silt = 1 - a_sand - a_clay;"
   res = sqlQuery2(con, statement, info="set USDA-silt")  
   
   #### compute subfactors ####
