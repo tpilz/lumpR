@@ -15,9 +15,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-#' Prepare various input related to use of (M)USLE module (erosion)
+#' Prepare various input related to use of sediment module using (M)USLE erosion
 #' 
-#' Function to write parameter values relevant for modelling application with the
+#' Function to compute and write erosion-related parameter values relevant for modelling application with the
 #' WASA-SED hydrological model into an existing database, preferably created with
 #' \code{\link[lumpR]{db_create}}.
 #' 
@@ -32,7 +32,8 @@
 #' @param verbose \code{logical}. Enable printing of information during execution. Default: \code{TRUE}.
 #' 
 #' @details 
-#'  after Williams (1995). [explanation to be elaborated]
+#' This function uses the texture information of the topmost horizon, converting it to USDA-texture classes and applying the relationships proposed by 
+#'  after Williams (1995).
 #'          
 #' 
 #' @references
@@ -41,7 +42,7 @@
 #'      landscape discretisation for hillslope-based hydrological models.
 #'      \emph{Geosci. Model Dev.}, 10, 3001-3023, doi: 10.5194/gmd-10-3001-2017
 #'      
-#'     
+#'      Williams, J. R.(1995): The EPIC Model. In Computer Models of Watershed Hydrology; Singh, V. P., Ed.; Water Resources Publications: Highlands Ranch, CO, USA, 1995; pp 909–1000.
 #'      
 #' 
 #' @author 
@@ -211,9 +212,6 @@ db_prepare_musle <- function(
   
   statement =  "UPDATE soils SET a_clay=0,a_silt=0,a_sand=0"
   res = sqlQuery2(con, statement, info="initialise USDA-fractions columns in <soil>")  
-  
-  #browser()
-  #con <- connect_db(dbname)
   
   print("computing USDA-clay-content...")
   
@@ -458,30 +456,62 @@ db_prepare_musle <- function(
   
   } #end computation musle k
   
-  
   #copy from other tables ####
   if ("musle-k" %in% tolower(copy_from_other_tables))
   {  
-    statement =  "UPDATE soil_veg_components INNER JOIN soils ON soils.pid=soil_veg_components.soil_id SET musle_k = a_musle_k;"
+    if(grepl("SQLite", odbcGetInfo(con)["DBMS_Name"], ignore.case=T))  
+    { #SQLite
+      statement =  "UPDATE soil_veg_components
+        SET musle_k = 
+        (SELECT a_musle_k FROM soils WHERE soils.pid=soil_veg_components.soil_id)
+      ;"
+    }   else #all other DBs  
+      statement =  "UPDATE soil_veg_components INNER JOIN soils ON soils.pid=soil_veg_components.soil_id SET musle_k = a_musle_k;"
+    
     res = sqlQuery2(con, statement, info="copy MUSLE-K")  
   }
   
   if ("manning-n" %in% tolower(copy_from_other_tables))
   {  
+    if(grepl("SQLite", odbcGetInfo(con)["DBMS_Name"], ignore.case=T))  
+    { #SQLite
+      statement =  "UPDATE soil_veg_components
+        SET manning_n = 
+        (SELECT c_manning_n FROM vegetation WHERE vegetation.pid=soil_veg_components.veg_id)
+      ;"
+    }   else #all other DBs 
     statement =  "UPDATE soil_veg_components INNER JOIN vegetation ON vegetation.pid=soil_veg_components.veg_id SET manning_n = c_manning_n;"
     res = sqlQuery2(con, statement, info="copy Manning-n")  
   }
   
   if ("musle-c" %in% tolower(copy_from_other_tables))
   {  
+    if(grepl("SQLite", odbcGetInfo(con)["DBMS_Name"], ignore.case=T))  
+    { #SQLite
+      statement =  "UPDATE soil_veg_components
+    SET musle_c1 = (SELECT c_musle_c1 FROM vegetation WHERE vegetation.pid = soil_veg_components.veg_id),
+    musle_c2 = (SELECT c_musle_c2 FROM vegetation WHERE vegetation.pid = soil_veg_components.veg_id),
+    musle_c3 = (SELECT c_musle_c3 FROM vegetation WHERE vegetation.pid = soil_veg_components.veg_id),
+    musle_c4 = (SELECT c_musle_c4 FROM vegetation WHERE vegetation.pid = soil_veg_components.veg_id);"
+    }   else #all other DBs 
     statement =  "UPDATE soil_veg_components INNER JOIN vegetation ON vegetation.pid=soil_veg_components.veg_id SET musle_c1 = c_musle_c1, musle_c2 = c_musle_c2, musle_c3 = c_musle_c3, musle_c4 = c_musle_c4;"
     res = sqlQuery2(con, statement, info="copy MUSLE-C")  
   }
   
   if ("coarse_frac" %in% tolower(copy_from_other_tables))
   {  
+    if(grepl("SQLite", odbcGetInfo(con)["DBMS_Name"], ignore.case=T))  
+    { #SQLite
+      statement =  "UPDATE soil_veg_components
+      SET coarse_frac = (
+        SELECT horizons.coarse_frag
+        FROM soils
+        JOIN horizons ON horizons.soil_id = soils.pid AND horizons.position = 1
+        WHERE soils.pid = soil_veg_components.soil_id
+      );"
+    }   else #all other DBs 
     statement =  "UPDATE soil_veg_components INNER JOIN soils ON soils.pid=soil_veg_components.soil_id INNER JOIN horizons ON horizons.soil_id=soils.pid and horizons.position=1 SET coarse_frac = horizons.coarse_frag;"
-    res = sqlQuery2(con, statement, info="copy MUSLE-C")  
+    res = sqlQuery2(con, statement, info="copy coarse_frac")  
   }
   
   if (!is.null(setP))
@@ -493,7 +523,7 @@ db_prepare_musle <- function(
       else
       {
         statement = paste0("UPDATE soil_veg_components set musle_p = ", setP,";")
-        res = sqlQuery2(con, statement, info="copy MUSLE-C")  
+        res = sqlQuery2(con, statement, info="copy MUSLE-P")  
       }
     }
 
