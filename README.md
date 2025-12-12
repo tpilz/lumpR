@@ -5,7 +5,7 @@ Landscape Unit Mapping Program for R
 
 ## DESCRIPTION
 
-This project deals with an R-package called "lumpR". The package provides functions for a semi-automated approach of the delineation and description of landscape units and their partitioning into terrain components. It can be used for the pre-processing of semi-distributed large-scale hydrological and erosion models using catena-representation (e.g. [WASA-SED](https://github.com/TillF/WASA-SED), CATFLOW). Additional pre-processing tools beyond the scope of the original LUMP algorithm are included.
+This package provides functions for a semi-automated approach of the delineation and description of landscape units and their partitioning into terrain components. It can be used for the pre-processing of semi-distributed large-scale hydrological and erosion models using catena-representation (e.g. [WASA-SED](https://github.com/TillF/WASA-SED), CATFLOW). Additional pre-processing tools beyond the scope of the original LUMP algorithm are included.
 
 
 ## INSTALLATION
@@ -20,16 +20,17 @@ install_github("tPilz/lumpR")
 ```
 
 * from zip/tar:
-	* download zip/tar from github: [>LINK<](https://github.com/tpilz/lumpR/releases)
+	* download zip/tar from the [github-repository](https://github.com/tpilz/lumpR/releases)
 	* install via R-GUI
 
 
-The main branch relies on GRASS8. For legacy support of GRASS7 (no further development and support), use branch [https://github.com/tpilz/lumpR/tree/grass7]
+The main branch relies on GRASS 8. For legacy support of GRASS 7 (no further development and support), use branch [https://github.com/tpilz/lumpR/tree/grass7]
 
 ## DEPENDENCIES
 * [R language](https://www.r-project.org/), including extensions r.stream.distance and r.stream.order
 * [GRASS GIS](https://grass.osgeo.org/), version 8.
 * data base (e.g. sqlite, MariaDB, LibreOffice Base or other DBs with ODBC-driver)
+For instruction, see the [wiki](https://github.com/tpilz/lumpR/wiki) .
 
 ## MORE INFORMATION
 
@@ -54,11 +55,11 @@ This package was also known as LUMP and has been renamed by Jan 9th 2017 to dist
 
 A paper describing lumpR along with an example study was published in GMD:
 
-[Pilz, T., Francke, T., and Bronstert, A.: lumpR 2.0.0: an R package facilitating landscape discretisation for hillslope-based hydrological models, Geosci. Model Dev., 10, 3001-3023, doi: 10.5194/gmd-10-3001-2017, 2017.](https://www.geosci-model-dev.net/10/3001/2017/gmd-10-3001-2017.html)
+Pilz, T., Francke, T., and Bronstert, A. (2017): lumpR 2.0.0: an R package facilitating landscape discretisation for hillslope-based hydrological models, Geosci. Model Dev., 10, 3001-3023, doi: [10.5194/gmd-10-3001-2017](https://www.geosci-model-dev.net/10/3001/2017/gmd-10-3001-2017.html)
 
 See also the accompanying github repository: https://github.com/tpilz/lumpr_paper
 
 
 For the original LUMP algorithm see:
 
-[Francke, T., Güntner, A., Mamede, G., Müller, E. N., and Bronstert, A.: Automated catena-based discretization of landscapes for the derivation of hydrological modelling units, Int. J. Geogr. Inf. Sci., 22, 111-132, doi:10.1080/13658810701300873, 2008.](http://www.tandfonline.com/doi/abs/10.1080/13658810701300873)
+Francke, T., Güntner, A., Mamede, G., Müller, E. N., and Bronstert, A. (2008): Automated catena-based discretization of landscapes for the derivation of hydrological modelling units, Int. J. Geogr. Inf. Sci., 22, 111-132, doi:[10.1080/13658810701300873, 2008.](http://www.tandfonline.com/doi/abs/10.1080/13658810701300873)
