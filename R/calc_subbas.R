@@ -71,6 +71,7 @@
 #' @param overwrite \code{logical}. Shall existing GRASS layers of previous calls of this function be
 #'      overwritten? If \code{FALSE}, the function returns an error if a layer already exists.
 #'      Default: \code{FALSE}.
+#' @param export_shp \code{character} . Path for exporting the generated subbasin maps to shp-file. May be used as input to processing chain in SoilDataPrep. Default: NULL
 #' @param silent \code{logical}. Shall the function be silent (also suppressing warnings
 #'      of internally used GRASS functions)? Default: \code{FALSE}.
 #'      
@@ -120,6 +121,7 @@
 #'      Pilz, T.; Francke, T.; Bronstert, A. (2017): lumpR 2.0.0: an R package facilitating
 #'      landscape discretisation for hillslope-based hydrological models.
 #'      \emph{Geosci. Model Dev.}, 10, 3001-3023, doi: 10.5194/gmd-10-3001-2017
+#'      SoilDataPrep: Package for prepare soil input for hydrological modelling from SoilGrids and Pelettier-data, specifically with WASA-SED. https://github.com/TillF/SoilDataPrep
 #' 
 #' @author Tobias Pilz \email{tpilz@@uni-potsdam.de}, Till Francke
 
@@ -145,6 +147,7 @@ calc_subbas <- function(
   rm_spurious=0.01,
   keep_temp=FALSE,
   overwrite=FALSE,
+  export_shp=NULL,
   silent=FALSE
 ) {
   
@@ -842,11 +845,20 @@ calc_subbas <- function(
     if(no_catch != no_cross) warning(paste0("\nNumber of categories in ", basin_out, " not equal to number of drainage points!\nThis might be because there are drainage points outside the catchment of the defined outlet or due to small inconsistencies between calculated and manually defined (and snapped) drainage points. However, you should check the output with the GRASS GUI and consider the help pages of this function. 
                                             Try correcting the drainage points manually by running 'v.digit map=drain_points_snap bgcmd=d.rast stream_accum_rast'"))
     
+    #export shape file, if requested
+    if (!is.null(export_shp))
+    {  
+      cmd_out <- execGRASS("r.to.vect", input = basin_out, output = paste0(basin_out, "_vec"),
+                           type = "area", column = "subbas_id", flags = c("overwrite", "quiet"), intern=T)
+      cmd_out <- execGRASS("v.out.ogr", input = paste0(basin_out, "_vec"), output = export_shp,
+                           format="ESRI_Shapefile", flags = c("overwrite", "quiet"), intern=T)
+    }
     
     
     # remove temporary maps
     if(keep_temp == FALSE)
-      execGRASS("g.remove", type="raster,vector", pattern="*_t", flags=c("f"))
+      cmd_out <- execGRASS("r.to.vect", input = paste0(points_processed, "_all_t"), output = paste0(points_processed, "_all_t"),
+                           type = "point", column = "subbas_id", flags = c("overwrite", "quiet"), intern=T)
     
     
     if(!silent & rm_spurious > 0) message(paste("% -> Checked for spurious subbasins; ", no_catch, "subbasins left."))
