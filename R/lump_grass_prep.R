@@ -75,9 +75,9 @@
 #'      it will be automatically set to a value equivalent to 50 grid cells (ATTENTION:
 #'      meters will be assumed as unit of the GRASS projection!).
 #' @param growrad Integer specifying growing radius (in raster cells) to remove
-#'      holes in the EHA raster resulting from cleaning of artefacts; parameter for
-#'      GRASS function \emph{r.grow}. If set to \code{NULL} (default), it will be
-#'      automatically set to 25 (should be but less than 100 due to long computation times!).
+#'      holes in the EHA raster resulting from cleaning of artefacts. This parameter is used
+#'      in the GRASS function \emph{r.grow}. If set to \code{NULL} (default), it will be
+#'      the value 25 will be used (larger values close larger holes, but make for longer computation times!).
 #' @param keep_temp \code{logical}. Set to \code{TRUE} if temporary files shall be kept
 #'      in the GRASS location, e.g. for debugging or further analyses. Default: \code{FALSE}.
 #' @param overwrite \code{logical}. Shall output of previous calls of this function be
@@ -98,11 +98,11 @@
 #' 
 #'      Make sure that the GRASS functions \emph{r.stream.distance} and \emph{r.stream.order}
 #'      are available to your GRASS installation. If not, consider \emph{g.extension} to
-#'      install add-ons. If you installed add-ons locally it might occur that from within R
-#'      the path to add-ons is not recognised. In such a case locate the local installation
+#'      install these add-ons. If you installed add-ons locally, it might occur that from within R
+#'      the path to the add-ons is not recognised. In such a case locate the local installation
 #'      path (in a GRASS terminal check \code{g.extension -a}, \code{echo $GRASS_ADDON_BASE} and \code{which r.stream.distance} / \code{where r.stream.distance}, and specify the
 #'      absolute path to add-ons via argument \code{addon_path}. In Windows, replace backslashes for slashes. For more information, see also
-#'      \url{http://grasswiki.osgeo.org/wiki/AddOns/GRASS_7}.
+#'      \url{http://grasswiki.osgeo.org/wiki/AddOns/}.
 #'      
 #'      See GRASS documentation for further information on GRASS functions and
 #'      parameters.
@@ -124,7 +124,7 @@
 #'      hydrological modelling units. \emph{International Journal of Geographical
 #'      Information Science, Informa UK Limited}, 22(2), 111-132, DOI: 10.1080/13658810701300873
 #' 
-#' @author Tobias Pilz \email{tpilz@@uni-potsdam.de}
+#' @author Tobias Pilz
 
 lump_grass_prep <- function(
   

@@ -2,7 +2,7 @@
 % Please edit documentation in R/db_prepare_musle.R
 \name{db_prepare_musle}
 \alias{db_prepare_musle}
-\title{Prepare various input related to use of (M)USLE module (erosion)}
+\title{Prepare various input related to use of sediment module using (M)USLE erosion}
 \usage{
 db_prepare_musle(
   dbname,
@@ -25,18 +25,21 @@ db_prepare_musle(
 \item{verbose}{\code{logical}. Enable printing of information during execution. Default: \code{TRUE}.}
 }
 \description{
-Function to write parameter values relevant for modelling application with the
+Function to compute and write erosion-related parameter values relevant for modelling application with the
 WASA-SED hydrological model into an existing database, preferably created with
 \code{\link[lumpR]{db_create}}.
 }
 \details{
-after Williams (1995). [explanation to be elaborated]
+This function uses the texture information of the topmost horizon, converting it to USDA-texture classes and applying the relationships proposed by 
+ after Williams (1995).
 }
 \references{
 \bold{lumpR paper}\cr
      Pilz, T.; Francke, T.; Bronstert, A. (2017): lumpR 2.0.0: an R package facilitating
      landscape discretisation for hillslope-based hydrological models.
      \emph{Geosci. Model Dev.}, 10, 3001-3023, doi: 10.5194/gmd-10-3001-2017
+     
+     Williams, J. R.(1995): The EPIC Model. In Computer Models of Watershed Hydrology; Singh, V. P., Ed.; Water Resources Publications: Highlands Ranch, CO, USA, 1995; pp 909–1000.
 }
 \author{
 Till Francke \email{francke@uni-potsdam.de}

@@ -125,7 +125,7 @@
 #'      \emph{Serie Hydrologia}, 25, SUDENE / ORSTOM, Recife, Brazil, in Portuguese.
 #'      
 #' 
-#' @author Tobias Pilz \email{tpilz@@uni-potsdam.de}, Till Francke \email{francke@@uni-potsdam.de}
+#' @author Tobias Pilz, Till Francke
 
 reservoir_lumped <- function(
   # INPUT #
@@ -278,7 +278,7 @@ reservoir_lumped <- function(
         res_lump@data  <- merge(res_lump@data, areas, by.x="t_id", by.y="id")  # append area column to plt.data
         res_lump@data$t_id = NULL #discard temporary ID
         res_lump@data$cat = NULL #discard internal GRASS ID that will be re-generated anyway
-        write_VECT(x = vect(res_lump), vname="t_t", flags = "overwrite")
+        write_VECT(x = vect(res_lump), vname="t_t", flags = c("overwrite", "o"))
         clean_temp_dir("t_t")
       } else #area column already present
         x <- execGRASS("g.copy", vector=paste(res_vect,"t_t", sep=","), flags="overwrite", intern=TRUE)           
@@ -296,13 +296,12 @@ reservoir_lumped <- function(
     # GROUP RESERVOIRS INTO SIZE CLASSES #-------------------------------------
     if(!silent) message("%")
     if(!silent) message("% Reservoir calculations...")
-    
     #add subbasin-ID to reservoirs ####
     x <- execGRASS("v.db.addcolumn", map=res_vect_classified, columns="subbas_id int", intern=TRUE) 
     x <- execGRASS("v.what.rast", map=res_vect_classified, column="subbas_id", raster=subbas, intern=TRUE)  
     
     res_lump <- read_VECT(res_vect_classified, type = "point") #re-load from GRASS
-	res_lump = as(res_lump, 'Spatial') # convert SpatVector to SpatialPoints
+	  res_lump = as(res_lump, 'Spatial') # convert SpatVector to SpatialPoints
     clean_temp_dir(res_vect_classified)
     projection(res_lump) <- getLocationProj()
     
@@ -310,9 +309,9 @@ reservoir_lumped <- function(
     if(is.null(res_param$vol_max)) {
       if(is.null(res_param$area_max)) {
         # area_max is also not given, i.e. calculate vol_max based on quantiles of sizes given in GRASS data
-        res_lump <- readVECT(res_vect_classified, type="point")
-		res_lump = as(res_lump, 'Spatial') # convert SpatVector to SpatialPoints
-        # WINDOWS PROBLEM: delete temporary file otherwise an error occurs when calling writeVECT or readVECT again with the same (or a similar) file name (still an issue in GRASS8?)
+        res_lump <- read_VECT(res_vect_classified, type="point")
+		    res_lump = as(res_lump, 'Spatial') # convert SpatVector to SpatialPoints
+        # WINDOWS PROBLEM: delete temporary file otherwise an error occurs when calling writeVECT or read_VECT again with the same (or a similar) file name (still an issue in GRASS8?)
         if(.Platform$OS.type == "windows") {
           dir_del <- dirname(execGRASS("g.tempfile", pid=1, intern=TRUE, ignore.stderr=T))
           files_del <- grep(substr(res_vect_classified, 1, 8), dir(dir_del), value = T)
@@ -334,7 +333,8 @@ reservoir_lumped <- function(
         } else {
           if (!"area" %in% names(res_lump@data)) #no area column found
             stop("Column 'area' not found in generated vector '", res_vect_classified,"' something went wrong in the previous steps!") 
-          quants <- quantile(res_lump@data[,"area"], probs=c(.2,1))
+          #subdivide into desired number of classes
+          quants <- quantile(c(0, res_lump@data[,"area"]+1), probs=c(.2,1)) 
           classes <- exp(approx(log(quants), n = length(res_param$class))$y)
           res_param$area_max <- classes
           res_param$vol_max <- molle_v(res_param$alpha_Molle, res_param$damk_Molle, res_param$area_max)
@@ -345,10 +345,10 @@ reservoir_lumped <- function(
     }
     
     # determine size class for each reservoir
-    if("volume" %in% ncols)
-      res_lump$size_class <- as.integer(cut(res_lump$volume, c(0, res_param$vol_max), labels=res_param$class))
-    else 
-      res_lump$size_class <- as.integer(cut(res_lump$area, c(0, res_param$area_max), labels=res_param$class))
+    if("volume" %in% ncols)  #based on volume
+      res_lump$size_class <- as.integer(raster::cut(res_lump$volume, c(0, res_param$vol_max), labels=res_param$class))
+    else                     #based on area
+      res_lump$size_class <- as.integer(raster::cut(res_lump$area, c(0, res_param$area_max+1), labels=res_param$area_max))
     
     # calculate volume for reservoirs if it does not exist
     if((!"volume" %in% names(res_lump@data)))
@@ -357,21 +357,19 @@ reservoir_lumped <- function(
                                       res_param$damk_Molle[res_lump$size_class[i]],
                                       res_lump$area[i])
     
-    # get information of maximum volume for each subbasin - size class combination
-    lake_maxvol <- tapply(res_lump$volume, list(sub_id=res_lump$subbas_id, size_class=res_lump$size_class), max)
-    lake_maxvol[which(is.na(lake_maxvol))] <- 0
-    #add missing subbasins without small reservoirs, if any
-    subbas_all <- execGRASS("r.stats", input=subbas, flags=c("n","quiet"), intern=TRUE) 
-    sub_miss <- subbas_all[which(!(subbas_all %in% as.numeric(rownames(lake_maxvol))))]
-    sub_miss <- matrix(0, nrow = length(sub_miss), ncol=nrow(res_param), dimnames = list(sub_miss, NULL))
-    lake_maxvol <- rbind(lake_maxvol, sub_miss)
-    lake_maxvol <- lake_maxvol[order(as.numeric(rownames(lake_maxvol))),]
     
-    # get information of number of reservoirs for each subbasin - size class combination
-    lake_number <- tapply(res_lump$volume, list(sub_id=res_lump$subbas_id, size_class=res_lump$size_class), length)
-    lake_number[which(is.na(lake_number))] <- 0
-    lake_number <- rbind(lake_number, sub_miss)
-    lake_number <- lake_number[order(as.numeric(rownames(lake_number))),]
+    lake_maxvol = array(0, dim = c(length(unique(res_lump$subbas_id)), length(res_param$class)), dimnames=list(subbas_id=unique(res_lump$subbas_id), size_class=res_param$class))
+    lake_number = lake_maxvol
+
+    for (sb_i in 1:length(unique(res_lump$subbas_id)))
+      for (sc_i in 1:length(res_param$class))
+      {
+        ix = res_lump$subbas_id  == unique(res_lump$subbas_id)[sb_i] & 
+          res_lump$size_class ==res_param$class[sc_i]
+        lake_maxvol[sb_i, sc_i] = max(0, res_lump$volume[ix]) # get maximum volume  for each subbasin - size class combination
+        lake_number[sb_i, sc_i] = sum(ix)  # get number of reservoirs for each subbasin - size class combination
+      }
+
  
     if(!silent) message("% OK")
     
@@ -383,7 +381,7 @@ reservoir_lumped <- function(
     
     # res_vect_classified
     if(!is.null(res_vect_classified)) {
-      write_VECT(x = vect(res_lump), vname=res_vect_classified, flags = "overwrite")
+      write_VECT(x = vect(res_lump), vname=res_vect_classified, flags = c("overwrite", "o"))
       clean_temp_dir(res_vect_classified)
     }
     

@@ -147,7 +147,7 @@
 #'      Mamede, G. L. (2008):  Reservoir sedimentation in dryland catchments: Modeling
 #'      and management. PhD Thesis, University of Potsdam, Germany.
 #'      
-#' @author Tobias Pilz \email{tpilz@@uni-potsdam.de}
+#' @author Tobias Pilz
 
 reservoir_strategic <- function(
   ### INPUT ###

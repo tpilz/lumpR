@@ -119,7 +119,7 @@
 #'      hydrological modelling units. \emph{International Journal of Geographical
 #'      Information Science, Informa UK Limited}, 22(2), 111-132, DOI: 10.1080/13658810701300873
 #'      
-#' @author Tobias Pilz \email{tpilz@@uni-potsdam.de}, Till Francke \email{francke@@uni-potsdam.de}
+#' @author Tobias Pilz, Till Francke
 #'
 area2catena <- function(
   
@@ -349,13 +349,13 @@ area2catena <- function(
     {  
       for (i in supp_qual) {
         tmp <- read_raster(i)
+        names(tmp) = i #set the name of the attribute
         qual_rast = c(tmp, qual_rast) #stack raster layers
       }
       
       # convert (at) symbol to point (in case input comes from another GRASS mapset; read_RAST6() converts it to point implicitly which causes errors during later processing)
-      supp_qual <- gsub("[-+*/@.?!]", ".", supp_qual)
-
-      names(qual_rast)            = supp_qual
+      supp_qual        =  gsub("[-+*/@.?!]", ".", supp_qual)
+      names(qual_rast) =  gsub("[-+*/@.?!]", ".", names(qual_rast))
     }  
     
     # load quantitative supplemental data
@@ -435,10 +435,10 @@ area2catena <- function(
     ##initialize parallelism
     if (ncores>1)
     {  
-      if(suppressPackageStartupMessages(require(doMC)))
+      if(suppressPackageStartupMessages(suppressWarnings(require(doMC))))
         # register cores
         registerDoMC(cores=ncores) else
-          if (suppressPackageStartupMessages(require(doParallel)))
+          if (suppressPackageStartupMessages(suppressWarnings(require(doParallel))))
           {
             cl <- makePSOCKcluster(ncores) #make cluster, so we can explicitly close it later
             registerDoParallel(cl)
@@ -789,6 +789,7 @@ eha_calc <- function(curr_id, eha_rast, flowaccum_rast, dist2river_rast, relelev
           #browser()
           frac_sum = sum(supp_attrib_mean[(quant_columns+col_counter+1):(quant_columns+col_counter+n_supp_data_qual_classes[k]),j+1])
           if(!is.na(frac_sum) & frac_sum < 0.999) {
+            browser()
             message(paste("% -> WARNING: For EHA ", curr_id, " areal fractions of qualitative supplemental attribute '", k, "' does not sum to one for profile point ", j+1, sep=""))
             if (plot_catena) dev.off()
             return(data.frame(output=t(c(curr_id, rep(NA, sum(n_supp_data_qual_classes) + length(supp_quant) + 4 - 1))), error=666))

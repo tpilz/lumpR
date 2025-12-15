@@ -46,7 +46,7 @@
 #'      \emph{Geosci. Model Dev.}, 10, 3001-3023, doi: 10.5194/gmd-10-3001-2017
 #'      
 #' @author 
-#'  Tobias Pilz \email{tpilz@@uni-potsdam.de}, Till Francke \email{francke@@uni-potsdam.de}
+#'  Tobias Pilz, Till Francke
 #' 
 db_create <- function(
   dbname, overwrite=NULL, keep_tables=NULL, db_ver=Inf

@@ -64,5 +64,5 @@ Function uses the FORTRAN 77 code developed by \emph{Gerstengarbe et al.}.
      Impact Research, Potsdam, Germany.
 }
 \author{
-Tobias Pilz \email{tpilz@uni-potsdam.de}
+Tobias Pilz
 }

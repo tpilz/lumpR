@@ -70,5 +70,5 @@ Prepare GRASS location and necessary files in advance and start GRASS
      Can be run before \code{\link[lumpR]{reservoir_strategic}}.
 }
 \author{
-Tobias Pilz \email{tpilz@uni-potsdam.de}
+Tobias Pilz
 }

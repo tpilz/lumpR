@@ -44,5 +44,5 @@ Function uses subroutine in FORTRAN 90 code extracted from the hydrological
      \emph{Geosci. Model Dev.}, 10, 3001-3023, doi: 10.5194/gmd-10-3001-2017
 }
 \author{
-Tobias Pilz \email{tpilz@uni-potsdam.de}
+Tobias Pilz
 }

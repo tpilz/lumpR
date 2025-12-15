@@ -1,5 +1,5 @@
 # lumpR/reservoir_outlet.R
-# Copyright (C) 2014,2015,2017,2018 Tobias Pilz
+# Copyright (C) 2014,2015,2017,2018,2025 Tobias Pilz
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -66,7 +66,7 @@
 #'
 #'      Can be run before \code{\link[lumpR]{reservoir_strategic}}. 
 
-#' @author Tobias Pilz \email{tpilz@@uni-potsdam.de}
+#' @author Tobias Pilz
 
 reservoir_outlet <- function(
   ### INPUT ###
@@ -115,8 +115,7 @@ reservoir_outlet <- function(
   
   if (!any(grepl(cmd_out, pattern="\\|area"))) #add area field in hectars, if not present
   {  
-    x <- execGRASS("v.db.addcolumn", map=res_vct, columns="area double", intern=TRUE) 
-    x <- execGRASS("v.to.db", map=res_vct, option="area", columns="area", units="hectares", intern=TRUE) 
+    x <- execGRASS("v.to.db", map=res_vct, option="area", columns="area", units="hectares", flags="overwrite", intern=TRUE) 
   }
   
   
