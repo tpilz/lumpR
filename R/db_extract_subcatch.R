@@ -44,7 +44,7 @@
 #' later on.
 #'  
 #' @author 
-#'  Tobias Pilz \email{tpilz@@uni-potsdam.de}
+#'  Tobias Pilz
 #'  
 db_extract_subcatch <- function(
   dbname = NULL,

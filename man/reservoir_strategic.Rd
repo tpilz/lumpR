@@ -153,5 +153,5 @@ lumpR package introduction with literature study and sensitivity analysis:\cr
      and management. PhD Thesis, University of Potsdam, Germany.
 }
 \author{
-Tobias Pilz \email{tpilz@uni-potsdam.de}
+Tobias Pilz
 }

@@ -1,5 +1,5 @@
 # lumpR/subbasin.R
-# Copyright (C) 2014-2023 Tobias Pilz
+# Copyright (C) 2014-2025 Tobias Pilz, Till Francke
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -123,7 +123,7 @@
 #'      \emph{Geosci. Model Dev.}, 10, 3001-3023, doi: 10.5194/gmd-10-3001-2017
 #'      SoilDataPrep: Package for prepare soil input for hydrological modelling from SoilGrids and Pelettier-data, specifically with WASA-SED. https://github.com/TillF/SoilDataPrep
 #' 
-#' @author Tobias Pilz \email{tpilz@@uni-potsdam.de}, Till Francke
+#' @author Tobias Pilz, Till Francke
 
 calc_subbas <- function(
   ### INPUT ###

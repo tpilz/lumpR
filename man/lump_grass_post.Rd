@@ -276,5 +276,5 @@ Source code based on \code{SHELL} and \code{MATLAB} scripts of Till Francke.
      Impact Research, Potsdam, Germany.
 }
 \author{
-Tobias Pilz \email{tpilz@uni-potsdam.de}
+Tobias Pilz
 }

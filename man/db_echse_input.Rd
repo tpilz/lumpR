@@ -147,5 +147,5 @@ Theoretical description of the \bold{EC}o-\bold{H}ydrological \bold{S}imulation
  doi: 10.1016/j.envsoft.2015.02.009
 }
 \author{
-Tobias Pilz \email{tpilz@uni-potsdam.de}
+Tobias Pilz
 }

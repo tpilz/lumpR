@@ -69,7 +69,7 @@
 #'      North-East of Brazil. \emph{PIK Report 77}, Potsdam Institute for Climate
 #'      Impact Research, Potsdam, Germany.
 #'
-#' @author Tobias Pilz \email{tpilz@@uni-potsdam.de}
+#' @author Tobias Pilz
 #' 
 
 rainy_season <- function(

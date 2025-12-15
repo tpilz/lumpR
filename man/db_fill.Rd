@@ -690,5 +690,5 @@ For each table a single file has to be prepared manually and/or using functions 
      Germany, 31-40.
 }
 \author{
-Tobias Pilz \email{tpilz@uni-potsdam.de}, Till Francke \email{francke@uni-potsdam.de}
+Tobias Pilz, Till Francke
 }

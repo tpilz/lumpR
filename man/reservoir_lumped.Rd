@@ -139,5 +139,5 @@ lumpR package introduction with literature study and sensitivity analysis:\cr
      \emph{Serie Hydrologia}, 25, SUDENE / ORSTOM, Recife, Brazil, in Portuguese.
 }
 \author{
-Tobias Pilz \email{tpilz@uni-potsdam.de}, Till Francke \email{francke@uni-potsdam.de}
+Tobias Pilz, Till Francke
 }

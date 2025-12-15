@@ -157,5 +157,5 @@ Source code based on \code{SHELL} and \code{MATLAB} scripts of Till Francke.
      Information Science, Informa UK Limited}, 22(2), 111-132, DOI: 10.1080/13658810701300873
 }
 \author{
-Tobias Pilz \email{tpilz@uni-potsdam.de}, Till Francke \email{francke@uni-potsdam.de}
+Tobias Pilz, Till Francke
 }

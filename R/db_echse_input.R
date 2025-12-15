@@ -143,7 +143,7 @@
 #'  doi: 10.1016/j.envsoft.2015.02.009
 #'
 #' @author
-#'  Tobias Pilz \email{tpilz@@uni-potsdam.de}
+#'  Tobias Pilz
 
 db_echse_input <- function(
   dbname,

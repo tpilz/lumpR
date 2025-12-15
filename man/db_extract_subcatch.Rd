@@ -43,5 +43,5 @@ limit the processing time and retain the opportunity to (re-)include information
 later on.
 }
 \author{
-Tobias Pilz \email{tpilz@uni-potsdam.de}
+Tobias Pilz
 }

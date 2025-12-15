@@ -690,7 +690,7 @@
 #'      
 #' 
 #' @author 
-#'  Tobias Pilz \email{tpilz@@uni-potsdam.de}, Till Francke \email{francke@@uni-potsdam.de}
+#'  Tobias Pilz, Till Francke
 #' 
 db_fill <- function(
   dbname,

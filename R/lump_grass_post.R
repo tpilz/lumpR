@@ -243,7 +243,7 @@
 #'      
 
 #' 
-#' @author Tobias Pilz \email{tpilz@@uni-potsdam.de}
+#' @author Tobias Pilz
 
 lump_grass_post <- function(
   ### INPUT ###

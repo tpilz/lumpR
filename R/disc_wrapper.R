@@ -20,7 +20,7 @@
 #'      landscape discretisation for hillslope-based hydrological models.
 #'      \emph{Geosci. Model Dev.}, 10, 3001-3023, doi: 10.5194/gmd-10-3001-2017
 #'      
-#' @author Tobias Pilz \email{tpilz@@uni-potsdam.de}
+#' @author Tobias Pilz
 
 disc_wrapper <- function(
   # input #

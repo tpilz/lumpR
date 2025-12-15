@@ -21,6 +21,7 @@ calc_subbas(
   rm_spurious = 0.01,
   keep_temp = FALSE,
   overwrite = FALSE,
+  export_shp = NULL,
   silent = FALSE
 )
 }
@@ -92,6 +93,8 @@ in the GRASS location, e.g. for debugging or further analyses. Default: \code{FA
 overwritten? If \code{FALSE}, the function returns an error if a layer already exists.
 Default: \code{FALSE}.}
 
+\item{export_shp}{\code{character} . Path for exporting the generated subbasin maps to shp-file. May be used as input to processing chain in SoilDataPrep. Default: NULL}
+
 \item{silent}{\code{logical}. Shall the function be silent (also suppressing warnings
 of internally used GRASS functions)? Default: \code{FALSE}.}
 }
@@ -134,7 +137,8 @@ lumpR package introduction with literature study and sensitivity analysis:\cr
      Pilz, T.; Francke, T.; Bronstert, A. (2017): lumpR 2.0.0: an R package facilitating
      landscape discretisation for hillslope-based hydrological models.
      \emph{Geosci. Model Dev.}, 10, 3001-3023, doi: 10.5194/gmd-10-3001-2017
+     SoilDataPrep: Package for prepare soil input for hydrological modelling from SoilGrids and Pelettier-data, specifically with WASA-SED. https://github.com/TillF/SoilDataPrep
 }
 \author{
-Tobias Pilz \email{tpilz@uni-potsdam.de}, Till Francke
+Tobias Pilz, Till Francke
 }
