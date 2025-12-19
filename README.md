@@ -63,3 +63,5 @@ See also the accompanying github repository: https://github.com/tpilz/lumpr_pape
 For the original LUMP algorithm see:
 
 Francke, T., Güntner, A., Mamede, G., Müller, E. N., and Bronstert, A. (2008): Automated catena-based discretization of landscapes for the derivation of hydrological modelling units, Int. J. Geogr. Inf. Sci., 22, 111-132, doi:[10.1080/13658810701300873, 2008.](http://www.tandfonline.com/doi/abs/10.1080/13658810701300873)
+
+For preparing soil data, consider using https://github.com/TillF/SoilDataPrep/tree/master
