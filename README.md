@@ -30,11 +30,13 @@ The main branch relies on GRASS 8. For legacy support of GRASS 7 (no further dev
 * [R language](https://www.r-project.org/), including extensions r.stream.distance and r.stream.order
 * [GRASS GIS](https://grass.osgeo.org/), version 8.
 * data base (e.g. sqlite, MariaDB, LibreOffice Base or other DBs with ODBC-driver)
-For instruction, see the [wiki](https://github.com/tpilz/lumpR/wiki) .
+For instruction, see the [Wiki](https://github.com/tpilz/lumpR/wiki) .
 
 ## MORE INFORMATION
 
-Have a look at our wiki for more detailed information: [>LINK<](https://github.com/tpilz/lumpR/wiki)
+Have a look at our [Wiki](https://github.com/tpilz/lumpR/wiki) for more detailed information .
+
+Tutorial with test data and exemplary workflow at [https://github.com/TillF/lumpR_tutorial](https://github.com/TillF/lumpR_tutorial) .
 
 
 ## FEEDBACK and BUGS

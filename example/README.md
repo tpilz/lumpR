@@ -1,0 +1,1 @@
+Tutorial with test data and exemplary workflow at [https://github.com/TillF/lumpR_tutorial](https://github.com/TillF/lumpR_tutorial) .
