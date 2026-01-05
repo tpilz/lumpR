@@ -9,7 +9,7 @@ db_fill(
   tables = c("r_subbas_contains_lu", "subbasins", "landscape_units", "r_lu_contains_tc",
     "terrain_components", "r_tc_contains_svc", "vegetation", "soils", "horizons",
     "soil_veg_components", "particle_classes", "r_soil_contains_particles",
-    "rainy_season", "reservoirs_strategic", "reservoirs_small",
+    "rainy_season", "reservoirs_strategic", "reservoirs_small_classes",
     "r_subbas_contains_reservoirs_small"),
   dat_files,
   dat_dir,

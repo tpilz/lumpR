@@ -398,9 +398,13 @@ reservoir_lumped <- function(
     names(dat_out)[names(dat_out)=="damd_hrr"]="damd"  
     dat_out$name="" #optional
     
-    # data.frame(pid=res_param$class, res_param$vol_max, res_param$f_vol_init, res_param$class_change,
-    #                       res_param$alpha_Molle, res_param$damk_Molle, res_param$damc_hrr, res_param$damd_hrr)
-    write.table(file = paste(dir_out, reservoirs_small_classes_file, sep="/"), format(dat_out, scientific=F), sep="\t", quote=F, append=F, row.names = F, col.names = T)
+    #sort dataframe by column "maxlake0"
+    dat_out = dat_out[order(dat_out$maxlake0), ]
+    dat_out$name=paste0("class", 1:nrow(dat_out)) 
+
+    col_order = c("pid", "maxlake0", "lake_vol0_factor", "lake_change", "alpha_Molle", "k_Molle", "damc", "damd", "area_max", "name")
+    
+    write.table(file = paste(dir_out, reservoirs_small_classes_file, sep="/"), format(dat_out[, col_order], scientific=F), sep="\t", quote=F, append=F, row.names = F, col.names = T)
     
     # lake_number.dat from classified reservoirs
     dat_out = data.frame(subbas_id=row.names(lake_number), res_class_id=rep(dimnames(lake_number)[[2]], each=nrow(lake_number)),
