@@ -352,7 +352,8 @@ db_wasa_input <- function(
                              tbl_exist = names(dat_all), update_frac_impervious=F))
     
     if(any(is.na(cbind(dat_all$subbasins$pid, dat_all$subbasins$drains_to, dat_all$subbasins$a_stream_order))) | nrow(dat_all$subbasins) == 0)
-      stop("Cannot write file River/routing.dat. Column(s) 'pid', 'drains_to' and/or 'a_stream_order' of table 'subbasins' contain missing values!")
+      stop("Cannot write file River/routing.dat. Column(s) 'pid', 'drains_to' and/or 'a_stream_order' of table 'subbasins' contain missing values! Try running < db_check(dbname,
+         check='subbasin_order', fix=T) >  first.")
     
     # sort
     r_order <- order(dat_all$subbasins$a_stream_order, decreasing=TRUE)
