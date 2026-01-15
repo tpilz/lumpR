@@ -77,12 +77,12 @@
 #'      
 #' @return Function returns nothing. Various output is generated in the GRASS-location:
 #'  \itemize{
-#'    \item{stream segments}: {If \code{river} is not supplied, vector (<stream>_vect) and raster (<stream>_rast), representing the river network.} 
-#'    \item{Subbasin map}{raster map \code{basin_out}} 
+#'    \item{stream segments:} { If \code{river} is not supplied, vector (<stream>_vect) and raster (<stream>_rast), representing the river network.} 
+#'    \item{Subbasin map:} { Raster map \code{basin_out} containing the subbasins.} 
 #'  }  
 #'  If parameter \code{keep_temp=TRUE}, the following temporary maps are preserved and can be used for tracing errors:
 #'  \itemize{
-#'    \item{\code{accum_t}:}{ If argument \code{flowaccum} is not supplied, contains map of flow accumulation. Can also be preserved for subsequent calls of \code{calc_subbas] to save time, if needed.} 
+#'    \item{\code{accum_t}:}{ If argument \code{flowaccum} is not supplied, contains map of flow accumulation. Can also be preserved for subsequent calls of \code{calc_subbas] to save time, if needed.}}
 #'    \item{\code{drain_t}:}{ If argument \code{drainage_dir} is not supplied, contains map of drainage direction.} 
 #'    \item{\code{<points_processed>_t}:} { Prespecified subbasin outlet points.} 
 #'    \item{\code{<points_processed>_snapped_t}:}{ Prespecified subbasin outlet points snapped to closest river segment.} 
