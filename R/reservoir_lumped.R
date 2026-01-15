@@ -126,6 +126,7 @@
 #'      
 #' 
 #' @author Tobias Pilz, Till Francke
+#' @export
 
 reservoir_lumped <- function(
   # INPUT #

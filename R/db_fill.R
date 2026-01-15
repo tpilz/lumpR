@@ -692,6 +692,8 @@
 #' @author 
 #'  Tobias Pilz, Till Francke
 #' 
+#' @export
+
 db_fill <- function(
   dbname,
   tables=c("r_subbas_contains_lu", "subbasins", "landscape_units", "r_lu_contains_tc",

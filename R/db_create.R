@@ -48,6 +48,7 @@
 #' @author 
 #'  Tobias Pilz, Till Francke
 #' 
+#' @export
 db_create <- function(
   dbname, overwrite=NULL, keep_tables=NULL, db_ver=Inf
 ) {

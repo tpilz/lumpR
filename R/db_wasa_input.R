@@ -216,6 +216,7 @@
 #' 
 #' @author 
 #'  Tobias Pilz, Till Francke
+#' @export
 
 db_wasa_input <- function(
   dbname,

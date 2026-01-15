@@ -176,6 +176,7 @@
 #'  
 #' @author 
 #'  Tobias Pilz, Till Francke
+#' @export
 
 db_check <- function(
   dbname,

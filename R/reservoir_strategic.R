@@ -148,6 +148,7 @@
 #'      and management. PhD Thesis, University of Potsdam, Germany.
 #'      
 #' @author Tobias Pilz
+#' @export
 
 reservoir_strategic <- function(
   ### INPUT ###

@@ -71,6 +71,7 @@
 #'
 #' @author Tobias Pilz
 #' 
+#' @export
 
 rainy_season <- function(
   ### INPUT ###

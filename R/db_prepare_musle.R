@@ -48,6 +48,8 @@
 #' @author 
 #'  Till Francke \email{francke@@uni-potsdam.de}
 #' 
+#' @export
+
 db_prepare_musle <- function(
   dbname,
   compute_K=FALSE,

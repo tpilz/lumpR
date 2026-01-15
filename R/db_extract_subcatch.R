@@ -45,7 +45,9 @@
 #'  
 #' @author 
 #'  Tobias Pilz
-#'  
+#'
+#' @export
+  
 db_extract_subcatch <- function(
   dbname = NULL,
   sub_extract = NULL,

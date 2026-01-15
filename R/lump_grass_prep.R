@@ -125,6 +125,7 @@
 #'      Information Science, Informa UK Limited}, 22(2), 111-132, DOI: 10.1080/13658810701300873
 #' 
 #' @author Tobias Pilz
+#' @export
 
 lump_grass_prep <- function(
   

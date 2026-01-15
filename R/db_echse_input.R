@@ -144,7 +144,8 @@
 #'
 #' @author
 #'  Tobias Pilz
-
+#' @export
+ 
 db_echse_input <- function(
   dbname,
   start_year=NULL,

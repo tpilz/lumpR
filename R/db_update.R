@@ -45,6 +45,7 @@
 #' @author 
 #' Tobias Pilz, Till Francke
 #'   
+#' @export
 
 db_update <- function(
   dbname, to_ver=Inf, checkOnly=FALSE, keep_tables=NULL  

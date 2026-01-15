@@ -67,6 +67,7 @@
 #'      Can be run before \code{\link[lumpR]{reservoir_strategic}}. 
 
 #' @author Tobias Pilz
+#' @export
 
 reservoir_outlet <- function(
   ### INPUT ###

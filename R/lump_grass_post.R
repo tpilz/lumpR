@@ -244,6 +244,7 @@
 
 #' 
 #' @author Tobias Pilz
+#' @export
 
 lump_grass_post <- function(
   ### INPUT ###

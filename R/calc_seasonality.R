@@ -52,7 +52,8 @@
 #'
 #' @author Tobias Pilz
 #' 
-
+#' @export
+#' 
 calc_seasonality <- function(
   # INPUT #
   rainy_season,

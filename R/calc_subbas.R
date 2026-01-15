@@ -124,6 +124,7 @@
 #'      SoilDataPrep: Package for prepare soil input for hydrological modelling from SoilGrids and Pelettier-data, specifically with WASA-SED. https://github.com/TillF/SoilDataPrep
 #' 
 #' @author Tobias Pilz, Till Francke
+#' @export
 
 calc_subbas <- function(
   ### INPUT ###

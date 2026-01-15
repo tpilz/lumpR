@@ -121,6 +121,8 @@
 #'      
 #' @author Tobias Pilz, Till Francke
 #'
+#' @export
+#' 
 area2catena <- function(
   
   ### INPUT ###
