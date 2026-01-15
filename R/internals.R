@@ -16,23 +16,24 @@ check_raster <- function(map, argument_name="", raiseerror=TRUE) { #check existe
   if (!grepl(map, pattern = "@"))
     map = paste0(map,"@", cur_mapset)  #add mapset name, unless already given. Otherwise, these checks may fall back on PERMANENT yielding true, but read_RAST will fail later
 
-  cmd_out <-suppressWarnings(execGRASS("r.info", map=map, intern = T, ignore.stderr = TRUE))
+  cmd_out <- try(
+    suppressWarnings(execGRASS("r.info", map=map, intern = TRUE, ignore.stderr = TRUE)), silent=TRUE
+  )
   
-  if (!is.null(attr(cmd_out, "status")) && attr(cmd_out, "status")==1)
+  if (inherits(cmd_out, "try-error")) 
   {
     if (raiseerror)
         stop(paste0("Raster map '", map, "' not found", ifelse(argument_name=="", ".", paste0(" (argument '", argument_name,"'). If the map is in another mapset, add '@othermapset' to the name."))))
       else
         return(FALSE)
-  } else
+  } else  
   {
     if (raiseerror)
       return() #do nothing
     else
       return(TRUE)
   }  
-  
-  
+
 }
 
 
