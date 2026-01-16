@@ -9,7 +9,7 @@ prepare_snow_input(
   subbas = NULL,
   eha = NULL,
   flowdir = NULL,
-  eha_file = NULL,
+  eha_1d_file = NULL,
   keep_temp = FALSE,
   overwrite = FALSE,
   silent = FALSE
@@ -20,14 +20,14 @@ prepare_snow_input(
 
 \item{subbas}{Name of subbasin raster map (e.g. from output of calc_subbas) in GRASS location.}
 
-\item{eha}{Name of Environmental Hillslope Areas (EHA) raster map (e.g. output of lump_grass_prep) in GRASS location}
+\item{eha}{Name of Elemental Hillslope Areas (EHA) raster map (e.g. output of lump_grass_prep) in GRASS location}
 
 \item{flowdir}{Name of of flow direction raster map in GRASS
 location (e.g. output of lump_grass_prep). Should provide the "aspect" for each cell measured counterclockwise
 from East. Multiplying positive values by 45 will give the direction in
 degrees that the surface runoff will travel from that cell.}
 
-\item{eha_file}{Output: Name of file containing properties of \code{EHA}s to be used in subsequent steps.}
+\item{eha_1d_file}{Output: Name of file containing properties of \code{EHA}s to be used by \code{\link{prof_class()}}.}
 
 \item{keep_temp}{\code{logical}. Set to \code{TRUE} if temporary files shall be kept
 in the GRASS location, e.g. for debugging or further analyses. Default: \code{FALSE}.}

@@ -63,8 +63,8 @@ disc_wrapper <- function(
   # output: files #
   output_dir = getwd(),
   svc_file = "svc.dat",
-  catena_out = "catena.dat",
-  catena_head_out = "catena_header.dat",
+  eha_2d_file = "catena.dat",
+  eha_2d_head_file = "catena_header.dat",
   luoutfile = "lu_pars.dat",
   tcoutfile = "tc_pars.dat",
   lucontainstcoutfile = "lu_tc.dat",
@@ -175,8 +175,8 @@ disc_wrapper <- function(
     supp_qual=supp_qual,
     # OUTPUT #
     dir_out=output_dir,
-    catena_out=catena_out,
-    catena_head_out=catena_head_out,
+    eha_2d_file=eha_2d_file,
+    eha_2d_head_file=eha_2d_head_file,
     # PARAMETERS #
     ridge_thresh=ridge_thresh,
     min_cell_in_slope=min_cell_in_slope,
@@ -191,11 +191,11 @@ disc_wrapper <- function(
   )
 
   # change header file according to rstats_header
-  header_dat <- readLines(paste(output_dir, catena_head_out, sep="/"))
+  header_dat <- readLines(paste(output_dir, eha_2d_head_file, sep="/"))
   no_LUs[1] <- no_LUs[1] * -1
   header_dat[8] <- paste(no_LUs, "\t", sep="", collapse="")
   header_dat[9] <- paste(c(no_TCs, rep(0, length(no_LUs)-1)), "\t", sep="", collapse="")
-  writeLines(header_dat,paste(output_dir, catena_head_out, sep="/"))
+  writeLines(header_dat,paste(output_dir, eha_2d_head_file, sep="/"))
 
 
 
@@ -205,8 +205,8 @@ disc_wrapper <- function(
 
   prof_class(
     # INPUT #
-    catena_file=paste(output_dir, catena_out, sep="/"),
-    catena_head_file=paste(output_dir, catena_head_out, sep="/"),
+    eha_2d_file=paste(output_dir, eha_2d_file, sep="/"),
+    eha_2d_head_file=paste(output_dir, eha_2d_head_file, sep="/"),
     svc_column="svc",
     # OUTPUT #
     dir_out=output_dir,

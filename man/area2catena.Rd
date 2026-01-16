@@ -13,8 +13,8 @@ area2catena(
   supp_quant = NULL,
   supp_qual = NULL,
   dir_out = "./",
-  catena_out = NULL,
-  catena_head_out = NULL,
+  eha_2d_file = NULL,
+  eha_2d_head_file = NULL,
   ridge_thresh = 1,
   min_cell_in_slope = 30,
   min_catena_length = 3,
@@ -26,7 +26,9 @@ area2catena(
   zones = NULL,
   overwrite = F,
   silent = F,
-  allow_debug = FALSE
+  allow_debug = FALSE,
+  catena_out = NULL,
+  catena_head_out = NULL
 )
 }
 \arguments{
@@ -54,13 +56,13 @@ supplemental raster maps in GRASS location; leave empty if you have none.}
 \item{dir_out}{Character string specifying output directory (will be created;
 nothing will be overwritten).}
 
-\item{catena_out}{Output: Name of output file containing mean catena information
+\item{eha_2d_file}{Output: Name of output file containing information of the EHAs reduced to 2D-catenas
 as input for \code{\link[lumpR]{prof_class}}. To save computation time and
 memory in cases of large catchments and/or high resolution, specify a file
-name with ending \code{*.RData}. In such a case, a compressed RData file will be
-written instead of a text file.}
+name with ending \code{*.RData}. This will produce a compressed RData file
+of a text file.}
 
-\item{catena_head_out}{Output: Name of output header file containing meta-information
+\item{eha_2d_head_file}{Output: Name of output header file containing meta-information
 as input for \code{\link[lumpR]{prof_class}}; manual adjustment necessary.}
 
 \item{ridge_thresh}{Integer specifying threshold of flow accumulation, below
@@ -76,7 +78,7 @@ Default: 3.}
 
 \item{max_riv_dist}{Integer specifying maximum distance to river [in cells]:
 if the closest cell of an EHA is farther than \code{max_riv_dist}, the EHA
-is skipped, otherwise all distances within the EHA are redurced by the
+is skipped, otherwise all distances within the EHA are reduced by the
 distance of the closest cell to river. Default: 10.}
 
 \item{plot_catena}{logical; produce plots (scatter, mean catena, etc.) for
@@ -120,7 +122,7 @@ Prepare GRASS location and necessary raster files in advance (e.g. using
      resulted in errors under Windows.
      
      In case of \bold{long computation times or memory issues}, try \code{plot_catena = FALSE}
-     and specify an RData file as \code{catena_out}. Furthermore, make sure your
+     and specify an RData file as \code{eha_2d_file}. Furthermore, make sure your
      raster maps are not overly large (i.e. containing lots of NULL values around
      the region of interest) and are of type \code{CELL} (i.e. integer) where it makes
      sense (check with \code{r.info} in GRASS).
@@ -131,8 +133,8 @@ Prepare GRASS location and necessary raster files in advance (e.g. using
      GUIs such as RStudio may not produce some runtime messages (within parallel
      foreach loop).
      
-     File \code{catena_out} contains information about the representative catena
-     for each hillslope (EHA). For meaning of columns see file \code{catena_head_out}.
+     File \code{eha_2d_file} contains information about the representative catena
+     for each hillslope (EHA). For meaning of columns see file \code{eha_2d_head_file}.
      It usually contains the catena ID, the catena's profile point IDs, relative
      vertical elevation above hillside toe, and supplemental information averaged
      over all raster cells associated with a specific catena profile point. For

@@ -35,12 +35,12 @@
 #'      supplemental raster maps in GRASS location; leave empty if you have none.
 #' @param dir_out Character string specifying output directory (will be created;
 #'      nothing will be overwritten).
-#' @param catena_out Output: Name of output file containing mean catena information
+#' @param eha_2d_file Output: Name of output file containing information of the EHAs reduced to 2D-catenas
 #'      as input for \code{\link[lumpR]{prof_class}}. To save computation time and
 #'      memory in cases of large catchments and/or high resolution, specify a file
-#'      name with ending \code{*.RData}. In such a case, a compressed RData file will be
-#'      written instead of a text file. 
-#' @param catena_head_out Output: Name of output header file containing meta-information
+#'      name with ending \code{*.RData}. This will produce a compressed RData file
+#'      of a text file. 
+#' @param eha_2d_head_file Output: Name of output header file containing meta-information
 #'      as input for \code{\link[lumpR]{prof_class}}; manual adjustment necessary.
 #' @param ridge_thresh Integer specifying threshold of flow accumulation, below
 #'      which a cell is considered a start of a flowpath (usually 1 for D8
@@ -52,7 +52,7 @@
 #'      Default: 3.
 #' @param max_riv_dist Integer specifying maximum distance to river [in cells]:
 #'      if the closest cell of an EHA is farther than \code{max_riv_dist}, the EHA
-#'      is skipped, otherwise all distances within the EHA are redurced by the
+#'      is skipped, otherwise all distances within the EHA are reduced by the
 #'      distance of the closest cell to river. Default: 10.
 #' @param plot_catena logical; produce plots (scatter, mean catena, etc.) for
 #'      each area / class (written into sub-directory \emph{plots_area2catena}).
@@ -84,7 +84,7 @@
 #'      resulted in errors under Windows.
 #'      
 #'      In case of \bold{long computation times or memory issues}, try \code{plot_catena = FALSE}
-#'      and specify an RData file as \code{catena_out}. Furthermore, make sure your
+#'      and specify an RData file as \code{eha_2d_file}. Furthermore, make sure your
 #'      raster maps are not overly large (i.e. containing lots of NULL values around
 #'      the region of interest) and are of type \code{CELL} (i.e. integer) where it makes
 #'      sense (check with \code{r.info} in GRASS).
@@ -95,8 +95,8 @@
 #'      GUIs such as RStudio may not produce some runtime messages (within parallel
 #'      foreach loop).
 #'      
-#'      File \code{catena_out} contains information about the representative catena
-#'      for each hillslope (EHA). For meaning of columns see file \code{catena_head_out}.
+#'      File \code{eha_2d_file} contains information about the representative catena
+#'      for each hillslope (EHA). For meaning of columns see file \code{eha_2d_head_file}.
 #'      It usually contains the catena ID, the catena's profile point IDs, relative
 #'      vertical elevation above hillside toe, and supplemental information averaged
 #'      over all raster cells associated with a specific catena profile point. For
@@ -137,8 +137,8 @@ area2catena <- function(
   
   # OUTPUT #
   dir_out="./",
-  catena_out=NULL,
-  catena_head_out=NULL,
+  eha_2d_file=NULL,
+  eha_2d_head_file=NULL,
   
   # PARAMETERS #
   ridge_thresh=1,
@@ -152,10 +152,20 @@ area2catena <- function(
   zones=NULL,
   overwrite=F,
   silent=F,
-  allow_debug=FALSE
+  allow_debug=FALSE,
+  catena_out=NULL, #legacy
+  catena_head_out=NULL #legacy
 ) {
   
-### PREPROCESSING ###----------------------------------------------------------
+  #check if the legacy arguments are present
+  if (!is.null(catena_out))
+    stop("Argument 'catena_out' has been renamed to 'eha_2d_file'. Please fix this in your call.")
+  
+  #check if the legacy arguments are present
+  if (!is.null(catena_head_out))
+    stop("Argument 'catena_head_out' has been renamed to 'eha_2d_head_file'. Please fix this in your call.")
+  
+  ### PREPROCESSING ###----------------------------------------------------------
   
   if(!silent) message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
   if(!silent) message("% START area2catena()")
@@ -167,8 +177,8 @@ area2catena <- function(
   test_grass()
   
   # check output directory
-  if (!overwrite & ( file.exists(paste(dir_out,catena_out,sep="/")) | file.exists(paste(dir_out,catena_head_out,sep="/")) ) ) 
-    stop(paste0("In output directory '", dir_out, "' the files '", catena_out, "' and/or '", catena_head_out, "' already exist!"))
+  if (!overwrite & ( file.exists(paste(dir_out, eha_2d_file, sep="/")) | file.exists(paste(dir_out,eha_2d_head_file,sep="/")) ) ) 
+    stop(paste0("In output directory '", dir_out, "' the files '", eha_2d_file, "' and/or '", eha_2d_head_file, "' already exist!"))
   
   if (plot_catena) {
     if(length(dir(paste(dir_out, "plots_area2catena", sep="/"))) != 0)
@@ -196,9 +206,9 @@ area2catena <- function(
     stop("The name of a distance to river raster map within the mapset of your initialised GRASS session has to be given!")
   if(is.null(elevriv))
     stop("The name of a relative elevation raster map within the mapset of your initialised GRASS session has to be given!")
-  if(is.null(catena_out))
+  if(is.null(eha_2d_file))
     stop("A name for the file containing mean catena information has to be given!")
-  if(is.null(catena_head_out))
+  if(is.null(eha_2d_head_file))
     stop("A name for the meta-information file has to be given!")
   
   check_raster(mask,"mask")
@@ -211,8 +221,16 @@ area2catena <- function(
   
   #check existence of supplementary information maps
    if (length(supp_qual)==0) supp_qual=NULL else
+   {
+     reserved_names_used = intersect(supp_qual, c("aspect", "rel_alt"))  #these are reserved names that mustn't be used
+     if (any(reserved_names_used))
+     {   
+       warnings(paste0(reserved_names_used, " are reserved names to be generated with prepare_snow_input(). They are ignored in area2catena()."))
+       supp_qual = setdiff(supp_qual, c("aspect", "rel_alt"))  
+     }  
      for (i in supp_qual) 
         check_raster(i, paste0("supp_qual[",i,"]"))
+   }   
     
   if (length(supp_quant)==0) supp_quant=NULL else
     for (i in supp_quant) 
@@ -303,8 +321,9 @@ area2catena <- function(
     #browser()
     if (is.null(zones)) #no zones specified
     {
-      cmd_out <- execGRASS("g.rename", raster=paste0("MASK_total_t,MASK"), flags = "overwrite", intern = T) #this is the total area of interest
-      catena_out_zone = catena_out
+      cmd_out <- execGRASS("g.rename", raster=paste0("MASK_total_t,MASK"), flags = "overwrite", intern = T) 
+      #this is the total area of interest
+      eha_2d_file_zone = eha_2d_file
     } else
     {      
       if (!silent) message(paste0("% ... zone ", zone_id, " (", which(zone_id== zone_ids), "/", length(zone_ids), ")"))
@@ -320,7 +339,7 @@ area2catena <- function(
       # cmd_out <- execGRASS("g.region", region="area_total_t") #set region to entire area
       #browser()
       cmd_out <- execGRASS("g.region", region="selected_area_t") #set region to focus area
-      catena_out_zone = paste0(catena_out, "_", zone_id)
+      eha_2d_file_zone = paste0(eha_2d_file, "_", zone_id) 
     } 
 
     
@@ -500,7 +519,7 @@ area2catena <- function(
     # check for NAs
     if(any(is.na(logdata))) {
       warning(paste("NA values in the output which may crash function 'prof_class'! 
-           This might be caused by NAs in the input rasters. Check file", catena_out))
+           This might be caused by NAs in the input rasters. Check file '",eha_2d_file.))
     }
     
     
@@ -512,39 +531,39 @@ area2catena <- function(
     #format output to reasonable number of digits
     logdata <- round(logdata,3)
     
-    if(grepl(".RData$", catena_out)) {
-      save(logdata, file=paste(dir_out,catena_out_zone, sep="/"))
+    if(grepl(".RData$", eha_2d_file)) {
+      save(logdata, file=paste(dir_out, eha_2d_file_zone, sep="/"))
     } else {
-      write.table(logdata, paste(dir_out,catena_out_zone, sep="/"), col.names=F, row.names=F, quote=F, sep="\t")
+      write.table(logdata, paste(dir_out, eha_2d_file_zone, sep="/"), col.names=F, row.names=F, quote=F, sep="\t")
     }
   } #end loop through zones
 
     
     # write header file
-    write("#This file works as a header to the output of area2catena. Don't add additional headerlines.",
-          file=paste(dir_out,catena_head_out, sep="/"), append=F)
-    write('#1. line after header: description/field names of the data columns contained in file catena_out',
-          file=paste(dir_out,catena_head_out, sep="/"), append=T)
+    write("#This file works as a header to the output of area2catena and input to prof_class. Don't add additional headerlines.",
+          file=paste(dir_out,eha_2d_head_file, sep="/"), append=F)
+    write('#1. line after header: description/field names of the data columns contained in file eha_2d_file',
+          file=paste(dir_out,eha_2d_head_file, sep="/"), append=T)
     write('#2. line after header: specifies, how many columns of data belong to the respective data-field given in line 1',
-          file=paste(dir_out,catena_head_out, sep="/"), append=T)
+          file=paste(dir_out,eha_2d_head_file, sep="/"), append=T)
     write('#3. line after header: number of classes/ weighting factors for classification process',
-          file=paste(dir_out,catena_head_out, sep="/"), append=T)
-    write('#4. line after header: factors used for weighting in partition process (column: 1: number of TC to create; 2.: partition method (not yet used); 3.: not used; 4-nn: weighting of supplemental data in TC-partitioning)',
-          file=paste(dir_out,catena_head_out, sep="/"), append=T)
+          file=paste(dir_out,eha_2d_head_file, sep="/"), append=T)
+    write('#4. line after header: factors used for weighting in partition process (column: 1: number of TC to create; 2.: partition method (not yet used); 3.: not used; 4-nn: weighting of supplemental data in TC-partitioning relative to slope.)',
+          file=paste(dir_out,eha_2d_head_file, sep="/"), append=T)
     # write attribute names
     att_names <- c("id", "p_no", "elevation", supp_quant, supp_qual, "slope_width")
     write(att_names,
-          file=paste(dir_out,catena_head_out, sep="/"), ncolumns=length(att_names), append=T, sep="\t")
+          file=paste(dir_out,eha_2d_head_file, sep="/"), ncolumns=length(att_names), append=T, sep="\t")
     #write number of columns occupied by each attribute
     col_no <- c(rep(1,3), rep(1,length(supp_quant)), n_supp_data_qual_classes, 1)
     write(col_no,
-          file=paste(dir_out,catena_head_out, sep="/"), ncolumns=length(col_no), append=T, sep="\t")
+          file=paste(dir_out,eha_2d_head_file, sep="/"), ncolumns=length(col_no), append=T, sep="\t")
     #write dummy weighting factors
     w_no <- rep(0, 3+length(supp_quant)+length(n_supp_data_qual_classes)+1)
     write(c(w_no, "[adjust weighting factors here and remove this comment]"),
-          file=paste(dir_out,catena_head_out, sep="/"), ncolumns=length(w_no)+1, append=T, sep="\t")
+          file=paste(dir_out,eha_2d_head_file, sep="/"), ncolumns=length(w_no)+1, append=T, sep="\t")
     write(c(w_no, "[adjust weighting factors here and remove this comment]"),
-          file=paste(dir_out,catena_head_out, sep="/"), ncolumns=length(w_no)+1, append=T, sep="\t")
+          file=paste(dir_out,eha_2d_head_file, sep="/"), ncolumns=length(w_no)+1, append=T, sep="\t")
     
     #generate qualitative-data reclassification file
     #Generate output files for reclassification (input class-IDs vs. internally used IDs)

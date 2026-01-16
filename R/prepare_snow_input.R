@@ -22,12 +22,12 @@
 #' @param dem Name of DEM in GRASS location. 
 #' @param subbas Name of subbasin raster map (e.g. from output of calc_subbas) in GRASS location.
 
-#' @param eha Name of Environmental Hillslope Areas (EHA) raster map (e.g. output of lump_grass_prep) in GRASS location
+#' @param eha Name of Elemental Hillslope Areas (EHA) raster map (e.g. output of lump_grass_prep) in GRASS location
 #' @param flowdir Name of of flow direction raster map in GRASS
 #'      location (e.g. output of lump_grass_prep). Should provide the "aspect" for each cell measured counterclockwise
 #'      from East. Multiplying positive values by 45 will give the direction in
 #'      degrees that the surface runoff will travel from that cell.
-#' @param eha_file Output: Name of file containing properties of \code{EHA}s to be used in subsequent steps. 
+#' @param eha_1d_file Output: Name of file containing properties of \code{EHA}s to be used by \code{\link{prof_class()}}. 
 #' @param keep_temp \code{logical}. Set to \code{TRUE} if temporary files shall be kept
 #'      in the GRASS location, e.g. for debugging or further analyses. Default: \code{FALSE}.
 #' @param overwrite \code{logical}. Shall output of previous calls of this function be
@@ -58,15 +58,15 @@ prepare_snow_input <- function(
   subbas=NULL,
   eha=NULL,
   flowdir=NULL,
-  eha_file=NULL,
+  eha_1d_file=NULL,
   keep_temp=FALSE,
   overwrite=FALSE,
   silent=FALSE
 ) {
   
   #names of rasters indicating aspect
-  sin_aspect = "sin_aspect"
-  cos_aspect = "cos_aspect"
+  aspect.sin = "aspect.sin"
+  aspect.cos = "aspect.cos"
   
   if(!silent) message("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%")
   if(!silent) message("% START prepare_snow_input()")
@@ -108,14 +108,14 @@ prepare_snow_input <- function(
   
   # remove output of previous function calls if overwrite=T (remove only relevant maps according to things2do)
   if (overwrite) {
-      cmd_out <- execGRASS("g.remove", type="raster", pattern=paste("*_t,*_t1,*_t2,*_t3", sin_aspect, cos_aspect, sep=","), flags=c("f", "b"), intern=T)
+      cmd_out <- execGRASS("g.remove", type="raster", pattern=paste("*_t,*_t1,*_t2,*_t3", aspect.sin, aspect.cos, sep=","), flags=c("f", "b"), intern=T)
   } else {
     # remove temporary maps in any case
     cmd_out <- execGRASS("g.remove", type="raster", pattern="*_t,*_t1,*_t2,*_t3", flags=c("f", "b"), intern=T)
-    if (check_raster(map=cos_aspect, argument_name=cos_aspect, raiseerror=FALSE))
-      stop(paste0("Raster map ", cos_aspect, " already existing. Use overwrite=TRUE to overwrite."))
-    if (check_raster(map=sin_aspect, argument_name=sin_aspect, raiseerror=FALSE))
-      stop(paste0("Raster map ", sin_aspect, " already existing. Use overwrite=TRUE to overwrite."))
+    if (check_raster(map=aspect.cos, argument_name=aspect.cos, raiseerror=FALSE))
+      stop(paste0("Raster map ", aspect.cos, " already existing. Use overwrite=TRUE to overwrite."))
+    if (check_raster(map=aspect.sin, argument_name=aspect.sin, raiseerror=FALSE))
+      stop(paste0("Raster map ", aspect.sin, " already existing. Use overwrite=TRUE to overwrite."))
          
   }
   
@@ -142,23 +142,23 @@ prepare_snow_input <- function(
       reclass_rules$degrees = reclass_rules$from * 45
       tmp_file = tempfile()
       
-      #sin_aspect
+      #aspect.sin
       reclass_rules$to = round(sin(reclass_rules$degrees/360*2*pi), digits=3)
       write.table(reclass_rules[,c("from","from","to","to")], file=tmp_file, sep=":", col.names = FALSE, row.names=FALSE, quote=FALSE)
-      cmd_out <- execGRASS("r.recode", input=flowdir, output=sin_aspect, 
+      cmd_out <- execGRASS("r.recode", input=flowdir, output=aspect.sin, 
                            rules=tmp_file, flags="overwrite", intern=TRUE)
       if (!is.null(attr(cmd_out, "status")) && attr(cmd_out, "status")!=0) stop(cat(paste0("Error running r.recode:", paste0(cmd_out, collapse="\n"))))
 
-      #cos_aspect
+      #aspect.cos
       reclass_rules$to = round(cos(reclass_rules$degrees/360*2*pi), digits=3)
       write.table(reclass_rules[,c("from","from","to","to")], file=tmp_file, sep=":", col.names = FALSE, row.names=FALSE, quote=FALSE)
-      cmd_out <- execGRASS("r.recode", input=flowdir, output=cos_aspect, 
+      cmd_out <- execGRASS("r.recode", input=flowdir, output=aspect.cos, 
                            rules=tmp_file, flags="overwrite", intern=TRUE)
       
       if (!is.null(attr(cmd_out, "status")) && attr(cmd_out, "status")!=0) stop(cat(paste0("Error running r.recode:", paste0(cmd_out, collapse="\n"))))
       
       #perform zonal statistics using raster eha on the aspect-related  maps
-      cmd_out <- execGRASS("r.univar", map=sin_aspect, zones=eha, 
+      cmd_out <- execGRASS("r.univar", map=aspect.sin, zones=eha, 
                            separator="tab",
                            output=tmp_file, 
                            flags=c("overwrite", "t"), intern=TRUE)
@@ -166,16 +166,16 @@ prepare_snow_input <- function(
       
       #read generated output file
       file_content = read.table(file=tmp_file, header=TRUE, sep="\t")[, c("zone", "mean")]
-      colnames(file_content) = c("eha_id", "sin_aspect")
+      colnames(file_content) = c("eha_id", "aspect.sin")
       eha_means = file_content
       
-      cmd_out <- execGRASS("r.univar", map=cos_aspect, zones=eha, 
+      cmd_out <- execGRASS("r.univar", map=aspect.cos, zones=eha, 
                            separator="tab",
                            output=tmp_file, 
                            flags=c("overwrite", "t"), intern=TRUE)
       if (!is.null(attr(cmd_out, "status")) && attr(cmd_out, "status")!=0) stop(cat(paste0("Error running r.univar:", paste0(cmd_out, collapse="\n"))))
       file_content = read.table(file=tmp_file, header=TRUE, sep="\t")[, c("zone", "mean")]
-      colnames(file_content) = c("eha_id", "cos_aspect")
+      colnames(file_content) = c("eha_id", "aspect.cos")
       eha_means = merge(eha_means, file_content)
       
       #r.univar [-getr] map=name[,name,...] [zones=name] [output=name] [percentile=float[,float,...]] [nprocs=integer] [separator=character] [--overwrite] [--help] [--verbose] [--quiet] [--ui]
@@ -222,9 +222,9 @@ prepare_snow_input <- function(
       eha_means$rel_alt = eha_means$mean_alt - eha_means$subbas_alt
       
       #write eha_means to file
-      write.table(round(eha_means[, c("eha_id", "sin_aspect",	"cos_aspect", "rel_alt")], digits=2), file=file.path(eha_file), sep="\t", row.names=FALSE, quote=FALSE)
+      write.table(round(eha_means[, c("eha_id", "aspect.sin",	"aspect.cos", "rel_alt")], digits=2), file=file.path(eha_1d_file), sep="\t", row.names=FALSE, quote=FALSE)
       
-      if(!silent) message(paste0("% Result file ", eha_file," written. Finished."))
+      if(!silent) message(paste0("% Result file ", eha_1d_file," written. Finished."))
       # if an error occurs delete all temporary output
     
   } # 
