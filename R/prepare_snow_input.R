@@ -116,10 +116,8 @@ prepare_snow_input <- function(
       stop(paste0("Raster map ", aspect.cos, " already existing. Use overwrite=TRUE to overwrite."))
     if (check_raster(map=aspect.sin, argument_name=aspect.sin, raiseerror=FALSE))
       stop(paste0("Raster map ", aspect.sin, " already existing. Use overwrite=TRUE to overwrite."))
-         
   }
-  
-  
+
   if(!silent) message("% OK")
 
 
@@ -184,29 +182,36 @@ prepare_snow_input <- function(
       # compute relative elevation values for each EHA ####
       if(!silent) message("% Compute relative elevation of EHAs...")
       
-      #compute "mean" elevation of each subbasin by extracting the elevation of its centroids
-      
-      #compute centroids of subbasins
-      cmd_out <- execGRASS("r.centroids", input=subbas, output="subbas_centroids_t", 
-                           flags=c("overwrite"), intern=TRUE)
-      if (!is.null(attr(cmd_out, "status")) && attr(cmd_out, "status")!=0) stop(cat(paste0("Error running r.univar:", paste0(cmd_out, collapse="\n"))))
-      
       #get subbasin for each EHA
       cmd_out <- execGRASS("r.stats", input=paste(eha, subbas, sep=","), 
                            separator="tab", output=tmp_file, flags=c("overwrite", "n"), intern=TRUE)
       if (!is.null(attr(cmd_out, "status")) && attr(cmd_out, "status")!=0) stop(cat(paste0("Error running r.stats:", paste0(cmd_out, collapse="\n"))))
-      file_content = read.table(file=tmp_file, header=TRUE, sep="\t")
+      file_content = read.table(file=tmp_file, header=FALSE, sep="\t")
       colnames(file_content) = c("eha_id", "subbas_id")
       eha_means = merge(eha_means, file_content)
       
-      #extract raster values of DEM at centroid points
-      cmd_out <- execGRASS("r.what", map=dem, points="subbas_centroids_t", 
-                           separator="tab", output=tmp_file, flags=c("n", "v", "overwrite"), intern=TRUE)
-      if (!is.null(attr(cmd_out, "status")) && attr(cmd_out, "status")!=0) stop(cat(paste0("Error running r.what:", paste0(cmd_out, collapse="\n"))))
-      file_content = read.table(file=tmp_file, header=TRUE, sep="\t")[, c("cat", dem)]
+      #compute "mean" elevation of each subbasin by extracting the elevation of its centroids
+        # #compute centroids of subbasins
+        # cmd_out <- execGRASS("r.centroids", input=subbas, output="subbas_centroids_t", 
+        #                      flags=c("overwrite"), intern=TRUE)
+        # if (!is.null(attr(cmd_out, "status")) && attr(cmd_out, "status")!=0) stop(cat(paste0("Error running r.univar:", paste0(cmd_out, collapse="\n"))))
+        # 
+        # #extract raster values of DEM at centroid points
+        # cmd_out <- execGRASS("r.what", map=dem, points="subbas_centroids_t", 
+        #                      separator="tab", output=tmp_file, flags=c("n", "v", "overwrite"), intern=TRUE)
+        # if (!is.null(attr(cmd_out, "status")) && attr(cmd_out, "status")!=0) stop(cat(paste0("Error running r.what:", paste0(cmd_out, collapse="\n"))))
+        # file_content = read.table(file=tmp_file, header=TRUE, sep="\t")[, c("cat", dem)]
+      
+      #use mean elevation of each subbasin (perform zonal statistics using raster subbas on the DEM)
+      cmd_out <- execGRASS("r.univar", map=dem, zones=subbas, 
+                           separator="tab",
+                           output=tmp_file, 
+                           flags=c("overwrite", "t"), intern=TRUE)
+      if (!is.null(attr(cmd_out, "status")) && attr(cmd_out, "status")!=0) stop(cat(paste0("Error running r.univar:", paste0(cmd_out, collapse="\n"))))
+      file_content = read.table(file=tmp_file, header=TRUE, sep="\t")[, c("zone", "mean")]
       colnames(file_content) = c("subbas_id", "subbas_alt")
       eha_means = merge(eha_means, file_content)
-      
+
       #perform zonal statistics using raster eha on the DEM
       cmd_out <- execGRASS("r.univar", map=dem, zones=eha, 
                            separator="tab",
