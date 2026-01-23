@@ -1,5 +1,5 @@
 # lumpR/subbasin.R
-# Copyright (C) 2014-2025 Tobias Pilz, Till Francke
+# Copyright (C) 2014-2026 Tobias Pilz, Till Francke
 # 
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -19,6 +19,7 @@
 #' 
 #' Takes DEM from a GRASS location and a point layer of drainage points and/or areal threshold to calculate 
 #' hydrological subbasins using GRASS functions.
+#' Usually run at the beginning of the lumpR workflow. Followed by \code{\link[lumpR]{lump_grass_prep()}}.
 #' 
 #' @param dem Digital Elevation Model in GRASS location used for delineation of
 #'      subbasins. Should be larger than the expected catchment, otherwise artefacts

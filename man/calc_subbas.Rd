@@ -117,6 +117,7 @@ Function returns nothing. Various output is generated in the GRASS-location:
 \description{
 Takes DEM from a GRASS location and a point layer of drainage points and/or areal threshold to calculate 
 hydrological subbasins using GRASS functions.
+Usually run at the beginning of the lumpR workflow. Followed by \code{\link[lumpR]{lump_grass_prep()}}.
 }
 \details{
 The function delineates subbasins. It can use user-specified outlet points via parameter \code{drain_points}, and/or the area-threshold \code{param thresh_sub}.

@@ -2,7 +2,8 @@
 % Please edit documentation in R/area2catena.R
 \name{area2catena}
 \alias{area2catena}
-\title{Calculates mean catena from spatial data}
+\title{Calculates catena from spatial data, i.e. condenses 3D-represantations of to 2D.
+Takes raster data from a GRASS location and calculates catena properties.}
 \usage{
 area2catena(
   mask = NULL,
@@ -109,7 +110,7 @@ Function returns nothing. Output files are written into output directory
      as specified in arguments.
 }
 \description{
-Takes raster data from a GRASS location and calculates catena properties.
+To be run after \code{\link[lumpR]{prepare_snow_input()}} or  \code{\link[lumpR]{area2catena()}} . Followed by \code{\link[lumpR]{modify_eha_head_files()}} .
 }
 \note{
 Prepare GRASS location and necessary raster files in advance (e.g. using

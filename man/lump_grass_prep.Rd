@@ -137,6 +137,9 @@ Takes raster data from a GRASS location and calculates elementary hillslopes,
 soil-vegetation-components, and Horton stream order using GRASS functions
 needed for further Landscape Unit deviation.
 }
+\details{
+To be run after \code{\link[lumpR]{calc_subbas()()}}. Followed by \code{\link[lumpR]{prepare_snow_input()}} or  \code{\link[lumpR]{area2catena()}} .
+}
 \note{
 Prepare GRASS location and necessary raster files in advance and start
      GRASS session in R using \code{\link[rgrass]{initGRASS}}.

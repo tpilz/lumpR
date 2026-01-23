@@ -21,6 +21,8 @@
 #' and parameter estimation for Subbasins and Landscape Units in the catchment
 #' using outputs of \code{\link[lumpR]{lump_grass_prep}} and \code{\link[lumpR]{prof_class}}.
 #' 
+#' To be run after \code{\link[lumpR]{prof_class()}}. Followed by \code{\link[lumpR]{reservoir_outlet()}}, \code{\link[lumpR]{reservoir_strategic()}}, \code{\link[lumpR]{reservoir_lumped()}} (if applicable), then \code{\link[lumpR]{db_create()}}.
+#' 
 #' @param mask Name of mask raster map masking the study area. E.g. output \code{basin_out}
 #'      of \code{\link[lumpR]{calc_subbas}}.
 #' @param dem DEM raster map in GRASS location as used in \code{\link[lumpR]{lump_grass_prep}}.

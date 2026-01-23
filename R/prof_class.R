@@ -19,7 +19,7 @@
 #' 
 #' Classifies mean catenas derived from \code{\link[lumpR]{area2catena}} into \emph{Landscape
 #' Units} and \emph{Terrain Components}. 
-#' To be run after \code{\link[lumpR]{modify_eha_head_files()}}, followed by \code{\link[lumpR]{lump_grass_post()}}
+#' To be run after \code{\link[lumpR]{modify_eha_head_files()}}. Followed by \code{\link[lumpR]{lump_grass_post()}} .
 #' 
 #' @param eha_2d_file Name of file containing catena information derived from EHAs using
 #'      \code{\link[lumpR]{area2catena}}.

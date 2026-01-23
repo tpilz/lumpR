@@ -4,14 +4,17 @@
 \alias{modify_eha_head_files}
 \title{Change header file needed by prof_class() according to desired number of classes to create in classification}
 \usage{
-modify_eha_head_files(eha_2d_head_file, no_classes)
+modify_eha_head_files(eha_2d_head_file, eha_1d_file = NULL, no_classes)
 }
 \arguments{
 \item{eha_2d_head_file}{Name of file containing meta-information for classification
-derived from \code{\link[lumpR]{area2catena}} and adjusted manually (see \code{Notes}).#'}
+generated with \code{\link[lumpR]{area2catena}} describing 2-D representation of the EHAs (see \code{Notes}).'}
 
 \item{no_classes}{Named integer vector holding the number of classes to create for each attribute. Its first three 
 elements should be named "shape", "extent", and "weighting".}
+
+\item{eha_1d_file=NULL}{Name of file containing meta-information for classification
+(e.g. generated with  \code{\link[lumpR]{prepare_snow_input()}} (see \code{Notes}).'}
 }
 \value{
 'Returns nothing. Re-writes \code{eha_2d_head_file}, adjusting it with the supplied parameters.
@@ -22,7 +25,23 @@ for the classification of the catenas by \code{\link[lumpR]{prof_class()}}.
 To be run after \code{\link[lumpR]{area2catena()}}, followed by \code{\link[lumpR]{prof_class()}}.
 }
 \details{
+\code{eha_2d_head_file} (default: \code{"eha_2d_head.txt"} ) is used as a descriptor file to 
+\code{eha_2d_file} (default: \code{"eha_2d.txt"} ) created by \code{\link[lumpR]{area2catena()}} and serves as
+configuration file for the classification of the catenas by \code{\link[lumpR]{prof_class()}}. It may be adjusted manually or using  \code{\link[lumpR]{modify_eha_head_files()}} .
+It should resemble the structure as in the following example: \code{
+#This file works as a header to the output of area2catena and input to prof_class. Don't add additional headerlines.
+#1. line after header: description/field names of the data columns contained in file eha_2d_file
+#2. line after header: specifies, how many columns of data belong to the respective data-field given in line 1
+#3. line after header: number of classes/ weighting factors for classification process
+#4. line after header: factors used for weighting in partition process (column: 1: number of TC to create; 2.: partition method (not yet used); 3.: not used; 4-nn: weighting of supplemental data in TC-partitioning relative to slope.)
+id	p_no	elevation	svc	soils	slope_width	aspect	rel_alt
+1	1	1	72	11	1	NA	NA
+-1	3	10	1	3	1	4	2
+3	0	0	0	0	0	NA	NA
+}      
 
+Please note: Attributes with \code{NA} in line 2 after header (i.e. 'aspect' and 'rel_alt' in the example) are not expected to be part of \code{eha_2d_file}.
+Instead, they can be provided as an optional extra file via argument \code{eha_1d_file} to \code{\link[lumpR]{prof_class()}}.
 }
 \author{
 Till Francke

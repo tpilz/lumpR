@@ -105,7 +105,10 @@ and parameter estimation for Subbasins and Landscape Units in the catchment
 using outputs of \code{\link[lumpR]{lump_grass_prep}} and \code{\link[lumpR]{prof_class}}.
 }
 \details{
-\bold{Subbasin parameters}\cr
+To be run after \code{\link[lumpR]{prof_class()}}. Followed by \code{\link[lumpR]{reservoir_outlet()}}, \code{\link[lumpR]{reservoir_strategic()}}, \code{\link[lumpR]{reservoir_lumped()}} (if applicable), then \code{\link[lumpR]{db_create()}}.
+
+
+     \bold{Subbasin parameters}\cr
      Subbasin parameter estimation given in \code{sub_ofile} contains:
      
      \emph{pid}\cr

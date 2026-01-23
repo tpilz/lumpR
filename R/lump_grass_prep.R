@@ -21,6 +21,8 @@
 #' soil-vegetation-components, and Horton stream order using GRASS functions
 #' needed for further Landscape Unit deviation.
 #' 
+#' To be run after \code{\link[lumpR]{calc_subbas()()}}. Followed by \code{\link[lumpR]{prepare_snow_input()}} or  \code{\link[lumpR]{area2catena()}} .
+#' 
 #' @param mask Mask in GRASS location defining the catchment area (e.g. subbasin raster map).
 #' @param dem Digital elevation model in GRASS location used for delineation of
 #'      environmental hillslope areas. Should be larger than the expected catchment,
