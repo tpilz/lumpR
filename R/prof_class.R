@@ -28,6 +28,7 @@
 #' @param svc_column Field name in \code{eha_2d_head_file} that holds the information
 #'      of SVCs for generating \code{tccontainssvcoutfile}. Default: 'svc'.
 #' @param eha_1d_file=NULL Optional file containing additional properties at the EHA-scale. Can be generated e.g. as "eha_1d.txt" with \link{prepare_snow_input()}
+#' @param eha_1d_head_file=NULL Header file to \code{eha_1d_file}. Can be generated e.g. as "eha_1d_head.txt" with \link{prepare_snow_input()}
 #' @param dir_out Character string specifying output directory (will be created;
 #'      nothing will be overwritten).
 #' @param luoutfile Output: Name of file containing the average properties of
@@ -123,6 +124,8 @@ prof_class <- function(
   eha_2d_file=NULL,
   eha_2d_head_file=NULL,
   svc_column='svc',
+  eha_1d_file=NULL,
+  eha_1d_head_file=NULL,
   
   ### OUTPUT ###
   dir_out="./",
@@ -355,7 +358,7 @@ prof_class <- function(
       plot(1,1,type="n", xlim=c(0,max(profpoints)*resolution), ylim=c(0,500),
            main="Original catenas", xlab="horizontal length [m]", ylab="elevation [m]")
     }
-  #read and resample profiles (done at the same time to avoid duplicates in memory) ####
+#read and resample profiles (done at the same time to avoid duplicates in memory) ####
     # TODO: This mess needs to be improved!
      if(!grepl(".RData$", eha_2d_file)) testcon <- file(eha_2d_file,open="r")
      if(!silent) #for printing progress indicator
@@ -447,7 +450,7 @@ prof_class <- function(
      
      #save(file="debug.RData", list = ls(all.names = TRUE)) #for debugging only
      
-  # supplement 2D-data with 1D-data if provided ####
+# supplement 2D-data with 1D-data if provided ####
      if (eha_1d_file !="") {
        if(!silent) message("% -> Supplementing 2D data with 1D data...")
        
@@ -518,7 +521,7 @@ prof_class <- function(
      attributes_meta$ix_start = attributes_meta$ix_end - attributes_meta$n_columns_eff +1   #column start index of this attribute
 
           
-    # PREPARE attribute loop and key-generation #####
+# PREPARE attribute loop and key-generation #####
 
    
 
@@ -551,22 +554,28 @@ prof_class <- function(
      if (cf_mode == 'successive') {
        #iw_max <- length(attr_weights_class2d) # successive weighting for each single attribute
        iw_max <- nrow(attributes_meta) # successive weighting f and classification or each single attribute
+       if(!silent) message(paste("Starting successive clustering loop EHAs using ", iw_max, " attributes.", sep=""))
      } else {
        iw_max <- 1  # cf_mode ='singlerun'
+       if(!silent) message(paste("Starting single-run clustering EHAs using ", iw_max, " attributes.", sep=""))
      }
      
-    
+       
+     
     cidx_save <- list(NULL) # initialise list to store classification results; i.e. a vector assigning each EHA to a cluster class for each attribute
     hc <- 0
     while (iw <= iw_max) {
       # ensure reproducible random numbers for debugging / repetitions
       set.seed(seed)
       
+      
+      if(!silent) message(paste("% '", attributes_meta$attr_name[iw], "' (", iw-(iw>2), "/", nrow(attributes_meta), ") ...", sep=""))
+      
       # SUCCESSIVE weighting for each single attribute - we will simply screen out the other attributes by setting their weights to zero
       if (cf_mode == 'successive') {
         # modify original weights:
         attr_weights_class2d <- 0 * attr_weights_class2d_original #rr
-        nclasses <- attr_weights_class2d_original[iw]
+        #nclasses <- attr_weights_class2d_original[iw]
         
         attributes_meta$weights_classes = 0 #set all weights to zero...
         attributes_meta$weights_classes[iw] = abs(attributes_meta$weights_classes_org[iw]) #...except for the current attribute
@@ -587,8 +596,7 @@ prof_class <- function(
         if (nclasses==0 || nclasses==1) {
           cidx_save[[iw]] <- rep(1, n_profs)
           
-          #if(!silent) message(paste("% -> skipped '", attr_names[iw], "' (", iw-(iw>2), "/", length(attr_names)-1, ") because number of classes=1", sep=""))
-          if(!silent) message(paste("% -> skipped '", attributes_meta$attr_name[iw], "' (", iw-(iw>2), "/", nrow(attributes_meta), ") because number of classes=1", sep=""))
+          if(!silent) message(paste("% -> ... skipped because number of classes=1", sep=""))
 
           # if (iw==2) {
           #   iw <- 4
@@ -599,7 +607,7 @@ prof_class <- function(
           next
         }
       
-        if(!silent) message(paste("% -> successive clustering loop, treating attribute '", attributes_meta$attr_name[iw], "' (", iw-(iw>2), "/", nrow(attributes_meta), ")", sep="")) 
+        #if(!silent) message(paste("% -> successive clustering loop, treating attribute '", attributes_meta$attr_name[iw], "' (", iw-(iw>2), "/", nrow(attributes_meta), ")", sep="")) 
         hc <- hc+1
       } # end cases of cf_mode 'successive'/'singlerun'
       
@@ -615,83 +623,23 @@ prof_class <- function(
     
       for (attr_name in attributes_used)
       {
-        attr_start_column = attributes_meta$ix_start[attributes_meta$attr_name == attr_name] 
-        attr_end_column   = attributes_meta$ix_end[attributes_meta$attr_name == attr_name]
-        attr_len = attr_end_column - attr_start_column
-        # Weigh the current attribute, divide by
-        # number of fields (attr_end_column-attr_start_column+1) to
+        cur_row = which(attributes_meta$attr_name == attr_name)
+        attr_start_column = attributes_meta$ix_start       [cur_row] 
+        attr_end_column   = attributes_meta$ix_end         [cur_row]
+        w                 = attributes_meta$weights_classes[cur_row] #use supplied and adjusted weights
+        if (attr_name == "xy-extent")
+          w                 = c(1, attr_weights_class2d_original["elevation"]) #special case: weighting of vertical vs horizontal extent (legacy structure)
+
+        attr_len = attr_end_column - attr_start_column + 1
+        # Weigh the current attribute with supplied weights w, divide by
+        # number of fields (attr_len) to
         # prevent multi-field attributes to get more relative weight
-        profs_resampled[, dest_column + (1 : attr_len)]  <- profs_resampled_stored[, attr_start_column:attr_end_column] * attr_weights_class2d[j] / (attr_end_column-attr_start_column+1)
+        profs_resampled[, dest_column + (1 : attr_len)]  <- t(t(profs_resampled_stored[, attr_start_column:attr_end_column]) * w) / attr_len
         
         dest_column <- dest_column+attr_len
       }
       
-      for (i in 1:n_profs) {
-        
-        dest_column <- 1      # destination column where an attribute is placed
-        
-        # weigh shape and the dimension components, weighted with specified weights attr_weights_class2d(2), attr_weights_class2d(3) multiplied by com_length to make the weighting independent of any com_length that was computed; 
 
-        # put into profs_resampled only if the weighting factors are not zero
-        if (attr_weights_class2d[1]) {
-          profs_resampled[i,dest_column:(dest_column+com_length-1)] <- profs_resampled_stored[i,1:com_length]*attr_weights_class2d[1]
-          dest_column <- dest_column+com_length
-        }
-        if (attr_weights_class2d[2]) {
-          prof_length = profs_resampled_stored[i,com_length+1] # x-extent of profile
-          profs_resampled[i,dest_column] <- prof_length*com_length*attr_weights_class2d[2]
-          dest_column <- dest_column+1
-        }
-        if (attr_weights_class2d[3]) {
-          prof_height = profs_resampled_stored[i,com_length+2] # y-extent of profile
-          profs_resampled[i,dest_column] <- prof_height*com_length*attr_weights_class2d[3]
-          dest_column <- dest_column+1
-        }
-        
-        #ii: isn't this necessary only for cf_mode != 'successive'? Even in successive, wouldn't it be enough to do it once?
-        #treat supp_data if present (resample, weigh and add to profile vector to be included in cluster analysis)
-        if (n_suppl_attributes) {
-          n_skipped_cols = com_length+2 #number of skipped columns (because already included or of zero weights)
-          attr_start_column <- 1+n_skipped_cols   #initial value for first loop
-          # append all the supplemental components, weighted with specified weights
-          for (j in 4:length(datacolumns2d)) {
-            
-            # skip attributes with no data columns
-            if(datacolumns2d[j]==0) next
-            
-            attr_name= names(datacolumns2d)[j] #name of currently treated attribute
-            
-            # skip attributes weighted with 0
-            if(attr_weights_class2d[j]==0) {
-              n_skipped_cols <- n_skipped_cols + attributes_meta$n_columns_eff[attributes_meta$attr_name == attr_name] #increase number of omitted columns
-              next              
-            }
-            
-
-            attr_start_column = attributes_meta$ix_start[attributes_meta$attr_name == attr_name] 
-            attr_end_column   = attributes_meta$ix_end[attributes_meta$attr_name == attr_name]
-            
-            # Weigh the current supplemental attribute, divide by
-            # number of fields (attr_end_column-attr_start_column+1) to
-            # prevent multi-field attributes to get more relative weight
-            profs_resampled[i, (attr_start_column:attr_end_column)-n_skipped_cols]  <- profs_resampled_stored[i, attr_start_column:attr_end_column] * attr_weights_class2d[j] / (attr_end_column-attr_start_column+1)
-            
-            dest_column <- dest_column+new_columns
-            
-            # the next attribute starts one column further in prof_resampled_stored
-            attr_start_column <- attr_end_column+1
-            
-          } # end weigh and append suppl data
-          
-          
-        } else { 
-          
-          profs_resampled <- profs_resampled[i,1:com_length]
-          
-        } # end treat suppl data   
-        
-      } # end weighting ii:do we need to do this per profile? better vectorize
-      
       # CLUSTER-ANALYSIS
       cidx = array(NA, n_profs) #cluster membership
       if (classify_type=='load') {
@@ -722,7 +670,7 @@ prof_class <- function(
       cidx_save[[iw]] <- cidx
       
       
-      if(!silent) message(paste('% -> profile clustering: fitting index_c = ', round(sqrt(sum(sumd^2)),2), sep=""))
+      if(!silent) message(paste('% -> ... clustering (', nclasses, ' classes): fitting index_c = ', round(sqrt(sum(sumd^2)),2), sep=""))
       
       
       if (length(unique(cidx)) < nclasses) {
@@ -740,38 +688,33 @@ prof_class <- function(
 
       # PLOT classified catenas
       # originals
-      if (make_plots) {
-        plot(1,1,type="n", xlim=c(0,max(profs_resampled_stored[,com_length+1])), ylim=c(0,max(profs_resampled_stored[,com_length+2])),
-             main=paste("Original catenas\nclassified according ", attr_names[iw], sep=""), xlab="horizontal length [m]", ylab="elevation [m]")
+      if (make_plots & nclasses > 1) {
+        plot(1,1,type="n", xlim=c(0, max(profs_resampled_stored[,com_length+1])), ylim=c(0,max(profs_resampled_stored[,com_length+2])),
+             main=paste("Original catenas\nclassified according ", attributes_meta$attr_name[iw], " into ", attributes_meta$weights_classes[iw], " classes", sep=""), xlab="horizontal length [m]", ylab="elevation [m]")
         for (i in 1:n_profs) {
           lines(   (0:(com_length-1) / (com_length-1)) * profs_resampled_stored[i,com_length+1], 
                 profs_resampled_stored[i,1:com_length] * profs_resampled_stored[i,com_length+2], col=cidx[i])
         }
-      }
       
-      # modified
-      if (make_plots) {
-        plot(1,1,type="n", xlim=c(0,com_length-1), ylim=c(0,1), main=paste("catenas, resampled, reduced & normalized\nclassified according ", attr_names[iw], sep=""), 
-             xlab="catena point number", ylab="relative elevation")
-        for (i in 1:nrow(profs_resampled_stored)) {
-          lines(0:(com_length-1), profs_resampled_stored[i,1:com_length], col=cidx[i])
+        # plot normalized catenas, too
+        if (attributes_meta$weights_partition[attributes_meta$attr_name == "shape"] !=0) 
+        {  
+          plot(1,1,type="n", xlim=c(0,com_length-1), ylim=c(0,1), main=paste("catenas, resampled, reduced & normalized\nclassified according ", attributes_meta$attr_name[iw], sep=""), 
+               xlab="catena point number", ylab="relative elevation")
+          for (i in 1:nrow(profs_resampled_stored)) {
+            lines(0:(com_length-1), profs_resampled_stored[i,1:com_length], col=cidx[i])
+          }
         }
       }
       
-      
-      # increase index for attribute-loop
-#      if (iw==2) {
-#        iw <- 4           # because x and y dimension are treated together
-#      } else {
+
         iw <- iw+1 
-      }
-      
-      
+
     } # end classification loop through all attributes
     
     
     
-    # complete key generation (successive mode only)
+    # complete key generation (successive mode only) ####
     # successive weighting mode: all prior classifications will be merged into one by generating unique key 
     if (cf_mode == 'successive') {
       cidx_save[[iw_max+1]] <- 0 #inititalize overall (composite) classification result
@@ -820,7 +763,7 @@ prof_class <- function(
     mean_prof <- matrix(NA, nrow=nclasses, ncol=ncol(profs_resampled_stored)) # mean shape of every class
     class_repr <- matrix(NA, nrow=nclasses, ncol=2) # min. distance of class i to centroid and resp. ID
     
-    for (i in 1:nclasses) {
+    for (i in 1:nclasses) { #ii: could better be done with aggregate()?
       
       # find all profiles belonging to current class
       class_i <- which(cidx==unique_classes[i])
@@ -832,21 +775,13 @@ prof_class <- function(
       }
       
       # calculate mean catena (average attributes over all profiles belonging to the current class)
-      mean_prof[i,] <- apply(profs_resampled_stored[class_i,, drop=FALSE],2,mean)
+      mean_prof[i,] <- apply(profs_resampled_stored[class_i,, drop=FALSE], 2, mean)
       
       # find closest catena (=most representative) to each class centre
       dists_class_i <- dists[class_i,i]        # retrieve distances of catenas of class i to centroid of class i
       class_repr[i,2] <- min(dists_class_i)   # find minimum distance of class i
       j <- min(which(dists_class_i == min(dists_class_i)))
       class_repr[i,1] <- class_i[j]                 # store internal id of closest catena
-      
-      # TODO: what is this good for?!
-      Y <- sort(dists_class_i)
-      ix <- sort(dists_class_i, index.return=TRUE)$ix
-      if (cf_mode=='singlerun') {
-        if(!silent) message(paste('% -> WARNING: three closest catenas to centre of class ', i, ' (ext id): ', p_id_unique[class_i[ix[1:min(3,length(ix))]]], sep=""))
-      }
-      
       
       # draw a separate figure with the cluster centre (mean toposequence) and the closest catena
       if (make_plots && FALSE) {
@@ -858,9 +793,7 @@ prof_class <- function(
         lines(profsx[[class_i[j]]], profs[[class_i[j]]]-min(profs[[class_i[j]]]), col="blue")
         legend("topleft", c("mean toposequence", "closest catena"), col=c("black", "blue"), lty=c(1,1))
       }
-      
-      
-      
+
       # save reclass files
       write(file=paste(dir_out,recl_lu,sep="/"), append=ifelse(i==1,FALSE,TRUE), x=paste(p_id_unique[class_i], "=",i," ", unique_classes[i], sep=""))
       
@@ -878,26 +811,26 @@ prof_class <- function(
     
     # write header fields for calculated TC-limits, minimisation of variance
     if (ntc > 1) {
-      for (i in 1:(ntc-1)) {
+      for (i in 1:(ntc-1)) 
         dumstr <- paste(dumstr, tab, 'lim_var', i, sep="")
-      }
       
       # write header fields for calculated TC-limits, cluster analysis
-      for (i in 1:(ntc-1)) {
+      for (i in 1:(ntc-1)) 
         dumstr <- paste(dumstr, tab, 'lim_clu', i, sep="")
-      }
     }
-    
+    c("elevation", attributes_meta$attr_name[-(1:2)]) #names of all attributes except shape and xy-extent
     # write header for all attributes
-    for (i in 3:length(datacolumns2d)) {
-      # write all fields of this attribute for this catena point
-      for (k in 1:datacolumns2d[i]) {
+    #for (i in 3:length(datacolumns2d)) {
+    for (i in 1:nrow(attributes_meta)) {
+      attr_name = attributes_meta$attr_name[i]
+      if (attr_name=="xy-extent") next #xy-extent has been handled before
+    # write all fields of this attribute for this catena point
+      for (k in 1:attributes_meta$n_columns[i]) {
         # write this attribute for all catena points
-        for (j in 1:com_length) {
-          dumstr <- paste(dumstr, tab, attr_names[i], '_p', j, sep="")
-          
+        for (j in 1:attributes_meta$n_points[i]) {
+          dumstr <- paste(dumstr, tab, attr_name, '_p', j, sep="")
           # if this is a multi-field attribute...
-          if (datacolumns2d[i]>1) dumstr <- paste(dumstr, '_c', k, sep="")  # denote field numbering in header
+          if (attributes_meta$n_columns[i]>1) dumstr <- paste(dumstr, '_c', k, sep="")  # denote field numbering in header
         }
       }
     }
@@ -961,7 +894,7 @@ prof_class <- function(
     
     
     
-# decomposition into TCs #-----------------------------------------------------
+# decomposition into TCs ####
     if(!silent) message("%")
     if(!silent) message("% Decomposition into TCs...")
     
@@ -981,7 +914,7 @@ prof_class <- function(
       curr_lu_key <- unique(cidx[class_i])
       lu_labels=c(lu_labels, curr_lu_key) #ii
     }  
-    # PARTITIONING OF MEAN PROFILE FOR EACH LU #
+    # PARTITIONING OF MEAN PROFILE FOR EACH LU
     for (i in 1:nclasses) {
       if(!silent) message(paste('% -> partitioning class ', i, ' of ', nclasses, sep=""))
       
@@ -999,13 +932,14 @@ prof_class <- function(
       if(length(curr_lu_key) > 1)
         stop("Unexpected error during partitioning of the mean profile for each LU: more than one LU identified in partitioning loop. Contact the package developer!")
       
-      # if supplemental data exists, calculate average
-      if (n_suppl_attributes) {
-        mean_supp_data_t <- apply(profs_resampled_stored[class_i,(com_length+3):ncol(profs_resampled_stored), drop=FALSE],2, mean)
-        mean_supp_data <- matrix(mean_supp_data_t, ncol=com_length, nrow=n_supp_data_columns, byrow=TRUE)
-      } else {
-        mean_supp_data <- 0      # no supplemental data present
-      }
+      # # if supplemental data exists, calculate average
+      # if (n_suppl_attributes) {
+      #   mean_supp_data_t <- apply(profs_resampled_stored[class_i,(com_length+3):ncol(profs_resampled_stored), drop=FALSE], 2, mean)
+      #   sum(attributes_meta$n_columns[-(1:2)])
+      #   mean_supp_data <- matrix(mean_supp_data_t, ncol=com_length, nrow=n_supp_data_columns, byrow=TRUE)
+      # } else {
+      #   mean_supp_data <- 0      # no supplemental data present
+      # }
       
       
       # compute x-dimension for current mean profile
@@ -1048,7 +982,7 @@ prof_class <- function(
         for (ii in 2:com_length) {
           mean_prof[i,1:com_length][ii] <- max(mean_prof[i,1:com_length][ii-1], mean_prof[i,1:com_length][ii])
         }
-        # compute local slopes of profile
+        # compute local slopes of profile #ii could be done using diff()
         prof_slopes <- vector("numeric", length=com_length-1)
         # the first and last point are treated differently
         prof_slopes[1] <- (mean_prof[i,1:com_length][2]-mean_prof[i,1:com_length][1])/dx
@@ -1058,38 +992,55 @@ prof_class <- function(
         prof_slopes[com_length] <- (mean_prof[i,1:com_length][com_length]-mean_prof[i,1:com_length][com_length-1])/dx
         
         
+        # 
+        # # if supplemental data is present
+        # if (n_suppl_attributes>0 && any(attr_weights_partition2d[4:length(attr_weights_partition2d)]>0)) 
+        # {
+        #   supp_data_weighted <- NULL
+        #   supp_data_weighted <- array(0, dim(mean_supp_data))
+        #   # weigh supplemental information according to weighting factors given
+        #   for (jj in 4:length(datacolumns2d)) {
+        #     # if an attribute is to be weighted with 0, we can as well skip it
+        #     if (attr_weights_partition2d[jj]==0) next
+        #     
+        #     attr_start_column <- sum(datacolumns2d[4:(jj-1)])+1
+        #     attr_end_column <- attr_start_column+datacolumns2d[jj]-1
+        #     
+        #     supp_data_weighted[attr_start_column:attr_end_column,] <- mean_supp_data[attr_start_column:attr_end_column,]*attr_weights_partition2d[jj]/(attr_end_column-attr_start_column+1) 
+        #   }  
+        #   # data that is given to partitioning algorithm
+        #   #remove columns without variability to conserve space and computation time
+        #   to_keep=rep(TRUE, nrow(supp_data_weighted))
+        #   for (jj in 1:nrow(supp_data_weighted)) 
+        #     to_keep[jj] =  any(supp_data_weighted[jj,1] != supp_data_weighted[jj,]) #check if this row contains different values
+        #   supp_data_weighted = supp_data_weighted[to_keep,]  
+        #   pdata <- rbind(prof_slopes, supp_data_weighted)
+        # } else {
+        #   # only the slope data is given to partitioning algorithm
+        #   supp_data_weighted <- 0
+        #   pdata <- matrix(prof_slopes, nrow = 1)
+        # }
+        # 
         
-        # if supplemental data is present
-        if (n_suppl_attributes>0 && any(attr_weights_partition2d[4:length(attr_weights_partition2d)]>0)) 
-        {
-          supp_data_weighted <- NULL
-          supp_data_weighted <- array(0, dim(mean_supp_data))
-          # weigh supplemental information according to weighting factors given
-          for (jj in 4:length(datacolumns2d)) {
-            # if an attribute is to be weighted with 0, we can as well skip it
-            if (attr_weights_partition2d[jj]==0) next
-            
-            attr_start_column <- sum(datacolumns2d[4:(jj-1)])+1
-            attr_end_column <- attr_start_column+datacolumns2d[jj]-1
-            
-            supp_data_weighted[attr_start_column:attr_end_column,] <- mean_supp_data[attr_start_column:attr_end_column,]*attr_weights_partition2d[jj]/(attr_end_column-attr_start_column+1) 
-          }  
-          # data that is given to partitioning algorithm
-          #remove columns without variability to conserve space and computation time
-          to_keep=rep(TRUE, nrow(supp_data_weighted))
-          for (jj in 1:nrow(supp_data_weighted)) 
-            to_keep[jj] =  any(supp_data_weighted[jj,1] != supp_data_weighted[jj,]) #check if this row contains different values
-          supp_data_weighted = supp_data_weighted[to_keep,]  
-          pdata <- rbind(prof_slopes, supp_data_weighted)
-        } else {
-          # only the slope data is given to partitioning algorithm
-          supp_data_weighted <- 0
-          pdata <- matrix(prof_slopes,nrow = 1)
+        
+        #rearrange mean_prof by omitting attributes not used for clustering and arranging data columnwise per longitudinal ppoint of catena
+        pdata=prof_slopes #slopes are used anyway for partitioning
+        for (r in 2:nrow(attributes_meta)) {
+          if (is.na(attributes_meta$weights_partition[r]) || attributes_meta$weights_partition[r]==0) next #skip attributes not used for partitioning
+          attr_start_column = attributes_meta$ix_start[r]
+          attr_end_column   = attributes_meta$ix_end[r]
+          n_columns_eff    = attributes_meta$n_columns_eff[r]
+          attr_len = attr_end_column - attr_start_column + 1
+          w = attributes_meta$weights_partition[r] / attributes_meta$n_columns[r]  #correct for number of columns, so multi-class attributes don't get too much weight
+          
+          for (j in 1:com_length) {
+            pdata <- rbind(pdata, matrix(mean_prof[i, attr_start_column : attr_end_column ], ncol=com_length)[,j])
+          }
         }
-        
+        pdata = matrix(pdata, ncol = com_length) #ensure this is a 2-d-matrix
 
         # decomposition using min variance
-        b_part <- best_partition_new(pdata, attr_weights_partition2d[1])
+        b_part <- best_partition_new(data_mat=pdata, no_parts=attributes_meta$weights_partition[1])
 
         qual <- b_part[1] # partitioning quality
         best_limits <- b_part[-1]  # best limits of partitioning
@@ -1176,28 +1127,21 @@ prof_class <- function(
           }
         }
         
-        
         # save values
         lim_var <- best_limits
         lim_clu <- best_limits_c
         
       } # end else attr_weights_partition2d[1]==1
       
-      # plot orig
+      
       if (make_plots) {
+        # plot original profile
         plot(xvec, mean_prof_orig_t[i,1:com_length], type="l", xlab='horizontal length', ylab='relative elevation gain',
              main=paste("partitioning class ", i, sep=""))
-      }
-      
-      # plot filled
-      if (make_plots) {
+        # plot filled profile
         points(xvec, mean_prof[i,1:com_length], pch=1)
-      }
-      
-      
+
       # plot parameterized slope
-      if (make_plots) {  
-        
         if(attr_weights_partition2d[1]==1) {
           lines(c(min(xvec), max(xvec)), mean_prof[i,c(1,com_length)], col="red")
         } else {
@@ -1211,14 +1155,8 @@ prof_class <- function(
             lines(c((best_limits[ii]-1)*dx, (best_limits[ii]-1)*dx), c(0, mean_prof[i,1:com_length][best_limits[ii]]), lty=2, col="red")
           }
         }
-      }
-      
+
       # plot legend
-      if (make_plots) { 
-        #           legend("topleft", c("orig. toposequence", "filled profile", "approx. (min var)", "TC boundary (var)",
-        #                               "approx. (cluster anal.)", "TC boundary (cluster anal.)"), lty=c(1,NA,1,2,1,2),
-        #                  pch=c(NA,1,NA,NA,NA,NA), col=c("black", "black", "red","red","green","green"))
-        # cluster analysis currently not supported and does not need to appear in plots
         legend("topleft", c("orig. toposequence", "filled profile", "approx. (min var)", "TC boundary (var)"), 
                lty=c(1,NA,1,2), pch=c(NA,1,NA,NA), col=c("black", "black", "red","red"))
       }
@@ -1230,13 +1168,15 @@ prof_class <- function(
       # write limits of TC-decomposition
       lu_out_dat <- c(lu_out_dat, lim_var, lim_clu)
       # write elevation data
-      lu_out_dat <- c(lu_out_dat, round(mean_prof[i,1:com_length],2))
-      # write for all catena points
-      for (j in 1:nrow(mean_supp_data)) {
-        # write data string to output file
-        lu_out_dat <- c(lu_out_dat, round(mean_supp_data[j,],2))
-      }
+      #lu_out_dat <- c(lu_out_dat, round(mean_prof[i,1:com_length],2))
+      lu_out_dat <- c(lu_out_dat, round(mean_prof[i,-((1:2)+com_length)],2)) #output all but xy-extent
       
+      # # write for all catena points
+      # for (j in 1:nrow(mean_supp_data)) {
+      #   # write data string to output file
+      #   lu_out_dat <- c(lu_out_dat, round(mean_supp_data[j,],2))
+      # }
+      # 
       # write into file
       write(file=paste(dir_out,luoutfile,sep="/"), append=TRUE, ncolumns=length(lu_out_dat), x=lu_out_dat, sep=tab)
       #----------end file output
