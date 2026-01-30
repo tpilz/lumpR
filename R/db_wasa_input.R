@@ -45,6 +45,7 @@
 #' input files!
 #' 
 #'  Sediment transport specific variables are not yet included, please configure \code{erosion.ctl} manually.
+#'  Detailed information on input files can be found on [WASA-SED documentation pages](https://tillf.github.io/WASA-SED).
 #'  
 #'  The following files will be created:
 #'  
