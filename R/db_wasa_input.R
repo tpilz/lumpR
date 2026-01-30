@@ -208,6 +208,9 @@
 #'   \bold{Reservoir/lake.dat, lake_number.dat, lake_maxvol.dat}\cr
 #'   \emph{Optional} file defining properties of small reservoirs.
 #'   
+#'   \bold{Hillslope/lu2.dat}\cr
+#'   \emph{Optional} file containing aspect and relative elevation of LUs, required for snow modelling.
+#'   
 #' @references 
 #'      lumpR package introduction with literature study and sensitivity analysis:\cr
 #'      Pilz, T.; Francke, T.; Bronstert, A. (2017): lumpR 2.0.0: an R package facilitating
@@ -551,6 +554,50 @@ db_wasa_input <- function(
 
 
 
+  
+  ### Hillslope/lu2.dat #####
+  if("Hillslope/lu2.dat" %in% files) {
+    if(verbose) message("%")
+    if(verbose) message("% Create Hillslope/lu2.dat ...")
+    
+    # create file
+    if(!file.exists(paste(dest_dir, "Hillslope/lu2.dat", sep="/")) | overwrite){
+      file.create(paste(dest_dir, "Hillslope/lu2.dat", sep="/"))
+    } else {
+      stop("File 'Hillslope/lu2.dat' exists!")
+    }
+    
+    # get data
+    dat_all2 <- read_db_dat(tbl = c("landscape_units"),
+                             con = con,
+                             tbl_exist = NULL, update_frac_impervious=F)
+    
+    dat_all2$landscape_units = dat_all2$landscape_units[, c("pid","aspect", "relative_altitude")] #select snow columns only
+    dat_all2[["landscape_units"]]$relative_altitude = round(dat_all2[["landscape_units"]]$relative_altitude, digits = 0) #round relative_altitude
+    dat_all2[["landscape_units"]]$aspect = round(dat_all2[["landscape_units"]]$aspect, digits = 0) #round relative_altitude
+    
+    if (any(is.na(dat_all2$landscape_units$relative_altitude)) |
+        any(is.na(dat_all2$landscape_units$aspect)) ) 
+      message("NA-values in columns 'relative_altitude' and/or 'aspect' of table 'landscape_units'. Snow modelling will fail.")
+    
+    # write header
+    htext=c("Specification of landscape units, snow parameters",
+            "LU-ID[id]\taspect[deg]\tmean_altitude_over_subbas_mean[m]")
+    
+    
+    writeLines(con=paste(dest_dir, "Hillslope/lu2.dat", sep="/"), text=htext)
+    
+    # write output
+      write.table(file=paste(dest_dir, "Hillslope/lu2.dat", sep="/"), x=dat_all2$landscape_units, append=TRUE, row.names=FALSE, sep="\t", quote=FALSE, col.names = FALSE)
+    
+    
+    if(verbose) message("% OK")
+    
+  } # Hillslope/lu2.dat
+  
+  
+  
+  
 ### Hillslope/terrain.dat #####
   if("Hillslope/terrain.dat" %in% files) {
     if(verbose) message("%")

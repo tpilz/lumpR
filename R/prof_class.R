@@ -152,7 +152,6 @@ prof_class <- function(
   catena_file=NULL, #legacy, ignored
   catena_head_file=NULL #legacy, ignored
 ) {
-  print("ok")
   #check if the legacy arguments are present
   if (!is.null(catena_file))
     stop("Argument 'catena_file' has been renamed to 'eha_2d_file'. Please fix this in your call.")
@@ -250,7 +249,7 @@ prof_class <- function(
     # load header file containing column explanations and number of classes to produce
     headerdat2d <- as.matrix(read.table(eha_2d_head_file, header=TRUE))
     # specification of number of columns used by each attribute
-    datacolumns2d <- headerdat2d[1,]
+    datacolumns2d <- headerdat2d[1,] # should be replaced with attributes_meta$n_columns
     # relative weight / number of classes of each attribute (supplemental data) to be used in classification
     attr_weights_class2d <-  headerdat2d[2,]
     # relative weight of each attribute (supplemental data) to be used in partitioning  (i.e.terrain component decomposition)
@@ -265,7 +264,7 @@ prof_class <- function(
     # put all meta-information of attributes into one place
     attributes_meta = data.frame(
       attr_name = attr_names, #names of attributes
-      n_columns = as.numeric(datacolumns2d), #number of associated columns (per point point)
+      n_columns = as.numeric(headerdat2d[1,]), #number of associated columns (per point point)
       weights_classes = as.numeric(attr_weights_class2d), #weights or number of classes used in catena classification
       weights_partition = as.numeric(attr_weights_partition2d) #weights or number of classes used in catena partitioning
       )
@@ -291,6 +290,8 @@ prof_class <- function(
       cf_mode <- 'singlerun' # classification performed in single run for all classes using the specified weighting factors (option 1)
       warning("cf_mode='singlerun' is experimental. Please consider cf_mode='successive' by adding a '-' before the first number of line 8 in eha_2d_head.txt")
     }
+
+
     
     # number of classes to divide the dataset into when used in cf_mode='singlerun'
     nclasses <- attr_weights_class2d[1]
@@ -344,8 +345,19 @@ prof_class <- function(
       }  
     }     # otherwise, the resolution from the saved clusters of a prior run is used
 
-    n_suppl_attributes = max(0, length(datacolumns2d) - 3) #number of supplemental attributes
-    n_supp_data_columns <- sum(datacolumns2d[4:length(datacolumns2d)]) #number of respective columns
+    # #update meta information on attributes and related columns rrr
+    # attributes_meta$n_points[is.na(attributes_meta$n_points)] =  com_length #set number of points for all non-1d attributes
+    # attributes_meta$n_columns_eff = attributes_meta$n_points * attributes_meta$n_columns #effective number of column needed by this attribute 
+    # attributes_meta$ix_end = cumsum(attributes_meta$n_columns_eff)   #column end index of this attribute
+    # attributes_meta$ix_start = attributes_meta$ix_end - attributes_meta$n_columns_eff +1   #column start index of this attribute
+
+    #n_suppl_attributes = max(0, length(datacolumns2d) - 3) #number of supplemental attributes
+    n_suppl_attributes = max(0, nrow(attributes_meta) - 2) #number of supplemental attributes
+    
+    #n_supp_data_columns <- sum(datacolumns2d[4:length(datacolumns2d)]) #number of respective columns
+    n_supp_data_columns <- sum(attributes_meta$n_columns[-(1:2)]) #number of respective columns
+    
+    
     
     # allocate new matrix for storing resampled profiles (hillslopes)
     # for each profile (rows) com_length elevation points, the profile length, the
@@ -397,7 +409,7 @@ prof_class <- function(
        } 
        
        
-         
+      #resample profile elevation to determined resolution   
        p_resampled <- apply(tt[,-(1:2)], MARGIN = 2, FUN=function(y) approx(x = tt[,2]-1, y, xout = 0:(com_length-1)/(com_length-1)*(profpoints[p_pos]-1))$y)
 
        # set foot of profile to zero elevation
@@ -423,17 +435,27 @@ prof_class <- function(
        if (n_suppl_attributes>0) 
        {
          #check supplemental data for this profile
-         p_supp <- tt[-(1:3),]
-         all_na <- apply(p_supp, 2, function(x) all(is.na(x)))
-         if (any(all_na))
-         {  
-           if (make_plots)
-             dev.off() #close PDF output
-           na_attributes = names(datacolumns2d[-(1:3)])[unique(sapply (X = which(all_na), function(x) min(which(cumsum(datacolumns2d[-(1:3)]) >= x))))] #names of attributes with all NAs
-           stop(paste0("Error: EHA ", cur_p_id," has only NAs for attribute(s) ", paste0(na_attributes, collapse=", "),". Most likely a result of insufficient map coverage. Fix coverage, remove this attribute or replace NAs manually."))
+         
+         all_na_cols = NULL #names of attributes that are all NA for current profile
+         for (cur_row in 3:nrow(attributes_meta)) 
+         {
+           attr_start_column = sum(attributes_meta$n_columns       [1:(cur_row-1)]) +1 
+           attr_end_column   = sum(attributes_meta$n_columns         [1:cur_row])
+           all_na = all(is.na(tt[,attr_start_column:attr_end_column])) #check if this attribute is all NA
+           
+           if (all_na) 
+             all_na_cols = c(all_na_cols, attributes_meta$attr_name[cur_row])
          }
-         profs_resampled_stored[i,(com_length+3):(com_length+2+com_length*n_supp_data_columns)] <- as.vector(p_resampled[,-1])
-       }     
+         if (any(all_na_cols))
+           {
+             if (make_plots)
+               dev.off() #close PDF output
+             stop(paste0("Error: EHA ", cur_p_id," has only NAs for attribute(s) ", paste0(all_na_cols, collapse=", "),". Most likely a result of insufficient map coverage. Fix coverage, remove this attribute or replace NAs manually."))
+           }
+           
+          profs_resampled_stored[i,(com_length+3):(com_length+2+com_length*n_supp_data_columns)] <- as.vector(p_resampled[,-1])
+        }     
+           
      }
      
      if(!silent) # close progress bar
@@ -445,7 +467,7 @@ prof_class <- function(
        close(testcon)
      }
      # remove not needed objects to save memory
-     rm(list = c("p_supp", "p_resampled", "tt"))
+     rm(list = c("p_resampled", "tt"))
      gc(verbose = FALSE);gc(verbose = FALSE)
      
      #save(file="debug.RData", list = ls(all.names = TRUE)) #for debugging only
@@ -760,7 +782,7 @@ prof_class <- function(
       nclasses <- length(unique_classes)
     }
     
-    mean_prof <- matrix(NA, nrow=nclasses, ncol=ncol(profs_resampled_stored)) # mean shape of every class
+    mean_prof <- matrix(NA, nrow=nclasses, ncol=ncol(profs_resampled_stored)) # mean attributes of every class = cluster center
     class_repr <- matrix(NA, nrow=nclasses, ncol=2) # for storing "most representative" member of each class:  min. distance of class i to centroid and resp. ID
     
     for (i in 1:nclasses) { 
@@ -843,14 +865,16 @@ prof_class <- function(
     
     #---------prepare file output tc.dat
     dumstr <- 'TC'
-    # write header for all attributes
-    for (i in 4:length(datacolumns2d)) {
+    # write header for all distributed attributes, i.e. skip LU-wise / 1-d attributes
+    for (cur_row in 3:nrow(attributes_meta)) {
       # write all fields of this attribute for this catena point
-      for (k in 1:datacolumns2d[i]) {
-        dumstr <- paste(dumstr, tab, attr_names[i], sep="")
+      if (attributes_meta$n_points[cur_row] != com_length)
+        next # skip non-distributed attributes
+      for (k in 1:attributes_meta$n_columns[cur_row]) {
+        dumstr <- paste(dumstr, tab, attributes_meta$attr_name[cur_row], sep="")
         
         # if this is a multi-field attribute...
-        if (datacolumns2d[i]>1) dumstr <- paste(dumstr, '_c', k, sep="")  # denote field numbering in header
+        if (attributes_meta$n_columns[cur_row]>1) dumstr <- paste(dumstr, '_c', k, sep="")  # denote field numbering in header
       }
     }
     
@@ -904,8 +928,9 @@ prof_class <- function(
       if(!silent) message('% -> NOTE: only one TC per LU will be produced!')
     }
     
-    # save original mean_prof (for later plotting only)
-    mean_prof_orig_t <- mean_prof
+    # save original mean_prof (for later plotting of unfilled profiles)
+    if (make_plots)
+      mean_prof_orig_t <- mean_prof
     
     #create labels for LUs
     lu_labels=NULL #labels for LUs consisting of appended class memberships for each attribute  
@@ -948,20 +973,21 @@ prof_class <- function(
       
       # cluster centers can be saved for future use (supervised classification)
       if (classify_type=='save') {
-        tmp_v=NULL
+        # tmp_v=NULL
+        # 
+        # # store data for all supplemental attributes
+        # for (ii in 4:length(datacolumns2d)) {
+        #   # for retrieval of this attribute
+        #   attr_start_column <- 1+sum(datacolumns2d[4:(ii-1)])
+        #   attr_end_column <- attr_start_column+datacolumns2d[ii]-1
+        #   
+        #   # for all points in profile
+        #   for (jj in 1:com_length) {
+        #     tmp_v <- c(tmp_v, mean_supp_data[attr_start_column:attr_end_column,jj])
+        #   }
+        #  cluster_centers[i,] <- c(mean_prof[i,1:(com_length+2)], tmp_v) 
         
-        # store data for all supplemental attributes
-        for (ii in 4:length(datacolumns2d)) {
-          # for retrieval of this attribute
-          attr_start_column <- 1+sum(datacolumns2d[4:(ii-1)])
-          attr_end_column <- attr_start_column+datacolumns2d[ii]-1
-          
-          # for all points in profile
-          for (jj in 1:com_length) {
-            tmp_v <- c(tmp_v, mean_supp_data[attr_start_column:attr_end_column,jj])
-          }
-        }  
-        cluster_centers[i,] <- c(mean_prof[i,1:(com_length+2)], tmp_v) 
+         cluster_centers[i,] <- mean_prof[i,]
       } # end if classify_type==save
       
 
@@ -1234,11 +1260,20 @@ prof_class <- function(
         till_point <- lim_var_t[j+1]
         
         # write data for all supplemental attributes
-        for (ii in 4:length(datacolumns2d)) {
+        for (ii in 3:nrow(attributes_meta)) {  
           # write all fields of this attribute for this catena point
-          for (k in 1:datacolumns2d[ii]) {
-            tmp_v <- round(mean(mean_supp_data[treated_attribs+k,from_point:till_point]),5)
-            dumstr <- paste(dumstr, paste(tmp_v,collapse=tab),sep=tab)
+          for (k in 1:attributes_meta$n_columns[ii]) {
+            if (attributes_meta$n_points[ii] != com_length)
+              next #skip attributes that do not have same length as catena profile, i.e. are specified LU-wise
+            #tmp_v_old <- round(mean(mean_supp_data[treated_attribs+k,from_point:till_point]),5)
+            
+            attr_start_column = attributes_meta$ix_start       [ii] 
+            attr_end_column   = attributes_meta$ix_end         [ii]
+            tmp_v <- mean_prof[i, attr_start_column:attr_end_column] #extract current attribute
+            tmp_v = matrix(tmp_v, ncol=com_length, byrow = TRUE) #arrange columnwise per point)
+            tmp_v <- round(mean(tmp_v[k, from_point:till_point]),5)
+            
+            dumstr <- paste(dumstr, paste(tmp_v, collapse=tab), sep=tab)
             
             #---------output r_tc_contains_svc.dat
             # if this is the svc column...
@@ -1246,7 +1281,7 @@ prof_class <- function(
               # print out svc-fration, if greater than 0
               if (tmp_v) {
                 # fraction of svc in current tc to output file r_tc_contains_svc
-                write(file=paste(dir_out,tccontainssvcoutfile,sep="/"), append=TRUE, x=paste(tc_id, org_svc_ids[k], tmp_v, sep=tab))
+                write(file=paste(dir_out, tccontainssvcoutfile,sep="/"), append=TRUE, x=paste(tc_id, org_svc_ids[k], tmp_v, sep=tab))
               }
             }
             #---------end output r_tc_contains_svc.dat
@@ -1278,7 +1313,7 @@ prof_class <- function(
     # save remaining classification results
     # cluster centers can be saved for future use (supervised classification, single run only)
     if (classify_type=='save'){
-      save('cluster_centers','com_length','datacolumns2d','attr_names',file=paste(dir_out,saved_clusters,sep="/"));
+      save('cluster_centers','com_length','datacolumns2d','attr_names', 'attributes_meta', file=paste(dir_out,saved_clusters,sep="/"));
       if(!silent) message(paste("% -> NOTE: saved cluster centers to ", dir_out, "/", saved_clusters, sep=""))
     }
     

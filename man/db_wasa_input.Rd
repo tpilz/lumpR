@@ -209,6 +209,9 @@ input files!
   
   \bold{Reservoir/lake.dat, lake_number.dat, lake_maxvol.dat}\cr
   \emph{Optional} file defining properties of small reservoirs.
+  
+  \bold{Hillslope/lu2.dat}\cr
+  \emph{Optional} file containing aspect and relative elevation of LUs, required for snow modelling.
 }
 \references{
 lumpR package introduction with literature study and sensitivity analysis:\cr

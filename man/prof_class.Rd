@@ -8,6 +8,8 @@ prof_class(
   eha_2d_file = NULL,
   eha_2d_head_file = NULL,
   svc_column = "svc",
+  eha_1d_file = NULL,
+  eha_1d_head_file = NULL,
   dir_out = "./",
   luoutfile = "lu.dat",
   tcoutfile = "tc.dat",
@@ -109,6 +111,8 @@ if a memory error is thrown. Automatically set to \code{FALSE} if \code{make_plo
 Default: \code{TRUE}.}
 
 \item{eha_1d_file=NULL}{Optional file containing additional properties at the EHA-scale. Can be generated e.g. as "eha_1d.txt" with \link{prepare_snow_input()}}
+
+\item{eha_1d_head_file=NULL}{Header file to \code{eha_1d_file}. Can be generated e.g. as "eha_1d_head.txt" with \link{prepare_snow_input()}}
 }
 \value{
 Function returns nothing. Output files are written into output directory
