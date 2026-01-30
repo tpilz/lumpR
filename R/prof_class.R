@@ -152,7 +152,7 @@ prof_class <- function(
   catena_file=NULL, #legacy, ignored
   catena_head_file=NULL #legacy, ignored
 ) {
-  
+  print("ok")
   #check if the legacy arguments are present
   if (!is.null(catena_file))
     stop("Argument 'catena_file' has been renamed to 'eha_2d_file'. Please fix this in your call.")
@@ -761,9 +761,9 @@ prof_class <- function(
     }
     
     mean_prof <- matrix(NA, nrow=nclasses, ncol=ncol(profs_resampled_stored)) # mean shape of every class
-    class_repr <- matrix(NA, nrow=nclasses, ncol=2) # min. distance of class i to centroid and resp. ID
+    class_repr <- matrix(NA, nrow=nclasses, ncol=2) # for storing "most representative" member of each class:  min. distance of class i to centroid and resp. ID
     
-    for (i in 1:nclasses) { #ii: could better be done with aggregate()?
+    for (i in 1:nclasses) { 
       
       # find all profiles belonging to current class
       class_i <- which(cidx==unique_classes[i])
@@ -778,9 +778,9 @@ prof_class <- function(
       mean_prof[i,] <- apply(profs_resampled_stored[class_i,, drop=FALSE], 2, mean)
       
       # find closest catena (=most representative) to each class centre
-      dists_class_i <- dists[class_i,i]        # retrieve distances of catenas of class i to centroid of class i
+      dists_class_i <- dists[class_i,i]        # retrieve distances of catenas belonging to class i to centroid of class i
       class_repr[i,2] <- min(dists_class_i)   # find minimum distance of class i
-      j <- min(which(dists_class_i == min(dists_class_i)))
+      j <- min(which(dists_class_i == min(dists_class_i))[1])
       class_repr[i,1] <- class_i[j]                 # store internal id of closest catena
       
       # draw a separate figure with the cluster centre (mean toposequence) and the closest catena
@@ -912,7 +912,7 @@ prof_class <- function(
     for (i in 1:nclasses) {
       class_i <- which(cidx==unique_classes[i])
       curr_lu_key <- unique(cidx[class_i])
-      lu_labels=c(lu_labels, curr_lu_key) #ii
+      lu_labels = c(lu_labels, curr_lu_key) 
     }  
     # PARTITIONING OF MEAN PROFILE FOR EACH LU
     for (i in 1:nclasses) {
@@ -974,23 +974,22 @@ prof_class <- function(
         lim_clu=NULL
       } else {
         
-        # decompose profile into terrain components
-        #    [lim_var,lim_clu] = tc_decomp(mean_prof(i,1:com_length), mean_supp_data, datacolumns2d, attr_weights_partition2d, xvec,monocrome,plot_approx_ts);
-        #    tc_decomp(prof, supp_data, datacolumns2d, attr_weights_partition2d, xvec, monocrome, plot_approx_ts)
-        
         # fill hollows/sinks
         for (ii in 2:com_length) {
           mean_prof[i,1:com_length][ii] <- max(mean_prof[i,1:com_length][ii-1], mean_prof[i,1:com_length][ii])
         }
-        # compute local slopes of profile #ii could be done using diff()
-        prof_slopes <- vector("numeric", length=com_length-1)
-        # the first and last point are treated differently
-        prof_slopes[1] <- (mean_prof[i,1:com_length][2]-mean_prof[i,1:com_length][1])/dx
-        for (ii in 2:(com_length-1)) {
-          prof_slopes[ii] <- 0.5/dx*((mean_prof[i,1:com_length][ii+1]-mean_prof[i,1:com_length][ii])+(mean_prof[i,1:com_length][ii]-mean_prof[i,1:com_length][ii-1]))
-        }
-        prof_slopes[com_length] <- (mean_prof[i,1:com_length][com_length]-mean_prof[i,1:com_length][com_length-1])/dx
+        # compute local slopes of profile 
+        prof_slopes = diff(mean_prof[i,1:com_length]) / dx
+        prof_slopes = (c(prof_slopes, prof_slopes[length(prof_slopes)]) + c(prof_slopes[1], prof_slopes))/ 2 #retain length of vector
         
+        # prof_slopes <- vector("numeric", length=com_length-1)
+        # # the first and last point are treated differently
+        # prof_slopes[1] <- (mean_prof[i,1:com_length][2]-mean_prof[i,1:com_length][1])/dx
+        # for (ii in 2:(com_length-1)) {
+        #   prof_slopes[ii] <- 0.5/dx*((mean_prof[i,1:com_length][ii+1]-mean_prof[i,1:com_length][ii])+(mean_prof[i,1:com_length][ii]-mean_prof[i,1:com_length][ii-1]))
+        # }
+        # prof_slopes[com_length] <- (mean_prof[i,1:com_length][com_length]-mean_prof[i,1:com_length][com_length-1])/dx
+        # 
         
         # 
         # # if supplemental data is present
@@ -1335,7 +1334,7 @@ get_part_quality <- function(data_mat, lim, cur_best=Inf) {
     if (part_start==part_end) {
       next       # this CAN be done because the variance in a subsection that contains only one point is zero
       # it MUST be done because the var() function doesn't work as intended with one column matrices
-      # if you use an alternative quality formula, remove the continue
+      # if you use an alternative quality formula, remove the "continue"next"
     }
     
     # factor for weighting the variance of this subdivisions in the overall variance
