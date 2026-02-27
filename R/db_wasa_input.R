@@ -447,9 +447,9 @@ db_wasa_input <- function(
       stop("Cannot write file Hillslope/hymo.dat No validly specified subbasins in 'subbasins' found!")
     
     if(any(is.na(cbind(dat_all$subbasins$pid,dat_all$subbasins$area))))
-      stop("Cannot write file Hillslope/hymo.dat Column(s) 'pid' and/or 'area' of table 'subbasins' contain missing values!")
+      stop("Cannot write file Hillslope/hymo.dat. Column(s) 'pid' and/or 'area' of table 'subbasins' contain missing values!")
     if(any(is.na(dat_all$r_subbas_contains_lu)) | nrow(dat_all$r_subbas_contains_lu) == 0)
-      stop("Cannot write file Hillslope/hymo.dat Table 'r_subbas_contains_lu' contains missing values!")
+      stop("Cannot write file Hillslope/hymo.dat. Table 'r_subbas_contains_lu' contains missing values!")
 
     
     # loop over subbasins, reversely ordered by a_stream_order
@@ -507,10 +507,6 @@ db_wasa_input <- function(
     htext=c("Specification of landscape units",
            "LU-ID[id]\tNo._of_TC[-]\tTC1[id]\tTC2[id]\tTC3[id]\tkfsu[mm/d]\tlength[m]\tmeandep[mm]\tmaxdep[mm]\tRiverbed[mm]\tgwflag[0/1]\tgw_dist[mm]\tfrgw_delay[day]")
     omit_fields = which(names(dat_all$landscape_units) == "description")
-    if (all(is.na(dat_all$landscape_units$sdr_lu))) 
-      omit_fields = c(omit_fields, which(names(dat_all$landscape_units) == "sdr_lu"))
-    else
-      htext[2]=paste0(htext[2],"\tSDR_LU[-]")  
     
     writeLines(con=paste(dest_dir, "Hillslope/soter.dat", sep="/"), text=htext)
     
@@ -519,10 +515,33 @@ db_wasa_input <- function(
     if(any(r_lu_out))
       stop(paste0("LUs ", paste0(dat_all$landscape_units$pid[r_lu_out], collapse=", "), " from table 'landscape_units' are not in table 'r_lu_contains_tc'! Consider db_check()!"))
     
-    if(any(is.na(dat_all$landscape_units[,-omit_fields])) | nrow(dat_all$landscape_units) == 0)
-      stop("Cannot write file Hillslope/soter.dat Table 'landscape_units' contains missing values!")
+    cols_with_nas = names(dat_all$landscape_units)[apply(dat_all$landscape_units, 2, function(x) any(is.na(x)))] #find columns with NAs
+    
+    if ("sdr_lu" %in% cols_with_nas) 
+    {
+      omit_fields = c(omit_fields, which(names(dat_all$landscape_units) == "sdr_lu")) 
+    }     else
+    {  
+      htext[2]=paste0(htext[2],"\tSDR_LU[-]")  
+    }
+    
+    if ("aspect" %in% cols_with_nas | "relative_altitude" %in% cols_with_nas) 
+    {
+      omit_fields = c(omit_fields, which(names(dat_all$landscape_units) == "aspect"))
+      omit_fields = c(omit_fields, which(names(dat_all$landscape_units) == "relative_altitude"))
+    }
+    
+    mandatory_cols_with_nas = setdiff(cols_with_nas, names(dat_all$landscape_units)[omit_fields])
+    if(length(mandatory_cols_with_nas)>0  | nrow(dat_all$landscape_units) == 0)
+      stop(paste0("Cannot write file Hillslope/soter.dat. Table 'landscape_units' contains missing values in column(s) ", 
+                  paste0(mandatory_cols_with_nas, collapse=", "),"."))
+    else
+      if(length(cols_with_nas)>0 )
+        warning(paste0("WARNING: Table 'landscape_units' contains missing values in column(s) ", 
+                       paste0(cols_with_nas, collapse=", "),"."))
+             
     if(any(is.na(dat_all$r_lu_contains_tc)) | nrow(dat_all$r_lu_contains_tc) == 0)
-      stop("Cannot write file Hillslope/soter.dat Table 'r_lu_contains_tc' contains missing values!")
+      stop("Cannot write file Hillslope/soter.dat. Table 'r_lu_contains_tc' contains missing values!")
     
     # loop over LUs
     for(s in 1:nrow(dat_all$landscape_units)) {

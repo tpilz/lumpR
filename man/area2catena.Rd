@@ -2,7 +2,7 @@
 % Please edit documentation in R/area2catena.R
 \name{area2catena}
 \alias{area2catena}
-\title{Calculates catena from spatial data, i.e. condenses 3D-represantations of to 2D.
+\title{Calculates catena from spatial data, i.e. condenses 3D-representations of to 2D.
 Takes raster data from a GRASS location and calculates catena properties.}
 \usage{
 area2catena(

@@ -15,7 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-#' Calculates catena from spatial data, i.e. condenses 3D-represantations of to 2D.
+#' Calculates catena from spatial data, i.e. condenses 3D-representations of to 2D.
 #' Takes raster data from a GRASS location and calculates catena properties.
 #' 
 #' To be run after \code{\link[lumpR]{prepare_snow_input()}} or  \code{\link[lumpR]{area2catena()}} . Followed by \code{\link[lumpR]{modify_eha_head_files()}} .
